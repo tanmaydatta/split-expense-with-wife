@@ -1,10 +1,16 @@
-import React from "react";
+import React, { useState } from "react";
 import "./App.css";
 import Button from "react-bootstrap/Button";
+import ToggleButtonGroup from "react-bootstrap/ToggleButtonGroup";
+import ToggleButton from "react-bootstrap/ToggleButton";
 import Form from "react-bootstrap/Form";
 import axios from "axios";
 
 function App(): JSX.Element {
+  const [paidBy, setPaidBy] = useState("Tanmay");
+
+  const handleChange = (val: string) => setPaidBy(val);
+
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     const target = e.target as typeof e.target & {
@@ -17,18 +23,16 @@ function App(): JSX.Element {
       .post("/.netlify/functions/split", {
         amount: Number(target.amount.value),
         description: target.description.value,
+        paidBy: paidBy,
       })
       .then((res) => alert(res.status))
       .catch((e) => alert(e.response.data));
   };
+
   return (
     <div className="App">
       <Form onSubmit={submit} style={{ justifyContent: "center" }}>
-        <Form.Group
-          style={{ width: "fit-content", alignItems: "center" }}
-          className="mb-3"
-          controlId="formBasicEmail"
-        >
+        <Form.Group className="mb-3" controlId="formBasicEmail">
           <Form.Control
             name="description"
             type="text"
@@ -44,6 +48,36 @@ function App(): JSX.Element {
             step=".01"
           />
         </Form.Group>
+        <ToggleButtonGroup
+          style={{ width: "100%" }}
+          className="mb-2"
+          name="paidBy"
+          value={paidBy}
+          onChange={handleChange}
+        >
+          <ToggleButton
+            key={0}
+            id={`radio-0`}
+            type="radio"
+            variant="outline-primary"
+            name="radio"
+            value={"Aayushi"}
+            checked={true}
+          >
+            Aayushi
+          </ToggleButton>
+          <ToggleButton
+            key={1}
+            id={`radio-1`}
+            type="radio"
+            variant="outline-primary"
+            name="radio"
+            value={"Tanmay"}
+            checked={false}
+          >
+            Tanmay
+          </ToggleButton>
+        </ToggleButtonGroup>
         <Button variant="primary" type="submit" style={{ width: "100%" }}>
           Submit
         </Button>
