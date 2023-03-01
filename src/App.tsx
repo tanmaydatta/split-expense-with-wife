@@ -18,9 +18,8 @@ function App(): JSX.Element {
         amount: Number(target.amount.value),
         description: target.description.value,
       })
-      .then((res) => console.log(res))
-      .catch((e) => console.log(e))
-      .finally(() => console.log("done"));
+      .then((res) => alert(res.status))
+      .catch((e) => alert(e.response.data));
   };
   return (
     <div className="App">
@@ -38,7 +37,12 @@ function App(): JSX.Element {
         </Form.Group>
 
         <Form.Group className="mb-3" controlId="formBasicPassword">
-          <Form.Control type="number" placeholder="Amount" name="amount" />
+          <Form.Control
+            type="number"
+            placeholder="Amount"
+            name="amount"
+            step=".01"
+          />
         </Form.Group>
         <Button variant="primary" type="submit" style={{ width: "100%" }}>
           Submit
