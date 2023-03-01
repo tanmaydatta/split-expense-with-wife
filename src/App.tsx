@@ -5,6 +5,7 @@ import ToggleButtonGroup from "react-bootstrap/ToggleButtonGroup";
 import ToggleButton from "react-bootstrap/ToggleButton";
 import Form from "react-bootstrap/Form";
 import axios from "axios";
+import sha256 from "crypto-js/sha256";
 
 function App(): JSX.Element {
   const [paidBy, setPaidBy] = useState("Tanmay");
@@ -16,7 +17,9 @@ function App(): JSX.Element {
     const target = e.target as typeof e.target & {
       description: { value: string };
       amount: { value: number };
+      pin: { value: string };
     };
+
     console.log(target.amount.value);
     console.log(target.description.value);
     axios
@@ -24,6 +27,7 @@ function App(): JSX.Element {
         amount: Number(target.amount.value),
         description: target.description.value,
         paidBy: paidBy,
+        pin: sha256(target.pin.value).toString(),
       })
       .then((res) => alert(res.status))
       .catch((e) => alert(e.response.data));
@@ -47,6 +51,9 @@ function App(): JSX.Element {
             name="amount"
             step=".01"
           />
+        </Form.Group>
+        <Form.Group className="mb-3" controlId="formBasicPassword">
+          <Form.Control type="password" placeholder="PIN" name="pin" />
         </Form.Group>
         <ToggleButtonGroup
           style={{ width: "100%" }}

@@ -15,6 +15,7 @@ type Request struct {
 	Amount      float64 `json:"amount"`
 	Description string  `json:"description"`
 	PaidBy      string  `json:"paidBy"`
+	Pin         string  `json:"pin"`
 }
 
 func handler(request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResponse, error) {
@@ -23,6 +24,12 @@ func handler(request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResp
 		return &events.APIGatewayProxyResponse{
 			StatusCode: 503,
 			Body:       fmt.Sprintf("Error parsing input, %v", err.Error()),
+		}, nil
+	}
+	if req.Pin != os.Getenv("AUTH_PIN") {
+		return &events.APIGatewayProxyResponse{
+			StatusCode: 503,
+			Body:       fmt.Sprintf("invalid pin"),
 		}, nil
 	}
 	fmt.Printf("%+v\n", req)
