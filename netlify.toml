@@ -1,5 +1,3 @@
-[build]
-  base = "web/"
 [dev]
   command = "npm start --prefix web/" # Command to start your dev server
   targetPort = 3000 # # The port for your application server, framework or site generator
