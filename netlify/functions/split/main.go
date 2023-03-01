@@ -18,12 +18,13 @@ type Request struct {
 
 func handler(request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResponse, error) {
 	var req = Request{}
-	if json.Unmarshal([]byte(request.Body), &req) != nil {
+	if err := json.Unmarshal([]byte(request.Body), &req); err != nil {
 		return &events.APIGatewayProxyResponse{
 			StatusCode: 503,
-			Body:       "Error parsing input",
+			Body:       fmt.Sprintf("Error parsing input, %v", err.Error()),
 		}, nil
 	}
+	fmt.Printf("%+v\n", req)
 	auth := splitwise.NewAPIKeyAuth(os.Getenv("SPLITWISE_API_KEY"))
 	client := splitwise.NewClient(auth)
 	userShares := []splitwise.UserShare{
