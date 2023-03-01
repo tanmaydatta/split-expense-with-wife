@@ -1,2 +1,4 @@
+github.com/anvari1313/splitwise.go v0.6.0 h1:JKsK5QWFtekmyNNKV6u7HHYDdCNMtYk3Shl6HPgEbIo=
+github.com/anvari1313/splitwise.go v0.6.0/go.mod h1:axylX0AB0Jjon0tnTQUg59GOHXMcFA3Zx74CzLfbuSI=
 github.com/aws/aws-lambda-go v1.37.0 h1:WXkQ/xhIcXZZ2P5ZBEw+bbAKeCEcb5NtiYpSwVVzIXg=
 github.com/aws/aws-lambda-go v1.37.0/go.mod h1:jwFe2KmMsHmffA1X2R09hH6lFzJQxzI8qK17ewzbQMM=
