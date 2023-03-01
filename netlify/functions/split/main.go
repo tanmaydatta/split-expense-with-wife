@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 
@@ -10,27 +11,39 @@ import (
 	"github.com/aws/aws-lambda-go/lambda"
 )
 
+type Request struct {
+	Amount      float64 `json:"amount"`
+	Description string  `json:"description"`
+}
+
 func handler(request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResponse, error) {
+	var req = Request{}
+	if json.Unmarshal([]byte(request.Body), &req) != nil {
+		return &events.APIGatewayProxyResponse{
+			StatusCode: 503,
+			Body:       "Error parsing input",
+		}, nil
+	}
 	auth := splitwise.NewAPIKeyAuth(os.Getenv("SPLITWISE_API_KEY"))
 	client := splitwise.NewClient(auth)
 	userShares := []splitwise.UserShare{
 		{
 			UserID:    1839952,
-			PaidShare: "0.1",
-			OwedShare: "0.07",
+			PaidShare: fmt.Sprintf("%.2f", req.Amount),
+			OwedShare: fmt.Sprintf("%.2f", req.Amount*0.7),
 		},
 		{
 			UserID:    6814258,
 			PaidShare: "0.00",
-			OwedShare: "0.03",
+			OwedShare: fmt.Sprintf("%.2f", req.Amount*0.3),
 		},
 	}
 
 	expenses, err := client.CreateExpenseByShare(
 		context.Background(),
 		splitwise.Expense{
-			Cost:         "0.1",
-			Description:  "test from code",
+			Cost:         fmt.Sprintf("%.2f", req.Amount),
+			Description:  req.Description,
 			CurrencyCode: "GBP",
 			GroupId:      0,
 		},
