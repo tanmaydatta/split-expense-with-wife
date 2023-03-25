@@ -46,12 +46,12 @@ func handler(request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResp
 		{
 			UserID:    1839952,
 			PaidShare: fmt.Sprintf("%.2f", tanmayPaidShare),
-			OwedShare: fmt.Sprintf("%.2f", req.Amount*0.7),
+			OwedShare: fmt.Sprintf("%.2f", req.Amount*0.65),
 		},
 		{
 			UserID:    6814258,
 			PaidShare: fmt.Sprintf("%.2f", aayushiPaidShare),
-			OwedShare: fmt.Sprintf("%.2f", req.Amount*0.3),
+			OwedShare: fmt.Sprintf("%.2f", req.Amount*0.35),
 		},
 	}
 
