@@ -64,6 +64,10 @@ function App(): JSX.Element {
     fetchHistory();
   }, [fetchTotal, fetchHistory]);
 
+  React.useEffect(() => {
+    console.log(amount);
+  }, [amount]);
+
   const submitBudget = (e: React.FormEvent) => {
     e.preventDefault();
     axios
@@ -123,8 +127,9 @@ function App(): JSX.Element {
             placeholder="Amount"
             name="amount"
             step=".01"
-            value={amount}
-            onChange={(e) => setAmount(parseFloat(e.target.value))}
+            onChange={(e) => {
+              setAmount(parseFloat(e.target.value));
+            }}
           />
         </Form.Group>
         <Form.Group className="mb-3" controlId="formBasicPassword">
