@@ -27,7 +27,10 @@ function App(): JSX.Element {
       .then((res) => {
         setBudgetLeft(res.data.sum);
       })
-      .catch((e) => alert(e.response.data));
+      .catch((e) => {
+        console.log(e);
+        alert(e.response.data);
+      });
   }, [budget]);
 
   React.useEffect(() => {
