@@ -76,6 +76,7 @@ function App(): JSX.Element {
       .then((res) => {
         alert(res.status);
         fetchTotal();
+        fetchHistory();
       })
       .catch((e) => alert(e.response.data));
   };
