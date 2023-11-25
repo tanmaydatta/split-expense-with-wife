@@ -26,7 +26,9 @@ export default function BudgetTable(props: Props): JSX.Element {
             <tr>
               <td>{e.date}</td>
               <td>{e.description}</td>
-              <td>{e.amount}</td>
+              <td style={{ color: e.amount.startsWith("+") ? "green" : "red" }}>
+                {e.amount}
+              </td>
             </tr>
           );
         })}

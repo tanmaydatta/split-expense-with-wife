@@ -7,7 +7,7 @@ import Form from "react-bootstrap/Form";
 import ToggleButton from "react-bootstrap/ToggleButton";
 import ToggleButtonGroup from "react-bootstrap/ToggleButtonGroup";
 import "./App.css";
-import BudgetTable from "./BudgetTable";
+import BudgetTable, { entry } from "./BudgetTable";
 
 function App(): JSX.Element {
   const [paidBy, setPaidBy] = useState("Tanmay");
@@ -16,6 +16,7 @@ function App(): JSX.Element {
   const [amount, setAmount] = useState<number>();
   const [description, setDescription] = useState("");
   const [pin, setPin] = useState("");
+  const [budgetHistory, setBudgetHistory] = useState<entry[]>([]);
   // const [entries, setEntries] = useState<entry>();
   const handleChange = (val: string) => setPaidBy(val);
   const handleChangeBudget = (val: string) => setBudget(val);
@@ -33,9 +34,35 @@ function App(): JSX.Element {
       });
   }, [budget]);
 
+  const fetchHistory = useCallback(() => {
+    axios
+      .post("/.netlify/functions/budget_list", {
+        name: budget,
+      })
+      .then((res) => {
+        console.log(res.data);
+        var entries: entry[] = [];
+        (res.data as []).map(
+          (e: { added_time: string; description: string; price: string }) =>
+            entries.push({
+              date: e.added_time,
+              description: e.description as string,
+              amount: e.price,
+            })
+        );
+        console.log(entries);
+        setBudgetHistory(entries);
+      })
+      .catch((e) => {
+        console.log(e);
+        alert(e.response.data);
+      });
+  }, [budget]);
+
   React.useEffect(() => {
     fetchTotal();
-  }, [fetchTotal]);
+    fetchHistory();
+  }, [fetchTotal, fetchHistory]);
 
   const submitBudget = (e: React.FormEvent) => {
     e.preventDefault();
@@ -194,7 +221,7 @@ function App(): JSX.Element {
             Tanmay
           </ToggleButton>
         </ToggleButtonGroup>
-        <BudgetTable entries={[]} />
+        <BudgetTable entries={budgetHistory} />
         <Button variant="primary" type="submit" style={{ width: "100%" }}>
           Submit
         </Button>

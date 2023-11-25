@@ -16,9 +16,9 @@ import (
 
 type BudgetEntry struct {
 	Id          int32
-	Description string
-	AddedTime   time.Time
-	Price       string
+	Description string    `json:"description"`
+	AddedTime   time.Time `json:"added_time"`
+	Price       string    `json:"price"`
 	Amount      float64
 	Name        string
 }
@@ -48,12 +48,12 @@ func handler(request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResp
 		}, nil
 	}
 
-	if req.Pin != os.Getenv("AUTH_PIN") {
-		return &events.APIGatewayProxyResponse{
-			StatusCode: 503,
-			Body:       "invalid pin",
-		}, nil
-	}
+	// if req.Pin != os.Getenv("AUTH_PIN") {
+	// 	return &events.APIGatewayProxyResponse{
+	// 		StatusCode: 503,
+	// 		Body:       "invalid pin",
+	// 	}, nil
+	// }
 
 	// Open a connection to PlanetScale
 	db, err := gorm.Open(mysql.Open(os.Getenv("DSN")), &gorm.Config{
