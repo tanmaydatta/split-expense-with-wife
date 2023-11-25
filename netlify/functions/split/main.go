@@ -19,6 +19,11 @@ type Request struct {
 }
 
 func handler(request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResponse, error) {
+	if request.HTTPMethod != "POST" {
+		return &events.APIGatewayProxyResponse{
+			StatusCode: 400,
+		}, nil
+	}
 	var req = Request{}
 	if err := json.Unmarshal([]byte(request.Body), &req); err != nil {
 		return &events.APIGatewayProxyResponse{
@@ -29,7 +34,7 @@ func handler(request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResp
 	if req.Pin != os.Getenv("AUTH_PIN") {
 		return &events.APIGatewayProxyResponse{
 			StatusCode: 503,
-			Body:       fmt.Sprintf("invalid pin"),
+			Body:       "invalid pin",
 		}, nil
 	}
 	fmt.Printf("%+v\n", req)
@@ -70,12 +75,12 @@ func handler(request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResp
 	if err != nil {
 		return &events.APIGatewayProxyResponse{
 			StatusCode: 503,
-			Body:       err.Error(),
+			Body:       fmt.Sprintf("Error split: %s", err.Error()),
 		}, nil
 	}
 	return &events.APIGatewayProxyResponse{
 		StatusCode: 200,
-		Body:       "Success",
+		Body:       "Success split",
 	}, nil
 }
 
