@@ -90,9 +90,8 @@ func handler(request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResp
 	}
 	b, _ := json.Marshal(entries)
 	return &events.APIGatewayProxyResponse{
-		StatusCode:      200,
-		Body:            string(b),
-		IsBase64Encoded: true,
+		StatusCode: 200,
+		Body:       string(b),
 		Headers: map[string]string{
 			"Content-Type": "application/json",
 		},

@@ -83,9 +83,8 @@ func handler(request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResp
 		sign = "-"
 	}
 	return &events.APIGatewayProxyResponse{
-		StatusCode:      200,
-		Body:            fmt.Sprintf(`{"sum": "%s%.2f"}`, sign, sum),
-		IsBase64Encoded: true,
+		StatusCode: 200,
+		Body:       fmt.Sprintf(`{"sum": "%s%.2f"}`, sign, sum),
 		Headers: map[string]string{
 			"Content-Type": "application/json",
 		},
