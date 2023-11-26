@@ -24,9 +24,9 @@ type BudgetEntry struct {
 }
 
 type Request struct {
-	StartTs string `json:"start_ts"`
-	Pin     string `json:"pin"`
-	Name    string `json:"name"`
+	Offset int32  `json:"offset"`
+	Pin    string `json:"pin"`
+	Name   string `json:"name"`
 }
 
 func (BudgetEntry) TableName() string {
@@ -67,21 +67,14 @@ func handler(request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResp
 		}, nil
 	}
 	startFrom := time.Now()
-	if req.StartTs != "" {
-		startFrom, err = time.Parse("2006-01-02 15:04:05", req.StartTs)
-		if err != nil {
-			return &events.APIGatewayProxyResponse{
-				StatusCode: 400,
-				Body:       "invalid input",
-			}, nil
-		}
-	}
 	name := req.Name
 	if name == "" {
 		name = "house"
 	}
 	entries := []BudgetEntry{}
-	tx := db.Limit(10).Where("added_time < ? and name = ?", startFrom, name).Find(&entries)
+	tx := db.Limit(5).Offset(int(req.Offset)).
+		Where("added_time < ? and name = ?", startFrom, name).
+		Order("added_time desc").Find(&entries)
 	if tx.Error != nil {
 		return &events.APIGatewayProxyResponse{
 			StatusCode: 500,

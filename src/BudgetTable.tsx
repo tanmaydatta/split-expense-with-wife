@@ -22,9 +22,10 @@ export default function BudgetTable(props: Props): JSX.Element {
       </thead>
       <tbody>
         {props.entries.map((e) => {
+          const d = new Date(e.date);
           return (
-            <tr>
-              <td>{e.date}</td>
+            <tr key={e.date}>
+              <td>{d.toTimeString().split(" ")[0] + " " + d.toDateString()}</td>
               <td>{e.description}</td>
               <td style={{ color: e.amount.startsWith("+") ? "green" : "red" }}>
                 {e.amount}

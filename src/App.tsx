@@ -34,34 +34,39 @@ function App(): JSX.Element {
       });
   }, [budget]);
 
-  const fetchHistory = useCallback(() => {
-    axios
-      .post("/.netlify/functions/budget_list", {
-        name: budget,
-      })
-      .then((res) => {
-        console.log(res.data);
-        var entries: entry[] = [];
-        (res.data as []).map(
-          (e: { added_time: string; description: string; price: string }) =>
-            entries.push({
-              date: e.added_time,
-              description: e.description as string,
-              amount: e.price,
-            })
-        );
-        console.log(entries);
-        setBudgetHistory(entries);
-      })
-      .catch((e) => {
-        console.log(e);
-        alert(e.response.data);
-      });
-  }, [budget]);
+  const fetchHistory = useCallback(
+    (offset: number, history: entry[]) => {
+      axios
+        .post("/.netlify/functions/budget_list", {
+          name: budget,
+          offset: offset,
+        })
+        .then((res) => {
+          console.log(res.data);
+          var entries: entry[] = [];
+          (res.data as []).map(
+            (e: { added_time: string; description: string; price: string }) =>
+              entries.push({
+                date: e.added_time,
+                description: e.description as string,
+                amount: e.price,
+              })
+          );
+
+          console.log([...history, ...entries]);
+          setBudgetHistory([...history, ...entries]);
+        })
+        .catch((e) => {
+          console.log(e);
+          alert(e.response.data);
+        });
+    },
+    [budget]
+  );
 
   React.useEffect(() => {
     fetchTotal();
-    fetchHistory();
+    fetchHistory(0, []);
   }, [fetchTotal, fetchHistory]);
 
   React.useEffect(() => {
@@ -80,7 +85,7 @@ function App(): JSX.Element {
       .then((res) => {
         alert(res.status);
         fetchTotal();
-        fetchHistory();
+        fetchHistory(0, []);
       })
       .catch((e) => alert(e.response.data));
   };
@@ -181,7 +186,7 @@ function App(): JSX.Element {
           {budgetLeft}
         </span>
       </Card.Title>
-      ;
+
       <Form
         onSubmit={submitBudget}
         style={{ justifyContent: "center", width: "fit-content", margin: "1%" }}
@@ -228,6 +233,13 @@ function App(): JSX.Element {
           </ToggleButton>
         </ToggleButtonGroup>
         <BudgetTable entries={budgetHistory} />
+        <Button
+          variant="outline-secondary"
+          style={{ width: "100%", marginBottom: "1%" }}
+          onClick={() => fetchHistory(budgetHistory.length, budgetHistory)}
+        >
+          Show more
+        </Button>
         <Button variant="primary" type="submit" style={{ width: "100%" }}>
           Submit
         </Button>
