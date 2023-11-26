@@ -16,6 +16,7 @@ type Request struct {
 	Description string  `json:"description"`
 	PaidBy      string  `json:"paidBy"`
 	Pin         string  `json:"pin"`
+	SplitPct    float64 `json:"splitPct"`
 }
 
 func handler(request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResponse, error) {
@@ -37,7 +38,6 @@ func handler(request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResp
 			Body:       "invalid pin",
 		}, nil
 	}
-	fmt.Printf("%+v\n", req)
 	var tanmayPaidShare float64 = 0.0
 	var aayushiPaidShare float64 = 0.0
 	if req.PaidBy == "Tanmay" {
@@ -47,16 +47,17 @@ func handler(request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResp
 	}
 	auth := splitwise.NewAPIKeyAuth(os.Getenv("SPLITWISE_API_KEY"))
 	client := splitwise.NewClient(auth)
+	splitPct := req.SplitPct / 100
 	userShares := []splitwise.UserShare{
 		{
 			UserID:    1839952,
 			PaidShare: fmt.Sprintf("%.2f", tanmayPaidShare),
-			OwedShare: fmt.Sprintf("%.2f", req.Amount*0.65),
+			OwedShare: fmt.Sprintf("%.2f", req.Amount*splitPct),
 		},
 		{
 			UserID:    6814258,
 			PaidShare: fmt.Sprintf("%.2f", aayushiPaidShare),
-			OwedShare: fmt.Sprintf("%.2f", req.Amount*0.35),
+			OwedShare: fmt.Sprintf("%.2f", req.Amount*(1-splitPct)),
 		},
 	}
 

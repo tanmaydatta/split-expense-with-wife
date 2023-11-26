@@ -17,6 +17,7 @@ function App(): JSX.Element {
   const [description, setDescription] = useState("");
   const [pin, setPin] = useState("");
   const [budgetHistory, setBudgetHistory] = useState<entry[]>([]);
+  const [splitPct, setSplitPct] = useState<number>(65);
   // const [entries, setEntries] = useState<entry>();
   const handleChange = (val: string) => setPaidBy(val);
   const handleChangeBudget = (val: string) => setBudget(val);
@@ -95,6 +96,7 @@ function App(): JSX.Element {
       description: { value: string };
       amount: { value: number };
       pin: { value: string };
+      splitPct: { value: number };
     };
 
     console.log(target.amount.value);
@@ -105,6 +107,7 @@ function App(): JSX.Element {
         description: target.description.value,
         paidBy: paidBy,
         pin: sha256(target.pin.value).toString(),
+        splitPct: splitPct,
       })
       .then((res) => alert(res.status))
       .catch((e) => alert(e.response.data));
@@ -137,6 +140,16 @@ function App(): JSX.Element {
             }}
           />
         </Form.Group>
+        <Form.Label>Split Percentage: {splitPct}</Form.Label>
+        <Form.Range
+          step={1}
+          min={0}
+          max={100}
+          value={splitPct}
+          onChange={(e) => {
+            setSplitPct(parseInt(e.target.value));
+          }}
+        />
         <Form.Group className="mb-3" controlId="formBasicPassword">
           <Form.Control
             type="password"
