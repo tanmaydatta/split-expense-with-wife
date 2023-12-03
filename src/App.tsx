@@ -46,11 +46,19 @@ function App(): JSX.Element {
           console.log(res.data);
           var entries: entry[] = [];
           (res.data as []).map(
-            (e: { added_time: string; description: string; price: string }) =>
+            (e: {
+              added_time: string;
+              description: string;
+              price: string;
+              Id: number;
+              deleted?: string;
+            }) =>
               entries.push({
+                id: e.Id,
                 date: e.added_time,
                 description: e.description as string,
                 amount: e.price,
+                deleted: e.deleted,
               })
           );
 
@@ -113,6 +121,19 @@ function App(): JSX.Element {
       .catch((e) => alert(e.response.data));
   };
 
+  const deleteBudgetEntry = (id: number) => {
+    axios
+      .post("/.netlify/functions/budget_delete", {
+        id: id,
+        pin: sha256(pin).toString(),
+      })
+      .then((res) => {
+        alert(res.status);
+        fetchTotal();
+        fetchHistory(0, []);
+      })
+      .catch((e) => alert(e.response.data));
+  };
   return (
     <div className="App">
       <Form
@@ -245,7 +266,7 @@ function App(): JSX.Element {
             Tanmay
           </ToggleButton>
         </ToggleButtonGroup>
-        <BudgetTable entries={budgetHistory} />
+        <BudgetTable entries={budgetHistory} onDelete={deleteBudgetEntry} />
         <Button
           variant="outline-secondary"
           style={{ width: "100%", marginBottom: "1%" }}

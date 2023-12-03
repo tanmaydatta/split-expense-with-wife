@@ -16,18 +16,16 @@ import (
 
 type BudgetEntry struct {
 	Id          int32
-	Description string    `json:"description"`
-	AddedTime   time.Time `json:"added_time"`
-	Price       string    `json:"price"`
+	Description string
+	AddedTime   time.Time
+	Price       string
 	Amount      float64
 	Name        string
-	Deleted     *time.Time `json:"deleted"`
 }
 
 type Request struct {
-	Offset int32  `json:"offset"`
-	Pin    string `json:"pin"`
-	Name   string `json:"name"`
+	Pin string `json:"pin"`
+	Id  int32  `json:"id"`
 }
 
 func (BudgetEntry) TableName() string {
@@ -49,12 +47,12 @@ func handler(request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResp
 		}, nil
 	}
 
-	// if req.Pin != os.Getenv("AUTH_PIN") {
-	// 	return &events.APIGatewayProxyResponse{
-	// 		StatusCode: 503,
-	// 		Body:       "invalid pin",
-	// 	}, nil
-	// }
+	if req.Pin != os.Getenv("AUTH_PIN") {
+		return &events.APIGatewayProxyResponse{
+			StatusCode: 503,
+			Body:       "invalid pin",
+		}, nil
+	}
 
 	// Open a connection to PlanetScale
 	db, err := gorm.Open(mysql.Open(os.Getenv("DSN")), &gorm.Config{
@@ -67,28 +65,19 @@ func handler(request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResp
 			Body:       "[budget] failed to connect to db",
 		}, nil
 	}
-	startFrom := time.Now()
-	name := req.Name
-	if name == "" {
-		name = "house"
-	}
-	entries := []BudgetEntry{}
-	tx := db.Limit(5).Offset(int(req.Offset)).
-		Where("added_time < ? and name = ?", startFrom, name).
-		Order("added_time desc").Find(&entries)
+	tx := db.Model(&BudgetEntry{
+		Id: req.Id,
+	}).Update("deleted", time.Now())
+	// tx.Commit()
 	if tx.Error != nil {
 		return &events.APIGatewayProxyResponse{
 			StatusCode: 500,
-			Body:       "[budget] error reading from db",
+			Body:       "[budget] error writing in db",
 		}, nil
 	}
-	b, _ := json.Marshal(entries)
 	return &events.APIGatewayProxyResponse{
 		StatusCode: 200,
-		Body:       string(b),
-		Headers: map[string]string{
-			"Content-Type": "application/json",
-		},
+		Body:       "[budget] Success",
 	}, nil
 }
 

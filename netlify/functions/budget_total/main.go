@@ -70,7 +70,7 @@ func handler(request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResp
 	if name == "" {
 		name = "house"
 	}
-	err = db.Table("budget").Where("name = ?", name).Select("sum(amount)").Row().Scan(&sum)
+	err = db.Table("budget").Where("name = ? and deleted is null", name).Select("sum(amount)").Row().Scan(&sum)
 	fmt.Println(err)
 	if err != nil {
 		return &events.APIGatewayProxyResponse{

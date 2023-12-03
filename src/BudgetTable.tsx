@@ -1,13 +1,17 @@
+import { Trash } from "react-bootstrap-icons";
 import Table from "react-bootstrap/Table";
 
 interface Props {
   entries: entry[];
+  onDelete(id: number): void;
 }
 
 export interface entry {
+  id: number;
   date: string;
   description: string;
   amount: string;
+  deleted?: string;
 }
 
 export default function BudgetTable(props: Props): JSX.Element {
@@ -18,17 +22,28 @@ export default function BudgetTable(props: Props): JSX.Element {
           <th>Date</th>
           <th>Description</th>
           <th>Amount</th>
+          <th>Deleted</th>
         </tr>
       </thead>
       <tbody>
         {props.entries.map((e) => {
-          const d = new Date(e.date);
           return (
             <tr key={e.date}>
-              <td>{d.toTimeString().split(" ")[0] + " " + d.toDateString()}</td>
+              <td>{dateToStr(new Date(e.date))}</td>
               <td>{e.description}</td>
               <td style={{ color: e.amount.startsWith("+") ? "green" : "red" }}>
                 {e.amount}
+              </td>
+              <td
+                style={{
+                  textAlign: "center",
+                }}
+              >
+                {e.deleted != null ? (
+                  dateToStr(new Date(e.deleted))
+                ) : (
+                  <Trash onClick={() => props.onDelete(e.id)} />
+                )}
               </td>
             </tr>
           );
@@ -36,4 +51,8 @@ export default function BudgetTable(props: Props): JSX.Element {
       </tbody>
     </Table>
   );
+}
+
+function dateToStr(d: Date): string {
+  return d.toTimeString().split(" ")[0] + " " + d.toDateString();
 }
