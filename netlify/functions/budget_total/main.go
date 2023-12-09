@@ -78,9 +78,9 @@ func handler(request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResp
 			Body:       "[budget] error reading sum from db",
 		}, nil
 	}
-	sign := "+"
-	if sum <= 0 {
-		sign = "-"
+	sign := ""
+	if sum > 0 {
+		sign = "+"
 	}
 	return &events.APIGatewayProxyResponse{
 		StatusCode: 200,
