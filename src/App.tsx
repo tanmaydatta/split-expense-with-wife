@@ -18,6 +18,10 @@ function App(): JSX.Element {
   const [pin, setPin] = useState("");
   const [budgetHistory, setBudgetHistory] = useState<entry[]>([]);
   const [splitPct, setSplitPct] = useState<number>(65);
+  const [currency, setCurrency] = useState<string>("GBP");
+  const [currencies, setCurrencies] = useState<Map<string, number>>(
+    new Map<string, number>()
+  );
   // const [entries, setEntries] = useState<entry>();
   const handleChange = (val: string) => setPaidBy(val);
   const handleChangeBudget = (val: string) => setBudget(val);
@@ -73,6 +77,23 @@ function App(): JSX.Element {
     [budget]
   );
 
+  const fetchCurrencies = useCallback(() => {
+    axios
+      .get("https://api.exchangerate-api.com/v4/latest/GBP")
+      .then((res) => {
+        console.log(res.data);
+        var currencies: Map<string, number> = new Map<string, number>();
+        Object.keys(res.data.rates).map((key) =>
+          currencies.set(key, res.data.rates[key])
+        );
+        console.log(currencies);
+        setCurrencies(currencies);
+      })
+      .catch((e) => {
+        console.log(e);
+        alert(e);
+      });
+  }, []);
   React.useEffect(() => {
     fetchTotal();
     fetchHistory(0, []);
@@ -82,11 +103,16 @@ function App(): JSX.Element {
     console.log(amount);
   }, [amount]);
 
+  React.useEffect(() => {
+    fetchCurrencies();
+  }, [fetchCurrencies]);
   const submitBudget = (e: React.FormEvent) => {
     e.preventDefault();
+    console.log(currency);
+    console.log(pin);
     axios
       .post("/.netlify/functions/budget", {
-        amount: -1 * Number(amount),
+        amount: (-1 * Number(amount)) / (currencies.get(currency) || 1),
         description: description,
         pin: sha256(pin).toString(),
         name: budget,
@@ -107,11 +133,10 @@ function App(): JSX.Element {
       splitPct: { value: number };
     };
 
-    console.log(target.amount.value);
-    console.log(target.description.value);
+    console.log(target);
     axios
       .post("/.netlify/functions/split", {
-        amount: Number(target.amount.value),
+        amount: Number(target.amount.value) / (currencies.get(currency) || 1),
         description: target.description.value,
         paidBy: paidBy,
         pin: sha256(target.pin.value).toString(),
@@ -163,6 +188,7 @@ function App(): JSX.Element {
         </Form.Group>
         <Form.Label>Split Percentage: {splitPct}</Form.Label>
         <Form.Range
+          name="splitPct"
           step={1}
           min={0}
           max={100}
@@ -171,6 +197,19 @@ function App(): JSX.Element {
             setSplitPct(parseInt(e.target.value));
           }}
         />
+        <Form.Group className="mb-3">
+          <Form.Select
+            defaultValue={currency}
+            name="currency"
+            onChange={(v) => setCurrency(v.target.value)}
+          >
+            <option>Currency</option>
+            <option value="USD">USD</option>
+            <option value="EUR">EUR</option>
+            <option value="GBP">GBP</option>
+            <option value="INR">INR</option>
+          </Form.Select>
+        </Form.Group>
         <Form.Group className="mb-3" controlId="formBasicPassword">
           <Form.Control
             type="password"
