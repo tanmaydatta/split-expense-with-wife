@@ -1,81 +1,30 @@
 import axios from "axios";
 import sha256 from "crypto-js/sha256";
 import React, { useCallback, useState } from "react";
-import { Card } from "react-bootstrap";
 import Button from "react-bootstrap/Button";
 import Form from "react-bootstrap/Form";
 import ToggleButton from "react-bootstrap/ToggleButton";
 import ToggleButtonGroup from "react-bootstrap/ToggleButtonGroup";
+import { useSelector } from "react-redux";
 import "./App.css";
-import BudgetTable, { entry } from "./BudgetTable";
+import { SelectBudget } from "./SelectBudget";
 
 function App(): JSX.Element {
   const [paidBy, setPaidBy] = useState("Tanmay");
   const [budget, setBudget] = useState("house");
-  const [budgetLeft, setBudgetLeft] = useState(0.0);
   const [amount, setAmount] = useState<number>();
   const [description, setDescription] = useState("");
   const [pin, setPin] = useState("");
-  const [budgetHistory, setBudgetHistory] = useState<entry[]>([]);
   const [splitPct, setSplitPct] = useState<number>(65);
   const [currency, setCurrency] = useState<string>("GBP");
   const [currencies, setCurrencies] = useState<Map<string, number>>(
     new Map<string, number>()
   );
+  const data = useSelector((state: any) => state.value);
+  console.log(data.groupId, "hehkbjhbjg");
   // const [entries, setEntries] = useState<entry>();
   const handleChange = (val: string) => setPaidBy(val);
   const handleChangeBudget = (val: string) => setBudget(val);
-  const fetchTotal = useCallback(() => {
-    axios
-      .post("/.netlify/functions/budget_total", {
-        name: budget,
-      })
-      .then((res) => {
-        setBudgetLeft(res.data.sum);
-      })
-      .catch((e) => {
-        console.log(e);
-        alert(e.response.data);
-      });
-  }, [budget]);
-
-  const fetchHistory = useCallback(
-    (offset: number, history: entry[]) => {
-      axios
-        .post("/.netlify/functions/budget_list", {
-          name: budget,
-          offset: offset,
-        })
-        .then((res) => {
-          console.log(res.data);
-          var entries: entry[] = [];
-          (res.data as []).map(
-            (e: {
-              added_time: string;
-              description: string;
-              price: string;
-              Id: number;
-              deleted?: string;
-            }) =>
-              entries.push({
-                id: e.Id,
-                date: e.added_time,
-                description: e.description as string,
-                amount: e.price,
-                deleted: e.deleted,
-              })
-          );
-
-          console.log([...history, ...entries]);
-          setBudgetHistory([...history, ...entries]);
-        })
-        .catch((e) => {
-          console.log(e);
-          alert(e.response.data);
-        });
-    },
-    [budget]
-  );
 
   const fetchCurrencies = useCallback(() => {
     axios
@@ -94,14 +43,6 @@ function App(): JSX.Element {
         alert(e);
       });
   }, []);
-  React.useEffect(() => {
-    fetchTotal();
-    fetchHistory(0, []);
-  }, [fetchTotal, fetchHistory]);
-
-  React.useEffect(() => {
-    console.log(amount);
-  }, [amount]);
 
   React.useEffect(() => {
     fetchCurrencies();
@@ -116,11 +57,10 @@ function App(): JSX.Element {
         description: description,
         pin: sha256(pin).toString(),
         name: budget,
+        groupid: data.groupId,
       })
       .then((res) => {
         alert(res.status);
-        fetchTotal();
-        fetchHistory(0, []);
       })
       .catch((e) => alert(e.response.data));
   };
@@ -144,26 +84,33 @@ function App(): JSX.Element {
       })
       .then((res) => alert(res.status))
       .catch((e) => alert(e.response.data));
-  };
-
-  const deleteBudgetEntry = (id: number) => {
+    var pctShares = new Map<string, number>();
+    Object.keys(data.metadata.defaultShare).forEach((key) =>
+      pctShares.set(String(key), data.metadata.defaultShare[key])
+    );
     axios
-      .post("/.netlify/functions/budget_delete", {
-        id: id,
-        pin: sha256(pin).toString(),
+      .post("/.netlify/functions/split_new", {
+        amount: Number(target.amount.value),
+        currency: currency,
+        description: target.description.value,
+        paidByShares: {
+          [data.userId]: Number(target.amount.value),
+        },
+        pin: sha256(target.pin.value).toString(),
+        splitPctShares: Object.fromEntries(pctShares),
       })
-      .then((res) => {
-        alert(res.status);
-        fetchTotal();
-        fetchHistory(0, []);
-      })
+      .then((res) => alert(res.status))
       .catch((e) => alert(e.response.data));
   };
   return (
     <div className="App">
       <Form
         onSubmit={submit}
-        style={{ justifyContent: "center", width: "fit-content", margin: "1%" }}
+        style={{
+          justifyContent: "center",
+          width: "fit-content",
+          margin: "1%",
+        }}
       >
         <Form.Group className="mb-3" controlId="formBasicEmail">
           <Form.Control
@@ -226,93 +173,35 @@ function App(): JSX.Element {
           value={paidBy}
           onChange={handleChange}
         >
-          <ToggleButton
-            key={0}
-            id={`radio-0`}
-            type="radio"
-            variant="outline-primary"
-            name="radio"
-            value={"Aayushi"}
-            checked={true}
-          >
-            Aayushi
-          </ToggleButton>
-          <ToggleButton
-            key={1}
-            id={`radio-1`}
-            type="radio"
-            variant="outline-primary"
-            name="radio"
-            value={"Tanmay"}
-            checked={false}
-          >
-            Tanmay
-          </ToggleButton>
+          {data.users.map((u: { FirstName: string }) => (
+            <ToggleButton
+              key={u.FirstName}
+              id={`radio-${u}`}
+              type="radio"
+              variant="outline-primary"
+              name="radio"
+              value={u.FirstName}
+              checked={paidBy === u.FirstName}
+            >
+              {u.FirstName}
+            </ToggleButton>
+          ))}
         </ToggleButtonGroup>
         <Button variant="primary" type="submit" style={{ width: "100%" }}>
           Submit
         </Button>
       </Form>
-      <Card.Title style={{ marginTop: "1%" }}>
-        Budget left:{" "}
-        <span style={{ color: budgetLeft > 0 ? "green" : "red" }}>
-          {budgetLeft}
-        </span>
-      </Card.Title>
 
       <Form
         onSubmit={submitBudget}
-        style={{ justifyContent: "center", width: "fit-content", margin: "1%" }}
+        style={{
+          justifyContent: "center",
+          width: "fit-content",
+          margin: "1%",
+        }}
       >
-        <ToggleButtonGroup
-          style={{ width: "100%" }}
-          className="mb-2"
-          name="budget"
-          value={budget}
-          onChange={handleChangeBudget}
-        >
-          <ToggleButton
-            key={"house-budget"}
-            id={`radio-budget`}
-            type="radio"
-            variant="outline-primary"
-            name="radio"
-            value={"house"}
-            checked={true}
-          >
-            House
-          </ToggleButton>
-          <ToggleButton
-            key={"aayushi-budget"}
-            id={`radio-aayushi`}
-            type="radio"
-            variant="outline-primary"
-            name="radio"
-            value={"aayushi"}
-            checked={false}
-          >
-            Aayushi
-          </ToggleButton>
-          <ToggleButton
-            key={"tanmay-budget"}
-            id={`radio-tanmay`}
-            type="radio"
-            variant="outline-primary"
-            name="radio"
-            value={"tanmay"}
-            checked={false}
-          >
-            Tanmay
-          </ToggleButton>
-        </ToggleButtonGroup>
-        <BudgetTable entries={budgetHistory} onDelete={deleteBudgetEntry} />
-        <Button
-          variant="outline-secondary"
-          style={{ width: "100%", marginBottom: "1%" }}
-          onClick={() => fetchHistory(budgetHistory.length, budgetHistory)}
-        >
-          Show more
-        </Button>
+        <SelectBudget budget={budget} handleChangeBudget={handleChangeBudget} />
+
         <Button variant="primary" type="submit" style={{ width: "100%" }}>
           Submit
         </Button>

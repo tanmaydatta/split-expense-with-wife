@@ -1,17 +1,10 @@
 import { Trash } from "react-bootstrap-icons";
 import Table from "react-bootstrap/Table";
+import { entry } from "./model";
 
 interface Props {
   entries: entry[];
   onDelete(id: number): void;
-}
-
-export interface entry {
-  id: number;
-  date: string;
-  description: string;
-  amount: string;
-  deleted?: string;
 }
 
 export default function BudgetTable(props: Props): JSX.Element {
@@ -53,6 +46,20 @@ export default function BudgetTable(props: Props): JSX.Element {
   );
 }
 
-function dateToStr(d: Date): string {
+export function dateToStr(d: Date): string {
   return d.toTimeString().split(" ")[0] + " " + d.toDateString();
+}
+
+export function dateToShortStr(date: Date): string {
+  const currentYear = new Date().getFullYear();
+  const options: Intl.DateTimeFormatOptions = {
+    month: "short",
+    day: "2-digit",
+  };
+
+  if (date.getFullYear() !== currentYear) {
+    options.year = "numeric";
+  }
+
+  return date.toLocaleDateString("en-US", options);
 }

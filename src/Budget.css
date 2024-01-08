@@ -1,0 +1,18 @@
+.Budget {
+    padding: 10%;
+    flex-direction: column;
+    display: flex;
+    justify-content: center;
+    margin-top: 10%;
+    align-items: center;
+    width: 100%;
+  }
+  
+
+.positive {
+  color: green;
+}
+
+.negative {
+  color: red;
+}

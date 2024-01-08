@@ -10,32 +10,27 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/tanmaydatta/split-expense-with-wife/netlify/common"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
-
-type BudgetEntry struct {
-	Id          int32
-	Description string
-	AddedTime   time.Time
-	Price       string
-	Amount      float64
-	Name        string
-}
 
 type Request struct {
 	Pin string `json:"pin"`
 	Id  int32  `json:"id"`
 }
 
-func (BudgetEntry) TableName() string {
-	return "budget"
-}
-
 func handler(request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResponse, error) {
 	if request.HTTPMethod != "POST" {
 		return &events.APIGatewayProxyResponse{
 			StatusCode: 400,
+		}, nil
+	}
+	valid, session := common.Authenticate(request)
+	if !valid {
+		return &events.APIGatewayProxyResponse{
+			StatusCode: 401,
+			Body:       "unauthorized",
 		}, nil
 	}
 	// validate price
@@ -65,10 +60,17 @@ func handler(request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResp
 			Body:       "[budget] failed to connect to db",
 		}, nil
 	}
-	tx := db.Model(&BudgetEntry{
-		Id: req.Id,
-	}).Update("deleted", time.Now())
+	tx := db.Model(&common.BudgetEntry{}).
+		Where("groupid = ? and id = ?", session.Group.Groupid, req.Id).
+		Update("deleted", time.Now())
 	// tx.Commit()
+	fmt.Printf("tx: %+v\n", tx.Statement)
+	if tx.RowsAffected == 0 {
+		return &events.APIGatewayProxyResponse{
+			StatusCode: 500,
+			Body:       "error writing in db, 0 rows affected",
+		}, nil
+	}
 	if tx.Error != nil {
 		return &events.APIGatewayProxyResponse{
 			StatusCode: 500,

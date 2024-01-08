@@ -4,9 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"math"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -18,17 +16,26 @@ import (
 )
 
 type Request struct {
-	Amount      float64 `json:"amount"`
-	Description string  `json:"description"`
-	Pin         string  `json:"pin"`
-	Name        string  `json:"name"`
-	Groupid     int32   `json:"groupid"`
+	Offset int32 `json:"offset"`
+}
+
+type TransactionsListResponse struct {
+	Transactions       []common.Transaction                `json:"transactions"`
+	TransactionDetails map[string][]common.TransactionUser `json:"transactionDetails"`
 }
 
 func handler(request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResponse, error) {
 	if request.HTTPMethod != "POST" {
 		return &events.APIGatewayProxyResponse{
 			StatusCode: 400,
+		}, nil
+	}
+	// validate price
+	var req = Request{}
+	if err := json.Unmarshal([]byte(request.Body), &req); err != nil {
+		return &events.APIGatewayProxyResponse{
+			StatusCode: 503,
+			Body:       fmt.Sprintf("Error parsing input, %v", err.Error()),
 		}, nil
 	}
 	valid, session := common.Authenticate(request)
@@ -39,36 +46,7 @@ func handler(request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResp
 		}, nil
 	}
 
-	// validate price
-	var req = Request{}
-	if err := json.Unmarshal([]byte(request.Body), &req); err != nil {
-		return &events.APIGatewayProxyResponse{
-			StatusCode: 503,
-			Body:       fmt.Sprintf("Error parsing input, %v", err.Error()),
-		}, nil
-	}
-	fmt.Printf("req: %+v\n", req)
-	if session.Group.Groupid != req.Groupid {
-		return &events.APIGatewayProxyResponse{
-			StatusCode: 401,
-			Body:       "unauthorized",
-		}, nil
-	}
-
-	if !strings.Contains(session.Group.Budgets, req.Name) {
-		return &events.APIGatewayProxyResponse{
-			StatusCode: 401,
-			Body:       "unauthorized",
-		}, nil
-	}
-
-	if req.Pin != os.Getenv("AUTH_PIN") {
-		return &events.APIGatewayProxyResponse{
-			StatusCode: 503,
-			Body:       "invalid pin",
-		}, nil
-	}
-
+	// ValidateSession()
 	// Open a connection to PlanetScale
 	db, err := gorm.Open(mysql.Open(os.Getenv("DSN")), &gorm.Config{
 		DisableForeignKeyConstraintWhenMigrating: true,
@@ -80,31 +58,44 @@ func handler(request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResp
 			Body:       "[budget] failed to connect to db",
 		}, nil
 	}
-	sign := "+"
-	if req.Amount < 0 {
-		sign = "-"
-	}
-	name := req.Name
-	if name == "" {
-		name = "house"
-	}
-	tx := db.Create(&common.BudgetEntry{
-		Description: req.Description,
-		Price:       fmt.Sprintf("%s%.2f", sign, math.Abs(req.Amount)),
-		AddedTime:   time.Now(),
-		Amount:      req.Amount,
-		Name:        name,
-		Groupid:     req.Groupid,
-	})
+	startFrom := time.Now()
+	entries := []common.Transaction{}
+	tx := db.Limit(5).Offset(int(req.Offset)).
+		Where("created_at < ? and group_id = ?", startFrom, session.Group.Groupid).
+		Order("created_at desc").Find(&entries)
 	if tx.Error != nil {
 		return &events.APIGatewayProxyResponse{
 			StatusCode: 500,
-			Body:       "[budget] error writing in db",
+			Body:       "[budget] error reading from db",
 		}, nil
 	}
+	txnIds := []string{}
+	for _, entry := range entries {
+		txnIds = append(txnIds, entry.TransactionId)
+	}
+	txnUsers := []common.TransactionUser{}
+	tx = db.Where("transaction_id in ?", txnIds).Find(&txnUsers)
+	if tx.Error != nil {
+		return &events.APIGatewayProxyResponse{
+			StatusCode: 500,
+			Body:       "[budget] error reading from db",
+		}, nil
+	}
+	txnUserMap := map[string][]common.TransactionUser{}
+	for _, txnUser := range txnUsers {
+		txnUserMap[txnUser.TransactionId] = append(txnUserMap[txnUser.TransactionId], txnUser)
+	}
+
+	b, _ := json.Marshal(TransactionsListResponse{
+		Transactions:       entries,
+		TransactionDetails: txnUserMap,
+	})
 	return &events.APIGatewayProxyResponse{
 		StatusCode: 200,
-		Body:       "[budget] Success",
+		Body:       string(b),
+		Headers: map[string]string{
+			"Content-Type": "application/json",
+		},
 	}, nil
 }
 

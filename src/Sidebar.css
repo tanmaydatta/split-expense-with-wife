@@ -1,0 +1,18 @@
+
+.Sidebar {
+    width: 20%;
+    background-color: #f2f2f2;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-start;
+  }
+  
+  
+  .SidebarItem {
+    width: 100%;
+    padding: 10px;
+    border-bottom: 1px solid #ccc;
+    cursor: pointer;
+  }
