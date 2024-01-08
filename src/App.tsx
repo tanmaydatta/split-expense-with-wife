@@ -21,7 +21,6 @@ function App(): JSX.Element {
     new Map<string, number>()
   );
   const data = useSelector((state: any) => state.value);
-  console.log(data.groupId, "hehkbjhbjg");
   // const [entries, setEntries] = useState<entry>();
   const handleChange = (val: string) => setPaidBy(val);
   const handleChangeBudget = (val: string) => setBudget(val);
