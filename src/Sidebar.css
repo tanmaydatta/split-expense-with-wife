@@ -8,8 +8,31 @@
     align-items: flex-start;
     justify-content: flex-start;
   }
-  
-  
+  .SidebarHeader {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+  }
+  .SidebarFooter {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+  }
+
+  .SidebarFooter > * {
+    padding: 10px;
+    border-top: 1px solid #ccc;
+    cursor: pointer;
+  }
+  .SidebarHeader > * {
+    padding: 10px;
+    background-color: #ccc;
+    border-bottom: 1px solid #ccc;
+  }
+
   .SidebarItem {
     width: 100%;
     padding: 10px;
