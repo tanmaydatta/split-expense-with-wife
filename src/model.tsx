@@ -5,4 +5,5 @@ export interface entry {
   amount: string;
   deleted?: string;
   oweOrOwed?: string;
+  currency: string;
 }

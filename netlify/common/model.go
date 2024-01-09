@@ -34,6 +34,7 @@ type BudgetEntry struct {
 	Name        string     `json:"name"`
 	Deleted     *time.Time `json:"deleted"`
 	Groupid     int32      `json:"groupid"`
+	Currency    string     `json:"currency"`
 }
 
 type Transaction struct {

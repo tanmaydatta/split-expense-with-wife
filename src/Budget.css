@@ -16,3 +16,15 @@
 .negative {
   color: red;
 }
+
+.budgetTotal {
+  width: 100%;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.budgetTotal > * {
+   padding-right: 1rem;
+} 

@@ -1,5 +1,6 @@
 import axios from "axios";
 import sha256 from "crypto-js/sha256";
+import getSymbolFromCurrency from "currency-symbol-map";
 import { useCallback, useEffect, useState } from "react";
 import { Button, Card, Form } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
@@ -11,7 +12,9 @@ import { entry } from "./model";
 export const Budget: React.FC = () => {
   const [budgetHistory, setBudgetHistory] = useState<entry[]>([]);
   const [budget, setBudget] = useState("house");
-  const [budgetLeft, setBudgetLeft] = useState(0.0);
+  const [budgetsLeft, setBudgetsLeft] = useState<
+    { currency: string; amount: number }[]
+  >([]);
   const [pin, setPin] = useState("");
   const handleChangeBudget = (val: string) => setBudget(val);
   const navigate = useNavigate();
@@ -21,7 +24,7 @@ export const Budget: React.FC = () => {
         name: budget,
       })
       .then((res) => {
-        setBudgetLeft(res.data.sum);
+        setBudgetsLeft(res.data);
       })
       .catch((e) => {
         console.log(e);
@@ -46,6 +49,7 @@ export const Budget: React.FC = () => {
               price: string;
               id: number;
               deleted?: string;
+              currency: string;
             }) =>
               entries.push({
                 id: e.id,
@@ -53,10 +57,11 @@ export const Budget: React.FC = () => {
                 description: e.description as string,
                 amount: e.price,
                 deleted: e.deleted,
+                currency: e.currency as string,
               })
           );
 
-          console.log([...history, ...entries]);
+          console.log("budget list", [...history, ...entries]);
           setBudgetHistory([...history, ...entries]);
         })
         .catch((e) => {
@@ -95,10 +100,26 @@ export const Budget: React.FC = () => {
         />
       </Form.Group>
       <Card.Title style={{ marginTop: "1%" }}>
-        Budget left:{" "}
-        <span style={{ color: budgetLeft > 0 ? "green" : "red" }}>
-          {budgetLeft}
-        </span>
+        Budget left
+        <div className="budgetTotal">
+          {budgetsLeft
+            .map((e) => ({
+              text:
+                (e.amount > 0 ? "+" : "-") +
+                getSymbolFromCurrency(e.currency) +
+                e.amount.toFixed(2),
+              color: e.amount > 0 ? "green" : "red",
+            }))
+            .map((e) => (
+              <div
+                style={{
+                  color: e.color,
+                }}
+              >
+                {e.text}
+              </div>
+            ))}
+        </div>
       </Card.Title>
       <SelectBudget budget={budget} handleChangeBudget={handleChangeBudget} />
 

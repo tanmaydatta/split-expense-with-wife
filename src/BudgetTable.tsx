@@ -1,3 +1,4 @@
+import getSymbolFromCurrency from "currency-symbol-map";
 import { Trash } from "react-bootstrap-icons";
 import Table from "react-bootstrap/Table";
 import { entry } from "./model";
@@ -25,7 +26,9 @@ export default function BudgetTable(props: Props): JSX.Element {
               <td>{dateToStr(new Date(e.date))}</td>
               <td>{e.description}</td>
               <td style={{ color: e.amount.startsWith("+") ? "green" : "red" }}>
-                {e.amount}
+                {e.amount[0]}
+                {getSymbolFromCurrency(e.currency)}
+                {e.amount.substring(1)}
               </td>
               <td
                 style={{

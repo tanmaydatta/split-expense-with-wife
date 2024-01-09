@@ -60,24 +60,27 @@ func handler(request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResp
 		}, nil
 	}
 
-	var sum float64
 	name := req.Name
 	if name == "" {
 		name = "house"
 	}
-	err = db.Table("budget").Where("name = ? and groupid = ? and deleted is null", name, session.Group.Groupid).Select("sum(amount)").Row().Scan(&sum)
-	fmt.Println(err)
-	if err != nil {
-		log.Default().Println(err)
-		sum = 0.0
+	type Budgets struct {
+		Currency string  `json:"currency"`
+		Amount   float64 `json:"amount"`
 	}
-	sign := ""
-	if sum > 0 {
-		sign = "+"
+	budgets := []Budgets{}
+	tx := db.Model(&common.BudgetEntry{}).Select("currency, sum(amount) as amount").Where("name = ? and groupid = ? and deleted is null", name, session.Group.Groupid).Group("currency").Find(&budgets)
+	if tx.Error != nil {
+		log.Fatalf("failed to connect: %v", err)
+		return &events.APIGatewayProxyResponse{
+			StatusCode: 503,
+			Body:       "[budget] failed to connect to db, " + tx.Error.Error(),
+		}, nil
 	}
+	b, _ := json.Marshal(budgets)
 	return &events.APIGatewayProxyResponse{
 		StatusCode: 200,
-		Body:       fmt.Sprintf(`{"sum": "%s%.2f"}`, sign, sum),
+		Body:       string(b),
 		Headers: map[string]string{
 			"Content-Type": "application/json",
 		},

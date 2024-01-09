@@ -6,6 +6,7 @@ import (
 	"log"
 	"math"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
@@ -23,6 +24,7 @@ type Request struct {
 	Pin         string  `json:"pin"`
 	Name        string  `json:"name"`
 	Groupid     int32   `json:"groupid"`
+	Currency    string  `json:"currency"`
 }
 
 func handler(request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResponse, error) {
@@ -62,6 +64,13 @@ func handler(request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResp
 		}, nil
 	}
 
+	if !slices.Contains(common.Currencies, req.Currency) {
+		return &events.APIGatewayProxyResponse{
+			StatusCode: 503,
+			Body:       "invalid currency",
+		}, nil
+	}
+
 	if req.Pin != os.Getenv("AUTH_PIN") {
 		return &events.APIGatewayProxyResponse{
 			StatusCode: 503,
@@ -95,6 +104,7 @@ func handler(request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResp
 		Amount:      req.Amount,
 		Name:        name,
 		Groupid:     req.Groupid,
+		Currency:    req.Currency,
 	})
 	if tx.Error != nil {
 		return &events.APIGatewayProxyResponse{

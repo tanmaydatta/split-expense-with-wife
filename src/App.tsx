@@ -73,6 +73,7 @@ function App(): JSX.Element {
         pin: sha256(pin).toString(),
         name: budget,
         groupid: data.groupId,
+        currency: currency,
       })
       .then((res) => {
         alert(res.status);
