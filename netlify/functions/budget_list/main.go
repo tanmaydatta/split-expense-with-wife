@@ -70,7 +70,7 @@ func handler(request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResp
 	}
 	entries := []common.BudgetEntry{}
 	tx := db.Limit(5).Offset(int(req.Offset)).
-		Where("added_time < ? and name = ?", startFrom, name).
+		Where("added_time < ? and name = ? and groupid = ?", startFrom, name, session.Group.Groupid).
 		Order("added_time desc").Find(&entries)
 	if tx.Error != nil {
 		return &events.APIGatewayProxyResponse{

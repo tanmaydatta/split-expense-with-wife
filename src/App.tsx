@@ -87,7 +87,6 @@ function App(): JSX.Element {
       pin: { value: string };
       splitPct: { value: number };
     };
-
     console.log(target);
     if (data.groupId === 1) {
       axios

@@ -65,13 +65,11 @@ func handler(request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResp
 	if name == "" {
 		name = "house"
 	}
-	err = db.Table("budget").Where("name = ? and deleted is null", name).Select("sum(amount)").Row().Scan(&sum)
+	err = db.Table("budget").Where("name = ? and groupid = ? and deleted is null", name, session.Group.Groupid).Select("sum(amount)").Row().Scan(&sum)
 	fmt.Println(err)
 	if err != nil {
-		return &events.APIGatewayProxyResponse{
-			StatusCode: 500,
-			Body:       "[budget] error reading sum from db",
-		}, nil
+		log.Default().Println(err)
+		sum = 0.0
 	}
 	sign := ""
 	if sum > 0 {
