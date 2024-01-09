@@ -3,14 +3,11 @@ import sha256 from "crypto-js/sha256";
 import React, { useCallback, useState } from "react";
 import Button from "react-bootstrap/Button";
 import Form from "react-bootstrap/Form";
-import ToggleButton from "react-bootstrap/ToggleButton";
-import ToggleButtonGroup from "react-bootstrap/ToggleButtonGroup";
 import { useSelector } from "react-redux";
 import "./App.css";
 import { SelectBudget } from "./SelectBudget";
 
 function App(): JSX.Element {
-  const [paidBy, setPaidBy] = useState("Tanmay");
   const [budget, setBudget] = useState("house");
   const [amount, setAmount] = useState<number>();
   const [description, setDescription] = useState("");
@@ -20,9 +17,26 @@ function App(): JSX.Element {
   const [currencies, setCurrencies] = useState<Map<string, number>>(
     new Map<string, number>()
   );
+  const [splitPctShares, setSplitPctShares] = useState<Map<string, number>>(
+    new Map<string, number>()
+  );
   const data = useSelector((state: any) => state.value);
+  const [paidBy, setPaidBy] = useState<{ Id: number; Name: string }>({
+    Id: data.userId,
+    Name:
+      data.users.find(
+        (u: { Id: number; FirstName: string }) => u.Id === data.userId
+      )?.FirstName || "",
+  });
+  React.useEffect(() => {
+    var localSplitShares = new Map<string, number>();
+    Object.keys(data.metadata.defaultShare).forEach((key) =>
+      localSplitShares.set(String(key), data.metadata.defaultShare[key])
+    );
+    setSplitPctShares(localSplitShares);
+  }, [data.metadata.defaultShare, setSplitPctShares]);
   // const [entries, setEntries] = useState<entry>();
-  const handleChange = (val: string) => setPaidBy(val);
+  // const handleChange = (val: string) => setPaidBy(val);
   const handleChangeBudget = (val: string) => setBudget(val);
 
   const fetchCurrencies = useCallback(() => {
@@ -77,26 +91,22 @@ function App(): JSX.Element {
       .post("/.netlify/functions/split", {
         amount: Number(target.amount.value) / (currencies.get(currency) || 1),
         description: target.description.value,
-        paidBy: paidBy,
+        paidBy: paidBy.Name,
         pin: sha256(target.pin.value).toString(),
         splitPct: splitPct,
       })
       .then((res) => alert(res.status))
       .catch((e) => alert(e.response.data));
-    var pctShares = new Map<string, number>();
-    Object.keys(data.metadata.defaultShare).forEach((key) =>
-      pctShares.set(String(key), data.metadata.defaultShare[key])
-    );
     axios
       .post("/.netlify/functions/split_new", {
         amount: Number(target.amount.value),
         currency: currency,
         description: target.description.value,
         paidByShares: {
-          [data.userId]: Number(target.amount.value),
+          [paidBy.Id]: Number(target.amount.value),
         },
         pin: sha256(target.pin.value).toString(),
-        splitPctShares: Object.fromEntries(pctShares),
+        splitPctShares: Object.fromEntries(splitPctShares),
       })
       .then((res) => alert(res.status))
       .catch((e) => alert(e.response.data));
@@ -132,7 +142,41 @@ function App(): JSX.Element {
             }}
           />
         </Form.Group>
-        <Form.Label>Split Percentage: {splitPct}</Form.Label>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "row",
+            justifyContent: "flex-start",
+            flexWrap: "wrap",
+            width: "100%",
+          }}
+        >
+          {data.users.map((u: { FirstName: string; Id: number }, i: Number) => (
+            <div
+              style={{
+                height: "fit-content",
+                width: "fit-content",
+                display: "flex",
+                flexDirection: "column",
+              }}
+            >
+              <Form.Label>
+                {u.FirstName}
+                {"%"}
+              </Form.Label>
+              <Form.Control
+                type="number"
+                placeholder={u.FirstName + "%"}
+                value={splitPctShares.get(String(u.Id))}
+                onChange={(e) => {
+                  var newSplitPctShares = new Map(splitPctShares);
+                  newSplitPctShares.set(String(u.Id), Number(e.target.value));
+                  setSplitPctShares(newSplitPctShares);
+                }}
+              />
+            </div>
+          ))}
+        </div>
         <Form.Range
           name="splitPct"
           step={1}
@@ -165,27 +209,30 @@ function App(): JSX.Element {
             onChange={(e) => setPin(e.target.value)}
           />
         </Form.Group>
-        <ToggleButtonGroup
-          style={{ width: "100%" }}
-          className="mb-2"
-          name="paidBy"
-          value={paidBy}
-          onChange={handleChange}
-        >
-          {data.users.map((u: { FirstName: string }) => (
-            <ToggleButton
-              key={u.FirstName}
-              id={`radio-${u}`}
-              type="radio"
-              variant="outline-primary"
-              name="radio"
-              value={u.FirstName}
-              checked={paidBy === u.FirstName}
-            >
-              {u.FirstName}
-            </ToggleButton>
-          ))}
-        </ToggleButtonGroup>
+        <Form.Group className="mb-3">
+          <Form.Label>Paid by</Form.Label>{" "}
+          <Form.Select
+            defaultValue={data.userId}
+            name="paidBy"
+            onChange={(v) => {
+              console.log(v.target.value);
+              setPaidBy({
+                Id: Number(v.target.value),
+                Name:
+                  data.users.find(
+                    (u: { Id: number; FirstName: string }) =>
+                      u.Id === Number(v.target.value)
+                  )?.FirstName || "",
+              });
+            }}
+          >
+            {data.users.map(
+              (u: { FirstName: string; Id: number }, i: Number) => (
+                <option value={u.Id}>{u.FirstName}</option>
+              )
+            )}
+          </Form.Select>
+        </Form.Group>
         <Button variant="primary" type="submit" style={{ width: "100%" }}>
           Submit
         </Button>

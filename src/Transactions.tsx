@@ -1,8 +1,9 @@
 import axios from "axios";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
+import { Button } from "react-bootstrap";
 import { useSelector } from "react-redux";
 import TransactionList, { Transaction } from "./TransactionList";
-
+import "./Transactions.css";
 type TransactionMetadata = {
   owedAmounts: Map<string, number>;
   paidByShares: Map<string, number>;
@@ -19,13 +20,14 @@ type TransactionUser = {
 const Transactions: React.FC = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const data = useSelector((state: any) => state.value);
-  useEffect(() => {
-    const fetchTransactions = async () => {
-      await axios
-        .post("/.netlify/functions/transactions_list", {})
+  const fetchTransactions = useCallback(
+    (offset: number, transactions: Transaction[]) => {
+      axios
+        .post("/.netlify/functions/transactions_list", {
+          offset: offset,
+        })
         .then((res) => {
           var entries: Transaction[] = [];
-
           res.data.transactions.map(
             (e: {
               id: number;
@@ -65,17 +67,32 @@ const Transactions: React.FC = () => {
               });
             }
           );
-          setTransactions(entries);
+          setTransactions([...transactions, ...entries]);
         })
         .catch((e) => {
           console.log(e);
         });
-    };
+    },
+    [data.userId]
+  );
 
-    fetchTransactions();
-  }, [data.userId]);
+  useEffect(() => {
+    fetchTransactions(0, []);
+  }, [fetchTransactions]);
 
-  return <TransactionList transactions={transactions} />;
+  return (
+    <div className="TransactionsWraper">
+      <TransactionList transactions={transactions} />
+      <Button
+        variant="outline-secondary"
+        onClick={() => {
+          fetchTransactions(transactions.length, transactions);
+        }}
+      >
+        Show more
+      </Button>
+    </div>
+  );
 };
 
 export default Transactions;
