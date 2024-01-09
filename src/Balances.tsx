@@ -32,21 +32,6 @@ const Balances: React.FC = () => {
 
   return (
     <div className="BalancesWrapper">
-      {/* {" "}
-      {Array.from(balances, ([k, v]) => (
-        <div key={k}>
-          {Array.from(balances.get(k) ?? new Map(), ([c, a]) => (
-            <>
-              {" "}
-              <span className={a > 0 ? "positive" : "negative"}>
-                {a > 0 ? "You are owed" : "You owe"} {getSymbolFromCurrency(c)}
-                {Math.abs(a)}
-              </span>{" "}
-              {a > 0 ? "by" : "to"} {k}
-            </>
-          ))}
-        </div>
-      ))} */}
       {Array.from(balances, ([k, v]) => (
         <div className="BalanceItemWrapper">
           <div className="user">
@@ -58,7 +43,7 @@ const Balances: React.FC = () => {
                 {a > 0 ? "You are owed" : "You owe"}{" "}
                 <span className={a > 0 ? "positive" : "negative"}>
                   {getSymbolFromCurrency(c)}
-                  {Math.abs(a)}
+                  {Math.abs(a).toFixed(2)}
                 </span>{" "}
               </>
             ))}

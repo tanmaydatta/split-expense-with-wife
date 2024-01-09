@@ -117,7 +117,7 @@ function TransactionDetails(selectedTransaction: Transaction) {
             return (
               <div>
                 {user}: {getSymbolFromCurrency(selectedTransaction.currency)}
-                {amount}
+                {amount.toFixed(2)}
               </div>
             );
           }
@@ -129,7 +129,7 @@ function TransactionDetails(selectedTransaction: Transaction) {
           return (
             <div>
               {user}: {getSymbolFromCurrency(selectedTransaction.currency)}
-              {amount}
+              {amount.toFixed(2)}
             </div>
           );
         })}
@@ -141,7 +141,7 @@ function TransactionDetails(selectedTransaction: Transaction) {
         <div>
           {selectedTransaction.totalOwed > 0 ? "+" : "-"}
           {getSymbolFromCurrency(selectedTransaction.currency)}
-          {Math.abs(selectedTransaction.totalOwed)}
+          {Math.abs(selectedTransaction.totalOwed).toFixed(2)}
         </div>
       </div>
     </div>
