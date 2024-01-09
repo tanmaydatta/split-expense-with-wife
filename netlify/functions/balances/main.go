@@ -50,7 +50,7 @@ func handler(request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResp
 		}, nil
 	}
 	balances := []TransactionBalances{}
-	tx := db.Model(&common.TransactionUser{}).Select("user_id, owed_to_user_id, currency, sum(amount) as amount").Where("group_id = ?", session.Group.Groupid).Group("user_id, owed_to_user_id, currency").Find(&balances)
+	tx := db.Model(&common.TransactionUser{}).Select("user_id, owed_to_user_id, currency, sum(amount) as amount").Where("group_id = ? and deleted is null", session.Group.Groupid).Group("user_id, owed_to_user_id, currency").Find(&balances)
 	if tx.Error != nil {
 		log.Fatalf("failed to connect: %v", err)
 		return &events.APIGatewayProxyResponse{
