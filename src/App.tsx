@@ -89,16 +89,18 @@ function App(): JSX.Element {
     };
 
     console.log(target);
-    axios
-      .post("/.netlify/functions/split", {
-        amount: Number(target.amount.value) / (currencies.get(currency) || 1),
-        description: target.description.value,
-        paidBy: paidBy.Name,
-        pin: sha256(target.pin.value).toString(),
-        splitPct: splitPct,
-      })
-      .then((res) => alert(res.status))
-      .catch((e) => alert(e.response.data));
+    if (data.groupId === 1) {
+      axios
+        .post("/.netlify/functions/split", {
+          amount: Number(target.amount.value) / (currencies.get(currency) || 1),
+          description: target.description.value,
+          paidBy: paidBy.Name,
+          pin: sha256(target.pin.value).toString(),
+          splitPct: splitPct,
+        })
+        .then((res) => alert(res.status))
+        .catch((e) => alert(e.response.data));
+    }
     axios
       .post("/.netlify/functions/split_new", {
         amount: Number(target.amount.value),
