@@ -13,7 +13,6 @@ function App(): JSX.Element {
   const [description, setDescription] = useState("");
   const [pin, setPin] = useState("");
   const [splitPct, setSplitPct] = useState<number>(65);
-  const [currency, setCurrency] = useState<string>("GBP");
   const [currencies, setCurrencies] = useState<Map<string, number>>(
     new Map<string, number>()
   );
@@ -28,6 +27,9 @@ function App(): JSX.Element {
         (u: { Id: number; FirstName: string }) => u.Id === data.userId
       )?.FirstName || "",
   });
+  const [currency, setCurrency] = useState<string>(
+    data.metadata.defaultCurrency || "INR"
+  );
   React.useEffect(() => {
     var localSplitShares = new Map<string, number>();
     Object.keys(data.metadata.defaultShare).forEach((key) =>

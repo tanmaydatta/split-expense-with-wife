@@ -16,7 +16,8 @@ import (
 )
 
 type Metadata struct {
-	DefaultShare map[string]float64 `json:"defaultShare"`
+	DefaultShare    map[string]float64 `json:"defaultShare"`
+	DefaultCurrency string             `json:"defaultCurrency"`
 }
 
 type Request struct {
