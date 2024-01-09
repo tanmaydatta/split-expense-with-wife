@@ -45,15 +45,17 @@ type Transaction struct {
 	Currency      string          `json:"currency"`
 	TransactionId string          `json:"transaction_id"`
 	GroupId       int32           `json:"group_id"`
+	Deleted       *time.Time      `json:"deleted"`
 }
 
 type TransactionUser struct {
-	TransactionId string  `json:"transaction_id"`
-	UserId        int32   `json:"user_id"`
-	Amount        float64 `json:"amount"`
-	OwedToUserId  int32   `json:"owed_to_user_id"`
-	GroupId       int32   `json:"group_id"`
-	Currency      string  `json:"currency"`
+	TransactionId string     `json:"transaction_id"`
+	UserId        int32      `json:"user_id"`
+	Amount        float64    `json:"amount"`
+	OwedToUserId  int32      `json:"owed_to_user_id"`
+	GroupId       int32      `json:"group_id"`
+	Currency      string     `json:"currency"`
+	Deleted       *time.Time `json:"deleted"`
 }
 
 type TransactionMetadata struct {

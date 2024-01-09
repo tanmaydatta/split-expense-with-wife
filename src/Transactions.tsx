@@ -80,9 +80,24 @@ const Transactions: React.FC = () => {
     fetchTransactions(0, []);
   }, [fetchTransactions]);
 
+  const deleteTransaction = (id: number) => {
+    axios
+      .post("/.netlify/functions/split_delete", {
+        id: id,
+      })
+      .then((res) => {
+        alert(res.status);
+        fetchTransactions(0, []);
+      })
+      .catch((e) => alert(e.response.data));
+  };
+
   return (
     <div className="TransactionsWraper">
-      <TransactionList transactions={transactions} />
+      <TransactionList
+        transactions={transactions}
+        deleteTransaction={deleteTransaction}
+      />
       <Button
         variant="outline-secondary"
         onClick={() => {

@@ -20,6 +20,15 @@
     background-color: #eee;
 }
 
+.transactionListItemWrapper > :not(:last-child) {
+    flex:2;
+}
+
+.transactionListItemWrapper > :last-child {
+    flex:1;
+    text-align: center;
+}
+
 .detailsWrapper {
     padding: 10px;
     display: flex;

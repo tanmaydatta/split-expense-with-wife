@@ -1,6 +1,13 @@
 import getSymbolFromCurrency from "currency-symbol-map";
 import React, { useState } from "react";
-import { ArrowDownUp, Calendar, CardText, Coin } from "react-bootstrap-icons";
+import {
+  ArrowDownUp,
+  Calendar,
+  CardText,
+  Coin,
+  Trash,
+  XLg,
+} from "react-bootstrap-icons";
 import { dateToShortStr } from "./BudgetTable";
 import "./TransactionList.css";
 
@@ -19,9 +26,13 @@ export type Transaction = {
 
 type TransactionListProps = {
   transactions: Transaction[];
+  deleteTransaction(id: number): void;
 };
 
-const TransactionList: React.FC<TransactionListProps> = ({ transactions }) => {
+const TransactionList: React.FC<TransactionListProps> = ({
+  transactions,
+  deleteTransaction,
+}) => {
   console.log(transactions);
   const [selectedTransaction, setSelectedTransaction] =
     useState<Transaction | null>(null);
@@ -52,27 +63,39 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions }) => {
         <div>
           <ArrowDownUp /> Share
         </div>
+        <div>
+          <Trash />
+        </div>
       </div>
       {transactions.map((transaction) => (
         <>
-          <div
-            className="transactionListItemWrapper"
-            key={transaction.id}
-            onClick={() => handleClick(transaction)}
-          >
-            <div>{dateToShortStr(new Date(transaction.date))}</div>
-            <div>{transaction.description}</div>
-            <div>
+          <div className="transactionListItemWrapper" key={transaction.id}>
+            <div onClick={() => handleClick(transaction)}>
+              {dateToShortStr(new Date(transaction.date))}
+            </div>
+            <div onClick={() => handleClick(transaction)}>
+              {transaction.description}
+            </div>
+            <div onClick={() => handleClick(transaction)}>
               {getSymbolFromCurrency(transaction.currency)}
               {Math.abs(transaction.totalAmount)}
             </div>
             <div
+              onClick={() => handleClick(transaction)}
               className={transaction.totalOwed > 0 ? "positive" : "negative"}
             >
               {" "}
               {transaction.totalOwed > 0 ? "+" : "-"}
               {getSymbolFromCurrency(transaction.currency)}
               {Math.abs(transaction.totalOwed)}
+            </div>
+            <div onClick={() => deleteTransaction(transaction.id)}>
+              <XLg
+                style={{
+                  fontWeight: 500,
+                  color: "red",
+                }}
+              />
             </div>
           </div>
           {selectedTransaction &&
