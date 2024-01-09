@@ -68,7 +68,7 @@ function App(): JSX.Element {
     console.log(pin);
     axios
       .post("/.netlify/functions/budget", {
-        amount: (-1 * Number(amount)) / (currencies.get(currency) || 1),
+        amount: -1 * Number(amount),
         description: description,
         pin: sha256(pin).toString(),
         name: budget,
