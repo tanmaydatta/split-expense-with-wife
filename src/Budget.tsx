@@ -107,7 +107,7 @@ export const Budget: React.FC = () => {
               text:
                 (e.amount > 0 ? "+" : "-") +
                 getSymbolFromCurrency(e.currency) +
-                e.amount.toFixed(2),
+                Math.abs(e.amount).toFixed(2),
               color: e.amount > 0 ? "green" : "red",
             }))
             .map((e) => (
