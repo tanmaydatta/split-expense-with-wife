@@ -123,7 +123,18 @@ function App(): JSX.Element {
   };
   return (
     <>
-      {loading && <div className="loader"></div>}
+      {loading && (
+        <div
+          style={{
+            width: "100%",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <div className="loader"></div>
+        </div>
+      )}
       {!loading && (
         <div className="App">
           <Form
