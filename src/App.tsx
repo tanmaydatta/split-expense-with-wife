@@ -8,6 +8,8 @@ import "./App.css";
 import { SelectBudget } from "./SelectBudget";
 
 function App(): JSX.Element {
+  const [loading, setLoading] = useState<boolean>(false);
+
   const [budget, setBudget] = useState("house");
   const [amount, setAmount] = useState<number>();
   const [description, setDescription] = useState("");
@@ -64,6 +66,7 @@ function App(): JSX.Element {
   }, [fetchCurrencies]);
   const submitBudget = (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true);
     console.log(currency);
     console.log(pin);
     axios
@@ -78,10 +81,12 @@ function App(): JSX.Element {
       .then((res) => {
         alert(res.status);
       })
-      .catch((e) => alert(e.response.data));
+      .catch((e) => alert(e.response.data))
+      .finally(() => setLoading(false));
   };
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true);
     const target = e.target as typeof e.target & {
       description: { value: string };
       amount: { value: number };
@@ -113,150 +118,164 @@ function App(): JSX.Element {
         splitPctShares: Object.fromEntries(splitPctShares),
       })
       .then((res) => alert(res.status))
-      .catch((e) => alert(e.response.data));
+      .catch((e) => alert(e.response.data))
+      .finally(() => setLoading(false));
   };
   return (
-    <div className="App">
-      <Form
-        onSubmit={submit}
-        style={{
-          justifyContent: "center",
-          width: "fit-content",
-          margin: "1%",
-        }}
-      >
-        <Form.Group className="mb-3" controlId="formBasicEmail">
-          <Form.Control
-            name="description"
-            type="text"
-            placeholder="Description"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-          />
-        </Form.Group>
-
-        <Form.Group className="mb-3" controlId="formBasicPassword">
-          <Form.Control
-            type="number"
-            placeholder="Amount"
-            name="amount"
-            step=".01"
-            onChange={(e) => {
-              setAmount(parseFloat(e.target.value));
+    <>
+      {loading && <div className="loader"></div>}
+      {!loading && (
+        <div className="App">
+          <Form
+            onSubmit={submit}
+            style={{
+              justifyContent: "center",
+              width: "fit-content",
+              margin: "1%",
             }}
-          />
-        </Form.Group>
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "row",
-            justifyContent: "flex-start",
-            flexWrap: "wrap",
-            width: "100%",
-          }}
-        >
-          {data.users.map((u: { FirstName: string; Id: number }, i: Number) => (
-            <div
-              style={{
-                height: "fit-content",
-                width: "fit-content",
-                display: "flex",
-                flexDirection: "column",
-              }}
-            >
-              <Form.Label>
-                {u.FirstName}
-                {"%"}
-              </Form.Label>
+          >
+            <Form.Group className="mb-3" controlId="formBasicEmail">
+              <Form.Control
+                name="description"
+                type="text"
+                placeholder="Description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+              />
+            </Form.Group>
+
+            <Form.Group className="mb-3" controlId="formBasicPassword">
               <Form.Control
                 type="number"
-                placeholder={u.FirstName + "%"}
-                value={splitPctShares.get(String(u.Id))}
+                placeholder="Amount"
+                name="amount"
+                step=".01"
                 onChange={(e) => {
-                  var newSplitPctShares = new Map(splitPctShares);
-                  newSplitPctShares.set(String(u.Id), Number(e.target.value));
-                  setSplitPctShares(newSplitPctShares);
+                  setAmount(parseFloat(e.target.value));
                 }}
               />
+            </Form.Group>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "row",
+                justifyContent: "flex-start",
+                flexWrap: "wrap",
+                width: "100%",
+              }}
+            >
+              {data.users.map(
+                (u: { FirstName: string; Id: number }, i: Number) => (
+                  <div
+                    style={{
+                      height: "fit-content",
+                      width: "fit-content",
+                      display: "flex",
+                      flexDirection: "column",
+                    }}
+                  >
+                    <Form.Label>
+                      {u.FirstName}
+                      {"%"}
+                    </Form.Label>
+                    <Form.Control
+                      type="number"
+                      placeholder={u.FirstName + "%"}
+                      value={splitPctShares.get(String(u.Id))}
+                      onChange={(e) => {
+                        var newSplitPctShares = new Map(splitPctShares);
+                        newSplitPctShares.set(
+                          String(u.Id),
+                          Number(e.target.value)
+                        );
+                        setSplitPctShares(newSplitPctShares);
+                      }}
+                    />
+                  </div>
+                )
+              )}
             </div>
-          ))}
-        </div>
-        <Form.Range
-          name="splitPct"
-          step={1}
-          min={0}
-          max={100}
-          value={splitPct}
-          onChange={(e) => {
-            setSplitPct(parseInt(e.target.value));
-          }}
-        />
-        <Form.Group className="mb-3">
-          <Form.Select
-            defaultValue={currency}
-            name="currency"
-            onChange={(v) => setCurrency(v.target.value)}
-          >
-            <option>Currency</option>
-            <option value="USD">USD</option>
-            <option value="EUR">EUR</option>
-            <option value="GBP">GBP</option>
-            <option value="INR">INR</option>
-          </Form.Select>
-        </Form.Group>
-        <Form.Group className="mb-3" controlId="formBasicPassword">
-          <Form.Control
-            type="password"
-            placeholder="PIN"
-            name="pin"
-            value={pin}
-            onChange={(e) => setPin(e.target.value)}
-          />
-        </Form.Group>
-        <Form.Group className="mb-3">
-          <Form.Label>Paid by</Form.Label>{" "}
-          <Form.Select
-            defaultValue={data.userId}
-            name="paidBy"
-            onChange={(v) => {
-              console.log(v.target.value);
-              setPaidBy({
-                Id: Number(v.target.value),
-                Name:
-                  data.users.find(
-                    (u: { Id: number; FirstName: string }) =>
-                      u.Id === Number(v.target.value)
-                  )?.FirstName || "",
-              });
+            <Form.Range
+              name="splitPct"
+              step={1}
+              min={0}
+              max={100}
+              value={splitPct}
+              onChange={(e) => {
+                setSplitPct(parseInt(e.target.value));
+              }}
+            />
+            <Form.Group className="mb-3">
+              <Form.Select
+                defaultValue={currency}
+                name="currency"
+                onChange={(v) => setCurrency(v.target.value)}
+              >
+                <option>Currency</option>
+                <option value="USD">USD</option>
+                <option value="EUR">EUR</option>
+                <option value="GBP">GBP</option>
+                <option value="INR">INR</option>
+              </Form.Select>
+            </Form.Group>
+            <Form.Group className="mb-3" controlId="formBasicPassword">
+              <Form.Control
+                type="password"
+                placeholder="PIN"
+                name="pin"
+                value={pin}
+                onChange={(e) => setPin(e.target.value)}
+              />
+            </Form.Group>
+            <Form.Group className="mb-3">
+              <Form.Label>Paid by</Form.Label>{" "}
+              <Form.Select
+                defaultValue={data.userId}
+                name="paidBy"
+                onChange={(v) => {
+                  console.log(v.target.value);
+                  setPaidBy({
+                    Id: Number(v.target.value),
+                    Name:
+                      data.users.find(
+                        (u: { Id: number; FirstName: string }) =>
+                          u.Id === Number(v.target.value)
+                      )?.FirstName || "",
+                  });
+                }}
+              >
+                {data.users.map(
+                  (u: { FirstName: string; Id: number }, i: Number) => (
+                    <option value={u.Id}>{u.FirstName}</option>
+                  )
+                )}
+              </Form.Select>
+            </Form.Group>
+            <Button variant="primary" type="submit" style={{ width: "100%" }}>
+              Submit
+            </Button>
+          </Form>
+
+          <Form
+            onSubmit={submitBudget}
+            style={{
+              justifyContent: "center",
+              width: "fit-content",
+              margin: "1%",
             }}
           >
-            {data.users.map(
-              (u: { FirstName: string; Id: number }, i: Number) => (
-                <option value={u.Id}>{u.FirstName}</option>
-              )
-            )}
-          </Form.Select>
-        </Form.Group>
-        <Button variant="primary" type="submit" style={{ width: "100%" }}>
-          Submit
-        </Button>
-      </Form>
+            <SelectBudget
+              budget={budget}
+              handleChangeBudget={handleChangeBudget}
+            />
 
-      <Form
-        onSubmit={submitBudget}
-        style={{
-          justifyContent: "center",
-          width: "fit-content",
-          margin: "1%",
-        }}
-      >
-        <SelectBudget budget={budget} handleChangeBudget={handleChangeBudget} />
-
-        <Button variant="primary" type="submit" style={{ width: "100%" }}>
-          Submit
-        </Button>
-      </Form>
-    </div>
+            <Button variant="primary" type="submit" style={{ width: "100%" }}>
+              Submit
+            </Button>
+          </Form>
+        </div>
+      )}
+    </>
   );
 }
 

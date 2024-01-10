@@ -4,6 +4,7 @@ import { Button } from "react-bootstrap";
 import { useSelector } from "react-redux";
 import TransactionList, { Transaction } from "./TransactionList";
 import "./Transactions.css";
+import "./common.css";
 type TransactionMetadata = {
   owedAmounts: Map<string, number>;
   paidByShares: Map<string, number>;
@@ -20,8 +21,10 @@ type TransactionUser = {
 const Transactions: React.FC = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const data = useSelector((state: any) => state.value);
+  const [loading, setLoading] = useState<boolean>(false);
   const fetchTransactions = useCallback(
     (offset: number, transactions: Transaction[]) => {
+      setLoading(true);
       axios
         .post("/.netlify/functions/transactions_list", {
           offset: offset,
@@ -71,7 +74,8 @@ const Transactions: React.FC = () => {
         })
         .catch((e) => {
           console.log(e);
-        });
+        })
+        .finally(() => setLoading(false));
     },
     [data.userId]
   );
@@ -81,6 +85,7 @@ const Transactions: React.FC = () => {
   }, [fetchTransactions]);
 
   const deleteTransaction = (id: number) => {
+    setLoading(true);
     axios
       .post("/.netlify/functions/split_delete", {
         id: id,
@@ -89,23 +94,30 @@ const Transactions: React.FC = () => {
         alert(res.status);
         fetchTransactions(0, []);
       })
-      .catch((e) => alert(e.response.data));
+      .catch((e) => alert(e.response.data))
+      .finally(() => setLoading(false));
   };
 
   return (
     <div className="TransactionsWraper">
-      <TransactionList
-        transactions={transactions}
-        deleteTransaction={deleteTransaction}
-      />
-      <Button
-        variant="outline-secondary"
-        onClick={() => {
-          fetchTransactions(transactions.length, transactions);
-        }}
-      >
-        Show more
-      </Button>
+      {loading && <div className="loader"></div>}
+      {!loading && (
+        <TransactionList
+          transactions={transactions}
+          deleteTransaction={deleteTransaction}
+        />
+      )}
+      {!loading && (
+        <Button
+          variant="outline-secondary"
+          onClick={() => {
+            fetchTransactions(transactions.length, transactions);
+          }}
+          className="showMoreButton"
+        >
+          Show more
+        </Button>
+      )}
     </div>
   );
 };

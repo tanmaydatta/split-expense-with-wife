@@ -15,6 +15,8 @@ export const Budget: React.FC = () => {
   const [budgetsLeft, setBudgetsLeft] = useState<
     { currency: string; amount: number }[]
   >([]);
+  const [loading, setLoading] = useState<boolean>(false);
+
   const [pin, setPin] = useState("");
   const handleChangeBudget = (val: string) => setBudget(val);
   const navigate = useNavigate();
@@ -34,6 +36,7 @@ export const Budget: React.FC = () => {
 
   const fetchHistory = useCallback(
     (offset: number, history: entry[]) => {
+      setLoading(true);
       axios
         .post("/.netlify/functions/budget_list", {
           name: budget,
@@ -67,11 +70,13 @@ export const Budget: React.FC = () => {
         .catch((e) => {
           console.log(e);
           navigate("/login");
-        });
+        })
+        .finally(() => setLoading(false));
     },
     [budget, navigate]
   );
   const deleteBudgetEntry = (id: number) => {
+    setLoading(true);
     axios
       .post("/.netlify/functions/budget_delete", {
         id: id,
@@ -82,7 +87,8 @@ export const Budget: React.FC = () => {
         fetchTotal();
         fetchHistory(0, []);
       })
-      .catch((e) => alert(e.response.data));
+      .catch((e) => alert(e.response.data))
+      .finally(() => setLoading(false));
   };
   useEffect(() => {
     fetchTotal();
@@ -90,47 +96,58 @@ export const Budget: React.FC = () => {
   }, [fetchTotal, fetchHistory]);
   return (
     <div className="Budget">
-      <Form.Group className="mb-3" controlId="formBasicPassword">
-        <Form.Control
-          type="password"
-          placeholder="PIN"
-          name="pin"
-          value={pin}
-          onChange={(e) => setPin(e.target.value)}
-        />
-      </Form.Group>
-      <Card.Title style={{ marginTop: "1%" }}>
-        Budget left
-        <div className="budgetTotal">
-          {budgetsLeft
-            .map((e) => ({
-              text:
-                (e.amount > 0 ? "+" : "-") +
-                getSymbolFromCurrency(e.currency) +
-                Math.abs(e.amount).toFixed(2),
-              color: e.amount > 0 ? "green" : "red",
-            }))
-            .map((e) => (
-              <div
-                style={{
-                  color: e.color,
-                }}
-              >
-                {e.text}
-              </div>
-            ))}
-        </div>
-      </Card.Title>
-      <SelectBudget budget={budget} handleChangeBudget={handleChangeBudget} />
+      {loading && <div className="loader"></div>}
+      {!loading && (
+        <Form.Group className="mb-3" controlId="formBasicPassword">
+          <Form.Control
+            type="password"
+            placeholder="PIN"
+            name="pin"
+            value={pin}
+            onChange={(e) => setPin(e.target.value)}
+          />
+        </Form.Group>
+      )}
+      {!loading && (
+        <Card.Title style={{ marginTop: "1%" }}>
+          Budget left
+          <div className="budgetTotal">
+            {budgetsLeft
+              .map((e) => ({
+                text:
+                  (e.amount > 0 ? "+" : "-") +
+                  getSymbolFromCurrency(e.currency) +
+                  Math.abs(e.amount).toFixed(2),
+                color: e.amount > 0 ? "green" : "red",
+              }))
+              .map((e) => (
+                <div
+                  style={{
+                    color: e.color,
+                  }}
+                >
+                  {e.text}
+                </div>
+              ))}
+          </div>
+        </Card.Title>
+      )}
+      {!loading && (
+        <SelectBudget budget={budget} handleChangeBudget={handleChangeBudget} />
+      )}
 
-      <BudgetTable entries={budgetHistory} onDelete={deleteBudgetEntry} />
-      <Button
-        variant="outline-secondary"
-        style={{ width: "100%", marginBottom: "1%" }}
-        onClick={() => fetchHistory(budgetHistory.length, budgetHistory)}
-      >
-        Show more
-      </Button>
+      {!loading && (
+        <BudgetTable entries={budgetHistory} onDelete={deleteBudgetEntry} />
+      )}
+      {!loading && (
+        <Button
+          variant="outline-secondary"
+          style={{ width: "100%", marginBottom: "1%" }}
+          onClick={() => fetchHistory(budgetHistory.length, budgetHistory)}
+        >
+          Show more
+        </Button>
+      )}
     </div>
   );
 };

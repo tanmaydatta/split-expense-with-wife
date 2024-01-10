@@ -6,9 +6,11 @@ const Balances: React.FC = () => {
   const [balances, setBalances] = useState<Map<string, Map<string, number>>>(
     new Map()
   );
+  const [loading, setLoading] = useState<boolean>(false);
 
   useEffect(() => {
     const fetchBalances = async () => {
+      setLoading(true);
       await axios
         .post("/.netlify/functions/balances", {})
         .then((res) => {
@@ -24,7 +26,8 @@ const Balances: React.FC = () => {
         })
         .catch((e) => {
           console.log(e);
-        });
+        })
+        .finally(() => setLoading(false));
     };
 
     fetchBalances();
@@ -32,24 +35,26 @@ const Balances: React.FC = () => {
 
   return (
     <div className="BalancesWrapper">
-      {Array.from(balances, ([k, v]) => (
-        <div className="BalanceItemWrapper">
-          <div className="user">
-            <div>{k}</div>
+      {loading && <div className="loader"></div>}
+      {!loading &&
+        Array.from(balances, ([k, v]) => (
+          <div className="BalanceItemWrapper">
+            <div className="user">
+              <div>{k}</div>
+            </div>
+            <div className="currencyBalances">
+              {Array.from(balances.get(k) ?? new Map(), ([c, a]) => (
+                <>
+                  {a > 0 ? "You are owed" : "You owe"}{" "}
+                  <span className={a > 0 ? "positive" : "negative"}>
+                    {getSymbolFromCurrency(c)}
+                    {Math.abs(a).toFixed(2)}
+                  </span>{" "}
+                </>
+              ))}
+            </div>
           </div>
-          <div className="currencyBalances">
-            {Array.from(balances.get(k) ?? new Map(), ([c, a]) => (
-              <>
-                {a > 0 ? "You are owed" : "You owe"}{" "}
-                <span className={a > 0 ? "positive" : "negative"}>
-                  {getSymbolFromCurrency(c)}
-                  {Math.abs(a).toFixed(2)}
-                </span>{" "}
-              </>
-            ))}
-          </div>
-        </div>
-      ))}
+        ))}
     </div>
   );
 };
