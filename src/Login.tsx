@@ -1,12 +1,12 @@
 import axios from "axios";
 import sha256 from "crypto-js/sha256";
-import { useState } from "react";
+import React, { useState } from "react";
 import { Button, Container, Form } from "react-bootstrap";
 import { useCookies } from "react-cookie";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import "./Login.css";
-import { setData } from "./redux/data";
+import { setData, unsetData } from "./redux/data";
 
 function LoginPage() {
   const [username, setUsername] = useState("");
@@ -15,6 +15,8 @@ function LoginPage() {
   const [, setCookie] = useCookies(["userinfo"]);
   const dispatch = useDispatch();
   const [loading, setLoading] = useState<boolean>(false);
+  const data = useSelector((state: any) => state.value);
+
   const handleLogin = (event: any) => {
     event.preventDefault();
     setLoading(true);
@@ -35,6 +37,9 @@ function LoginPage() {
       .finally(() => setLoading(false));
   };
 
+  React.useEffect(() => {
+    dispatch(unsetData());
+  }, [dispatch]);
   return (
     <Container className="LoginWrapper">
       {loading && <div className="loader" style={{ margin: "auto" }}></div>}

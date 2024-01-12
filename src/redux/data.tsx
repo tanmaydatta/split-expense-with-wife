@@ -15,9 +15,12 @@ export const dataSlice = createSlice({
     setData: (state, action: PayloadAction<Record<string, any>>) => {
       state.value = action.payload;
     },
+    unsetData: (state) => {
+      state.value = {};
+    },
   },
 });
 
-export const { setData } = dataSlice.actions;
+export const { setData, unsetData } = dataSlice.actions;
 
 export default dataSlice.reducer;
