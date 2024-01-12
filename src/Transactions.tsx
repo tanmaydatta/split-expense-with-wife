@@ -83,7 +83,7 @@ const Transactions: React.FC = () => {
         })
         .finally(() => setLoading(false));
     },
-    [data.userId]
+    [data.userId, navigate]
   );
 
   useEffect(() => {

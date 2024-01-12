@@ -36,7 +36,7 @@ const Balances: React.FC = () => {
     };
 
     fetchBalances();
-  }, []);
+  }, [navigate]);
 
   return (
     <div className="BalancesWrapper">
