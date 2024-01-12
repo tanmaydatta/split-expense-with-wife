@@ -14,10 +14,10 @@ function LoginPage() {
   const navigate = useNavigate();
   const [, setCookie] = useCookies(["userinfo"]);
   const dispatch = useDispatch();
-
+  const [loading, setLoading] = useState<boolean>(false);
   const handleLogin = (event: any) => {
     event.preventDefault();
-
+    setLoading(true);
     axios
       .post("/.netlify/functions/login", {
         username: username,
@@ -31,32 +31,36 @@ function LoginPage() {
       .catch((e) => {
         console.log(e);
         alert(e.response.data);
-      });
+      })
+      .finally(() => setLoading(false));
   };
 
   return (
     <Container className="LoginWrapper">
-      <Form onSubmit={handleLogin}>
-        <Form.Group>
-          <Form.Control
-            placeholder="Username"
-            type="text"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-          />
-        </Form.Group>
-        <Form.Group>
-          <Form.Control
-            placeholder="Password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-        </Form.Group>
-        <Button variant="primary" type="submit" className="LoginButton">
-          Login
-        </Button>
-      </Form>
+      {loading && <div className="loader" style={{ margin: "auto" }}></div>}
+      {!loading && (
+        <Form onSubmit={handleLogin}>
+          <Form.Group>
+            <Form.Control
+              placeholder="Username"
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+            />
+          </Form.Group>
+          <Form.Group>
+            <Form.Control
+              placeholder="Password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </Form.Group>
+          <Button variant="primary" type="submit" className="LoginButton">
+            Login
+          </Button>
+        </Form>
+      )}
     </Container>
   );
 }
