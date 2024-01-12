@@ -30,7 +30,9 @@ export const Budget: React.FC = () => {
       })
       .catch((e) => {
         console.log(e);
-        navigate("/login");
+        if (e.response.status === 401) {
+          navigate("/login");
+        }
       });
   }, [budget, navigate]);
 
@@ -69,7 +71,9 @@ export const Budget: React.FC = () => {
         })
         .catch((e) => {
           console.log(e);
-          navigate("/login");
+          if (e.response.status === 401) {
+            navigate("/login");
+          }
         })
         .finally(() => setLoading(false));
     },
@@ -87,7 +91,12 @@ export const Budget: React.FC = () => {
         fetchTotal();
         fetchHistory(0, []);
       })
-      .catch((e) => alert(e.response.data))
+      .catch((e) => {
+        alert(e.response.data);
+        if (e.response.status === 401) {
+          navigate("/login");
+        }
+      })
       .finally(() => setLoading(false));
   };
   useEffect(() => {

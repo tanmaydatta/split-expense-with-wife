@@ -4,12 +4,13 @@ import React, { useCallback, useState } from "react";
 import Button from "react-bootstrap/Button";
 import Form from "react-bootstrap/Form";
 import { useSelector } from "react-redux";
+import { useNavigate } from "react-router-dom";
 import "./App.css";
 import { SelectBudget } from "./SelectBudget";
 
 function App(): JSX.Element {
   const [loading, setLoading] = useState<boolean>(false);
-
+  const navigate = useNavigate();
   const [budget, setBudget] = useState("house");
   const [amount, setAmount] = useState<number>();
   const [description, setDescription] = useState("");
@@ -68,7 +69,6 @@ function App(): JSX.Element {
     e.preventDefault();
     setLoading(true);
     console.log(currency);
-    console.log(pin);
     axios
       .post("/.netlify/functions/budget", {
         amount: -1 * Number(amount),
@@ -79,9 +79,15 @@ function App(): JSX.Element {
         currency: currency,
       })
       .then((res) => {
+        console.log("res", res);
         alert(res.status);
       })
-      .catch((e) => alert(e.response.data))
+      .catch((e) => {
+        alert(e.response.data);
+        if (e.response.status === 401) {
+          navigate("/login");
+        }
+      })
       .finally(() => setLoading(false));
   };
   const submit = (e: React.FormEvent) => {
@@ -118,7 +124,12 @@ function App(): JSX.Element {
         splitPctShares: Object.fromEntries(splitPctShares),
       })
       .then((res) => alert(res.status))
-      .catch((e) => alert(e.response.data))
+      .catch((e) => {
+        alert(e.response.data);
+        if (e.response.status === 401) {
+          navigate("/login");
+        }
+      })
       .finally(() => setLoading(false));
   };
   return (

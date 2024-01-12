@@ -1,12 +1,14 @@
 import axios from "axios";
 import getSymbolFromCurrency from "currency-symbol-map";
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import "./Balances.css";
 const Balances: React.FC = () => {
   const [balances, setBalances] = useState<Map<string, Map<string, number>>>(
     new Map()
   );
   const [loading, setLoading] = useState<boolean>(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchBalances = async () => {
@@ -26,6 +28,9 @@ const Balances: React.FC = () => {
         })
         .catch((e) => {
           console.log(e);
+          if (e.response.status === 401) {
+            navigate("/login");
+          }
         })
         .finally(() => setLoading(false));
     };

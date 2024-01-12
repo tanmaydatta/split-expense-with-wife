@@ -2,6 +2,7 @@ import axios from "axios";
 import React, { useCallback, useEffect, useState } from "react";
 import { Button } from "react-bootstrap";
 import { useSelector } from "react-redux";
+import { useNavigate } from "react-router-dom";
 import TransactionList, { Transaction } from "./TransactionList";
 import "./Transactions.css";
 import "./common.css";
@@ -20,6 +21,8 @@ type TransactionUser = {
 
 const Transactions: React.FC = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const navigate = useNavigate();
+
   const data = useSelector((state: any) => state.value);
   const [loading, setLoading] = useState<boolean>(false);
   const fetchTransactions = useCallback(
@@ -74,6 +77,9 @@ const Transactions: React.FC = () => {
         })
         .catch((e) => {
           console.log(e);
+          if (e.response.status === 401) {
+            navigate("/login");
+          }
         })
         .finally(() => setLoading(false));
     },
@@ -94,7 +100,12 @@ const Transactions: React.FC = () => {
         alert(res.status);
         fetchTransactions(0, []);
       })
-      .catch((e) => alert(e.response.data))
+      .catch((e) => {
+        alert(e.response.data);
+        if (e.response.status === 401) {
+          navigate("/login");
+        }
+      })
       .finally(() => setLoading(false));
   };
 
