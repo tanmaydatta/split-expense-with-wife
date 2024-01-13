@@ -243,24 +243,31 @@ func saveTransactionToDB(txn common.Transaction, txnUsers []common.TransactionUs
 	for i := range txnUsers {
 		txnUsers[i].TransactionId = txn.TransactionId
 	}
-	err = db.Transaction(func(tx *gorm.DB) error {
-		err := tx.Transaction(func(txTxn *gorm.DB) error {
-			if err := txTxn.Create(&txn).Error; err != nil {
-				return err
-			}
-			return nil
-		})
-		if err != nil {
-			return err
-		}
-		db.Where("transaction_id = ?")
+	return commitTransaction(db, txn, txnUsers)
+}
+
+func commitTransaction(db *gorm.DB, txn common.Transaction, txnUsers []common.TransactionUser) error {
+	tx := db.Begin()
+	tx.SavePoint("sp1")
+	err := tx.Create(&txn).Error
+	if err != nil {
+		tx.RollbackTo("sp1") // Rollback
+		return err
+	}
+	err = tx.Transaction(func(txTxn *gorm.DB) error {
 		for _, txnUser := range txnUsers {
 			txnUser.TransactionId = txn.TransactionId
-			if err := tx.Create(&txnUser).Error; err != nil {
+			if err := txTxn.Create(&txnUser).Error; err != nil {
 				return err
 			}
 		}
 		return nil
 	})
-	return err
+	if err != nil {
+		tx.RollbackTo("sp1") // Rollback
+		return err
+	}
+
+	tx.Commit()
+	return nil
 }
