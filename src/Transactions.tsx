@@ -33,6 +33,7 @@ const Transactions: React.FC = () => {
           offset: offset,
         })
         .then((res) => {
+          console.log("txnslist", res);
           var entries: Transaction[] = [];
           res.data.transactions.map(
             (e: {
@@ -46,7 +47,6 @@ const Transactions: React.FC = () => {
               group_id: number;
             }) => {
               var totalOwed: number = 0.0;
-
               const txnDetails = res.data.transactionDetails[
                 e.transaction_id
               ] as TransactionUser[];

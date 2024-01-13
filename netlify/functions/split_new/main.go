@@ -244,8 +244,8 @@ func saveTransactionToDB(txn common.Transaction, txnUsers []common.TransactionUs
 		txnUsers[i].TransactionId = txn.TransactionId
 	}
 	err = db.Transaction(func(tx *gorm.DB) error {
-		err := db.Transaction(func(txTxn *gorm.DB) error {
-			if err := tx.Create(&txn).Error; err != nil {
+		err := tx.Transaction(func(txTxn *gorm.DB) error {
+			if err := txTxn.Create(&txn).Error; err != nil {
 				return err
 			}
 			return nil
