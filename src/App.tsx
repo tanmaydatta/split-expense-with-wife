@@ -1,6 +1,6 @@
 import axios from "axios";
 import sha256 from "crypto-js/sha256";
-import React, { useCallback, useState } from "react";
+import React, { useState } from "react";
 import Button from "react-bootstrap/Button";
 import Form from "react-bootstrap/Form";
 import { useSelector } from "react-redux";
@@ -15,10 +15,6 @@ function App(): JSX.Element {
   const [amount, setAmount] = useState<number>();
   const [description, setDescription] = useState("");
   const [pin, setPin] = useState("");
-  const [splitPct, setSplitPct] = useState<number>(65);
-  const [currencies, setCurrencies] = useState<Map<string, number>>(
-    new Map<string, number>()
-  );
   const [splitPctShares, setSplitPctShares] = useState<Map<string, number>>(
     new Map<string, number>()
   );
@@ -44,27 +40,6 @@ function App(): JSX.Element {
   // const handleChange = (val: string) => setPaidBy(val);
   const handleChangeBudget = (val: string) => setBudget(val);
 
-  const fetchCurrencies = useCallback(() => {
-    axios
-      .get("https://api.exchangerate-api.com/v4/latest/GBP")
-      .then((res) => {
-        console.log(res.data);
-        var currencies: Map<string, number> = new Map<string, number>();
-        Object.keys(res.data.rates).map((key) =>
-          currencies.set(key, res.data.rates[key])
-        );
-        console.log(currencies);
-        setCurrencies(currencies);
-      })
-      .catch((e) => {
-        console.log(e);
-        alert(e);
-      });
-  }, []);
-
-  React.useEffect(() => {
-    fetchCurrencies();
-  }, [fetchCurrencies]);
   const submitBudget = (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -103,11 +78,12 @@ function App(): JSX.Element {
     if (data.groupId === 1) {
       axios
         .post("/.netlify/functions/split", {
-          amount: Number(target.amount.value) / (currencies.get(currency) || 1),
+          amount: Number(target.amount.value),
           description: target.description.value,
           paidBy: paidBy.Name,
           pin: sha256(target.pin.value).toString(),
-          splitPct: splitPct,
+          splitPct: splitPctShares.get("1"),
+          currency: currency,
         })
         .then((res) => alert(res.status))
         .catch((e) => alert(e.response.data));
@@ -217,16 +193,6 @@ function App(): JSX.Element {
                 )
               )}
             </div>
-            <Form.Range
-              name="splitPct"
-              step={1}
-              min={0}
-              max={100}
-              value={splitPct}
-              onChange={(e) => {
-                setSplitPct(parseInt(e.target.value));
-              }}
-            />
             <Form.Group className="mb-3">
               <Form.Select
                 defaultValue={currency}

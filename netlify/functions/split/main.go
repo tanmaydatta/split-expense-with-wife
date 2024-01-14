@@ -17,6 +17,7 @@ type Request struct {
 	PaidBy      string  `json:"paidBy"`
 	Pin         string  `json:"pin"`
 	SplitPct    float64 `json:"splitPct"`
+	Currency    string  `json:"currency"`
 }
 
 func handler(request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResponse, error) {
@@ -38,6 +39,14 @@ func handler(request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResp
 			Body:       "invalid pin",
 		}, nil
 	}
+
+	if req.Currency == "" {
+		return &events.APIGatewayProxyResponse{
+			StatusCode: 503,
+			Body:       "invalid currency",
+		}, nil
+	}
+
 	var tanmayPaidShare float64 = 0.0
 	var aayushiPaidShare float64 = 0.0
 	if req.PaidBy == "Tanmay" {
@@ -66,7 +75,7 @@ func handler(request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResp
 		splitwise.Expense{
 			Cost:         fmt.Sprintf("%.2f", req.Amount),
 			Description:  req.Description,
-			CurrencyCode: "GBP",
+			CurrencyCode: req.Currency,
 			GroupId:      0,
 		},
 		userShares,
