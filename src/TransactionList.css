@@ -1,0 +1,50 @@
+.transactionListWrapper {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    overflow: auto;
+}
+
+.transactionListItemWrapper{
+    width: 100%;
+    padding: 10px;
+    border-bottom: 1px solid #ccc;
+    cursor: pointer;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.transactionListItemWrapper:hover {
+    background-color: #eee;
+}
+
+.transactionListItemWrapper > :not(:last-child) {
+    flex:2;
+}
+
+.transactionListItemWrapper > :last-child {
+    flex:1;
+    text-align: center;
+}
+
+.detailsWrapper {
+    padding: 10px;
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    justify-content: space-between;
+    background-color: #f8f8f8;
+}
+.transactionListWrapper > :first-child {
+    background-color: #eee;
+}
+
+.positive {
+    color: green;
+}
+
+.negative {
+    color: red;
+}

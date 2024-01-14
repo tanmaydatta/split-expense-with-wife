@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"slices"
 	"time"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -17,9 +16,12 @@ import (
 )
 
 type Request struct {
-	Offset int32  `json:"offset"`
-	Pin    string `json:"pin"`
-	Name   string `json:"name"`
+	Offset int32 `json:"offset"`
+}
+
+type TransactionsListResponse struct {
+	Transactions       []common.Transaction                `json:"transactions"`
+	TransactionDetails map[string][]common.TransactionUser `json:"transactionDetails"`
 }
 
 func handler(request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResponse, error) {
@@ -43,13 +45,6 @@ func handler(request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResp
 			Body:       "unauthorized",
 		}, nil
 	}
-	if err := validateBudgetListRequest(&req, session); err != nil {
-		log.Default().Println(err)
-		return &events.APIGatewayProxyResponse{
-			StatusCode: 503,
-			Body:       err.Error(),
-		}, nil
-	}
 
 	// ValidateSession()
 	// Open a connection to PlanetScale
@@ -64,21 +59,37 @@ func handler(request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResp
 		}, nil
 	}
 	startFrom := time.Now()
-	name := req.Name
-	if name == "" {
-		name = "house"
-	}
-	entries := []common.BudgetEntry{}
+	entries := []common.Transaction{}
 	tx := db.Limit(5).Offset(int(req.Offset)).
-		Where("added_time < ? and name = ? and groupid = ? and deleted is null", startFrom, name, session.Group.Groupid).
-		Order("added_time desc").Find(&entries)
+		Where("created_at < ? and group_id = ? and deleted is null", startFrom, session.Group.Groupid).
+		Order("created_at desc").Find(&entries)
 	if tx.Error != nil {
 		return &events.APIGatewayProxyResponse{
 			StatusCode: 500,
 			Body:       "[budget] error reading from db",
 		}, nil
 	}
-	b, _ := json.Marshal(entries)
+	txnIds := []string{}
+	for _, entry := range entries {
+		txnIds = append(txnIds, entry.TransactionId)
+	}
+	txnUsers := []common.TransactionUser{}
+	tx = db.Where("transaction_id in ?", txnIds).Find(&txnUsers)
+	if tx.Error != nil {
+		return &events.APIGatewayProxyResponse{
+			StatusCode: 500,
+			Body:       "[budget] error reading from db",
+		}, nil
+	}
+	txnUserMap := map[string][]common.TransactionUser{}
+	for _, txnUser := range txnUsers {
+		txnUserMap[txnUser.TransactionId] = append(txnUserMap[txnUser.TransactionId], txnUser)
+	}
+
+	b, _ := json.Marshal(TransactionsListResponse{
+		Transactions:       entries,
+		TransactionDetails: txnUserMap,
+	})
 	return &events.APIGatewayProxyResponse{
 		StatusCode: 200,
 		Body:       string(b),
@@ -91,16 +102,4 @@ func handler(request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResp
 func main() {
 	// Make the handler available for Remote Procedure Call
 	lambda.Start(handler)
-}
-
-func validateBudgetListRequest(req *Request, session *common.CurrentSession) error {
-	budgets := []string{}
-	err := json.Unmarshal([]byte(session.Group.Budgets), &budgets)
-	if err != nil {
-		return fmt.Errorf("error parsing budgets")
-	}
-	if !slices.Contains(budgets, req.Name) {
-		return fmt.Errorf("invalid budget name")
-	}
-	return nil
 }

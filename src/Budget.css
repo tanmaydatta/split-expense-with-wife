@@ -1,0 +1,30 @@
+.Budget {
+    padding: 10%;
+    flex-direction: column;
+    display: flex;
+    justify-content: center;
+    margin-top: 10%;
+    align-items: center;
+    width: 100%;
+  }
+  
+
+.positive {
+  color: green;
+}
+
+.negative {
+  color: red;
+}
+
+.budgetTotal {
+  width: 100%;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.budgetTotal > * {
+   padding-right: 1rem;
+} 
