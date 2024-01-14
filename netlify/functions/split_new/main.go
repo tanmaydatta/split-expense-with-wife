@@ -168,19 +168,24 @@ func getSplitAmounts(req Request) ([]common.TransactionUser, error) {
 	for k, v := range req.SplitPctSharesByUserId {
 		o := req.PaidBySharesByUserId[k] - (req.Amount * v / 100)
 		owed[k] = o
-		if o > 0 {
+		if o >= 0 {
 			owedToUserIds = append(owedToUserIds, k)
 			totalOwed += o
 		}
 	}
 	for k, v := range owed {
+		// credit
 		if v > 0 {
 			continue
 		}
 		for _, owedToUserId := range owedToUserIds {
+			amt := 0.0
+			if totalOwed != 0 {
+				amt = math.Abs(owed[owedToUserId] / totalOwed * v)
+			}
 			amounts = append(amounts, common.TransactionUser{
 				UserId:       k,
-				Amount:       math.Abs(owed[owedToUserId] / totalOwed * v),
+				Amount:       amt,
 				OwedToUserId: owedToUserId,
 				Currency:     req.Currency,
 			})
