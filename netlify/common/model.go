@@ -66,27 +66,27 @@ type TransactionMetadata struct {
 }
 
 func (BudgetEntry) TableName() string {
-	return "budget"
+	return "finances_db.budget"
 }
 
 func (User) TableName() string {
-	return "users"
+	return "finances_db.users"
 }
 
 func (Session) TableName() string {
-	return "sessions"
+	return "finances_db.sessions"
 }
 
 func (Group) TableName() string {
-	return "groups"
+	return "finances_db.groups"
 }
 
 func (Transaction) TableName() string {
-	return "transactions"
+	return "finances_db.transactions"
 }
 
 func (TransactionUser) TableName() string {
-	return "transaction_users"
+	return "finances_db.transaction_users"
 }
 
 var Currencies = []string{
