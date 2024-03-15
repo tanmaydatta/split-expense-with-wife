@@ -7,9 +7,8 @@ import (
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
-	_ "github.com/go-sql-driver/mysql"
 	"github.com/tanmaydatta/split-expense-with-wife/netlify/common"
-	"gorm.io/driver/mysql"
+	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
@@ -39,7 +38,7 @@ func handler(request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResp
 
 	// ValidateSession()
 	// Open a connection to PlanetScale
-	db, err := gorm.Open(mysql.Open(os.Getenv("DSN")), &gorm.Config{
+	db, err := gorm.Open(postgres.Open(os.Getenv("DSN_POSTGRES")), &gorm.Config{
 		DisableForeignKeyConstraintWhenMigrating: true,
 	})
 	if err != nil {

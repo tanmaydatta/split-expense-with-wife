@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-lambda-go/events"
-	"gorm.io/driver/mysql"
+	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
@@ -41,7 +41,7 @@ func ValidateSession(sessionId string) (bool, *CurrentSession) {
 	}
 	fmt.Printf("sessionId: %s1\n", sessionId)
 	session := Session{}
-	db, err := gorm.Open(mysql.Open(os.Getenv("DSN")), &gorm.Config{
+	db, err := gorm.Open(postgres.Open(os.Getenv("DSN_POSTGRES")), &gorm.Config{
 		DisableForeignKeyConstraintWhenMigrating: true,
 	})
 	if err != nil {
