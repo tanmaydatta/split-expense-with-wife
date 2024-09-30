@@ -6,12 +6,14 @@ import Form from "react-bootstrap/Form";
 import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import "./App.css";
+import { CreditDebit } from "./CreditDebit";
 import { SelectBudget } from "./SelectBudget";
 
 function App(): JSX.Element {
   const [loading, setLoading] = useState<boolean>(false);
   const navigate = useNavigate();
   const [budget, setBudget] = useState("house");
+  const [creditDebit, setCreditDebit] = useState("Debit");
   const [amount, setAmount] = useState<number>();
   const [description, setDescription] = useState("");
   const [pin, setPin] = useState("");
@@ -39,6 +41,7 @@ function App(): JSX.Element {
   // const [entries, setEntries] = useState<entry>();
   // const handleChange = (val: string) => setPaidBy(val);
   const handleChangeBudget = (val: string) => setBudget(val);
+  const handleChangeCreditDebit = (val: string) => setCreditDebit(val);
 
   const submitBudget = (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,7 +49,7 @@ function App(): JSX.Element {
     console.log(currency);
     axios
       .post("/.netlify/functions/budget", {
-        amount: -1 * Number(amount),
+        amount: (creditDebit === 'Debit' ? -1 : 1) * Number(amount),
         description: description,
         pin: sha256(pin).toString(),
         name: budget,
@@ -255,6 +258,10 @@ function App(): JSX.Element {
             <SelectBudget
               budget={budget}
               handleChangeBudget={handleChangeBudget}
+            />
+            <CreditDebit
+              budget={creditDebit}
+              handleChangeBudget={handleChangeCreditDebit}
             />
 
             <Button variant="primary" type="submit" style={{ width: "100%" }}>
