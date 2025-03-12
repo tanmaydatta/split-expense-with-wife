@@ -146,6 +146,18 @@ export const Budget: React.FC = () => {
       )}
 
       {!loading && (
+        <div style={{ width: "100%", marginBottom: "1%" }}>
+          <Button
+            variant="outline-primary"
+            style={{ width: "100%", marginBottom: "1%" }}
+            onClick={() => navigate(`/monthly-budget/${budget}`)}
+          >
+            View Monthly Budget Breakdown
+          </Button>
+        </div>
+      )}
+
+      {!loading && (
         <BudgetTable entries={budgetHistory} onDelete={deleteBudgetEntry} />
       )}
       {!loading && (

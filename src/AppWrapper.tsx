@@ -6,6 +6,7 @@ import Balances from "./Balances";
 import { Budget } from "./Budget";
 import LoginPage from "./Login";
 import { Logout } from "./Logout";
+import { MonthlyBudgetPage } from "./MonthlyBudgetPage";
 import Sidebar from "./Sidebar";
 import Transactions from "./Transactions";
 
@@ -31,6 +32,14 @@ function AppWrapper() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/balances" element={withAuthCheck(Balances)({})} />
         <Route path="/budget" element={withAuthCheck(Budget)({})} />
+        <Route
+          path="/monthly-budget"
+          element={withAuthCheck(MonthlyBudgetPage)({})}
+        />
+        <Route
+          path="/monthly-budget/:budgetName"
+          element={withAuthCheck(MonthlyBudgetPage)({})}
+        />
         <Route path="/expenses" element={withAuthCheck(Transactions)({})} />
         <Route path="/logout" element={<Logout />} />
       </Routes>

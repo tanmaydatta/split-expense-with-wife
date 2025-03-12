@@ -31,6 +31,9 @@ function Sidebar(): JSX.Element {
       <div className="SidebarItem" onClick={() => navigate("/budget")}>
         Budget
       </div>
+      <div className="SidebarItem" onClick={() => navigate("/monthly-budget")}>
+        Monthly Budget
+      </div>
       <div className="SidebarFooter" onClick={() => navigate("/logout")}>
         <div>Logout</div>
       </div>
