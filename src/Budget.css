@@ -57,4 +57,58 @@
 /* Back button style */
 .back-button {
   margin-bottom: 1rem;
+}
+
+/* Chart styles */
+.recharts-wrapper {
+  margin: 0 auto;
+}
+
+.nav-tabs .nav-link {
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 0.25rem 0.5rem;
+}
+
+.nav-tabs .nav-link.active {
+  font-weight: 600;
+}
+
+.recharts-tooltip-item-name,
+.recharts-tooltip-item-value {
+  color: #333;
+}
+
+.recharts-responsive-container {
+  margin-bottom: 1rem;
+}
+
+/* Enhanced chart styles */
+.recharts-cartesian-grid-horizontal line,
+.recharts-cartesian-grid-vertical line {
+  stroke: #e0e0e0;
+}
+
+.recharts-bar-rectangle {
+  opacity: 0.9;
+}
+
+.recharts-bar-rectangle:hover {
+  opacity: 1;
+}
+
+.recharts-tooltip-wrapper {
+  border-radius: 5px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+}
+
+.recharts-tooltip-label {
+  font-weight: 600;
+  margin-bottom: 5px;
+}
+
+.recharts-default-tooltip {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+  border: 1px solid #e0e0e0 !important;
+  padding: 10px !important;
 } 

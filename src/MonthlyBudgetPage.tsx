@@ -2,12 +2,24 @@ import { useCallback, useEffect, useState } from "react";
 import { Button, Card } from "react-bootstrap";
 import { useNavigate, useParams } from "react-router-dom";
 import "./Budget.css";
+import BudgetBarChart from "./BudgetBarChart";
 import { MonthlyBudget } from "./MonthlyBudget";
 import { SelectBudget } from "./SelectBudget";
+
+type MonthlyBudgetData = {
+  month: string;
+  year: number;
+  amounts: {
+    currency: string;
+    amount: number;
+  }[];
+};
 
 export const MonthlyBudgetPage: React.FC = () => {
   const { budgetName } = useParams<{ budgetName: string }>();
   const [budget, setBudget] = useState(budgetName || "house");
+  const [monthlyData, setMonthlyData] = useState<MonthlyBudgetData[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
   const navigate = useNavigate();
 
   const handleChangeBudget = useCallback(
@@ -23,6 +35,12 @@ export const MonthlyBudgetPage: React.FC = () => {
       setBudget(budgetName);
     }
   }, [budgetName]);
+
+  // Callback function to receive data from the MonthlyBudget component
+  const handleDataReceived = useCallback((data: MonthlyBudgetData[]) => {
+    setMonthlyData(data);
+    setLoading(false);
+  }, []);
 
   return (
     <div className="Budget">
@@ -42,7 +60,17 @@ export const MonthlyBudgetPage: React.FC = () => {
             budget={budget}
             handleChangeBudget={handleChangeBudget}
           />
-          <MonthlyBudget budget={budget} />
+
+          {/* Chart section */}
+          <BudgetBarChart data={monthlyData} />
+
+          {/* We still need the MonthlyBudget component for data fetching, but we'll hide it */}
+          <div style={{ display: "none" }}>
+            <MonthlyBudget
+              budget={budget}
+              onDataReceived={handleDataReceived}
+            />
+          </div>
         </Card.Body>
       </Card>
     </div>

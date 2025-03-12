@@ -5,16 +5,26 @@ import { Card, Spinner } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
 import "./Budget.css";
 
+type MonthlyAmount = {
+  currency: string;
+  amount: number;
+};
+
 type MonthlyBudgetData = {
   month: string;
   year: number;
-  amounts: {
-    currency: string;
-    amount: number;
-  }[];
+  amounts: MonthlyAmount[];
 };
 
-export const MonthlyBudget: React.FC<{ budget: string }> = ({ budget }) => {
+interface MonthlyBudgetProps {
+  budget: string;
+  onDataReceived?: (data: MonthlyBudgetData[]) => void;
+}
+
+export const MonthlyBudget: React.FC<MonthlyBudgetProps> = ({
+  budget,
+  onDataReceived,
+}) => {
   const [monthlyData, setMonthlyData] = useState<MonthlyBudgetData[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const dataFetchedRef = useRef(false);
@@ -30,6 +40,11 @@ export const MonthlyBudget: React.FC<{ budget: string }> = ({ budget }) => {
       .then((res) => {
         setMonthlyData(res.data);
         dataFetchedRef.current = true;
+
+        // Pass data to parent component if callback provided
+        if (onDataReceived) {
+          onDataReceived(res.data);
+        }
       })
       .catch((e) => {
         console.log(e);
@@ -38,7 +53,7 @@ export const MonthlyBudget: React.FC<{ budget: string }> = ({ budget }) => {
         }
       })
       .finally(() => setLoading(false));
-  }, [budget, navigate]);
+  }, [budget, navigate, onDataReceived]);
 
   useEffect(() => {
     dataFetchedRef.current = false;
