@@ -5,6 +5,7 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  LabelList,
   Legend,
   ResponsiveContainer,
   Tooltip,
@@ -32,6 +33,27 @@ type DataByCurrency = {
 
 type Props = {
   data: MonthlyBudgetData[];
+};
+
+// Custom label formatter to round to nearest integer
+const renderCustomBarLabel = (props: any) => {
+  const { x, y, width, value, currency } = props;
+  const symbol = getSymbolFromCurrency(currency) || currency;
+  const roundedValue = Math.round(value);
+
+  return (
+    <text
+      x={x + width / 2}
+      y={y - 5}
+      fill="#333333"
+      textAnchor="middle"
+      dominantBaseline="middle"
+      fontSize="12"
+      fontWeight="600"
+    >
+      {`${symbol}${roundedValue}`}
+    </text>
+  );
 };
 
 const BudgetBarChart: React.FC<Props> = ({ data }) => {
@@ -145,18 +167,20 @@ const BudgetBarChart: React.FC<Props> = ({ data }) => {
           <ResponsiveContainer width="100%" height={300}>
             <BarChart
               data={chartData[activeCurrency]}
-              margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+              margin={{ top: 30, right: 30, left: 20, bottom: 5 }}
             >
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="name" />
               <YAxis
                 tickFormatter={(value) =>
-                  `${getSymbolFromCurrency(activeCurrency)}${value}`
+                  `${getSymbolFromCurrency(activeCurrency)}${Math.round(value)}`
                 }
               />
               <Tooltip
                 formatter={(value: number) => [
-                  `${getSymbolFromCurrency(activeCurrency)}${value}`,
+                  `${getSymbolFromCurrency(activeCurrency)}${Math.round(
+                    value
+                  )}`,
                   "Expenses",
                 ]}
               />
@@ -167,7 +191,16 @@ const BudgetBarChart: React.FC<Props> = ({ data }) => {
                 fill="#d32f2f"
                 stroke="#000000"
                 strokeWidth={0.5}
-              />
+              >
+                <LabelList
+                  dataKey="expenses"
+                  position="top"
+                  formatter={(value: number) => Math.round(value)}
+                  content={(props) =>
+                    renderCustomBarLabel({ ...props, currency: activeCurrency })
+                  }
+                />
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         )}
