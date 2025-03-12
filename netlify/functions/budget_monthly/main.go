@@ -78,9 +78,9 @@ func handler(request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResp
 		name = "house"
 	}
 
-	// Get the current time to set a limit of looking back 6 months
+	// Get the current time to set a limit - fetch last 24 months instead of 6
 	now := time.Now()
-	sixMonthsAgo := now.AddDate(0, -6, 0)
+	oldestData := now.AddDate(-2, 0, 0) // Go back 2 years (24 months)
 
 	// Query to get monthly totals
 	type MonthlyData struct {
@@ -113,7 +113,7 @@ func handler(request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResp
 			1 DESC
 	`
 
-	tx := db.Raw(query, name, session.Group.Groupid, sixMonthsAgo).Scan(&monthlyData)
+	tx := db.Raw(query, name, session.Group.Groupid, oldestData).Scan(&monthlyData)
 	if tx.Error != nil {
 		return &events.APIGatewayProxyResponse{
 			StatusCode: 503,

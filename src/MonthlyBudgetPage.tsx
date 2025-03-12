@@ -19,7 +19,6 @@ export const MonthlyBudgetPage: React.FC = () => {
   const { budgetName } = useParams<{ budgetName: string }>();
   const [budget, setBudget] = useState(budgetName || "house");
   const [monthlyData, setMonthlyData] = useState<MonthlyBudgetData[]>([]);
-  const [loading, setLoading] = useState<boolean>(false);
   const navigate = useNavigate();
 
   const handleChangeBudget = useCallback(
@@ -39,7 +38,6 @@ export const MonthlyBudgetPage: React.FC = () => {
   // Callback function to receive data from the MonthlyBudget component
   const handleDataReceived = useCallback((data: MonthlyBudgetData[]) => {
     setMonthlyData(data);
-    setLoading(false);
   }, []);
 
   return (

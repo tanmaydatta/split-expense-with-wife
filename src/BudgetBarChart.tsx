@@ -1,6 +1,6 @@
 import getSymbolFromCurrency from "currency-symbol-map";
 import { useEffect, useState } from "react";
-import { Card, Nav } from "react-bootstrap";
+import { Button, ButtonGroup, Card, Nav } from "react-bootstrap";
 import {
   Bar,
   BarChart,
@@ -29,6 +29,11 @@ type DataByCurrency = {
     name: string;
     expenses: number;
   }[];
+};
+
+type DateRange = {
+  label: string;
+  months: number;
 };
 
 type Props = {
@@ -60,16 +65,67 @@ const BudgetBarChart: React.FC<Props> = ({ data }) => {
   const [chartData, setChartData] = useState<DataByCurrency>({});
   const [currencies, setCurrencies] = useState<string[]>([]);
   const [activeCurrency, setActiveCurrency] = useState<string>("");
+  const [timeRange, setTimeRange] = useState<number>(6); // Default to 6 months
+  const [filteredData, setFilteredData] = useState<MonthlyBudgetData[]>([]);
 
+  // Predefined date ranges
+  const dateRanges: DateRange[] = [
+    { label: "6 Months", months: 6 },
+    { label: "1 Year", months: 12 },
+    { label: "2 Years", months: 24 },
+    { label: "All Time", months: 999 }, // Very large number to include all
+  ];
+
+  // Filter data based on selected time range
   useEffect(() => {
     if (!data || data.length === 0) return;
+
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth(); // 0-indexed
+
+    let filtered = [...data];
+
+    // Only filter if not showing all time
+    if (timeRange !== 999) {
+      filtered = data.filter((monthData) => {
+        const monthIdx = [
+          "January",
+          "February",
+          "March",
+          "April",
+          "May",
+          "June",
+          "July",
+          "August",
+          "September",
+          "October",
+          "November",
+          "December",
+        ].indexOf(monthData.month);
+
+        if (monthIdx === -1) return false;
+
+        // Calculate how many months ago this data point is
+        const monthsAgo =
+          (currentYear - monthData.year) * 12 + (currentMonth - monthIdx);
+
+        return monthsAgo < timeRange;
+      });
+    }
+
+    setFilteredData(filtered);
+  }, [data, timeRange]);
+
+  useEffect(() => {
+    if (!filteredData || filteredData.length === 0) return;
 
     // Process data for charts
     const dataByCurrency: DataByCurrency = {};
     const availableCurrencies = new Set<string>();
 
     // First, organize data by currency
-    data.forEach((monthData) => {
+    filteredData.forEach((monthData) => {
       const monthName = `${monthData.month.substr(0, 3)} ${monthData.year}`;
 
       monthData.amounts.forEach((amount) => {
@@ -135,7 +191,7 @@ const BudgetBarChart: React.FC<Props> = ({ data }) => {
     if (currencyList.length > 0 && !activeCurrency) {
       setActiveCurrency(currencyList[0]);
     }
-  }, [data, activeCurrency]);
+  }, [filteredData, activeCurrency]);
 
   if (!data || data.length === 0 || currencies.length === 0) {
     return (
@@ -146,7 +202,22 @@ const BudgetBarChart: React.FC<Props> = ({ data }) => {
   return (
     <Card className="mt-3 mb-3">
       <Card.Header>
-        <h5 className="mb-0">Monthly Budget Chart</h5>
+        <div className="d-flex justify-content-between align-items-center mb-2">
+          <h5 className="mb-0">Monthly Budget Chart</h5>
+          <ButtonGroup size="sm">
+            {dateRanges.map((range) => (
+              <Button
+                key={range.months}
+                variant={
+                  timeRange === range.months ? "primary" : "outline-primary"
+                }
+                onClick={() => setTimeRange(range.months)}
+              >
+                {range.label}
+              </Button>
+            ))}
+          </ButtonGroup>
+        </div>
         <Nav
           variant="tabs"
           className="mt-2"
