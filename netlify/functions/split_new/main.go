@@ -13,7 +13,7 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/tanmaydatta/split-expense-with-wife/netlify/common"
-	"gorm.io/driver/postgres"
+	"github.com/kofj/gorm-driver-d1"
 	"gorm.io/gorm"
 )
 
@@ -234,12 +234,17 @@ func createDBRecord(req Request, session *common.CurrentSession) (common.Transac
 }
 
 func saveTransactionToDB(txn common.Transaction, txnUsers []common.TransactionUser) error {
-	db, err := gorm.Open(postgres.Open(os.Getenv("DSN_POSTGRES")), &gorm.Config{
+	dsn := os.Getenv("DSN_D1")
+	if dsn == "" {
+		log.Println("DSN_D1 environment variable not set")
+		return fmt.Errorf("DSN_D1 environment variable not set")
+	}
+	db, err := gorm.Open(d1.Open(dsn), &gorm.Config{
 		DisableForeignKeyConstraintWhenMigrating: true,
 	})
 	if err != nil {
-		log.Fatalf("failed to connect: %v", err)
-		return nil
+		log.Printf("failed to connect to D1: %v", err)
+		return fmt.Errorf("[split_new] failed to connect to db: %w", err)
 	}
 	txn.TransactionId, err = common.GenerateRandomID(16)
 	if err != nil {

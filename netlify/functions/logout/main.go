@@ -10,7 +10,7 @@ import (
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
-	"gorm.io/driver/postgres"
+	"github.com/kofj/gorm-driver-d1"
 	"gorm.io/gorm"
 )
 
@@ -79,11 +79,16 @@ func logout(sessionid string) {
 		return
 	}
 	session := Session{}
-	db, err := gorm.Open(postgres.Open(os.Getenv("DSN_POSTGRES")), &gorm.Config{
+	dsn := os.Getenv("DSN_D1")
+	if dsn == "" {
+		log.Println("DSN_D1 environment variable not set")
+		return
+	}
+	db, err := gorm.Open(d1.Open(dsn), &gorm.Config{
 		DisableForeignKeyConstraintWhenMigrating: true,
 	})
 	if err != nil {
-		log.Fatalf("failed to connect: %v", err)
+		log.Printf("failed to connect to D1: %v", err)
 		return
 	}
 	tx := db.Where("sessionid = ?", sessionid).First(&session)

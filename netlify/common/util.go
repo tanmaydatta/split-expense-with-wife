@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-lambda-go/events"
-	"gorm.io/driver/postgres"
+	"github.com/kofj/gorm-driver-d1"
 	"gorm.io/gorm"
 )
 
@@ -41,7 +41,14 @@ func ValidateSession(sessionId string) (bool, *CurrentSession) {
 	}
 	fmt.Printf("sessionId: %s1\n", sessionId)
 	session := Session{}
-	db, err := gorm.Open(postgres.Open(os.Getenv("DSN_POSTGRES")), &gorm.Config{
+	// DSN_D1 environment variable should be set with the D1 connection string
+	// e.g., "file:/mnt/d1/mydb.sqlite3" or the actual D1 binding
+	dsn := os.Getenv("DSN_D1")
+	if dsn == "" {
+		log.Fatal("DSN_D1 environment variable not set")
+		return false, nil
+	}
+	db, err := gorm.Open(d1.Open(dsn), &gorm.Config{
 		DisableForeignKeyConstraintWhenMigrating: true,
 	})
 	if err != nil {

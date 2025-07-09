@@ -11,7 +11,7 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/tanmaydatta/split-expense-with-wife/netlify/common"
-	"gorm.io/driver/postgres"
+	"github.com/kofj/gorm-driver-d1"
 	"gorm.io/gorm"
 )
 
@@ -61,12 +61,20 @@ func handler(request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResp
 		}, nil
 	}
 
-	// Open a connection to database
-	db, err := gorm.Open(postgres.Open(os.Getenv("DSN_POSTGRES")), &gorm.Config{
+	// Open a connection to D1
+	dsn := os.Getenv("DSN_D1")
+	if dsn == "" {
+		log.Println("DSN_D1 environment variable not set")
+		return &events.APIGatewayProxyResponse{
+			StatusCode: 500,
+			Body:       "Internal server error: DSN not configured",
+		}, nil
+	}
+	db, err := gorm.Open(d1.Open(dsn), &gorm.Config{
 		DisableForeignKeyConstraintWhenMigrating: true,
 	})
 	if err != nil {
-		log.Fatalf("failed to connect: %v", err)
+		log.Printf("failed to connect to D1: %v", err)
 		return &events.APIGatewayProxyResponse{
 			StatusCode: 503,
 			Body:       "[budget_monthly] failed to connect to db",
@@ -93,13 +101,14 @@ func handler(request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResp
 
 	// Use date_part or extract to get month and year components from timestamp
 	// Note: SQL functions may differ by DB provider - this is for PostgreSQL
+	// Changed EXTRACT to strftime for SQLite compatibility
 	query := `
 		SELECT
-			EXTRACT(MONTH FROM added_time) as month,
-			EXTRACT(YEAR FROM added_time) as year,
+			CAST(strftime('%m', added_time) AS INTEGER) as month,
+			CAST(strftime('%Y', added_time) AS INTEGER) as year,
 			currency,
 			SUM(amount) as amount
-		FROM finances_db.budget
+		FROM budget
 		WHERE 
 			name = ? AND 
 			groupid = ? AND 
