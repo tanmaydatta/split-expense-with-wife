@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-lambda-go/events"
-	"github.com/kofj/gorm-driver-d1"
+	"github.com/kofj/gorm-driver-d1/gormd1"
 	"gorm.io/gorm"
 )
 
@@ -48,7 +48,7 @@ func ValidateSession(sessionId string) (bool, *CurrentSession) {
 		log.Fatal("DSN_D1 environment variable not set")
 		return false, nil
 	}
-	db, err := gorm.Open(d1.Open(dsn), &gorm.Config{
+	db, err := gorm.Open(gormd1.Open(dsn), &gorm.Config{
 		DisableForeignKeyConstraintWhenMigrating: true,
 	})
 	if err != nil {
@@ -67,11 +67,11 @@ func ValidateSession(sessionId string) (bool, *CurrentSession) {
 	// }
 	group := Group{}
 	user := User{}
-	tx = db.Where("username = ?", session.Username).First(&user)
+	tx = db.Select("id, username, first_name, groupid").Where("username = ?", session.Username).First(&user)
 	if tx.Error != nil {
 		return false, nil
 	}
-	tx = db.Where("groupid = ?", user.Groupid).First(&group)
+	tx = db.Select("groupid, budgets, userids, metadata").Where("groupid = ?", user.Groupid).First(&group)
 	if tx.Error != nil {
 		return false, nil
 	}
@@ -81,7 +81,7 @@ func ValidateSession(sessionId string) (bool, *CurrentSession) {
 		return false, nil
 	}
 	users := []User{}
-	tx = db.Where("id in ?", userIds).Find(&users)
+	tx = db.Select("id, username, first_name, groupid").Where("id in ?", userIds).Find(&users)
 	if tx.Error != nil {
 		return false, nil
 	}

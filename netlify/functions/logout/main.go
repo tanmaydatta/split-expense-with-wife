@@ -10,7 +10,8 @@ import (
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
-	"github.com/kofj/gorm-driver-d1"
+	"github.com/kofj/gorm-driver-d1/gormd1"
+	"github.com/tanmaydatta/split-expense-with-wife/netlify/common"
 	"gorm.io/gorm"
 )
 
@@ -21,18 +22,8 @@ type User struct {
 	Groupid  int32
 }
 
-type Session struct {
-	Username   string
-	Sessionid  string
-	ExpiryTime time.Time
-}
-
 func (User) TableName() string {
 	return "users"
-}
-
-func (Session) TableName() string {
-	return "sessions"
 }
 
 func handler(request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResponse, error) {
@@ -78,22 +69,22 @@ func logout(sessionid string) {
 	if sessionid == "" {
 		return
 	}
-	session := Session{}
+	session := common.Session{}
 	dsn := os.Getenv("DSN_D1")
 	if dsn == "" {
 		log.Println("DSN_D1 environment variable not set")
 		return
 	}
-	db, err := gorm.Open(d1.Open(dsn), &gorm.Config{
+	db, err := gorm.Open(gormd1.Open(dsn), &gorm.Config{
 		DisableForeignKeyConstraintWhenMigrating: true,
 	})
 	if err != nil {
 		log.Printf("failed to connect to D1: %v", err)
 		return
 	}
-	tx := db.Where("sessionid = ?", sessionid).First(&session)
+	tx := db.Select("username, sessionid, expiry_time").Where("sessionid = ?", sessionid).First(&session)
 	if tx.Error != nil {
 		return
 	}
-	db.Delete(&Session{}, "sessionid = ?", sessionid)
+	db.Delete(&common.Session{}, "sessionid = ?", sessionid)
 }

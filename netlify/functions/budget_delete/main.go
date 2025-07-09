@@ -9,8 +9,8 @@ import (
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
+	"github.com/kofj/gorm-driver-d1/gormd1"
 	"github.com/tanmaydatta/split-expense-with-wife/netlify/common"
-	"github.com/kofj/gorm-driver-d1"
 	"gorm.io/gorm"
 )
 
@@ -57,7 +57,7 @@ func handler(request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResp
 			Body:       "Internal server error: DSN not configured",
 		}, nil
 	}
-	db, err := gorm.Open(d1.Open(dsn), &gorm.Config{
+	db, err := gorm.Open(gormd1.Open(dsn), &gorm.Config{
 		DisableForeignKeyConstraintWhenMigrating: true,
 	})
 	if err != nil {
@@ -69,7 +69,7 @@ func handler(request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResp
 	}
 	tx := db.Model(&common.BudgetEntry{}).
 		Where("groupid = ? and id = ?", session.Group.Groupid, req.Id).
-		Update("deleted", time.Now())
+		Update("deleted", common.NewSQLiteTime(time.Now()))
 	// tx.Commit()
 	fmt.Printf("tx: %+v\n", tx.Statement)
 	if tx.RowsAffected == 0 {

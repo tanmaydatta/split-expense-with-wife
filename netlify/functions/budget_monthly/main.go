@@ -10,8 +10,8 @@ import (
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
+	"github.com/kofj/gorm-driver-d1/gormd1"
 	"github.com/tanmaydatta/split-expense-with-wife/netlify/common"
-	"github.com/kofj/gorm-driver-d1"
 	"gorm.io/gorm"
 )
 
@@ -70,7 +70,7 @@ func handler(request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResp
 			Body:       "Internal server error: DSN not configured",
 		}, nil
 	}
-	db, err := gorm.Open(d1.Open(dsn), &gorm.Config{
+	db, err := gorm.Open(gormd1.Open(dsn), &gorm.Config{
 		DisableForeignKeyConstraintWhenMigrating: true,
 	})
 	if err != nil {
@@ -88,7 +88,7 @@ func handler(request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResp
 
 	// Get the current time to set a limit - fetch last 24 months instead of 6
 	now := time.Now()
-	oldestData := now.AddDate(-2, 0, 0) // Go back 2 years (24 months)
+	oldestData := now.AddDate(-2, 0, 0).Format("2006-01-02 15:04:05") // Go back 2 years (24 months)
 
 	// Query to get monthly totals
 	type MonthlyData struct {

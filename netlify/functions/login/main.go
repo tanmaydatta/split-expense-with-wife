@@ -10,8 +10,8 @@ import (
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
+	"github.com/kofj/gorm-driver-d1/gormd1"
 	"github.com/tanmaydatta/split-expense-with-wife/netlify/common"
-	"github.com/kofj/gorm-driver-d1"
 	"gorm.io/gorm"
 )
 
@@ -62,7 +62,7 @@ func handler(request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResp
 			Body:       "Internal server error: DSN not configured",
 		}, nil
 	}
-	db, err := gorm.Open(d1.Open(dsn), &gorm.Config{
+	db, err := gorm.Open(gormd1.Open(dsn), &gorm.Config{
 		DisableForeignKeyConstraintWhenMigrating: true,
 	})
 	if err != nil {
@@ -73,7 +73,7 @@ func handler(request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResp
 		}, nil
 	}
 	user := User{}
-	tx := db.Where("username = ?", req.Username).First(&user)
+	tx := db.Select("id, username, first_name, groupid, password").Where("username = ?", req.Username).First(&user)
 	if tx.Error != nil {
 		return &events.APIGatewayProxyResponse{
 			StatusCode: 500,
@@ -96,7 +96,7 @@ func handler(request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResp
 	}
 
 	group := common.Group{}
-	tx = db.Where("groupid = ?", user.Groupid).First(&group)
+	tx = db.Select("groupid, budgets, userids, metadata").Where("groupid = ?", user.Groupid).First(&group)
 	if tx.Error != nil {
 		return &events.APIGatewayProxyResponse{
 			StatusCode: 500,
@@ -130,7 +130,7 @@ func handler(request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResp
 		}, nil
 	}
 	users := []common.User{}
-	tx = db.Where("id in ?", userIds).Find(&users)
+	tx = db.Select("id, username, first_name, groupid, password").Where("id in ?", userIds).Find(&users)
 	if tx.Error != nil {
 		return &events.APIGatewayProxyResponse{
 			StatusCode: 500,
@@ -142,7 +142,7 @@ func handler(request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResp
 	tx = db.Create(&common.Session{
 		Username:   req.Username,
 		Sessionid:  sessionId,
-		ExpiryTime: expiration,
+		ExpiryTime: common.SQLiteTime{Time: expiration},
 	})
 	if tx.Error != nil {
 		return &events.APIGatewayProxyResponse{

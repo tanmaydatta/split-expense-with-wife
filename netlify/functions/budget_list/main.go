@@ -10,8 +10,8 @@ import (
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
+	"github.com/kofj/gorm-driver-d1/gormd1"
 	"github.com/tanmaydatta/split-expense-with-wife/netlify/common"
-	"github.com/kofj/gorm-driver-d1"
 	"gorm.io/gorm"
 )
 
@@ -60,7 +60,7 @@ func handler(request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResp
 			Body:       "Internal server error: DSN not configured",
 		}, nil
 	}
-	db, err := gorm.Open(d1.Open(dsn), &gorm.Config{
+	db, err := gorm.Open(gormd1.Open(dsn), &gorm.Config{
 		DisableForeignKeyConstraintWhenMigrating: true,
 	})
 	if err != nil {
@@ -70,13 +70,14 @@ func handler(request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResp
 			Body:       "[budget_list] failed to connect to db",
 		}, nil
 	}
-	startFrom := time.Now()
+	startFrom := time.Now().Format("2006-01-02 15:04:05")
 	name := req.Name
 	if name == "" {
 		name = "house"
 	}
 	entries := []common.BudgetEntry{}
-	tx := db.Limit(5).Offset(int(req.Offset)).
+	tx := db.Select("id, description, added_time, price, amount, name, deleted, groupid, currency").
+		Limit(5).Offset(int(req.Offset)).
 		Where("added_time < ? and name = ? and groupid = ? and deleted is null", startFrom, name, session.Group.Groupid).
 		Order("added_time desc").Find(&entries)
 	if tx.Error != nil {

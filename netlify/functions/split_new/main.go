@@ -12,8 +12,8 @@ import (
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
+	"github.com/kofj/gorm-driver-d1/gormd1"
 	"github.com/tanmaydatta/split-expense-with-wife/netlify/common"
-	"github.com/kofj/gorm-driver-d1"
 	"gorm.io/gorm"
 )
 
@@ -198,7 +198,7 @@ func createDBRecord(req Request, session *common.CurrentSession) (common.Transac
 	transaction := common.Transaction{
 		Amount:      req.Amount,
 		Description: req.Description,
-		CreatedAt:   time.Now(),
+		CreatedAt:   common.SQLiteTime{Time: time.Now()},
 		Currency:    req.Currency,
 		GroupId:     session.Group.Groupid,
 	}
@@ -226,7 +226,7 @@ func createDBRecord(req Request, session *common.CurrentSession) (common.Transac
 	if err != nil {
 		return transaction, transactionUsers, err
 	}
-	transaction.Metadata = metadata
+	transaction.Metadata = string(metadata)
 	for i := range transactionUsers {
 		transactionUsers[i].GroupId = session.Group.Groupid
 	}
@@ -239,7 +239,7 @@ func saveTransactionToDB(txn common.Transaction, txnUsers []common.TransactionUs
 		log.Println("DSN_D1 environment variable not set")
 		return fmt.Errorf("DSN_D1 environment variable not set")
 	}
-	db, err := gorm.Open(d1.Open(dsn), &gorm.Config{
+	db, err := gorm.Open(gormd1.Open(dsn), &gorm.Config{
 		DisableForeignKeyConstraintWhenMigrating: true,
 	})
 	if err != nil {
