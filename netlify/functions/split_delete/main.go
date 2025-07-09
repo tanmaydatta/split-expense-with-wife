@@ -61,8 +61,11 @@ func handler(request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResp
 		}, nil
 	}
 	txn := common.Transaction{}
-	tx := db.Select("id, description, amount, created_at, metadata, currency, transaction_id, group_id, deleted").
-		Where("id = ?", req.Id).First(&txn)
+	tx := db.Raw(`
+		SELECT id, description, amount, strftime('%Y-%m-%dT%H:%M:%S', created_at) || '.000Z' as created_at, COALESCE(metadata, '{}') as metadata, currency, transaction_id, group_id, strftime('%Y-%m-%dT%H:%M:%S', deleted) || '.000Z' as deleted
+		FROM transactions
+		WHERE id = ?
+	`, req.Id).Scan(&txn)
 	if txn.GroupId != session.Group.Groupid {
 		return &events.APIGatewayProxyResponse{
 			StatusCode: 401,

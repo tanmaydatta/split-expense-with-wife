@@ -257,27 +257,15 @@ func saveTransactionToDB(txn common.Transaction, txnUsers []common.TransactionUs
 }
 
 func commitTransaction(db *gorm.DB, txn common.Transaction, txnUsers []common.TransactionUser) error {
-	tx := db.Begin()
-	tx.SavePoint("sp1")
-	err := tx.Create(&txn).Error
-	if err != nil {
-		tx.RollbackTo("sp1") // Rollback
-		return err
-	}
-	err = tx.Transaction(func(txTxn *gorm.DB) error {
-		for _, txnUser := range txnUsers {
-			txnUser.TransactionId = txn.TransactionId
-			if err := txTxn.Create(&txnUser).Error; err != nil {
-				return err
-			}
+	return db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&txn).Error; err != nil {
+			return err
 		}
+
+		if err := tx.Create(&txnUsers).Error; err != nil {
+			return err
+		}
+
 		return nil
 	})
-	if err != nil {
-		tx.RollbackTo("sp1") // Rollback
-		return err
-	}
-
-	tx.Commit()
-	return nil
 }

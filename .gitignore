@@ -49,3 +49,4 @@ finances_data_sqlite.sql
 finances_db_sqlite.sql
 my.db
 schema.pg.sql
+.env
