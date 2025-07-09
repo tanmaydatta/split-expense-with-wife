@@ -43,3 +43,10 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+convert_data.py
+data.pg.sql
+finances_data_sqlite.sql
+finances_db_sqlite.sql
+my.db
+schema.pg.sql
+.env

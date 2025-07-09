@@ -10,8 +10,8 @@ import (
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
+	"github.com/kofj/gorm-driver-d1/gormd1"
 	"github.com/tanmaydatta/split-expense-with-wife/netlify/common"
-	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
@@ -51,24 +51,33 @@ func handler(request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResp
 	}
 
 	// ValidateSession()
-	// Open a connection to PlanetScale
-	db, err := gorm.Open(postgres.Open(os.Getenv("DSN_POSTGRES")), &gorm.Config{
+	// Open a connection to D1
+	dsn := os.Getenv("DSN_D1")
+	if dsn == "" {
+		log.Println("DSN_D1 environment variable not set")
+		return &events.APIGatewayProxyResponse{
+			StatusCode: 500,
+			Body:       "Internal server error: DSN not configured",
+		}, nil
+	}
+	db, err := gorm.Open(gormd1.Open(dsn), &gorm.Config{
 		DisableForeignKeyConstraintWhenMigrating: true,
 	})
 	if err != nil {
-		log.Fatalf("failed to connect: %v", err)
+		log.Printf("failed to connect to D1: %v", err)
 		return &events.APIGatewayProxyResponse{
 			StatusCode: 503,
-			Body:       "[budget] failed to connect to db",
+			Body:       "[budget_list] failed to connect to db",
 		}, nil
 	}
-	startFrom := time.Now()
+	startFrom := time.Now().Format("2006-01-02 15:04:05")
 	name := req.Name
 	if name == "" {
 		name = "house"
 	}
 	entries := []common.BudgetEntry{}
-	tx := db.Limit(5).Offset(int(req.Offset)).
+	tx := db.Select("id, description, added_time, price, amount, name, deleted, groupid, currency").
+		Limit(5).Offset(int(req.Offset)).
 		Where("added_time < ? and name = ? and groupid = ? and deleted is null", startFrom, name, session.Group.Groupid).
 		Order("added_time desc").Find(&entries)
 	if tx.Error != nil {

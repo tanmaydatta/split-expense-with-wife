@@ -10,8 +10,8 @@ import (
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
+	"github.com/kofj/gorm-driver-d1/gormd1"
 	"github.com/tanmaydatta/split-expense-with-wife/netlify/common"
-	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
@@ -54,23 +54,30 @@ func handler(request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResp
 		}, nil
 	}
 
-	db, err := gorm.Open(postgres.Open(os.Getenv("DSN_POSTGRES")), &gorm.Config{
+	dsn := os.Getenv("DSN_D1")
+	if dsn == "" {
+		log.Println("DSN_D1 environment variable not set")
+		return &events.APIGatewayProxyResponse{
+			StatusCode: 500,
+			Body:       "Internal server error: DSN not configured",
+		}, nil
+	}
+	db, err := gorm.Open(gormd1.Open(dsn), &gorm.Config{
 		DisableForeignKeyConstraintWhenMigrating: true,
 	})
-
 	if err != nil {
-		log.Fatalf("failed to connect: %v", err)
+		log.Printf("failed to connect to D1: %v", err)
 		return &events.APIGatewayProxyResponse{
 			StatusCode: 503,
-			Body:       "[budget] failed to connect to db",
+			Body:       "[login] failed to connect to db",
 		}, nil
 	}
 	user := User{}
-	tx := db.Where("username = ?", req.Username).First(&user)
+	tx := db.Select("id, username, first_name, groupid, password").Where("username = ?", req.Username).First(&user)
 	if tx.Error != nil {
 		return &events.APIGatewayProxyResponse{
 			StatusCode: 500,
-			Body:       "[budget] error reading from db",
+			Body:       "[login] error reading user from db",
 		}, nil
 	}
 	fmt.Printf("user: %+v\n", user)
@@ -89,11 +96,11 @@ func handler(request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResp
 	}
 
 	group := common.Group{}
-	tx = db.Where("groupid = ?", user.Groupid).First(&group)
+	tx = db.Select("groupid, budgets, userids, metadata").Where("groupid = ?", user.Groupid).First(&group)
 	if tx.Error != nil {
 		return &events.APIGatewayProxyResponse{
 			StatusCode: 500,
-			Body:       "[budget] error reading from db",
+			Body:       "[login] error reading group from db",
 		}, nil
 	}
 	fmt.Printf("group: %+v\n", string(group.Metadata))
@@ -102,7 +109,7 @@ func handler(request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResp
 	if err != nil {
 		return &events.APIGatewayProxyResponse{
 			StatusCode: 500,
-			Body:       "[budget] error reading from db",
+			Body:       "[login] error parsing budgets from group",
 		}, nil
 	}
 	metadata := Metadata{}
@@ -110,8 +117,7 @@ func handler(request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResp
 	if err != nil {
 		return &events.APIGatewayProxyResponse{
 			StatusCode: 500,
-
-			Body: "[budget] error reading from db",
+			Body:       "[login] error parsing metadata from group",
 		}, nil
 	}
 
@@ -120,15 +126,15 @@ func handler(request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResp
 	if err != nil {
 		return &events.APIGatewayProxyResponse{
 			StatusCode: 500,
-			Body:       "[budget] error reading from db",
+			Body:       "[login] error parsing userids from group",
 		}, nil
 	}
 	users := []common.User{}
-	tx = db.Where("id in ?", userIds).Find(&users)
+	tx = db.Select("id, username, first_name, groupid, password").Where("id in ?", userIds).Find(&users)
 	if tx.Error != nil {
 		return &events.APIGatewayProxyResponse{
 			StatusCode: 500,
-			Body:       "[budget] error reading from db",
+			Body:       "[login] error reading users from db",
 		}, nil
 	}
 
@@ -136,12 +142,12 @@ func handler(request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResp
 	tx = db.Create(&common.Session{
 		Username:   req.Username,
 		Sessionid:  sessionId,
-		ExpiryTime: expiration,
+		ExpiryTime: common.SQLiteTime{Time: expiration},
 	})
 	if tx.Error != nil {
 		return &events.APIGatewayProxyResponse{
 			StatusCode: 500,
-			Body:       "[budget] error writing in db",
+			Body:       "[login] error creating session in db",
 		}, nil
 	}
 

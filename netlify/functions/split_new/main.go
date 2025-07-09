@@ -12,8 +12,8 @@ import (
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
+	"github.com/kofj/gorm-driver-d1/gormd1"
 	"github.com/tanmaydatta/split-expense-with-wife/netlify/common"
-	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
@@ -198,7 +198,7 @@ func createDBRecord(req Request, session *common.CurrentSession) (common.Transac
 	transaction := common.Transaction{
 		Amount:      req.Amount,
 		Description: req.Description,
-		CreatedAt:   time.Now(),
+		CreatedAt:   common.SQLiteTime{Time: time.Now()},
 		Currency:    req.Currency,
 		GroupId:     session.Group.Groupid,
 	}
@@ -226,7 +226,7 @@ func createDBRecord(req Request, session *common.CurrentSession) (common.Transac
 	if err != nil {
 		return transaction, transactionUsers, err
 	}
-	transaction.Metadata = metadata
+	transaction.Metadata = string(metadata)
 	for i := range transactionUsers {
 		transactionUsers[i].GroupId = session.Group.Groupid
 	}
@@ -234,12 +234,17 @@ func createDBRecord(req Request, session *common.CurrentSession) (common.Transac
 }
 
 func saveTransactionToDB(txn common.Transaction, txnUsers []common.TransactionUser) error {
-	db, err := gorm.Open(postgres.Open(os.Getenv("DSN_POSTGRES")), &gorm.Config{
+	dsn := os.Getenv("DSN_D1")
+	if dsn == "" {
+		log.Println("DSN_D1 environment variable not set")
+		return fmt.Errorf("DSN_D1 environment variable not set")
+	}
+	db, err := gorm.Open(gormd1.Open(dsn), &gorm.Config{
 		DisableForeignKeyConstraintWhenMigrating: true,
 	})
 	if err != nil {
-		log.Fatalf("failed to connect: %v", err)
-		return nil
+		log.Printf("failed to connect to D1: %v", err)
+		return fmt.Errorf("[split_new] failed to connect to db: %w", err)
 	}
 	txn.TransactionId, err = common.GenerateRandomID(16)
 	if err != nil {
@@ -252,27 +257,15 @@ func saveTransactionToDB(txn common.Transaction, txnUsers []common.TransactionUs
 }
 
 func commitTransaction(db *gorm.DB, txn common.Transaction, txnUsers []common.TransactionUser) error {
-	tx := db.Begin()
-	tx.SavePoint("sp1")
-	err := tx.Create(&txn).Error
-	if err != nil {
-		tx.RollbackTo("sp1") // Rollback
-		return err
-	}
-	err = tx.Transaction(func(txTxn *gorm.DB) error {
-		for _, txnUser := range txnUsers {
-			txnUser.TransactionId = txn.TransactionId
-			if err := txTxn.Create(&txnUser).Error; err != nil {
-				return err
-			}
+	return db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&txn).Error; err != nil {
+			return err
 		}
+
+		if err := tx.Create(&txnUsers).Error; err != nil {
+			return err
+		}
+
 		return nil
 	})
-	if err != nil {
-		tx.RollbackTo("sp1") // Rollback
-		return err
-	}
-
-	tx.Commit()
-	return nil
 }

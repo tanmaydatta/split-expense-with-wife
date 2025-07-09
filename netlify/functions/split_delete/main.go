@@ -9,8 +9,8 @@ import (
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
+	"github.com/kofj/gorm-driver-d1/gormd1"
 	"github.com/tanmaydatta/split-expense-with-wife/netlify/common"
-	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
@@ -41,19 +41,31 @@ func handler(request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResp
 		}, nil
 	}
 
-	// Open a connection to PlanetScale
-	db, err := gorm.Open(postgres.Open(os.Getenv("DSN_POSTGRES")), &gorm.Config{
+	// Open a connection to D1
+	dsn := os.Getenv("DSN_D1")
+	if dsn == "" {
+		log.Println("DSN_D1 environment variable not set")
+		return &events.APIGatewayProxyResponse{
+			StatusCode: 500,
+			Body:       "Internal server error: DSN not configured",
+		}, nil
+	}
+	db, err := gorm.Open(gormd1.Open(dsn), &gorm.Config{
 		DisableForeignKeyConstraintWhenMigrating: true,
 	})
 	if err != nil {
-		log.Fatalf("failed to connect: %v", err)
+		log.Printf("failed to connect to D1: %v", err)
 		return &events.APIGatewayProxyResponse{
 			StatusCode: 503,
-			Body:       "[budget] failed to connect to db",
+			Body:       "[split_delete] failed to connect to db",
 		}, nil
 	}
 	txn := common.Transaction{}
-	tx := db.Where("id = ?", req.Id).First(&txn)
+	tx := db.Raw(`
+		SELECT id, description, amount, strftime('%Y-%m-%dT%H:%M:%S', created_at) || '.000Z' as created_at, COALESCE(metadata, '{}') as metadata, currency, transaction_id, group_id, strftime('%Y-%m-%dT%H:%M:%S', deleted) || '.000Z' as deleted
+		FROM transactions
+		WHERE id = ?
+	`, req.Id).Scan(&txn)
 	if txn.GroupId != session.Group.Groupid {
 		return &events.APIGatewayProxyResponse{
 			StatusCode: 401,
@@ -70,11 +82,11 @@ func handler(request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResp
 	err = db.Transaction(func(tx *gorm.DB) error {
 		err := tx.Model(&common.TransactionUser{}).
 			Where("transaction_id = ?", txn.TransactionId).
-			Update("deleted", time.Now()).Error
+			Update("deleted", common.NewSQLiteTime(time.Now())).Error
 		if err != nil {
 			return err
 		}
-		return tx.Model(&common.Transaction{}).Where("id = ?", req.Id).Update("deleted", time.Now()).Error
+		return tx.Model(&common.Transaction{}).Where("id = ?", req.Id).Update("deleted", common.NewSQLiteTime(time.Now())).Error
 	})
 
 	if err != nil {
@@ -85,7 +97,7 @@ func handler(request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResp
 	}
 	return &events.APIGatewayProxyResponse{
 		StatusCode: 200,
-		Body:       "[budget] Success",
+		Body:       "[split_delete] Success",
 	}, nil
 }
 
