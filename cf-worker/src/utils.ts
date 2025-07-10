@@ -187,7 +187,7 @@ export async function authenticate(request: CFRequest, env: Env): Promise<Curren
 
 // CORS headers for all responses - simplified version that works with credentials
 export const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': 'http://localhost:3000', // Set to your React app's URL
+  'Access-Control-Allow-Origin': 'https://deploy-preview-5--splitexpense.netlify.app', // Set to your React app's URL
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, Cookie, X-Requested-With',
   'Access-Control-Allow-Credentials': 'true',
