@@ -1,16 +1,16 @@
-import axios from "axios";
 import { useCookies } from "react-cookie";
 import { useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { setData } from "./redux/data";
+import api from "./utils/api";
 
 export const Logout: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
   const [, setCookie] = useCookies(["userinfo"]);
-  axios
-    .post("/.netlify/functions/logout")
+  api
+    .post("/logout")
     .then((res) => {
       console.log(res.data);
       setCookie("userinfo", "{}", { path: "/" });

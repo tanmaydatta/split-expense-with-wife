@@ -1,4 +1,3 @@
-import axios from "axios";
 import sha256 from "crypto-js/sha256";
 import React, { useState } from "react";
 import { Button, Container, Form } from "react-bootstrap";
@@ -7,6 +6,7 @@ import { useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import "./Login.css";
 import { setData, unsetData } from "./redux/data";
+import api from "./utils/api";
 
 function LoginPage() {
   const [username, setUsername] = useState("");
@@ -19,8 +19,8 @@ function LoginPage() {
   const handleLogin = (event: any) => {
     event.preventDefault();
     setLoading(true);
-    axios
-      .post("/.netlify/functions/login", {
+    api
+      .post("/login", {
         username: username,
         password: sha256(password).toString(),
       })

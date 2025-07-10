@@ -1,8 +1,8 @@
-import axios from "axios";
 import getSymbolFromCurrency from "currency-symbol-map";
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "./Balances.css";
+import api from "./utils/api";
 const Balances: React.FC = () => {
   const [balances, setBalances] = useState<Map<string, Map<string, number>>>(
     new Map()
@@ -13,8 +13,8 @@ const Balances: React.FC = () => {
   useEffect(() => {
     const fetchBalances = async () => {
       setLoading(true);
-      await axios
-        .post("/.netlify/functions/balances", {})
+      await api
+        .post("/balances", {})
         .then((res) => {
           var localBalances = new Map<string, Map<string, number>>();
           Object.keys(res.data).forEach((key) => {

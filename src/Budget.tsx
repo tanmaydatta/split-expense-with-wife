@@ -1,4 +1,3 @@
-import axios from "axios";
 import sha256 from "crypto-js/sha256";
 import getSymbolFromCurrency from "currency-symbol-map";
 import { useCallback, useEffect, useState } from "react";
@@ -8,6 +7,7 @@ import "./Budget.css";
 import BudgetTable from "./BudgetTable";
 import { SelectBudget } from "./SelectBudget";
 import { entry } from "./model";
+import api from "./utils/api";
 
 export const Budget: React.FC = () => {
   const [budgetHistory, setBudgetHistory] = useState<entry[]>([]);
@@ -21,8 +21,8 @@ export const Budget: React.FC = () => {
   const handleChangeBudget = (val: string) => setBudget(val);
   const navigate = useNavigate();
   const fetchTotal = useCallback(() => {
-    axios
-      .post("/.netlify/functions/budget_total", {
+    api
+      .post("/budget_total", {
         name: budget,
       })
       .then((res) => {
@@ -39,8 +39,8 @@ export const Budget: React.FC = () => {
   const fetchHistory = useCallback(
     (offset: number, history: entry[]) => {
       setLoading(true);
-      axios
-        .post("/.netlify/functions/budget_list", {
+      api
+        .post("/budget_list", {
           name: budget,
           offset: offset,
         })
@@ -81,8 +81,8 @@ export const Budget: React.FC = () => {
   );
   const deleteBudgetEntry = (id: number) => {
     setLoading(true);
-    axios
-      .post("/.netlify/functions/budget_delete", {
+    api
+      .post("/budget_delete", {
         id: id,
         pin: sha256(pin).toString(),
       })
