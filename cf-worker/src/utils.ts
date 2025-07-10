@@ -188,15 +188,17 @@ export async function authenticate(request: CFRequest, env: Env): Promise<Curren
 // Get appropriate CORS headers based on request origin
 export function getCORSHeaders(request: CFRequest, env: Env): Record<string, string> {
     const origin = request.headers.get('Origin');
-
+    console.log('origin', origin);
+    console.log('env.ALLOWED_ORIGINS', env.ALLOWED_ORIGINS);
     // Parse allowed origins from environment variable
     const allowedOrigins = env.ALLOWED_ORIGINS
         ? env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim())
         : ['https://splitexpense.netlify.app']; // fallback default
 
+    console.log('allowedOrigins', allowedOrigins);
     // Check if origin is allowed
     const corsOrigin = origin && allowedOrigins.includes(origin) ? origin : allowedOrigins[0];
-
+    console.log('corsOrigin', corsOrigin);
     return {
         'Access-Control-Allow-Origin': corsOrigin,
         'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
