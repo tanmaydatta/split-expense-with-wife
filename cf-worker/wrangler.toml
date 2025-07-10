@@ -8,6 +8,7 @@ enabled = true
 [vars]
 AUTH_PIN = "your-auth-pin-here"
 SPLITWISE_API_KEY = "your-splitwise-api-key-here"
+ALLOWED_ORIGINS = "https://splitexpense.netlify.app,https://deploy-preview-5--splitexpense.netlify.app,http://localhost:3000,http://localhost:3001"
 
 [[d1_databases]]
 binding = "DB"

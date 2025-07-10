@@ -20,13 +20,13 @@ import {
 // Handle balances
 export async function handleBalances(request: CFRequest, env: Env): Promise<Response> {
   if (request.method !== 'POST') {
-    return createErrorResponse('Method not allowed', 405);
+    return createErrorResponse('Method not allowed', 405, request, env);
   }
-  
+
   try {
     const session = await authenticate(request, env);
     if (!session) {
-      return createErrorResponse('Unauthorized', 401);
+      return createErrorResponse('Unauthorized', 401, request, env);
     }
     
     // Get transaction balances
@@ -76,43 +76,43 @@ export async function handleBalances(request: CFRequest, env: Env): Promise<Resp
       }
     }
     
-    return createJsonResponse(balancesByUser);
+    return createJsonResponse(balancesByUser, 200, {}, request, env);
     
   } catch (error) {
     console.error('Balances error:', error);
-    return createErrorResponse('Internal server error', 500);
+    return createErrorResponse('Internal server error', 500, request, env);
   }
 }
 
 // Handle budget creation
 export async function handleBudget(request: CFRequest, env: Env): Promise<Response> {
   if (request.method !== 'POST') {
-    return createErrorResponse('Method not allowed', 405);
+    return createErrorResponse('Method not allowed', 405, request, env);
   }
-  
+
   try {
     const session = await authenticate(request, env);
     if (!session) {
-      return createErrorResponse('Unauthorized', 401);
+      return createErrorResponse('Unauthorized', 401, request, env);
     }
-    
+
     const body = await request.json() as BudgetRequest;
     
     // Validate request
     if (session.group.groupid !== body.groupid) {
-      return createErrorResponse('Unauthorized', 401);
+      return createErrorResponse('Unauthorized', 401, request, env);
     }
-    
+
     if (!isAuthorizedForBudget(session, body.name)) {
-      return createErrorResponse('Unauthorized', 401);
+      return createErrorResponse('Unauthorized', 401, request, env);
     }
-    
+
     if (!isValidCurrency(body.currency)) {
-      return createErrorResponse('Invalid currency', 400);
+      return createErrorResponse('Invalid currency', 400, request, env);
     }
-    
+
     if (!isValidPin(body.pin, env)) {
-      return createErrorResponse('Invalid pin', 400);
+      return createErrorResponse('Invalid pin', 400, request, env);
     }
     
     // Create budget entry
@@ -134,31 +134,31 @@ export async function handleBudget(request: CFRequest, env: Env): Promise<Respon
       body.currency
     ).run();
     
-    return createJsonResponse({ message: 'Budget entry created successfully' });
+    return createJsonResponse({ message: 'Budget entry created successfully' }, 200, {}, request, env);
     
   } catch (error) {
     console.error('Budget error:', error);
-    return createErrorResponse('Internal server error', 500);
+    return createErrorResponse('Internal server error', 500, request, env);
   }
 }
 
 // Handle budget deletion
 export async function handleBudgetDelete(request: CFRequest, env: Env): Promise<Response> {
   if (request.method !== 'POST') {
-    return createErrorResponse('Method not allowed', 405);
+    return createErrorResponse('Method not allowed', 405, request, env);
   }
-  
+
   try {
     const session = await authenticate(request, env);
     if (!session) {
-      return createErrorResponse('Unauthorized', 401);
+      return createErrorResponse('Unauthorized', 401, request, env);
     }
-    
+
     const body = await request.json() as BudgetDeleteRequest;
     
     // Validate PIN
     if (!isValidPin(body.pin, env)) {
-      return createErrorResponse('Invalid pin', 400);
+      return createErrorResponse('Invalid pin', 400, request, env);
     }
     
     // Delete budget entry (soft delete)
@@ -175,34 +175,34 @@ export async function handleBudgetDelete(request: CFRequest, env: Env): Promise<
     ).run();
     
     if (result.meta.changes === 0) {
-      return createErrorResponse('Budget entry not found or already deleted', 404);
+      return createErrorResponse('Budget entry not found or already deleted', 404, request, env);
     }
     
-    return createJsonResponse({ message: 'Budget entry deleted successfully' });
+    return createJsonResponse({ message: 'Budget entry deleted successfully' }, 200, {}, request, env);
     
   } catch (error) {
     console.error('Budget delete error:', error);
-    return createErrorResponse('Internal server error', 500);
+    return createErrorResponse('Internal server error', 500, request, env);
   }
 }
 
 // Handle budget list
 export async function handleBudgetList(request: CFRequest, env: Env): Promise<Response> {
   if (request.method !== 'POST') {
-    return createErrorResponse('Method not allowed', 405);
+    return createErrorResponse('Method not allowed', 405, request, env);
   }
-  
+
   try {
     const session = await authenticate(request, env);
     if (!session) {
-      return createErrorResponse('Unauthorized', 401);
+      return createErrorResponse('Unauthorized', 401, request, env);
     }
-    
+
     const body = await request.json() as BudgetListRequest;
     
     // Validate budget name
     if (!isAuthorizedForBudget(session, body.name)) {
-      return createErrorResponse('Unauthorized', 401);
+      return createErrorResponse('Unauthorized', 401, request, env);
     }
     
     const name = body.name || 'house';
@@ -224,31 +224,31 @@ export async function handleBudgetList(request: CFRequest, env: Env): Promise<Re
       body.offset
     ).all();
     
-    return createJsonResponse(budgetResult.results);
+    return createJsonResponse(budgetResult.results, 200, {}, request, env);
     
   } catch (error) {
     console.error('Budget list error:', error);
-    return createErrorResponse('Internal server error', 500);
+    return createErrorResponse('Internal server error', 500, request, env);
   }
 }
 
 // Handle budget monthly
 export async function handleBudgetMonthly(request: CFRequest, env: Env): Promise<Response> {
   if (request.method !== 'POST') {
-    return createErrorResponse('Method not allowed', 405);
+    return createErrorResponse('Method not allowed', 405, request, env);
   }
-  
+
   try {
     const session = await authenticate(request, env);
     if (!session) {
-      return createErrorResponse('Unauthorized', 401);
+      return createErrorResponse('Unauthorized', 401, request, env);
     }
-    
+
     const body = await request.json() as BudgetMonthlyRequest;
     
     // Validate budget name
     if (!isAuthorizedForBudget(session, body.name)) {
-      return createErrorResponse('Unauthorized', 401);
+      return createErrorResponse('Unauthorized', 401, request, env);
     }
     
     const name = body.name || 'house';
@@ -321,31 +321,31 @@ export async function handleBudgetMonthly(request: CFRequest, env: Env): Promise
       return monthToName.indexOf(b.month) - monthToName.indexOf(a.month);
     });
     
-    return createJsonResponse(result);
+    return createJsonResponse(result, 200, {}, request, env);
     
   } catch (error) {
     console.error('Budget monthly error:', error);
-    return createErrorResponse('Internal server error', 500);
+    return createErrorResponse('Internal server error', 500, request, env);
   }
 }
 
 // Handle budget total
 export async function handleBudgetTotal(request: CFRequest, env: Env): Promise<Response> {
   if (request.method !== 'POST') {
-    return createErrorResponse('Method not allowed', 405);
+    return createErrorResponse('Method not allowed', 405, request, env);
   }
-  
+
   try {
     const session = await authenticate(request, env);
     if (!session) {
-      return createErrorResponse('Unauthorized', 401);
+      return createErrorResponse('Unauthorized', 401, request, env);
     }
-    
+
     const body = await request.json() as BudgetTotalRequest;
     
     // Validate budget name
     if (!isAuthorizedForBudget(session, body.name)) {
-      return createErrorResponse('Unauthorized', 401);
+      return createErrorResponse('Unauthorized', 401, request, env);
     }
     
     const name = body.name || 'house';
@@ -363,10 +363,10 @@ export async function handleBudgetTotal(request: CFRequest, env: Env): Promise<R
       session.group.groupid
     ).all();
     
-    return createJsonResponse(totalResult.results);
+    return createJsonResponse(totalResult.results, 200, {}, request, env);
     
   } catch (error) {
     console.error('Budget total error:', error);
-    return createErrorResponse('Internal server error', 500);
+    return createErrorResponse('Internal server error', 500, request, env);
   }
 } 

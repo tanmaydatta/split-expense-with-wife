@@ -22,32 +22,32 @@ import {
 // Handle split with Splitwise API
 export async function handleSplit(request: CFRequest, env: Env): Promise<Response> {
   if (request.method !== 'POST') {
-    return createErrorResponse('Method not allowed', 405);
+    return createErrorResponse('Method not allowed', 405, request, env);
   }
 
   try {
     const session = await authenticate(request, env);
     if (!session) {
-      return createErrorResponse('Unauthorized', 401);
+      return createErrorResponse('Unauthorized', 401, request, env);
     }
 
     const body = await request.json() as SplitRequest;
 
     // Validate request
     if (!isValidCurrency(body.currency)) {
-      return createErrorResponse('Invalid currency', 400);
+      return createErrorResponse('Invalid currency', 400, request, env);
     }
 
     if (!isValidPin(body.pin, env)) {
-      return createErrorResponse('Invalid pin', 400);
+      return createErrorResponse('Invalid pin', 400, request, env);
     }
 
     if (!validateSplitPercentages(body.splitPctShares)) {
-      return createErrorResponse('Split percentages must total 100%', 400);
+      return createErrorResponse('Split percentages must total 100%', 400, request, env);
     }
 
     if (!validatePaidAmounts(body.paidByShares, body.amount)) {
-      return createErrorResponse('Paid amounts must equal total amount', 400);
+      return createErrorResponse('Paid amounts must equal total amount', 400, request, env);
     }
 
     // Call Splitwise API
@@ -73,7 +73,7 @@ export async function handleSplit(request: CFRequest, env: Env): Promise<Respons
     if (!splitwiseResponse.ok) {
       const errorText = await splitwiseResponse.text();
       console.error('Splitwise API error:', errorText);
-      return createErrorResponse('Error creating expense in Splitwise', 500);
+      return createErrorResponse('Error creating expense in Splitwise', 500, request, env);
     }
 
     const splitwiseData = await splitwiseResponse.json() as { id: number };
@@ -125,43 +125,43 @@ export async function handleSplit(request: CFRequest, env: Env): Promise<Respons
     return createJsonResponse({
       message: 'Split created successfully',
       transactionId: transactionId
-    });
+    }, 200, {}, request, env);
 
   } catch (error) {
     console.error('Split error:', error);
-    return createErrorResponse('Internal server error', 500);
+    return createErrorResponse('Internal server error', 500, request, env);
   }
 }
 
 // Handle split new (database-only)
 export async function handleSplitNew(request: CFRequest, env: Env): Promise<Response> {
   if (request.method !== 'POST') {
-    return createErrorResponse('Method not allowed', 405);
+    return createErrorResponse('Method not allowed', 405, request, env);
   }
 
   try {
     const session = await authenticate(request, env);
     if (!session) {
-      return createErrorResponse('Unauthorized', 401);
+      return createErrorResponse('Unauthorized', 401, request, env);
     }
 
     const body = await request.json() as SplitNewRequest;
 
     // Validate request
     if (!isValidCurrency(body.currency)) {
-      return createErrorResponse('Invalid currency', 400);
+      return createErrorResponse('Invalid currency', 400, request, env);
     }
 
     if (!isValidPin(body.pin, env)) {
-      return createErrorResponse('Invalid pin', 400);
+      return createErrorResponse('Invalid pin', 400, request, env);
     }
 
     if (!validateSplitPercentages(body.splitPctShares)) {
-      return createErrorResponse('Split percentages must total 100%', 400);
+      return createErrorResponse('Split percentages must total 100%', 400, request, env);
     }
 
     if (!validatePaidAmounts(body.paidByShares, body.amount)) {
-      return createErrorResponse('Paid amounts must equal total amount', 400);
+      return createErrorResponse('Paid amounts must equal total amount', 400, request, env);
     }
 
     // Generate transaction ID
@@ -206,67 +206,63 @@ export async function handleSplitNew(request: CFRequest, env: Env): Promise<Resp
     return createJsonResponse({
       message: 'Transaction created successfully',
       transactionId: transactionId
-    });
+    }, 200, {}, request, env);
 
   } catch (error) {
     console.error('Split new error:', error);
-    return createErrorResponse('Internal server error', 500);
+    return createErrorResponse('Internal server error', 500, request, env);
   }
 }
 
 // Handle split delete
 export async function handleSplitDelete(request: CFRequest, env: Env): Promise<Response> {
   if (request.method !== 'POST') {
-    return createErrorResponse('Method not allowed', 405);
+    return createErrorResponse('Method not allowed', 405, request, env);
   }
 
   try {
     const session = await authenticate(request, env);
     if (!session) {
-      return createErrorResponse('Unauthorized', 401);
+      return createErrorResponse('Unauthorized', 401, request, env);
     }
 
     const body = await request.json() as SplitDeleteRequest;
-
-    // Validate PIN
-    if (!isValidPin(body.pin, env)) {
-      return createErrorResponse('Invalid pin', 400);
-    }
+    
 
     // Soft delete transaction
     const deletedTime = formatSQLiteTime();
 
     const batchStatements = [
       {
-        sql: `UPDATE transactions SET deleted = ? WHERE id = ? AND groupid = ?`,
-        params: [deletedTime, body.transactionId, session.group.groupid]
+        sql: `UPDATE transactions SET deleted = ? WHERE transaction_id = ? AND group_id = ?`,
+        params: [deletedTime, body.id, session.group.groupid]
       },
       {
         sql: `UPDATE transaction_users SET deleted = ? WHERE transaction_id = ? AND group_id = ?`,
-        params: [deletedTime, body.transactionId, session.group.groupid]
+        params: [deletedTime, body.id, session.group.groupid]
       }
     ];
 
     await executeBatch(env, batchStatements);
 
-    return createJsonResponse({ message: 'Transaction deleted successfully' });
+    return createJsonResponse({ message: 'Transaction deleted successfully' }, 200, {}, request, env);
 
   } catch (error) {
     console.error('Split delete error:', error);
-    return createErrorResponse('Internal server error', 500);
+    return createErrorResponse('Internal server error', 500, request, env);
   }
 }
 
 // Handle transactions list
 export async function handleTransactionsList(request: CFRequest, env: Env): Promise<Response> {
   if (request.method !== 'POST') {
-    return createErrorResponse('Method not allowed', 405);
+    return createErrorResponse('Method not allowed', 405, request, env);
   }
 
   try {
     const session = await authenticate(request, env);
     if (!session) {
-      return createErrorResponse('Unauthorized', 401);
+      return createErrorResponse('Unauthorized', 401, request, env);
     }
 
     const body = await request.json() as TransactionsListRequest;
@@ -352,10 +348,10 @@ export async function handleTransactionsList(request: CFRequest, env: Env): Prom
     return createJsonResponse({
       transactions: formattedTransactions,
       transactionDetails: transactionDetails
-    });
+    }, 200, {}, request, env);
 
   } catch (error) {
     console.error('Transactions list error:', error);
-    return createErrorResponse('Internal server error', 500);
+    return createErrorResponse('Internal server error', 500, request, env);
   }
 } 

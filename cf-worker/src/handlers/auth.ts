@@ -10,7 +10,7 @@ import {
 // Handle login
 export async function handleLogin(request: CFRequest, env: Env): Promise<Response> {
   if (request.method !== 'POST') {
-    return createErrorResponse('Method not allowed', 405);
+    return createErrorResponse('Method not allowed', 405, request, env);
   }
   
   try {
@@ -24,7 +24,7 @@ export async function handleLogin(request: CFRequest, env: Env): Promise<Respons
     
     const userResult = await userStmt.bind(body.username).first();
     if (!userResult) {
-      return createErrorResponse('Invalid credentials', 401);
+      return createErrorResponse('Invalid credentials', 401, request, env);
     }
     const userRow = userResult as any;
     const user = {
@@ -37,7 +37,7 @@ export async function handleLogin(request: CFRequest, env: Env): Promise<Respons
     
     // Check password
     if (user.password !== body.password) {
-      return createErrorResponse('Invalid credentials', 401);
+      return createErrorResponse('Invalid credentials', 401, request, env);
     }
     
     // Generate session ID
@@ -53,7 +53,7 @@ export async function handleLogin(request: CFRequest, env: Env): Promise<Respons
     
     const groupResult = await groupStmt.bind(user.groupid).first();
     if (!groupResult) {
-      return createErrorResponse('Group not found', 500);
+      return createErrorResponse('Group not found', 500, request, env);
     }
     
     const group = groupResult as Group;
@@ -114,18 +114,18 @@ export async function handleLogin(request: CFRequest, env: Env): Promise<Respons
     
     return createJsonResponse(response, 200, {
       'Set-Cookie': sessionCookie
-    }, request);
+    }, request, env);
     
   } catch (error) {
     console.error('Login error:', error);
-    return createErrorResponse('Internal server error', 500);
+    return createErrorResponse('Internal server error', 500, request, env);
   }
 }
 
 // Handle logout
 export async function handleLogout(request: CFRequest, env: Env): Promise<Response> {
   if (request.method !== 'POST') {
-    return createErrorResponse('Method not allowed', 405);
+    return createErrorResponse('Method not allowed', 405, request, env);
   }
   
   try {
@@ -161,10 +161,10 @@ export async function handleLogout(request: CFRequest, env: Env): Promise<Respon
     
     return createJsonResponse({}, 200, {
       'Set-Cookie': expiredCookie
-    }, request);
+    }, request, env);
     
   } catch (error) {
     console.error('Logout error:', error);
-    return createErrorResponse('Internal server error', 500);
+    return createErrorResponse('Internal server error', 500, request, env);
   }
 } 

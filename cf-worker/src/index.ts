@@ -35,7 +35,7 @@ export default {
   async fetch(request: CFRequest, env: Env, ctx: CFContext): Promise<Response> {
     // Handle CORS preflight requests
     if (request.method === 'OPTIONS') {
-      return createOptionsResponse(request);
+      return createOptionsResponse(request, env);
     }
     
     const url = new URL(request.url);
@@ -69,7 +69,7 @@ export default {
     } else if (path === '/hello' || path === '/') {
       return await handleHelloWorld(request, env);
     } else {
-      return createErrorResponse('Not found', 404);
+      return createErrorResponse('Not found', 404, request, env);
     }
   },
 }; 

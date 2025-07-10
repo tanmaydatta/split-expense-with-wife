@@ -71,6 +71,7 @@ export interface Env {
   AUTH_PIN: string;
   SPLITWISE_API_KEY: string;
   SPLITWISE_GROUP_ID: string;
+  ALLOWED_ORIGINS: string; // Comma-separated list of allowed origins
 }
 
 // Database models
@@ -224,7 +225,7 @@ export interface SplitNewRequest {
 }
 
 export interface SplitDeleteRequest {
-  transactionId: number;
+  id: string;
   pin: string;
 }
 
