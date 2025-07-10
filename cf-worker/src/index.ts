@@ -35,7 +35,7 @@ export default {
   async fetch(request: CFRequest, env: Env, ctx: CFContext): Promise<Response> {
     // Handle CORS preflight requests
     if (request.method === 'OPTIONS') {
-      return createOptionsResponse();
+      return createOptionsResponse(request);
     }
     
     const url = new URL(request.url);

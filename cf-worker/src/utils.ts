@@ -58,13 +58,14 @@ export function createCookie(options: CookieOptions): string {
     cookieString += `; Path=${options.path}`;
   }
   
-  if (options.secure) {
+  // Always set Secure flag for production (HTTPS)
+  if (options.secure !== false) {
     cookieString += '; Secure';
   }
   
-  if (options.sameSite) {
-    cookieString += `; SameSite=${options.sameSite}`;
-  }
+  // Set SameSite attribute for cross-site protection
+  const sameSite = options.sameSite || 'none';
+  cookieString += `; SameSite=${sameSite}`;
   
   return cookieString;
 }
@@ -187,28 +188,49 @@ export async function authenticate(request: CFRequest, env: Env): Promise<Curren
 
 // CORS headers for all responses - simplified version that works with credentials
 export const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': 'https://deploy-preview-5--splitexpense.netlify.app', // Set to your React app's URL
+  'Access-Control-Allow-Origin': '*', // This will be set dynamically based on request origin
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, Cookie, X-Requested-With',
   'Access-Control-Allow-Credentials': 'true',
   'Access-Control-Max-Age': '86400', // 24 hours
 };
 
+// Get appropriate CORS headers based on request origin
+export function getCORSHeaders(request: CFRequest): Record<string, string> {
+  const origin = request.headers.get('Origin');
+  const allowedOrigins = [
+    'https://splitexpense.netlify.app',
+    'https://deploy-preview-5--splitexpense.netlify.app',
+    'http://localhost:3000',
+    'http://localhost:3001',
+  ];
+  
+  // Check if origin is allowed
+  const corsOrigin = origin && allowedOrigins.includes(origin) ? origin : 'https://splitexpense.netlify.app';
+  
+  return {
+    ...CORS_HEADERS,
+    'Access-Control-Allow-Origin': corsOrigin,
+  };
+}
+
 // Create CORS response for OPTIONS preflight requests
-export function createOptionsResponse(): Response {
+export function createOptionsResponse(request?: CFRequest): Response {
+  const corsHeaders = request ? getCORSHeaders(request) : CORS_HEADERS;
   return new Response(null, {
     status: 200,
-    headers: CORS_HEADERS
+    headers: corsHeaders
   });
 }
 
 // Create JSON response with CORS headers
-export function createJsonResponse(data: unknown, status: number = 200, headers: Record<string, string> = {}): Response {
+export function createJsonResponse(data: unknown, status: number = 200, headers: Record<string, string> = {}, request?: CFRequest): Response {
+  const corsHeaders = request ? getCORSHeaders(request) : CORS_HEADERS;
   return new Response(JSON.stringify(data), {
     status,
     headers: {
       'Content-Type': 'application/json',
-      ...CORS_HEADERS,
+      ...corsHeaders,
       ...headers
     }
   });

@@ -96,7 +96,9 @@ export async function handleLogin(request: CFRequest, env: Env): Promise<Respons
       value: sessionId,
       expires: expiration,
       httpOnly: true,
-      path: '/'
+      path: '/',
+      secure: true,
+      sameSite: 'none'
     });
     
     // Create response
@@ -112,7 +114,7 @@ export async function handleLogin(request: CFRequest, env: Env): Promise<Respons
     
     return createJsonResponse(response, 200, {
       'Set-Cookie': sessionCookie
-    });
+    }, request);
     
   } catch (error) {
     console.error('Login error:', error);
@@ -152,12 +154,14 @@ export async function handleLogout(request: CFRequest, env: Env): Promise<Respon
       value: '',
       expires: new Date(Date.now() - 24 * 60 * 60 * 1000), // Yesterday
       httpOnly: true,
-      path: '/'
+      path: '/',
+      secure: true,
+      sameSite: 'none'
     });
     
     return createJsonResponse({}, 200, {
       'Set-Cookie': expiredCookie
-    });
+    }, request);
     
   } catch (error) {
     console.error('Logout error:', error);
