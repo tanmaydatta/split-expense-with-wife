@@ -168,8 +168,9 @@ export async function validateSession(sessionId: string, env: Env): Promise<Curr
 
 // Authenticate request using cookies
 export async function authenticate(request: CFRequest, env: Env): Promise<CurrentSession | null> {
-    console.log('authenticate');
+  console.log('authenticate');
   const cookieHeader = request.headers.get('cookie');
+  console.log('cookieHeader', cookieHeader);
   if (!cookieHeader) {
     return null;
   }
