@@ -81,7 +81,7 @@ function App(): JSX.Element {
     console.log(target);
     if (data.groupId === 1) {
       axios
-        .post("http://localhost:8888/.netlify/functions/split", {
+        .post("/.netlify/functions/split", {
           amount: Number(target.amount.value),
           description: target.description.value,
           paidBy: paidBy.Name,
