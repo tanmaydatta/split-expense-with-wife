@@ -1,0 +1,18 @@
+name = "split-expense-worker"
+main = "src/index.ts"
+compatibility_date = "2023-12-01"
+
+[vars]
+AUTH_PIN = "your-auth-pin-here"
+SPLITWISE_API_KEY = "your-splitwise-api-key-here"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "splitexpense-dev"
+database_id = "a721ee7e-a5ee-452d-88d4-ebb97a1f0786" 
+
+[env.prod]
+    [[env.prod.d1_databases]]
+    binding = "DB"
+    database_name = "splitexpense"
+    database_id = "56f19864-f964-4c28-b176-001047d58e00" 
