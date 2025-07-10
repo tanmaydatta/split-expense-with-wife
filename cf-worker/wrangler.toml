@@ -2,6 +2,9 @@ name = "splitexpense"
 main = "src/index.ts"
 compatibility_date = "2023-12-01"
 
+[observability.logs]
+enabled = true
+
 [vars]
 AUTH_PIN = "your-auth-pin-here"
 SPLITWISE_API_KEY = "your-splitwise-api-key-here"
