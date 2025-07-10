@@ -1,4 +1,4 @@
-name = "split-expense-worker"
+name = "splitexpense"
 main = "src/index.ts"
 compatibility_date = "2023-12-01"
 
