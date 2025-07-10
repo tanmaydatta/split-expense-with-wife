@@ -50,3 +50,9 @@ finances_db_sqlite.sql
 my.db
 schema.pg.sql
 .env
+
+/cf-worker/node_modules/
+/cf-worker/.env
+/cf-worker/.dev.vars
+/cf-worker/.wrangler/
+/cf-worker/*.sql
