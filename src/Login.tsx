@@ -12,10 +12,8 @@ function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
-  const [, setCookie] = useCookies(["userinfo"]);
   const dispatch = useDispatch();
   const [loading, setLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,14 +24,14 @@ function LoginPage() {
 
       // Store token in local storage
       localStorage.setItem('sessionToken', token);
-      
+
       // Dispatch user data to Redux store
       dispatch(setData(userData));
 
       // Redirect to home page
       navigate('/');
     } catch (err) {
-      setError('Invalid username or password');
+      console.log('Invalid username or password');
     }
   };
 
