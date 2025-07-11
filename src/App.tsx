@@ -1,4 +1,3 @@
-import axios from "axios";
 import sha256 from "crypto-js/sha256";
 import React, { useState } from "react";
 import Button from "react-bootstrap/Button";
@@ -8,6 +7,8 @@ import { useNavigate } from "react-router-dom";
 import "./App.css";
 import { CreditDebit } from "./CreditDebit";
 import { SelectBudget } from "./SelectBudget";
+import api from "./utils/api";
+import axios from "axios";
 
 function App(): JSX.Element {
   const [loading, setLoading] = useState<boolean>(false);
@@ -47,8 +48,8 @@ function App(): JSX.Element {
     e.preventDefault();
     setLoading(true);
     console.log(currency);
-    axios
-      .post("/.netlify/functions/budget", {
+    api
+      .post("/budget", {
         amount: (creditDebit === 'Debit' ? -1 : 1) * Number(amount),
         description: description,
         pin: sha256(pin).toString(),
@@ -91,8 +92,8 @@ function App(): JSX.Element {
         .then((res) => alert(res.status))
         .catch((e) => alert(e.response.data));
     }
-    axios
-      .post("/.netlify/functions/split_new", {
+    api
+      .post("/split_new", {
         amount: Number(target.amount.value),
         currency: currency,
         description: target.description.value,

@@ -1,0 +1,23 @@
+name = "splitexpense"
+main = "src/index.ts"
+compatibility_date = "2023-12-01"
+
+[observability.logs]
+enabled = true
+
+[vars]
+ALLOWED_ORIGINS = "https://splitexpense.netlify.app,https://deploy-preview-5--splitexpense.netlify.app,http://localhost:3000,http://localhost:3001"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "splitexpense-dev"
+database_id = "a721ee7e-a5ee-452d-88d4-ebb97a1f0786" 
+
+[env.prod]
+    [[env.prod.d1_databases]]
+    binding = "DB"
+    database_name = "splitexpense"
+    database_id = "56f19864-f964-4c28-b176-001047d58e00" 
+
+    [env.prod.vars]
+    ALLOWED_ORIGINS = "https://splitexpense.netlify.app,https://deploy-preview-5--splitexpense.netlify.app,http://localhost:3000,http://localhost:3001"

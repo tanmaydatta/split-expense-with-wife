@@ -1,9 +1,9 @@
-import axios from "axios";
 import getSymbolFromCurrency from "currency-symbol-map";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Card, Spinner } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
 import "./Budget.css";
+import api from "./utils/api";
 
 type MonthlyAmount = {
   currency: string;
@@ -33,8 +33,8 @@ export const MonthlyBudget: React.FC<MonthlyBudgetProps> = ({
   const fetchMonthlyBudget = useCallback(() => {
     if (dataFetchedRef.current) return;
     setLoading(true);
-    axios
-      .post("/.netlify/functions/budget_monthly", {
+    api
+      .post("/budget_monthly", {
         name: budget,
       })
       .then((res) => {

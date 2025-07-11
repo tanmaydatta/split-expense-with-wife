@@ -1,4 +1,3 @@
-import axios from "axios";
 import React, { useCallback, useEffect, useState } from "react";
 import { Button } from "react-bootstrap";
 import { useSelector } from "react-redux";
@@ -6,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import TransactionList, { Transaction } from "./TransactionList";
 import "./Transactions.css";
 import "./common.css";
+import api from "./utils/api";
 type TransactionMetadata = {
   owedAmounts: Map<string, number>;
   paidByShares: Map<string, number>;
@@ -28,8 +28,8 @@ const Transactions: React.FC = () => {
   const fetchTransactions = useCallback(
     (offset: number, transactions: Transaction[]) => {
       setLoading(true);
-      axios
-        .post("/.netlify/functions/transactions_list", {
+      api
+        .post("/transactions_list", {
           offset: offset,
         })
         .then((res) => {
@@ -92,8 +92,8 @@ const Transactions: React.FC = () => {
 
   const deleteTransaction = (id: number) => {
     setLoading(true);
-    axios
-      .post("/.netlify/functions/split_delete", {
+    api
+      .post("/split_delete", {
         id: id,
       })
       .then((res) => {
