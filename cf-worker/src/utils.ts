@@ -67,6 +67,11 @@ export function createCookie(options: CookieOptions): string {
     const sameSite = options.sameSite || 'none';
     cookieString += `; SameSite=${sameSite}`;
 
+    // Add domain for production cookies
+    if (options.domain) {
+        cookieString += `; Domain=${options.domain}`;
+    }
+
     return cookieString;
 }
 
@@ -169,16 +174,38 @@ export async function validateSession(sessionId: string, env: Env): Promise<Curr
 
 // Authenticate request using cookies
 export async function authenticate(request: CFRequest, env: Env): Promise<CurrentSession | null> {
-    console.log('authenticate');
+    console.log('authenticate - start');
+    console.log('request.url:', request.url);
+    console.log('request.method:', request.method);
+    
     const cookieHeader = request.headers.get('cookie');
-    if (!cookieHeader) {
+    console.log('cookieHeader from request.headers.get("cookie"):', cookieHeader);
+    
+    // Also try alternative header names
+    const altCookieHeader = request.headers.get('Cookie');
+    console.log('cookieHeader from request.headers.get("Cookie"):', altCookieHeader);
+    
+    // Check some common headers for debugging
+    console.log('Origin header:', request.headers.get('Origin'));
+    console.log('User-Agent header:', request.headers.get('User-Agent'));
+    console.log('Authorization header:', request.headers.get('Authorization'));
+    
+    if (!cookieHeader && !altCookieHeader) {
+        console.log('No cookie header found - returning null');
         return null;
     }
-
-    const cookies = parseCookies(cookieHeader);
+    
+    const finalCookieHeader = cookieHeader || altCookieHeader;
+    console.log('Final cookieHeader:', finalCookieHeader);
+    
+    const cookies = parseCookies(finalCookieHeader!);
+    console.log('Parsed cookies:', cookies);
+    
     const sessionId = cookies.sessionid;
+    console.log('sessionId extracted:', sessionId);
 
     if (!sessionId) {
+        console.log('No sessionid found in cookies - returning null');
         return null;
     }
 
@@ -188,24 +215,31 @@ export async function authenticate(request: CFRequest, env: Env): Promise<Curren
 // Get appropriate CORS headers based on request origin
 export function getCORSHeaders(request: CFRequest, env: Env): Record<string, string> {
     const origin = request.headers.get('Origin');
-    console.log('origin', origin);
-    console.log('env.ALLOWED_ORIGINS', env.ALLOWED_ORIGINS ? env.ALLOWED_ORIGINS : 'no allowed origins');
+    console.log('getCORSHeaders - origin:', origin);
+    console.log('getCORSHeaders - env.ALLOWED_ORIGINS:', env.ALLOWED_ORIGINS ? env.ALLOWED_ORIGINS : 'no allowed origins');
+    
     // Parse allowed origins from environment variable
     const allowedOrigins = env.ALLOWED_ORIGINS
         ? env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim())
         : ['https://splitexpense.netlify.app']; // fallback default
 
-    console.log('allowedOrigins', allowedOrigins);
+    console.log('getCORSHeaders - allowedOrigins:', allowedOrigins);
+    
     // Check if origin is allowed
     const corsOrigin = origin && allowedOrigins.includes(origin) ? origin : allowedOrigins[0];
-    console.log('corsOrigin', corsOrigin);
-    return {
+    console.log('getCORSHeaders - corsOrigin:', corsOrigin);
+    
+    const corsHeaders = {
         'Access-Control-Allow-Origin': corsOrigin,
         'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization, Cookie, X-Requested-With',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
         'Access-Control-Allow-Credentials': 'true',
         'Access-Control-Max-Age': '86400', // 24 hours
+        'Access-Control-Expose-Headers': 'Set-Cookie',
     };
+    
+    console.log('getCORSHeaders - returning headers:', corsHeaders);
+    return corsHeaders;
 }
 
 // Create CORS response for OPTIONS preflight requests
@@ -224,13 +258,18 @@ export function createJsonResponse(data: unknown, status: number = 200, headers:
         corsHeaders = getCORSHeaders(request, env);
     }
 
+    const finalHeaders = {
+        'Content-Type': 'application/json',
+        ...corsHeaders,
+        ...headers
+    };
+
+    console.log('createJsonResponse - finalHeaders:', finalHeaders);
+    console.log('createJsonResponse - status:', status);
+
     return new Response(JSON.stringify(data), {
         status,
-        headers: {
-            'Content-Type': 'application/json',
-            ...corsHeaders,
-            ...headers
-        }
+        headers: finalHeaders
     });
 }
 

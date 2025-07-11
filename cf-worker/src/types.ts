@@ -269,4 +269,5 @@ export interface CookieOptions {
   path?: string;
   secure?: boolean;
   sameSite?: 'strict' | 'lax' | 'none';
+  domain?: string;
 } 
