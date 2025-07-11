@@ -1,7 +1,6 @@
 import sha256 from "crypto-js/sha256";
 import React, { useState } from "react";
 import { Button, Container, Form } from "react-bootstrap";
-import { useCookies } from "react-cookie";
 import { useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import "./Login.css";
