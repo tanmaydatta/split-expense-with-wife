@@ -13,3 +13,9 @@
 
 [functions]
   node_bundler = "esbuild"
+
+[[redirects]]
+  from = "/.netlify/functions/*"
+  to = "https://splitexpense.tanmaydatta.workers.dev/.netlify/functions/:splat"
+  status = 200
+  force = true

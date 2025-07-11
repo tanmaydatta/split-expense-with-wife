@@ -44,6 +44,8 @@ export async function handleLogin(request: CFRequest, env: Env): Promise<Respons
     const sessionId = generateRandomId(16);
     const expiration = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
     
+    const url = new URL(request.url);
+
     // Get group data
     const groupStmt = env.DB.prepare(`
       SELECT groupid, budgets, userids, metadata 
@@ -101,6 +103,10 @@ export async function handleLogin(request: CFRequest, env: Env): Promise<Respons
       sameSite: 'none'
     });
     
+    console.log('Login - sessionCookie created:', sessionCookie);
+    console.log('Login - sessionId:', sessionId);
+    console.log('Login - expiration:', expiration);
+    
     // Create response
     const response: LoginResponse = {
       username: body.username,
@@ -112,6 +118,7 @@ export async function handleLogin(request: CFRequest, env: Env): Promise<Respons
       userId: user.Id
     };
     
+    console.log('Login - about to return response with Set-Cookie header');
     return createJsonResponse(response, 200, {
       'Set-Cookie': sessionCookie
     }, request, env);
