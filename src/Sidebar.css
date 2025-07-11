@@ -14,19 +14,11 @@
     flex-direction: column;
     justify-content: flex-start;
   }
-  .SidebarFooter {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-end;
+  .SidebarItem.logout {
+    margin-top: auto;
+    border-top: 1px solid #ccc;
   }
 
-  .SidebarFooter > * {
-    padding: 10px;
-    border-top: 1px solid #ccc;
-    cursor: pointer;
-  }
   .SidebarHeader > * {
     padding: 10px;
     background-color: #ccc;
@@ -54,7 +46,8 @@
     .SidebarHeader {
       display: none;
     }
-    .SidebarFooter {
-      display: none;
+    .SidebarItem.logout {
+        margin-top: 0;
+        border-top: none;
     }
   }
