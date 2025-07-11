@@ -14,6 +14,16 @@
 [functions]
   node_bundler = "esbuild"
 
+# This rule handles the /split endpoint, ensuring it's served by Netlify Functions.
+# By rewriting to itself without `force=true`, Netlify's default behavior
+# of serving an existing function at that path takes precedence.
+[[redirects]]
+  from = "/.netlify/functions/split"
+  to = "/.netlify/functions/split"
+  status = 200
+
+# This is a catch-all rule to proxy all other function calls to your Cloudflare Worker.
+# The `force=true` ensures this redirect happens even if a file exists at the path.
 [[redirects]]
   from = "/.netlify/functions/*"
   to = "https://splitexpense.tanmaydatta.workers.dev/.netlify/functions/:splat"
