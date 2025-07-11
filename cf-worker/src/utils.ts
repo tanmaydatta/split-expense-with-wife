@@ -189,7 +189,6 @@ export async function authenticate(request: CFRequest, env: Env): Promise<Curren
 export function getCORSHeaders(request: CFRequest, env: Env): Record<string, string> {
     const origin = request.headers.get('Origin');
     console.log('origin', origin);
-    console.log('env.SPLITWISE_API_KEY', env.SPLITWISE_API_KEY);
     console.log('env.ALLOWED_ORIGINS', env.ALLOWED_ORIGINS ? env.ALLOWED_ORIGINS : 'no allowed origins');
     // Parse allowed origins from environment variable
     const allowedOrigins = env.ALLOWED_ORIGINS
