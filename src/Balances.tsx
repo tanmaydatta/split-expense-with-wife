@@ -49,13 +49,13 @@ const Balances: React.FC = () => {
             </div>
             <div className="currencyBalances">
               {Array.from(balances.get(k) ?? new Map(), ([c, a]) => (
-                <>
+                <div className="currencyBalanceItem">
                   {a > 0 ? "You are owed" : "You owe"}{" "}
                   <span className={a > 0 ? "positive" : "negative"}>
                     {getSymbolFromCurrency(c)}
                     {Math.abs(a).toFixed(2)}
                   </span>{" "}
-                </>
+                </div>
               ))}
             </div>
           </div>

@@ -25,6 +25,10 @@
   align-items: center;
 }
 
+.BudgetSelectionGroup {
+  flex-wrap: wrap;
+}
+
 .budgetTotal > * {
    padding-right: 1rem;
 } 
@@ -127,5 +131,12 @@
   .btn-group-sm .btn {
     font-size: 0.7rem;
     padding: 0.2rem 0.4rem;
+  }
+  .Budget {
+    padding: 5%;
+    margin-top: 5%;
+  }
+  .BudgetTableWrapper {
+    overflow-x: auto;
   }
 } 

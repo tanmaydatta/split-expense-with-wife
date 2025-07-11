@@ -56,3 +56,26 @@
   width: 100%;
   text-align: center;
 }
+
+@media screen and (max-width: 600px) {
+  .BalancesWrapper {
+    width: 95%;
+    margin: 20px auto;
+  }
+  .BalanceItemWrapper {
+    flex-direction: column;
+  }
+  .currencyBalances {
+    border-left: none;
+    border-top: 1px solid #000;
+    width: 100%;
+    align-items: stretch;
+    text-align: center;
+  }
+  .currencyBalanceItem {
+    padding: 10px;
+  }
+  .currencyBalanceItem:not(:last-child) {
+    border-bottom: 1px solid #eee;
+  }
+}

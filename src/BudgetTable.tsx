@@ -10,42 +10,44 @@ interface Props {
 
 export default function BudgetTable(props: Props): JSX.Element {
   return (
-    <Table striped bordered hover>
-      <thead>
-        <tr>
-          <th>Date</th>
-          <th>Description</th>
-          <th>Amount</th>
-          <th>Deleted</th>
-        </tr>
-      </thead>
-      <tbody>
-        {props.entries.map((e) => {
-          return (
-            <tr key={e.date}>
-              <td>{dateToStr(new Date(e.date))}</td>
-              <td>{e.description}</td>
-              <td style={{ color: e.amount.startsWith("+") ? "green" : "red" }}>
-                {e.amount[0]}
-                {getSymbolFromCurrency(e.currency)}
-                {e.amount.substring(1)}
-              </td>
-              <td
-                style={{
-                  textAlign: "center",
-                }}
-              >
-                {e.deleted != null ? (
-                  dateToStr(new Date(e.deleted))
-                ) : (
-                  <Trash onClick={() => props.onDelete(e.id)} />
-                )}
-              </td>
-            </tr>
-          );
-        })}
-      </tbody>
-    </Table>
+    <div className="BudgetTableWrapper">
+      <Table striped bordered hover>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Description</th>
+            <th>Amount</th>
+            <th>Deleted</th>
+          </tr>
+        </thead>
+        <tbody>
+          {props.entries.map((e) => {
+            return (
+              <tr key={e.date}>
+                <td>{dateToStr(new Date(e.date))}</td>
+                <td>{e.description}</td>
+                <td style={{ color: e.amount.startsWith("+") ? "green" : "red" }}>
+                  {e.amount[0]}
+                  {getSymbolFromCurrency(e.currency)}
+                  {e.amount.substring(1)}
+                </td>
+                <td
+                  style={{
+                    textAlign: "center",
+                  }}
+                >
+                  {e.deleted != null ? (
+                    dateToStr(new Date(e.deleted))
+                  ) : (
+                    <Trash onClick={() => props.onDelete(e.id)} />
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </Table>
+    </div>
   );
 }
 

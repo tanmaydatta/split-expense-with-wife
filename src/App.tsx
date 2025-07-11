@@ -130,9 +130,9 @@ function App(): JSX.Element {
         <div className="App">
           <Form
             onSubmit={submit}
+            className="ExpenseForm"
             style={{
               justifyContent: "center",
-              width: "fit-content",
               margin: "1%",
             }}
           >
@@ -158,6 +158,7 @@ function App(): JSX.Element {
               />
             </Form.Group>
             <div
+              className="SplitPercentageContainer"
               style={{
                 display: "flex",
                 flexDirection: "row",
@@ -169,6 +170,7 @@ function App(): JSX.Element {
               {data.users.map(
                 (u: { FirstName: string; Id: number }, i: Number) => (
                   <div
+                    className="SplitPercentageInput"
                     style={{
                       height: "fit-content",
                       width: "fit-content",

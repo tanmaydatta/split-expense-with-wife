@@ -70,10 +70,10 @@ const BudgetBarChart: React.FC<Props> = ({ data }) => {
 
   // Predefined date ranges
   const dateRanges: DateRange[] = [
-    { label: "6 Months", months: 6 },
-    { label: "1 Year", months: 12 },
-    { label: "2 Years", months: 24 },
-    { label: "All Time", months: 999 }, // Very large number to include all
+    { label: "6M", months: 6 },
+    { label: "1Y", months: 12 },
+    { label: "2Y", months: 24 },
+    { label: "All", months: 999 }, // Very large number to include all
   ];
 
   // Filter data based on selected time range

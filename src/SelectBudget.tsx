@@ -15,7 +15,7 @@ export const SelectBudget: React.FC<SelectBudgetProps> = ({
   return (
     <ToggleButtonGroup
       style={{ width: "100%" }}
-      className="mb-2"
+      className="mb-2 BudgetSelectionGroup"
       name="budget"
       value={budget}
       onChange={handleChangeBudget}

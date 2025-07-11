@@ -13,3 +13,11 @@
 .showMoreButton {
     width: 100%;
 }
+
+@media screen and (max-width: 600px) {
+    .TransactionsWraper {
+        padding-left: 5%;
+        padding-right: 5%;
+        padding-top: 5%;
+    }
+}

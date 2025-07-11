@@ -39,3 +39,22 @@
     border-bottom: 1px solid #ccc;
     cursor: pointer;
   }
+
+  @media screen and (max-width: 600px) {
+    .Sidebar {
+      width: 100%;
+      height: auto;
+      flex-direction: row;
+      overflow-x: auto;
+    }
+    .SidebarItem {
+      border-bottom: none;
+      border-right: 1px solid #ccc;
+    }
+    .SidebarHeader {
+      display: none;
+    }
+    .SidebarFooter {
+      display: none;
+    }
+  }

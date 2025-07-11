@@ -45,13 +45,6 @@ export const MonthlyBudgetPage: React.FC = () => {
       <Card className="w-100 mb-3">
         <Card.Header className="d-flex justify-content-between align-items-center">
           <h4 className="mb-0">Monthly Budget Breakdown</h4>
-          <Button
-            variant="outline-secondary"
-            size="sm"
-            onClick={() => navigate("/budget")}
-          >
-            Back to Budget
-          </Button>
         </Card.Header>
         <Card.Body>
           <SelectBudget
