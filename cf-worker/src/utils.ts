@@ -4,7 +4,6 @@ import {
     Session,
     User,
     Group,
-    CookieOptions,
     CFRequest,
     CFResponse,
     CFResponseInit
@@ -25,54 +24,6 @@ export function generateRandomId(length: number = 16): string {
 // Format current time for SQLite
 export function formatSQLiteTime(date: Date = new Date()): string {
     return date.toISOString().replace('T', ' ').replace(/\.\d{3}Z$/, '');
-}
-
-// Parse cookie header
-export function parseCookies(cookieHeader: string): Record<string, string> {
-    const cookies: Record<string, string> = {};
-    if (!cookieHeader) return cookies;
-
-    cookieHeader.split(';').forEach(cookie => {
-        const [name, ...rest] = cookie.trim().split('=');
-        if (name && rest.length > 0) {
-            cookies[name] = rest.join('=');
-        }
-    });
-
-    return cookies;
-}
-
-// Create cookie string
-export function createCookie(options: CookieOptions): string {
-    let cookieString = `${options.name}=${options.value}`;
-
-    if (options.expires) {
-        cookieString += `; Expires=${options.expires.toUTCString()}`;
-    }
-
-    if (options.httpOnly) {
-        cookieString += '; HttpOnly';
-    }
-
-    if (options.path) {
-        cookieString += `; Path=${options.path}`;
-    }
-
-    // Always set Secure flag for production (HTTPS)
-    if (options.secure !== false) {
-        cookieString += '; Secure';
-    }
-
-    // Set SameSite attribute for cross-site protection
-    const sameSite = options.sameSite || 'none';
-    cookieString += `; SameSite=${sameSite}`;
-
-    // Add domain for production cookies
-    if (options.domain) {
-        cookieString += `; Domain=${options.domain}`;
-    }
-
-    return cookieString;
 }
 
 // Validate session and return current session data
@@ -172,40 +123,17 @@ export async function validateSession(sessionId: string, env: Env): Promise<Curr
     }
 }
 
-// Authenticate request using cookies
+// Authenticate request using Authorization header
 export async function authenticate(request: CFRequest, env: Env): Promise<CurrentSession | null> {
-    console.log('authenticate - start');
-    console.log('request.url:', request.url);
-    console.log('request.method:', request.method);
-    
-    const cookieHeader = request.headers.get('cookie');
-    console.log('cookieHeader from request.headers.get("cookie"):', cookieHeader);
-    
-    // Also try alternative header names
-    const altCookieHeader = request.headers.get('Cookie');
-    console.log('cookieHeader from request.headers.get("Cookie"):', altCookieHeader);
-    
-    // Check some common headers for debugging
-    console.log('Origin header:', request.headers.get('Origin'));
-    console.log('User-Agent header:', request.headers.get('User-Agent'));
-    console.log('Authorization header:', request.headers.get('Authorization'));
-    
-    if (!cookieHeader && !altCookieHeader) {
-        console.log('No cookie header found - returning null');
+    const authHeader = request.headers.get('Authorization');
+
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
         return null;
     }
-    
-    const finalCookieHeader = cookieHeader || altCookieHeader;
-    console.log('Final cookieHeader:', finalCookieHeader);
-    
-    const cookies = parseCookies(finalCookieHeader!);
-    console.log('Parsed cookies:', cookies);
-    
-    const sessionId = cookies.sessionid;
-    console.log('sessionId extracted:', sessionId);
+
+    const sessionId = authHeader.substring(7); // "Bearer ".length
 
     if (!sessionId) {
-        console.log('No sessionid found in cookies - returning null');
         return null;
     }
 

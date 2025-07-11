@@ -4,7 +4,7 @@ import {
   createErrorResponse, 
   generateRandomId, 
   formatSQLiteTime,
-  createCookie
+  authenticate
 } from '../utils';
 
 // Handle login
@@ -23,6 +23,7 @@ export async function handleLogin(request: CFRequest, env: Env): Promise<Respons
     `);
     
     const userResult = await userStmt.bind(body.username).first();
+
     if (!userResult) {
       return createErrorResponse('Invalid credentials', 401, request, env);
     }
@@ -92,21 +93,6 @@ export async function handleLogin(request: CFRequest, env: Env): Promise<Respons
       formatSQLiteTime(expiration)
     ).run();
     
-    // Create session cookie
-    const sessionCookie = createCookie({
-      name: 'sessionid',
-      value: sessionId,
-      expires: expiration,
-      httpOnly: true,
-      path: '/',
-      secure: true,
-      sameSite: 'none'
-    });
-    
-    console.log('Login - sessionCookie created:', sessionCookie);
-    console.log('Login - sessionId:', sessionId);
-    console.log('Login - expiration:', expiration);
-    
     // Create response
     const response: LoginResponse = {
       username: body.username,
@@ -115,13 +101,11 @@ export async function handleLogin(request: CFRequest, env: Env): Promise<Respons
       users,
       userids: userIds,
       metadata,
-      userId: user.Id
+      userId: user.Id,
+      token: sessionId,
     };
     
-    console.log('Login - about to return response with Set-Cookie header');
-    return createJsonResponse(response, 200, {
-      'Set-Cookie': sessionCookie
-    }, request, env);
+    return createJsonResponse(response, 200, {}, request, env);
     
   } catch (error) {
     console.error('Login error:', error);
@@ -136,39 +120,16 @@ export async function handleLogout(request: CFRequest, env: Env): Promise<Respon
   }
   
   try {
-    const cookieHeader = request.headers.get('cookie');
-    if (cookieHeader) {
-      // Parse session ID from cookies
-      const cookies = cookieHeader.split(';').reduce((acc: Record<string, string>, cookie: string) => {
-        const [name, value] = cookie.trim().split('=');
-        acc[name] = value;
-        return acc;
-      }, {});
-      
-      const sessionId = cookies.sessionid;
-      if (sessionId) {
-        // Delete session from database
-        const deleteStmt = env.DB.prepare(`
-          DELETE FROM sessions WHERE sessionid = ?
-        `);
-        await deleteStmt.bind(sessionId).run();
-      }
+    const session = await authenticate(request, env);
+    if (session) {
+      // Delete session from database
+      const deleteStmt = env.DB.prepare(`
+        DELETE FROM sessions WHERE sessionid = ?
+      `);
+      await deleteStmt.bind(session.session.sessionid).run();
     }
     
-    // Create expired session cookie
-    const expiredCookie = createCookie({
-      name: 'sessionid',
-      value: '',
-      expires: new Date(Date.now() - 24 * 60 * 60 * 1000), // Yesterday
-      httpOnly: true,
-      path: '/',
-      secure: true,
-      sameSite: 'none'
-    });
-    
-    return createJsonResponse({}, 200, {
-      'Set-Cookie': expiredCookie
-    }, request, env);
+    return createJsonResponse({ message: 'Logged out successfully' }, 200, {}, request, env);
     
   } catch (error) {
     console.error('Logout error:', error);

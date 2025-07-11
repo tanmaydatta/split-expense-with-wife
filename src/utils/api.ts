@@ -13,7 +13,11 @@ const api = axios.create({
 // Optional: Add request interceptor for common behavior
 api.interceptors.request.use(
   (config) => {
-    // You can add common headers, auth tokens, etc. here
+    // Get token from local storage
+    const token = localStorage.getItem('sessionToken');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
     return config;
   },
   (error) => {

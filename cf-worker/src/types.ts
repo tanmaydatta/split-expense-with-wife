@@ -164,6 +164,7 @@ export interface LoginResponse {
   userids: number[];
   metadata: GroupMetadata;
   userId: number;
+  token: string;
 }
 
 export interface BudgetRequest {
@@ -258,16 +259,4 @@ export type ApiResponse<T = any> = {
 export interface ErrorResponse {
   error: string;
   statusCode: number;
-}
-
-// Cookie utilities
-export interface CookieOptions {
-  name: string;
-  value: string;
-  expires?: Date;
-  httpOnly?: boolean;
-  path?: string;
-  secure?: boolean;
-  sameSite?: 'strict' | 'lax' | 'none';
-  domain?: string;
 } 

@@ -15,25 +15,26 @@ function LoginPage() {
   const [, setCookie] = useCookies(["userinfo"]);
   const dispatch = useDispatch();
   const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleLogin = (event: any) => {
-    event.preventDefault();
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
     setLoading(true);
-    api
-      .post("/login", {
-        username: username,
-        password: sha256(password).toString(),
-      })
-      .then((res) => {
-        setCookie("userinfo", res.data, { path: "/" });
-        dispatch(setData(res.data));
-        navigate("/");
-      })
-      .catch((e) => {
-        console.log(e);
-        alert(e.response.data);
-      })
-      .finally(() => setLoading(false));
+    try {
+      const response = await api.post('/login', { username, password: sha256(password).toString() });
+      const { token, ...userData } = response.data;
+
+      // Store token in local storage
+      localStorage.setItem('sessionToken', token);
+      
+      // Dispatch user data to Redux store
+      dispatch(setData(userData));
+
+      // Redirect to home page
+      navigate('/');
+    } catch (err) {
+      setError('Invalid username or password');
+    }
   };
 
   React.useEffect(() => {
