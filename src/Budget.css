@@ -1,13 +1,11 @@
 .Budget {
-    padding: 10%;
-    flex-direction: column;
-    display: flex;
-    justify-content: center;
-    margin-top: 10%;
-    align-items: center;
-    width: 100%;
-  }
-  
+  padding: 2rem;
+  flex-direction: column;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+}
 
 .positive {
   color: green;
@@ -29,9 +27,17 @@
   flex-wrap: wrap;
 }
 
+.BudgetSelectionGroup > .btn {
+  flex: 1 1 auto;
+}
+
 .budgetTotal > * {
    padding-right: 1rem;
 } 
+
+.BudgetTableWrapper {
+  width: 100%;
+}
 
 /* Monthly Budget Styles */
 .monthly-budget-container {
@@ -133,8 +139,7 @@
     padding: 0.2rem 0.4rem;
   }
   .Budget {
-    padding: 5%;
-    margin-top: 5%;
+    padding: 1rem;
   }
   .BudgetTableWrapper {
     overflow-x: auto;
