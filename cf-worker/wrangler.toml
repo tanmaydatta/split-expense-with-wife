@@ -13,6 +13,11 @@ binding = "DB"
 database_name = "splitexpense-dev"
 database_id = "a721ee7e-a5ee-452d-88d4-ebb97a1f0786" 
 
+
+[triggers]
+crons = [ "*/2 * * * *", "*/5 * * * *" ]
+
+
 [env.prod]
     [[env.prod.d1_databases]]
     binding = "DB"

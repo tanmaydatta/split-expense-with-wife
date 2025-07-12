@@ -16,6 +16,7 @@ import {
   handleTransactionsList 
 } from './handlers/split';
 import { handleHelloWorld } from './handlers/hello';
+import { handleCron } from './handlers/cron';
 
 // Global types for Cloudflare Workers
 declare global {
@@ -71,5 +72,9 @@ export default {
     } else {
       return createErrorResponse('Not found', 404, request, env);
     }
+  },
+
+  async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+    ctx.waitUntil(handleCron(env, controller.cron));
   },
 }; 
