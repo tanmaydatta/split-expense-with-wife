@@ -75,6 +75,7 @@ export default {
   },
 
   async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+    console.log("controller",controller);
     ctx.waitUntil(handleCron(env, controller.cron));
   },
 }; 
