@@ -72,6 +72,7 @@ export interface Env {
   SPLITWISE_API_KEY: string;
   SPLITWISE_GROUP_ID: string;
   ALLOWED_ORIGINS: string; // Comma-separated list of allowed origins
+  GROUP_IDS: string; // Comma-separated list of group IDs
 }
 
 // Database models

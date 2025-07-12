@@ -7,6 +7,7 @@ enabled = true
 
 [vars]
 ALLOWED_ORIGINS = "https://splitexpense.netlify.app,https://deploy-preview-5--splitexpense.netlify.app,http://localhost:3000,http://localhost:3001"
+GROUP_IDS = "1"
 
 [[d1_databases]]
 binding = "DB"
@@ -26,3 +27,4 @@ crons = [ "*/2 * * * *", "*/5 * * * *" ]
 
     [env.prod.vars]
     ALLOWED_ORIGINS = "https://splitexpense.netlify.app,https://deploy-preview-5--splitexpense.netlify.app,http://localhost:3000,http://localhost:3001"
+    GROUP_IDS = "1"
