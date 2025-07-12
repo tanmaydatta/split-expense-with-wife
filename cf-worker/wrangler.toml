@@ -16,8 +16,7 @@ database_id = "a721ee7e-a5ee-452d-88d4-ebb97a1f0786"
 
 
 [triggers]
-crons = [ "*/2 * * * *" ]
-
+crons = [ "0 0 1 * *" ]
 
 [env.prod]
     [[env.prod.d1_databases]]
