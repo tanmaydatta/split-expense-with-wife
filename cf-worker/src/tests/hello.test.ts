@@ -44,4 +44,4 @@ describe("Hello World handler", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("Access-Control-Allow-Methods")).toContain("GET");
   });
-}); 
+});
