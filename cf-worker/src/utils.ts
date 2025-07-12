@@ -143,19 +143,14 @@ export async function authenticate(request: CFRequest, env: Env): Promise<Curren
 // Get appropriate CORS headers based on request origin
 export function getCORSHeaders(request: CFRequest, env: Env): Record<string, string> {
     const origin = request.headers.get('Origin');
-    console.log('getCORSHeaders - origin:', origin);
-    console.log('getCORSHeaders - env.ALLOWED_ORIGINS:', env.ALLOWED_ORIGINS ? env.ALLOWED_ORIGINS : 'no allowed origins');
     
     // Parse allowed origins from environment variable
     const allowedOrigins = env.ALLOWED_ORIGINS
         ? env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim())
         : ['https://splitexpense.netlify.app']; // fallback default
-
-    console.log('getCORSHeaders - allowedOrigins:', allowedOrigins);
     
     // Check if origin is allowed
     const corsOrigin = origin && allowedOrigins.includes(origin) ? origin : allowedOrigins[0];
-    console.log('getCORSHeaders - corsOrigin:', corsOrigin);
     
     const corsHeaders = {
         'Access-Control-Allow-Origin': corsOrigin,
@@ -166,7 +161,6 @@ export function getCORSHeaders(request: CFRequest, env: Env): Record<string, str
         'Access-Control-Expose-Headers': 'Set-Cookie',
     };
     
-    console.log('getCORSHeaders - returning headers:', corsHeaders);
     return corsHeaders;
 }
 
@@ -191,9 +185,6 @@ export function createJsonResponse(data: unknown, status: number = 200, headers:
         ...corsHeaders,
         ...headers
     };
-
-    console.log('createJsonResponse - finalHeaders:', finalHeaders);
-    console.log('createJsonResponse - status:', status);
 
     return new Response(JSON.stringify(data), {
         status,

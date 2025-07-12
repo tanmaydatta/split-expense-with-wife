@@ -5,7 +5,7 @@
   "main": "src/index.ts",
   "scripts": {
     "dev": "wrangler dev",
-    "deploy": "wrangler publish",
+    "deploy": "vitest run && wrangler publish",
     "build": "wrangler publish --dry-run",
     "test": "vitest run"
   },
