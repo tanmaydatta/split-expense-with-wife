@@ -1,148 +1,224 @@
-/// <reference types="vitest" />
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { 
-  handleBalances, 
-  handleBudget, 
-  handleBudgetDelete, 
-  handleBudgetList,
-  handleBudgetMonthly,
-  handleBudgetTotal
-} from '../handlers/budget';
-import { CFRequest, Env, D1Database, D1PreparedStatement, User, Group, CurrentSession } from '../types';
-import * as utils from '../utils';
-import { createMockDb, createMockEnv, createMockRequest } from './mocks';
+import { env, createExecutionContext, waitOnExecutionContext } from "cloudflare:test";
+import { describe, it, expect, beforeEach } from "vitest";
+import worker from "../index";
+import { setupAndCleanDatabase, createTestUserData, createTestSession } from "./test-utils";
 
-vi.mock('../utils', async () => {
-    const originalUtils = await vi.importActual('../utils');
-    return {
-      ...originalUtils,
-      authenticate: vi.fn(),
-      isValidPin: vi.fn(() => true),
-    };
+describe("Budget Handlers", () => {
+  beforeEach(async () => {
+    await setupAndCleanDatabase(env);
   });
 
-describe('Budget Handlers', () => {
-  let request: CFRequest;
-  let env: Env;
-  let mockDB: D1Database;
-  let mockStmt: D1PreparedStatement;
-  let mockSession: CurrentSession;
+  describe("handleBalances", () => {
+    it("should return calculated balances for the user", async () => {
+      // Set up test data
+      await createTestUserData(env);
+      await createTestSession(env);
+      
+      // Add some transaction data to create balances
+      await env.DB.exec("INSERT INTO transactions (transaction_id, description, amount, currency, group_id, created_at) VALUES ('test-tx-1', 'Test transaction', 100, 'USD', 1, '2024-01-01 00:00:00')");
+      await env.DB.exec("INSERT INTO transaction_users (transaction_id, user_id, amount, owed_to_user_id, currency, group_id) VALUES ('test-tx-1', 1, 50, 2, 'USD', 1), ('test-tx-1', 2, 20, 1, 'USD', 1)");
 
-  beforeEach(() => {
-    mockDB = createMockDb();
-    env = createMockEnv(mockDB);
-    mockStmt = mockDB.prepare('' as any);
+      const request = new Request("http://example.com/.netlify/functions/balances", {
+        method: "POST",
+        headers: {
+          "Authorization": "Bearer test-session-id",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({}),
+      });
 
-    mockSession = {
-        session: { sessionid: 'session-id', username: 'testuser', expiry_time: '' },
-        user: { Id: 1, username: 'testuser', FirstName: 'Test', groupid: 1 },
-        group: { groupid: 1, budgets: '["house", "food"]', userids: '[1, 2]', metadata: '{}' },
-        usersById: {
-          1: { Id: 1, username: 'testuser', FirstName: 'Test', groupid: 1 },
-          2: { Id: 2, username: 'anotheruser', FirstName: 'Another', groupid: 1 }
-        }
-      };
-    (utils.authenticate as any).mockResolvedValue(mockSession);
-    vi.clearAllMocks();
-  });
+      const ctx = createExecutionContext();
+      const response = await worker.fetch(request, env, ctx);
+      await waitOnExecutionContext(ctx);
 
-  describe('handleBalances', () => {
-    it('should return calculated balances for the user', async () => {
-      request = createMockRequest('POST');
-      const mockBalances = [
-        { user_id: 1, owed_to_user_id: 2, currency: 'USD', amount: 50 },
-        { user_id: 2, owed_to_user_id: 1, currency: 'USD', amount: 20 }
-      ];
-      (mockStmt.all as any).mockResolvedValue({ results: mockBalances });
-
-      const response = await handleBalances(request, env);
       expect(response.status).toBe(200);
-      const json = await response.json() as { [key: string]: { [key: string]: number } };
-      expect(json.Another.USD).toBe(-30);
+      const json = await response.json() as any;
+      expect(json.Other.USD).toBe(-30);
     });
   });
 
-  describe('handleBudget', () => {
-    it('should create a budget entry successfully', async () => {
-        request = createMockRequest('POST', '/', {
-            amount: 100,
-            description: 'Groceries',
-            pin: '1234',
-            name: 'house',
-            groupid: 1,
-            currency: 'USD'
-        });
-        (mockStmt.run as any).mockResolvedValue({ meta: { changes: 1 } });
-        (utils.isAuthorizedForBudget as any) = vi.fn(() => true);
-        (utils.isValidCurrency as any) = vi.fn(() => true);
+  describe("handleBudget", () => {
+    it("should create a budget entry successfully", async () => {
+      // Set up test data
+      await createTestUserData(env);
+      await createTestSession(env);
 
+      const request = new Request("http://example.com/.netlify/functions/budget", {
+        method: "POST",
+        headers: {
+          "Authorization": "Bearer test-session-id",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          amount: 100,
+          description: "Groceries",
+          pin: "1234",
+          name: "house",
+          groupid: 1,
+          currency: "USD"
+        }),
+      });
 
-        const response = await handleBudget(request, env);
-        expect(response.status).toBe(200);
-        const json = await response.json() as { message: string };
-        expect(json.message).toBe('Budget entry created successfully');
-    });
+      const ctx = createExecutionContext();
+      const response = await worker.fetch(request, env, ctx);
+      await waitOnExecutionContext(ctx);
 
-    it('should return 401 if not authorized for budget', async () => {
-        request = createMockRequest('POST', '/', { name: 'unauthorized_budget' });
-        (utils.isAuthorizedForBudget as any) = vi.fn(() => false);
-
-        const response = await handleBudget(request, env);
-        expect(response.status).toBe(401);
-    });
-  });
-
-  describe('handleBudgetDelete', () => {
-    it('should delete a budget entry successfully', async () => {
-      request = createMockRequest('POST', '/', { id: 1, pin: '1234' });
-      (mockStmt.run as any).mockResolvedValue({ meta: { changes: 1 } });
-
-      const response = await handleBudgetDelete(request, env);
       expect(response.status).toBe(200);
-      const json = await response.json() as { message: string };
-      expect(json.message).toBe('Budget entry deleted successfully');
+      const json = await response.json() as any;
+      expect(json.message).toBe("Budget entry created successfully");
+    });
+
+    it("should return 401 if not authorized for budget", async () => {
+      // Set up test data
+      await createTestUserData(env);
+      await createTestSession(env);
+
+      const request = new Request("http://example.com/.netlify/functions/budget", {
+        method: "POST",
+        headers: {
+          "Authorization": "Bearer test-session-id",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          amount: 100,
+          description: "Groceries",
+          pin: "1234",
+          name: "unauthorized_budget",
+          groupid: 1,
+          currency: "USD"
+        }),
+      });
+
+      const ctx = createExecutionContext();
+      const response = await worker.fetch(request, env, ctx);
+      await waitOnExecutionContext(ctx);
+
+      expect(response.status).toBe(401);
     });
   });
 
-  describe('handleBudgetList', () => {
-    it('should return a list of budget entries', async () => {
-      request = createMockRequest('POST', '/', { name: 'house', offset: 0 });
-      const mockEntries = [{ id: 1, description: 'Groceries' }];
-      (mockStmt.all as any).mockResolvedValue({ results: mockEntries });
-      (utils.isAuthorizedForBudget as any) = vi.fn(() => true);
+  describe("handleBudgetDelete", () => {
+    it("should delete a budget entry successfully", async () => {
+      // Set up test data
+      await createTestUserData(env);
+      await createTestSession(env);
+      
+      // Create a budget entry to delete with correct schema
+      await env.DB.exec("INSERT INTO budget (id, description, price, added_time, amount, name, groupid, currency) VALUES (1, 'Test entry', '+100.00', '2024-01-01 00:00:00', 100, 'house', 1, 'USD')");
 
-      const response = await handleBudgetList(request, env);
+      const request = new Request("http://example.com/.netlify/functions/budget_delete", {
+        method: "POST",
+        headers: {
+          "Authorization": "Bearer test-session-id",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          id: 1,
+          pin: "1234"
+        }),
+      });
+
+      const ctx = createExecutionContext();
+      const response = await worker.fetch(request, env, ctx);
+      await waitOnExecutionContext(ctx);
+
       expect(response.status).toBe(200);
-      const json = await response.json() as any[];
-      expect(json[0].description).toBe('Groceries');
+      const json = await response.json() as any;
+      expect(json.message).toBe("Budget entry deleted successfully");
     });
   });
 
-  describe('handleBudgetMonthly', () => {
-    it('should return monthly budget totals', async () => {
-        request = createMockRequest('POST', '/', { name: 'house' });
-        const mockMonthly = [{ month: 7, year: 2024, currency: 'USD', amount: 500 }];
-        (mockStmt.all as any).mockResolvedValue({ results: mockMonthly });
-        (utils.isAuthorizedForBudget as any) = vi.fn(() => true);
+  describe("handleBudgetList", () => {
+    it("should return a list of budget entries", async () => {
+      // Set up test data
+      await createTestUserData(env);
+      await createTestSession(env);
+      
+      // Create budget entries with correct schema
+      await env.DB.exec("INSERT INTO budget (id, description, price, added_time, amount, name, groupid, currency) VALUES (1, 'Groceries', '+100.00', '2024-01-01 00:00:00', 100, 'house', 1, 'USD')");
 
-        const response = await handleBudgetMonthly(request, env);
-        expect(response.status).toBe(200);
-        const json = await response.json() as any[];
-        expect(json[0].amounts[0].amount).toBe(500);
+      const request = new Request("http://example.com/.netlify/functions/budget_list", {
+        method: "POST",
+        headers: {
+          "Authorization": "Bearer test-session-id",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: "house",
+          offset: 0,
+          pin: "1234"
+        }),
+      });
+
+      const ctx = createExecutionContext();
+      const response = await worker.fetch(request, env, ctx);
+      await waitOnExecutionContext(ctx);
+
+      expect(response.status).toBe(200);
+      const json = await response.json() as any;
+      expect(json[0].description).toBe("Groceries");
     });
   });
 
-  describe('handleBudgetTotal', () => {
-    it('should return budget totals', async () => {
-        request = createMockRequest('POST', '/', { name: 'house' });
-        const mockTotal = [{ currency: 'USD', amount: 1500 }];
-        (mockStmt.all as any).mockResolvedValue({ results: mockTotal });
-        (utils.isAuthorizedForBudget as any) = vi.fn(() => true);
+  describe("handleBudgetMonthly", () => {
+    it("should return monthly budget totals", async () => {
+      // Set up test data
+      await createTestUserData(env);
+      await createTestSession(env);
+      
+      // Create budget entries with negative amounts for monthly totals
+      await env.DB.exec("INSERT INTO budget (description, price, added_time, amount, name, groupid, currency) VALUES ('Monthly expense', '-500.00', '2024-07-15 00:00:00', -500, 'house', 1, 'USD')");
 
-        const response = await handleBudgetTotal(request, env);
-        expect(response.status).toBe(200);
-        const json = await response.json() as any[];
-        expect(json[0].amount).toBe(1500);
+      const request = new Request("http://example.com/.netlify/functions/budget_monthly", {
+        method: "POST",
+        headers: {
+          "Authorization": "Bearer test-session-id",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: "house"
+        }),
+      });
+
+      const ctx = createExecutionContext();
+      const response = await worker.fetch(request, env, ctx);
+      await waitOnExecutionContext(ctx);
+
+      expect(response.status).toBe(200);
+      const json = await response.json() as any;
+      expect(json[0].amounts[0].amount).toBe(-500);
+    });
+  });
+
+  describe("handleBudgetTotal", () => {
+    it("should return budget totals", async () => {
+      // Set up test data
+      await createTestUserData(env);
+      await createTestSession(env);
+      
+      // Create budget entries with correct schema
+      await env.DB.exec("INSERT INTO budget (description, price, added_time, amount, name, groupid, currency) VALUES ('Entry 1', '+500.00', '2024-01-01 00:00:00', 500, 'house', 1, 'USD')");
+      await env.DB.exec("INSERT INTO budget (description, price, added_time, amount, name, groupid, currency) VALUES ('Entry 2', '+1000.00', '2024-02-01 00:00:00', 1000, 'house', 1, 'USD')");
+
+      const request = new Request("http://example.com/.netlify/functions/budget_total", {
+        method: "POST",
+        headers: {
+          "Authorization": "Bearer test-session-id",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: "house",
+          pin: "1234"
+        }),
+      });
+
+      const ctx = createExecutionContext();
+      const response = await worker.fetch(request, env, ctx);
+      await waitOnExecutionContext(ctx);
+
+      expect(response.status).toBe(200);
+      const json = await response.json() as any;
+      expect(json[0].amount).toBe(1500);
     });
   });
 }); 

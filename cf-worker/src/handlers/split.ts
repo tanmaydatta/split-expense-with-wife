@@ -107,16 +107,15 @@ export async function handleSplit(request: CFRequest, env: Env): Promise<Respons
 
     // Store split amounts in database
     const userBatchStatements = splitAmounts.map(split => ({
-      sql: `INSERT INTO transaction_users (transaction_id, user_id, amount, owed_to_user_id, currency, group_id, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      sql: `INSERT INTO transaction_users (transaction_id, user_id, amount, owed_to_user_id, currency, group_id)
+            VALUES (?, ?, ?, ?, ?, ?)`,
       params: [
         transactionId,
         split.user_id,
         split.amount,
         split.owed_to_user_id,
         split.currency,
-        session.group.groupid,
-        createdAt
+        session.group.groupid
       ]
     }));
 

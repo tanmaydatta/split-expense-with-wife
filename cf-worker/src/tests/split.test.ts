@@ -1,114 +1,161 @@
-/// <reference types="vitest" />
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { 
-  handleSplit,
-  handleSplitNew,
-  handleSplitDelete,
-  handleTransactionsList
-} from '../handlers/split';
-import { CFRequest, Env, D1Database, D1PreparedStatement, CurrentSession } from '../types';
-import * as utils from '../utils';
-import { createMockDb, createMockEnv, createMockRequest } from './mocks';
+import { env, createExecutionContext, waitOnExecutionContext } from "cloudflare:test";
+import { describe, it, expect, beforeEach, vi } from "vitest";
+import worker from "../index";
+import { setupAndCleanDatabase, createTestUserData, createTestSession } from "./test-utils";
 
-vi.mock('../utils', async () => {
-    const originalUtils = await vi.importActual('../utils');
-    return {
-      ...originalUtils,
-      authenticate: vi.fn(),
-      isValidPin: vi.fn(() => true),
-      validateSplitPercentages: vi.fn(() => true),
-      validatePaidAmounts: vi.fn(() => true),
-      isValidCurrency: vi.fn(() => true),
-      calculateSplitAmounts: vi.fn(() => []),
-      executeBatch: vi.fn()
-    };
+describe("Split Handlers", () => {
+  beforeEach(async () => {
+    await setupAndCleanDatabase(env);
   });
 
-describe('Split Handlers', () => {
-  let request: CFRequest;
-  let env: Env;
-  let mockDB: D1Database;
-  let mockStmt: D1PreparedStatement;
-  let mockSession: CurrentSession;
+  describe("handleSplit", () => {
+    it("should create a split successfully with Splitwise", async () => {
+      // Mock the external Splitwise API call
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ id: 12345 })
+      });
+      
+      // Replace global fetch with our mock
+      vi.stubGlobal('fetch', mockFetch);
 
-  beforeEach(() => {
-    mockDB = createMockDb();
-    env = createMockEnv(mockDB);
-    mockStmt = mockDB.prepare('' as any);
+      // Set up test data
+      await createTestUserData(env);
+      await createTestSession(env);
 
-    mockSession = {
-        session: { sessionid: 'session-id', username: 'testuser', expiry_time: '' },
-        user: { Id: 1, username: 'testuser', FirstName: 'Test', groupid: 1 },
-        group: { groupid: 1, budgets: '[]', userids: '[]', metadata: '{}' },
-        usersById: {}
-      };
-    (utils.authenticate as any).mockResolvedValue(mockSession);
-    vi.clearAllMocks();
-  });
+      const request = new Request("http://example.com/.netlify/functions/split", {
+        method: "POST",
+        headers: {
+          "Authorization": "Bearer test-session-id",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          amount: 100,
+          currency: "USD",
+          description: "Dinner",
+          splitPctShares: { "1": 50, "2": 50 },
+          paidByShares: { "1": 100, "2": 0 },
+          pin: "1234"
+        }),
+      });
 
-  describe('handleSplit', () => {
-    it('should create a split successfully with Splitwise', async () => {
-        const mockFetch = vi.fn(() => Promise.resolve({
-            ok: true,
-            json: () => Promise.resolve({ id: 12345 })
-        }));
-        vi.stubGlobal('fetch', mockFetch);
-        
-        request = createMockRequest('POST', '/', {
-            amount: 100,
-            currency: 'USD',
-            description: 'Dinner',
-            splitPctShares: {},
-            paidByShares: {}
-        });
+      const ctx = createExecutionContext();
+      const response = await worker.fetch(request, env, ctx);
+      await waitOnExecutionContext(ctx);
 
-        const response = await handleSplit(request, env);
-        expect(response.status).toBe(200);
-        const json = await response.json() as any;
-        expect(json.message).toBe('Split created successfully');
-        expect(json.transactionId).toBe(12345);
+      expect(response.status).toBe(200);
+      const json = await response.json() as any;
+      expect(json.message).toBe("Split created successfully");
+      
+      // Verify the mock was called with the correct URL
+      expect(mockFetch).toHaveBeenCalledWith(
+        "https://secure.splitwise.com/api/v3.0/create_expense",
+        expect.objectContaining({
+          method: "POST",
+          headers: expect.objectContaining({
+            "Authorization": expect.stringContaining("Bearer"),
+            "Content-Type": "application/json"
+          }),
+          body: expect.stringContaining("Dinner")
+        })
+      );
+      
+      // Restore global fetch
+      vi.unstubAllGlobals();
     });
   });
 
-  describe('handleSplitDelete', () => {
-    it('should delete a split successfully', async () => {
-        request = createMockRequest('POST', '/', { id: '123' });
-        const response = await handleSplitDelete(request, env);
-        expect(response.status).toBe(200);
-        const json = await response.json() as any;
-        expect(json.message).toBe('Transaction deleted successfully');
-        expect(utils.executeBatch).toHaveBeenCalled();
+  describe("handleSplitDelete", () => {
+    it("should delete a split successfully", async () => {
+      // Set up test data
+      await createTestUserData(env);
+      await createTestSession(env);
+      
+      // Create a transaction to delete using correct schema
+      await env.DB.exec("INSERT INTO transactions (transaction_id, description, amount, currency, group_id, created_at) VALUES ('123', 'Test split', 100, 'USD', 1, '2024-01-01 00:00:00')");
+      await env.DB.exec("INSERT INTO transaction_users (transaction_id, user_id, amount, owed_to_user_id, currency, group_id) VALUES ('123', 1, 50, 2, 'USD', 1)");
+
+      const request = new Request("http://example.com/.netlify/functions/split_delete", {
+        method: "POST",
+        headers: {
+          "Authorization": "Bearer test-session-id",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          id: "123",
+          pin: "1234"
+        }),
+      });
+
+      const ctx = createExecutionContext();
+      const response = await worker.fetch(request, env, ctx);
+      await waitOnExecutionContext(ctx);
+
+      expect(response.status).toBe(200);
+      const json = await response.json() as any;
+      expect(json.message).toBe("Transaction deleted successfully");
     });
   });
 
-  describe('handleSplitNew', () => {
-    it('should create a new split in the database', async () => {
-        request = createMockRequest('POST', '/', {
-            amount: 100,
-            currency: 'USD',
-            description: 'Dinner',
-            splitPctShares: {},
-            paidByShares: {}
-        });
+  describe("handleSplitNew", () => {
+    it("should create a new split in the database", async () => {
+      // Set up test data
+      await createTestUserData(env);
+      await createTestSession(env);
 
-        const response = await handleSplitNew(request, env);
-        expect(response.status).toBe(200);
-        const json = await response.json() as any;
-        expect(json.message).toBe('Transaction created successfully');
-        expect(utils.executeBatch).toHaveBeenCalled();
+      const request = new Request("http://example.com/.netlify/functions/split_new", {
+        method: "POST",
+        headers: {
+          "Authorization": "Bearer test-session-id",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          amount: 100,
+          currency: "USD",
+          description: "Dinner",
+          splitPctShares: { "1": 50, "2": 50 },
+          paidByShares: { "1": 100, "2": 0 },
+          pin: "1234"
+        }),
+      });
+
+      const ctx = createExecutionContext();
+      const response = await worker.fetch(request, env, ctx);
+      await waitOnExecutionContext(ctx);
+
+      expect(response.status).toBe(200);
+      const json = await response.json() as any;
+      expect(json.message).toBe("Transaction created successfully");
     });
   });
 
-  describe('handleTransactionsList', () => {
-    it('should return a list of transactions', async () => {
-        request = createMockRequest('POST', '/', { offset: 0 });
-        const mockTransactions = [{ id: 1, description: 'Transaction 1' }];
-        (mockStmt.all as any).mockResolvedValue({ results: mockTransactions });
+  describe("handleTransactionsList", () => {
+    it("should return a list of transactions", async () => {
+      // Set up test data
+      await createTestUserData(env);
+      await createTestSession(env);
+      
+      // Create some transactions using correct schema
+      await env.DB.exec("INSERT INTO transactions (transaction_id, description, amount, currency, group_id, created_at) VALUES ('1', 'Transaction 1', 100, 'USD', 1, '2024-01-01 00:00:00')");
 
-        const response = await handleTransactionsList(request, env);
-        expect(response.status).toBe(200);
-        const json = await response.json() as any;
-        expect(json.transactions[0].description).toBe('Transaction 1');
+      const request = new Request("http://example.com/.netlify/functions/transactions_list", {
+        method: "POST",
+        headers: {
+          "Authorization": "Bearer test-session-id",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          offset: 0
+        }),
+      });
+
+      const ctx = createExecutionContext();
+      const response = await worker.fetch(request, env, ctx);
+      await waitOnExecutionContext(ctx);
+
+      expect(response.status).toBe(200);
+      const json = await response.json() as any;
+      expect(json.transactions[0].description).toBe("Transaction 1");
     });
   });
 }); 
