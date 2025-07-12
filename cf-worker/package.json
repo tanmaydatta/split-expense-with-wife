@@ -7,7 +7,7 @@
     "dev": "wrangler dev",
     "deploy": "wrangler publish",
     "build": "wrangler publish --dry-run",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "vitest run"
   },
   "keywords": [
     "cloudflare",
@@ -19,11 +19,14 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20250710.0",
+    "@cloudflare/vitest-pool-workers": "^0.2.0",
+    "@cloudflare/workers-types": "^4.20240403.0",
     "typescript": "^5.3.3",
-    "wrangler": "^4.24.0"
+    "vitest": "^1.5.0",
+    "wrangler": "^3.57.0"
   },
   "dependencies": {
-    "@types/node": "^20.19.6"
+    "@types/node": "^20.19.6",
+    "hono": "^4.4.12"
   }
 }
