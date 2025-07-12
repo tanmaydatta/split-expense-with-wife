@@ -49,12 +49,14 @@ export async function setupAndCleanDatabase(env: Env): Promise<void> {
  * Helper function to create common test users and groups
  */
 export async function createTestUserData(env: Env): Promise<void> {
-  // Create a test group
-  await env.DB.exec("INSERT INTO groups (groupid, group_name, budgets, userids, metadata) VALUES (1, 'Test Group', '[\"house\", \"food\"]', '[1, 2]', '{}')");
+  // Create a test group with multiple users
+  await env.DB.exec("INSERT INTO groups (groupid, group_name, budgets, userids, metadata) VALUES (1, 'Test Group', '[\"house\", \"food\"]', '[1, 2, 3, 4]', '{}')");
   
   // Create test users
   await env.DB.exec("INSERT INTO users (id, username, first_name, groupid, password) VALUES (1, 'testuser', 'Test', 1, 'password123')");
   await env.DB.exec("INSERT INTO users (id, username, first_name, groupid, password) VALUES (2, 'otheruser', 'Other', 1, 'pass456')");
+  await env.DB.exec("INSERT INTO users (id, username, first_name, groupid, password) VALUES (3, 'thirduser', 'Third', 1, 'pass789')");
+  await env.DB.exec("INSERT INTO users (id, username, first_name, groupid, password) VALUES (4, 'fourthuser', 'Fourth', 1, 'pass101')");
 }
 
 /**

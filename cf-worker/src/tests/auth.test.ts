@@ -34,7 +34,7 @@ describe("Auth handlers", () => {
       expect(json.username).toBe("testuser");
       expect(json.groupId).toBe(1);
       expect(json.budgets).toEqual(["house", "food"]);
-      expect(json.users).toHaveLength(2);
+      expect(json.users).toHaveLength(4);
       expect(json.token).toBeDefined();
       expect(json.userId).toBe(1);
 
