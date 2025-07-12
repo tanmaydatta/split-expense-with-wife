@@ -52,7 +52,8 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "prepare": "husky"
   },
   "eslintConfig": {
     "extends": [
@@ -74,6 +75,7 @@
   },
   "devDependencies": {
     "customize-cra": "^1.0.0",
+    "husky": "^9.1.7",
     "react-app-rewired": "^2.2.1",
     "workbox-webpack-plugin": "^7.3.0",
     "wrangler": "^4.24.0"
