@@ -1,7 +1,7 @@
 # Split Expense with Wife
 
-![E2E Tests](https://github.com/tanmaydatta/split-expense-with-wife/actions/workflows/e2e-tests.yml/badge.svg)
-![CF Worker Tests](https://github.com/tanmaydatta/split-expense-with-wife/actions/workflows/cf-worker-tests.yml/badge.svg)
+[![E2E Tests](https://github.com/tanmaydatta/split-expense-with-wife/actions/workflows/e2e-tests.yml/badge.svg)](https://github.com/tanmaydatta/split-expense-with-wife/actions/workflows/e2e-tests.yml)
+[![CF Worker Tests](https://github.com/tanmaydatta/split-expense-with-wife/actions/workflows/cf-worker-tests.yml/badge.svg)](https://github.com/tanmaydatta/split-expense-with-wife/actions/workflows/cf-worker-tests.yml)
 
 A full-stack expense splitting application built with React frontend, Cloudflare Workers backend, and Netlify Functions. This app helps couples manage shared expenses, budgets, and track financial balances.
 
