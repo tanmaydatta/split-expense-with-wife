@@ -143,15 +143,15 @@ export async function authenticate(request: CFRequest, env: Env): Promise<Curren
 // Get appropriate CORS headers based on request origin
 export function getCORSHeaders(request: CFRequest, env: Env): Record<string, string> {
     const origin = request.headers.get('Origin');
-    
+
     // Parse allowed origins from environment variable
     const allowedOrigins = env.ALLOWED_ORIGINS
         ? env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim())
         : ['https://splitexpense.netlify.app']; // fallback default
-    
+
     // Check if origin is allowed
     const corsOrigin = origin && allowedOrigins.includes(origin) ? origin : allowedOrigins[0];
-    
+
     const corsHeaders = {
         'Access-Control-Allow-Origin': corsOrigin,
         'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
@@ -160,7 +160,7 @@ export function getCORSHeaders(request: CFRequest, env: Env): Record<string, str
         'Access-Control-Max-Age': '86400', // 24 hours
         'Access-Control-Expose-Headers': 'Set-Cookie',
     };
-    
+
     return corsHeaders;
 }
 
@@ -276,12 +276,12 @@ export function calculateSplitAmounts(
             totalOwed += netAmount;
         }
     }
-
+    console.log("owed", owed);
     // Calculate who owes whom
     for (const [userIdStr, netAmount] of Object.entries(owed)) {
         const userId = parseInt(userIdStr);
 
-        if (netAmount >= 0) {
+        if (netAmount > 0) {
             // This user is owed money
             continue;
         }
@@ -290,13 +290,14 @@ export function calculateSplitAmounts(
         const amountOwed = Math.abs(netAmount);
 
         for (const owedToUserId of owedToUserIds) {
-            if (totalOwed === 0) break;
 
-            const owedToAmount = owed[owedToUserId];
-            const proportion = owedToAmount / totalOwed;
-            const splitAmount = amountOwed * proportion;
-
-            if (splitAmount > 0.01) { // Only add if amount is significant
+            let splitAmount = 0;
+            if (totalOwed !== 0) {
+                const owedToAmount = owed[owedToUserId];
+                const proportion = owedToAmount / totalOwed;
+                splitAmount = amountOwed * proportion;
+            }
+            if (splitAmount >= 0.01) { // Only add if amount is significant
                 amounts.push({
                     user_id: userId,
                     amount: splitAmount,

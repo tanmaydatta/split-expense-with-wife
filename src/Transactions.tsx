@@ -59,7 +59,12 @@ const Transactions: React.FC = () => {
                   totalOwed -= txn.amount;
                 }
               });
-              const metadata = JSON.parse(e.metadata) as TransactionMetadata;
+              const metadata = JSON.parse(e.metadata) as TransactionMetadata || {
+                owedAmounts: new Map(),
+                paidByShares: new Map(),
+                owedToAmounts: new Map(),
+              };
+              console.log("metadata for txn", e.description, metadata);
               return entries.push({
                 id: e.id,
                 transactionId: e.transaction_id,

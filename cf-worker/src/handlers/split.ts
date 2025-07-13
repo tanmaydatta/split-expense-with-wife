@@ -189,16 +189,58 @@ export async function handleSplitNew(request: CFRequest, env: Env): Promise<Resp
         session.group.groupid,
       ]
     }));
+    const paidByShares: Record<string, number> = {};
+    const owedAmounts: Record<string, number> = {};
+    const owedToAmounts: Record<string, number> = {};
+
+    // Build userId -> userName map from session
+    const usersById = session.usersById;
+
+    // paidByShares: user name -> paid amount
+    for (const [userIdStr, amount] of Object.entries(body.paidByShares)) {
+      const userId = parseInt(userIdStr, 10);
+      const user = usersById[userId];
+      if (user) {
+        paidByShares[user.FirstName] = amount;
+      }
+    }
+
+    // owedAmounts: user name -> amount owed (split % * total)
+    for (const [userIdStr, pct] of Object.entries(body.splitPctShares)) {
+      const userId = parseInt(userIdStr, 10);
+      const user = usersById[userId];
+      if (user) {
+        owedAmounts[user.FirstName] = body.amount * pct / 100;
+      }
+    }
+
+    // owedToAmounts: user name -> sum of amounts owed to them
+    for (const split of splitAmounts) {
+      const owedToUser = usersById[split.owed_to_user_id];
+      if (owedToUser) {
+        if (!owedToAmounts[owedToUser.FirstName]) {
+          owedToAmounts[owedToUser.FirstName] = 0;
+        }
+        owedToAmounts[owedToUser.FirstName] += split.amount;
+      }
+    }
+
+    const metadata = JSON.stringify({
+      paidByShares,
+      owedAmounts,
+      owedToAmounts
+    });
     await executeBatch(env, [{
-      sql: `INSERT INTO transactions (transaction_id, description, amount, currency, group_id, created_at)
-      VALUES (?, ?, ?, ?, ?, ?)`,
+      sql: `INSERT INTO transactions (transaction_id, description, amount, currency, group_id, created_at, metadata)
+      VALUES (?, ?, ?, ?, ?, ?, ?)`,
       params: [
         transactionId,
         body.description,
         body.amount,
         body.currency,
         session.group.groupid,
-        createdAt
+        createdAt,
+        metadata
       ]
     }, ...userBatchStatements]);
 
@@ -268,7 +310,7 @@ export async function handleTransactionsList(request: CFRequest, env: Env): Prom
 
     // Get transactions list
     const transactionsStmt = env.DB.prepare(`
-      SELECT t.transaction_id, t.description, t.amount, t.currency, t.created_at, t.group_id as group_id, t.deleted
+      SELECT t.transaction_id, t.description, t.amount, t.currency, t.created_at, t.group_id as group_id, t.deleted, t.metadata
       FROM transactions t
       WHERE t.group_id = ? AND t.deleted IS NULL
       ORDER BY t.created_at DESC
@@ -306,31 +348,8 @@ export async function handleTransactionsList(request: CFRequest, env: Env): Prom
         transactionDetails[transactionId].push(detailRecord);
       }
     }
-
-    // Format transactions with metadata
     const formattedTransactions = transactionsResult.results.map((transaction: any) => {
-      // Generate metadata from transaction details
-      const details = transactionDetails[transaction.transaction_id] || [];
-      const metadata = {
-        paidByShares: {} as any,
-        owedAmounts: {} as any,
-        owedToAmounts: {} as any
-      };
-
-      // Calculate metadata from transaction details
-      for (const detail of details) {
-        const detailRecord = detail as any;
-        // For now, we'll generate basic metadata structure
-        // This would need to be enhanced based on your actual user data structure
-        if (detailRecord.user_id === detailRecord.owed_to_user_id) {
-          // This user paid
-          metadata.paidByShares[`${detailRecord.first_name}`] = detailRecord.amount;
-        } else {
-          // This user owes
-          metadata.owedAmounts[`${detailRecord.first_name}`] = detailRecord.amount;
-          metadata.owedToAmounts[`${detailRecord.first_name}`] = detailRecord.amount;
-        }
-      }
+      const metadata = JSON.parse(transaction.metadata);
 
       return {
         id: transaction.transaction_id,
