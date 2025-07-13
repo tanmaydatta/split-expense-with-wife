@@ -34,12 +34,14 @@ export default function BudgetTable(props: Props): JSX.Element {
                 <td
                   style={{
                     textAlign: "center",
+                    cursor: "pointer",
                   }}
+                  onClick={() => props.onDelete(e.id)}
                 >
                   {e.deleted != null ? (
                     dateToStr(new Date(e.deleted))
                   ) : (
-                    <Trash onClick={() => props.onDelete(e.id)} />
+                    <Trash />
                   )}
                 </td>
               </tr>

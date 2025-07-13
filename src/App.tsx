@@ -13,7 +13,7 @@ import axios from "axios";
 function App(): JSX.Element {
   const [loading, setLoading] = useState<boolean>(false);
   const navigate = useNavigate();
-  const [budget, setBudget] = useState("house");
+  
   const [creditDebit, setCreditDebit] = useState("Debit");
   const [amount, setAmount] = useState<number>();
   const [description, setDescription] = useState("");
@@ -22,7 +22,7 @@ function App(): JSX.Element {
     new Map<string, number>()
   );
   const data = useSelector((state: any) => state.value);
-  
+  const [budget, setBudget] = useState(data?.budgets[0] || "");
   // Handle case where data might not be loaded yet
   const users = data?.users || [];
   const metadata = data?.metadata || {};
