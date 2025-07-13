@@ -14,7 +14,7 @@ export const SelectBudget: React.FC<SelectBudgetProps> = ({
   console.log(data, "hehkbjhbjg");
   
   // Handle case where data or metadata might not be loaded yet
-  const budgets = data?.metadata?.budgets || [];
+  const budgets = data?.budgets || [];
   
   return (
     <ToggleButtonGroup
