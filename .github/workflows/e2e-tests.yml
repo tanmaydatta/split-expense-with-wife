@@ -11,6 +11,10 @@ jobs:
     timeout-minutes: 60
     runs-on: ubuntu-latest
     
+    # Job-level environment variables (available to all steps)
+    env:
+      REACT_APP_API_BASE_URL: ${{ vars.REACT_APP_API_BASE_URL }}
+    
     steps:
     - uses: actions/checkout@v4
     
@@ -30,7 +34,7 @@ jobs:
       run: npm run build
     
     - name: Run E2E tests
-      run: npm run test:e2e -- src/e2e/tests/budget-management.spec.ts  --project=chromium 
+      run: npm run test:e2e -- src/e2e/tests/budget-management.spec.ts  --project=chromium
     
     - name: Upload test results
       uses: actions/upload-artifact@v4
