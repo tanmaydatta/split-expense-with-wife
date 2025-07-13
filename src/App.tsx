@@ -22,23 +22,32 @@ function App(): JSX.Element {
     new Map<string, number>()
   );
   const data = useSelector((state: any) => state.value);
+  
+  // Handle case where data might not be loaded yet
+  const users = data?.users || [];
+  const metadata = data?.metadata || {};
+  
   const [paidBy, setPaidBy] = useState<{ Id: number; Name: string }>({
-    Id: data.userId,
+    Id: data?.userId || 0,
     Name:
-      data.users.find(
-        (u: { Id: number; FirstName: string }) => u.Id === data.userId
+      users.find(
+        (u: { Id: number; FirstName: string }) => u.Id === data?.userId
       )?.FirstName || "",
   });
   const [currency, setCurrency] = useState<string>(
-    data.metadata.defaultCurrency || "INR"
+    metadata.defaultCurrency || "INR"
   );
+  
   React.useEffect(() => {
     var localSplitShares = new Map<string, number>();
-    Object.keys(data.metadata.defaultShare).forEach((key) =>
-      localSplitShares.set(String(key), data.metadata.defaultShare[key])
-    );
+    if (metadata.defaultShare) {
+      Object.keys(metadata.defaultShare).forEach((key) =>
+        localSplitShares.set(String(key), metadata.defaultShare[key])
+      );
+    }
     setSplitPctShares(localSplitShares);
-  }, [data.metadata.defaultShare, setSplitPctShares]);
+  }, [metadata.defaultShare, setSplitPctShares]);
+  
   // const [entries, setEntries] = useState<entry>();
   // const handleChange = (val: string) => setPaidBy(val);
   const handleChangeBudget = (val: string) => setBudget(val);
@@ -54,7 +63,7 @@ function App(): JSX.Element {
         description: description,
         pin: sha256(pin).toString(),
         name: budget,
-        groupid: data.groupId,
+        groupid: data?.groupId,
         currency: currency,
       })
       .then((res) => {
@@ -79,7 +88,7 @@ function App(): JSX.Element {
       splitPct: { value: number };
     };
     console.log(target);
-    if (data.groupId === 1) {
+    if (data?.groupId === 1) {
       axios
         .post("/.netlify/functions/split", {
           amount: Number(target.amount.value),
@@ -167,9 +176,10 @@ function App(): JSX.Element {
                 width: "100%",
               }}
             >
-              {data.users.map(
+              {users.map(
                 (u: { FirstName: string; Id: number }, i: Number) => (
                   <div
+                    key={u.Id}
                     className="SplitPercentageInput"
                     style={{
                       height: "fit-content",
@@ -224,23 +234,23 @@ function App(): JSX.Element {
             <Form.Group className="mb-3">
               <Form.Label>Paid by</Form.Label>{" "}
               <Form.Select
-                defaultValue={data.userId}
+                defaultValue={data?.userId}
                 name="paidBy"
                 onChange={(v) => {
                   console.log(v.target.value);
                   setPaidBy({
                     Id: Number(v.target.value),
                     Name:
-                      data.users.find(
+                      users.find(
                         (u: { Id: number; FirstName: string }) =>
                           u.Id === Number(v.target.value)
                       )?.FirstName || "",
                   });
                 }}
               >
-                {data.users.map(
+                {users.map(
                   (u: { FirstName: string; Id: number }, i: Number) => (
-                    <option value={u.Id}>{u.FirstName}</option>
+                    <option key={u.Id} value={u.Id}>{u.FirstName}</option>
                   )
                 )}
               </Form.Select>

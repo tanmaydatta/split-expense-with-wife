@@ -288,8 +288,9 @@ export async function handleTransactionsList(request: CFRequest, env: Env): Prom
     if (transactionIds.length > 0) {
       const placeholders = transactionIds.map(() => '?').join(',');
       const detailsStmt = env.DB.prepare(`
-        SELECT tu.transaction_id, tu.user_id, tu.amount, tu.owed_to_user_id, tu.group_id, tu.currency, tu.deleted
+        SELECT tu.transaction_id, tu.user_id, tu.amount, tu.owed_to_user_id, tu.group_id, tu.currency, tu.deleted, u.first_name
         FROM transaction_users tu
+        LEFT JOIN users u ON tu.user_id = u.id
         WHERE tu.transaction_id IN (${placeholders}) AND tu.deleted IS NULL
       `);
 
@@ -323,11 +324,11 @@ export async function handleTransactionsList(request: CFRequest, env: Env): Prom
         // This would need to be enhanced based on your actual user data structure
         if (detailRecord.user_id === detailRecord.owed_to_user_id) {
           // This user paid
-          metadata.paidByShares[`User${detailRecord.user_id}`] = detailRecord.amount;
+          metadata.paidByShares[`${detailRecord.first_name}`] = detailRecord.amount;
         } else {
           // This user owes
-          metadata.owedAmounts[`User${detailRecord.user_id}`] = detailRecord.amount;
-          metadata.owedToAmounts[`User${detailRecord.owed_to_user_id}`] = detailRecord.amount;
+          metadata.owedAmounts[`${detailRecord.first_name}`] = detailRecord.amount;
+          metadata.owedToAmounts[`${detailRecord.first_name}`] = detailRecord.amount;
         }
       }
 

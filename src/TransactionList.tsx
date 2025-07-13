@@ -38,12 +38,14 @@ const TransactionList: React.FC<TransactionListProps> = ({
     useState<Transaction | null>(null);
 
   const handleClick = (transaction: Transaction) => {
+    console.log("clicked", transaction);
     if (
       selectedTransaction?.transactionId ??
       "" === transaction.transactionId
     ) {
       setSelectedTransaction(null);
     } else {
+      console.log("setting selected transaction", transaction);
       setSelectedTransaction(transaction);
     }
   };
@@ -108,6 +110,7 @@ const TransactionList: React.FC<TransactionListProps> = ({
 };
 
 function TransactionDetails(selectedTransaction: Transaction) {
+  console.log("TransactionDetails", selectedTransaction);
   return (
     <div className="detailsWrapper">
       <div>

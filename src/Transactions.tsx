@@ -41,7 +41,7 @@ const Transactions: React.FC = () => {
               description: string;
               amount: number;
               created_at: string;
-              metadata: TransactionMetadata;
+              metadata: string;
               currency: string;
               transaction_id: string;
               group_id: number;
@@ -59,15 +59,16 @@ const Transactions: React.FC = () => {
                   totalOwed -= txn.amount;
                 }
               });
+              const metadata = JSON.parse(e.metadata) as TransactionMetadata;
               return entries.push({
                 id: e.id,
                 transactionId: e.transaction_id,
                 description: e.description as string,
                 totalAmount: e.amount,
                 date: e.created_at,
-                amountOwed: e.metadata.owedAmounts,
-                paidBy: e.metadata.paidByShares,
-                owedTo: e.metadata.owedToAmounts,
+                amountOwed: metadata.owedAmounts,
+                paidBy: metadata.paidByShares,
+                owedTo: metadata.owedToAmounts,
                 totalOwed: totalOwed,
                 currency: e.currency,
               });

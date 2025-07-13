@@ -12,6 +12,10 @@ export const SelectBudget: React.FC<SelectBudgetProps> = ({
 }) => {
   const data = useSelector((state: any) => state.value);
   console.log(data, "hehkbjhbjg");
+  
+  // Handle case where data or metadata might not be loaded yet
+  const budgets = data?.metadata?.budgets || [];
+  
   return (
     <ToggleButtonGroup
       style={{ width: "100%" }}
@@ -20,7 +24,7 @@ export const SelectBudget: React.FC<SelectBudgetProps> = ({
       value={budget}
       onChange={handleChangeBudget}
     >
-      {data.budgets.map((b: string) => (
+      {budgets.map((b: string) => (
         <ToggleButton
           key={b}
           id={`radio-${b}`}

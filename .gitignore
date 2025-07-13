@@ -28,6 +28,9 @@
 
 # testing
 /coverage
+/test-results/
+/playwright-report/
+/playwright/.cache/
 
 # production
 /build
@@ -56,3 +59,7 @@ schema.pg.sql
 /cf-worker/.dev.vars
 /cf-worker/.wrangler/
 /cf-worker/*.sql
+
+# Playwright
+node_modules/
+/blob-report/
