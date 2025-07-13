@@ -1,46 +1,196 @@
-# Getting Started with Create React App
+# Split Expense with Wife
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+![E2E Tests](https://github.com/tanmaydatta/split-expense-with-wife/actions/workflows/e2e-tests.yml/badge.svg)
+![CF Worker Tests](https://github.com/tanmaydatta/split-expense-with-wife/actions/workflows/cf-worker-tests.yml/badge.svg)
 
-## Available Scripts
+A full-stack expense splitting application built with React frontend, Cloudflare Workers backend, and Netlify Functions. This app helps couples manage shared expenses, budgets, and track financial balances.
 
-In the project directory, you can run:
+## 🏗️ Architecture
 
-### `npm start`
+- **Frontend**: React with TypeScript, Redux for state management
+- **Backend**: Cloudflare Workers with Hono framework
+- **Database**: Cloudflare D1 (SQLite)
+- **Deployment**: Netlify (frontend) + Cloudflare Workers (API)
+- **Additional Services**: Netlify Functions (Go) for supplementary endpoints
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+## 🚀 Features
 
-The page will reload if you make edits.\
-You will also see any lint errors in the console.
+- **Expense Tracking**: Add, edit, and delete shared expenses
+- **Budget Management**: Set and monitor monthly budgets
+- **Balance Calculation**: Real-time balance tracking between partners
+- **Authentication**: Secure PIN-based authentication
+- **Responsive Design**: Mobile-friendly interface
+- **Real-time Updates**: Automatic data synchronization
 
-### `npm test`
+## 📁 Project Structure
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+```
+split-expense-with-wife/
+├── src/                    # React frontend application
+│   ├── components/         # React components
+│   ├── redux/             # Redux store and slices
+│   ├── e2e/               # E2E tests with Playwright
+│   └── utils/             # Utility functions
+├── cf-worker/             # Cloudflare Workers backend
+│   ├── src/               # Worker source code
+│   ├── tests/             # Unit tests for workers
+│   └── wrangler.toml      # Cloudflare configuration
+├── netlify/               # Netlify Functions (Go)
+│   ├── functions/         # Individual function handlers
+│   └── common/            # Shared utilities
+└── .github/workflows/     # GitHub Actions CI/CD
+```
 
-### `npm run build`
+## 🛠️ Development Setup
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+### Prerequisites
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+- Node.js 22+
+- npm or yarn
+- Cloudflare account (for Workers)
+- Netlify account (for deployment)
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+### Frontend Development
 
-### `npm run eject`
+```bash
+# Install dependencies
+npm install
 
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
+# Start development server
+npm start
+# or
+netlify dev
 
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+# Build for production
+npm run build
+```
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
+### Cloudflare Workers Development
 
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
+```bash
+# Navigate to cf-worker directory
+cd cf-worker
 
-## Learn More
+# Install dependencies
+npm install
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+# Start local development
+npm run dev
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+# Run tests
+npm run test
+
+# Deploy to dev environment
+npm run deploy:dev
+
+# Deploy to production
+npm run deploy:prod
+```
+
+### Environment Variables
+
+Set up the following environment variables in GitHub Secrets/Variables:
+
+- `REACT_APP_API_BASE_URL` - API base URL for the frontend
+- `CLOUDFLARE_API_TOKEN` - Cloudflare API token (if needed)
+- `CLOUDFLARE_ACCOUNT_ID` - Cloudflare account ID (if needed)
+
+## 🧪 Testing
+
+### E2E Tests
+
+```bash
+# Install Playwright browsers
+npm run test:e2e:install
+
+# Run E2E tests
+npm run test:e2e
+
+# Run specific test file
+npm run test:e2e src/e2e/tests/budget-management.spec.ts
+```
+
+### CF Worker Tests
+
+```bash
+cd cf-worker
+
+# Run unit tests
+npm run test
+
+# Run tests with coverage
+npm run test -- --coverage
+```
+
+## 🔄 CI/CD
+
+The project uses GitHub Actions for continuous integration:
+
+- **E2E Tests**: Runs Playwright tests on every push/PR to `e2e-tests` branch
+- **CF Worker Tests**: Runs unit tests for Cloudflare Workers on every push/PR to `e2e-tests` branch
+
+Both workflows:
+- Run automatically on git commits
+- Fail the build if any tests fail
+- Upload test results and coverage reports
+- Use secure environment variables from GitHub Secrets
+
+## 📦 Deployment
+
+### Frontend (Netlify)
+
+The React app is automatically deployed to Netlify when changes are pushed to the main branch.
+
+### Backend (Cloudflare Workers)
+
+Deploy the backend using Wrangler:
+
+```bash
+cd cf-worker
+
+# Deploy to development
+npm run deploy:dev
+
+# Deploy to production
+npm run deploy:prod
+```
+
+## 📊 Database
+
+The application uses Cloudflare D1 (SQLite) for data persistence:
+
+- **Development**: `splitexpense-dev` database
+- **Production**: `splitexpense` database
+
+Database schema includes tables for:
+- Users and authentication
+- Expenses and transactions
+- Budget categories and limits
+- Balance calculations
+
+## 🔒 Security
+
+- PIN-based authentication system
+- CORS protection with allowed origins
+- Environment-specific configurations
+- Secure API token management
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## 📝 License
+
+This project is licensed under the ISC License.
+
+## 🐛 Issues
+
+If you encounter any issues or have suggestions, please open an issue on GitHub.
+
+---
+
+Built with ❤️ for managing shared expenses efficiently.

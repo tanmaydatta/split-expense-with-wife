@@ -2,9 +2,9 @@ name: CF Worker Tests
 
 on:
   push:
-    branches: [ e2e-tests, main ]
+    branches: [ e2e-tests ]
   pull_request:
-    branches: [ e2e-tests, main ]
+    branches: [ e2e-tests ]
 
 jobs:
   cf-worker-tests:
