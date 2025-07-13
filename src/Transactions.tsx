@@ -49,7 +49,7 @@ const Transactions: React.FC = () => {
               var totalOwed: number = 0.0;
               const txnDetails = res.data.transactionDetails[
                 e.transaction_id
-              ] as TransactionUser[];
+              ] as TransactionUser[] || [];
               console.log("txnDetails", txnDetails);
               txnDetails.forEach((txn) => {
                 if (data.userId === txn.owed_to_user_id) {
