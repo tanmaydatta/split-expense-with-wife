@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main]
+
+jobs:
+  lint-react:
+    name: Lint React App
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Run React linting
+      run: npm run lint
+
+  lint-cf-worker:
+    name: Lint CF Worker
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+        cache: 'npm'
+    
+    - name: Install CF Worker dependencies
+      run: |
+        cd cf-worker
+        npm ci
+    
+    - name: Run CF Worker linting
+      run: |
+        cd cf-worker
+        npm run lint
+
+  test-cf-worker:
+    name: Test CF Worker
+    runs-on: ubuntu-latest
+    needs: lint-cf-worker
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+    
+    - name: Install CF Worker dependencies
+      run: |
+        cd cf-worker
+        npm ci
+    
+    - name: Run CF Worker tests
+      run: |
+        cd cf-worker
+        npm test 
