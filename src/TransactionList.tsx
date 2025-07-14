@@ -68,7 +68,7 @@ const TransactionList: React.FC<TransactionListProps> = ({
             </div>
             <div onClick={() => handleClick(transaction)}>
               {getSymbolFromCurrency(transaction.currency)}
-              {Math.abs(transaction.totalAmount)}
+              {Math.abs(transaction.totalAmount).toFixed(2)}
             </div>
             <div
               onClick={() => handleClick(transaction)}
@@ -77,7 +77,7 @@ const TransactionList: React.FC<TransactionListProps> = ({
               {" "}
               {transaction.totalOwed > 0 ? "+" : "-"}
               {getSymbolFromCurrency(transaction.currency)}
-              {Math.abs(transaction.totalOwed)}
+              {Math.abs(transaction.totalOwed).toFixed(2)}
             </div>
             <div onClick={() => deleteTransaction(transaction.id)}>
               <XLg
