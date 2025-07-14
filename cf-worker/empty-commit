@@ -1,6 +1,7 @@
 8
-- consistent types
 - finish e2e tests
+    - monthly budget proper validation
+    - balances
 - remove redux
 - use hono or something in backend
 - retire netlify functions
