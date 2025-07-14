@@ -52,6 +52,13 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:debug": "playwright test --debug",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:report": "playwright show-report",
+    "test:e2e:install": "playwright install",
+    "test:all": "npm run test && npm run test:e2e",
     "eject": "react-scripts eject",
     "prepare": "husky",
     "lint": "eslint src/*.tsx --max-warnings 0"
@@ -75,8 +82,10 @@
     ]
   },
   "devDependencies": {
+    "@playwright/test": "^1.54.1",
     "customize-cra": "^1.0.0",
     "husky": "^9.1.7",
+    "playwright": "^1.54.1",
     "react-app-rewired": "^2.2.1",
     "workbox-webpack-plugin": "^7.3.0",
     "wrangler": "^4.24.0"
