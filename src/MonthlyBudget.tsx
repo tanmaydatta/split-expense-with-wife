@@ -1,6 +1,4 @@
-import getSymbolFromCurrency from "currency-symbol-map";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Card, Spinner } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
 import "./Budget.css";
 import api from "./utils/api";
@@ -37,13 +35,12 @@ interface MonthlyBudgetProps {
 
 export const MonthlyBudget: React.FC<MonthlyBudgetProps> = ({
   budget,
-  timeRange,
   onDataReceived,
   onAverageDataReceived,
 }) => {
-  const [monthlyData, setMonthlyData] = useState<MonthlyBudgetData[]>([]);
-  const [averageData, setAverageData] = useState<AverageSpendPeriod[]>([]);
-  const [loading, setLoading] = useState<boolean>(false);
+  const [, setMonthlyData] = useState<MonthlyBudgetData[]>([]);
+  const [, setAverageData] = useState<AverageSpendPeriod[]>([]);
+  const [, setLoading] = useState<boolean>(false);
   const dataFetchedRef = useRef(false);
   const navigate = useNavigate();
 

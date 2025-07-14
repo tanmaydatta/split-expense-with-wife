@@ -8,7 +8,8 @@
     "deploy:dev": "vitest run && wrangler deploy -e dev",
     "deploy:prod": "vitest run && wrangler deploy -e prod",
     "build": "wrangler publish --dry-run",
-    "test": "vitest run"
+    "test": "vitest run",
+    "lint": "tsc --noEmit"
   },
   "keywords": [
     "cloudflare",
