@@ -38,6 +38,7 @@ export const MonthlyBudget: React.FC<MonthlyBudgetProps> = ({
   onDataReceived,
   onAverageDataReceived,
 }) => {
+  const [tanmay, setTanmay] = useState<string>("tanmay");
   const [, setMonthlyData] = useState<MonthlyBudgetData[]>([]);
   const [, setAverageData] = useState<AverageSpendPeriod[]>([]);
   const [, setLoading] = useState<boolean>(false);
