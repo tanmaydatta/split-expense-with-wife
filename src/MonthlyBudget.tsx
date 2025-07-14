@@ -16,16 +16,33 @@ type MonthlyBudgetData = {
   amounts: MonthlyAmount[];
 };
 
+type AverageSpendData = {
+  currency: string;
+  averageMonthlySpend: number;
+  totalSpend: number;
+  monthsAnalyzed: number;
+};
+
+type AverageSpendPeriod = {
+  periodMonths: number;
+  averages: AverageSpendData[];
+};
+
 interface MonthlyBudgetProps {
   budget: string;
+  timeRange?: number; // Selected time period in months
   onDataReceived?: (data: MonthlyBudgetData[]) => void;
+  onAverageDataReceived?: (data: AverageSpendPeriod[]) => void;
 }
 
 export const MonthlyBudget: React.FC<MonthlyBudgetProps> = ({
   budget,
+  timeRange,
   onDataReceived,
+  onAverageDataReceived,
 }) => {
   const [monthlyData, setMonthlyData] = useState<MonthlyBudgetData[]>([]);
+  const [averageData, setAverageData] = useState<AverageSpendPeriod[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const dataFetchedRef = useRef(false);
   const navigate = useNavigate();
@@ -38,12 +55,20 @@ export const MonthlyBudget: React.FC<MonthlyBudgetProps> = ({
         name: budget,
       })
       .then((res) => {
-        setMonthlyData(res.data);
+        // Handle new response format with monthlyBudgets property
+        const budgetData = res.data.monthlyBudgets || res.data; // Fallback for old format
+        const avgData = res.data.averageMonthlySpend || []; // New average data
+        
+        setMonthlyData(budgetData);
+        setAverageData(avgData);
         dataFetchedRef.current = true;
 
         // Pass data to parent component if callback provided
         if (onDataReceived) {
-          onDataReceived(res.data);
+          onDataReceived(budgetData);
+        }
+        if (onAverageDataReceived) {
+          onAverageDataReceived(avgData);
         }
       })
       .catch((e) => {
@@ -53,61 +78,16 @@ export const MonthlyBudget: React.FC<MonthlyBudgetProps> = ({
         }
       })
       .finally(() => setLoading(false));
-  }, [budget, navigate, onDataReceived]);
+  }, [budget, navigate, onDataReceived, onAverageDataReceived]);
 
   useEffect(() => {
     dataFetchedRef.current = false;
     fetchMonthlyBudget();
   }, [budget, fetchMonthlyBudget]);
 
-  const formatAmount = (amount: number, currency: string) => {
-    const symbol = getSymbolFromCurrency(currency) || currency;
-    return `${symbol}${Math.abs(amount).toFixed(2)}`;
-  };
-
-  if (loading) {
-    return (
-      <div className="text-center mt-3">
-        <Spinner animation="border" />
-      </div>
-    );
-  }
-
-  return (
-    <Card className="mt-3 mb-3">
-      <Card.Header className="text-center">
-        <h5>Monthly Budget Breakdown</h5>
-      </Card.Header>
-      <Card.Body>
-        {monthlyData.length === 0 ? (
-          <div className="text-center">No data available</div>
-        ) : (
-          <div className="monthly-budget-container">
-            {monthlyData.map((monthData, index) => (
-              <Card key={index} className="mb-2">
-                <Card.Header>
-                  {monthData.month} {monthData.year}
-                </Card.Header>
-                <Card.Body>
-                  {monthData.amounts.map((amount, amtIndex) => (
-                    <div
-                      key={amtIndex}
-                      className={`d-flex justify-content-between ${
-                        amount.amount >= 0 ? "text-success" : "text-danger"
-                      }`}
-                    >
-                      <span>{amount.amount >= 0 ? "Income" : "Expenses"}:</span>
-                      <span>
-                        {formatAmount(amount.amount, amount.currency)}
-                      </span>
-                    </div>
-                  ))}
-                </Card.Body>
-              </Card>
-            ))}
-          </div>
-        )}
-      </Card.Body>
-    </Card>
-  );
+  // This component now only handles data fetching and doesn't render any UI
+  return null;
 };
+
+// Export the types for use in other components
+export type { AverageSpendData, AverageSpendPeriod };

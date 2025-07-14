@@ -3,7 +3,7 @@ import { Card } from "react-bootstrap";
 import { useNavigate, useParams } from "react-router-dom";
 import "./Budget.css";
 import BudgetBarChart from "./BudgetBarChart";
-import { MonthlyBudget } from "./MonthlyBudget";
+import { MonthlyBudget, AverageSpendPeriod } from "./MonthlyBudget";
 import { SelectBudget } from "./SelectBudget";
 
 type MonthlyBudgetData = {
@@ -19,6 +19,8 @@ export const MonthlyBudgetPage: React.FC = () => {
   const { budgetName } = useParams<{ budgetName: string }>();
   const [budget, setBudget] = useState(budgetName || "house");
   const [monthlyData, setMonthlyData] = useState<MonthlyBudgetData[]>([]);
+  const [averageData, setAverageData] = useState<AverageSpendPeriod[]>([]);
+  const [timeRange, setTimeRange] = useState<number>(6); // Default to 6 months
   const navigate = useNavigate();
 
   const handleChangeBudget = useCallback(
@@ -40,6 +42,16 @@ export const MonthlyBudgetPage: React.FC = () => {
     setMonthlyData(data);
   }, []);
 
+  // Callback function to receive average data from the MonthlyBudget component
+  const handleAverageDataReceived = useCallback((data: AverageSpendPeriod[]) => {
+    setAverageData(data);
+  }, []);
+
+  // Callback function to receive time range changes from BudgetBarChart
+  const handleTimeRangeChange = useCallback((newTimeRange: number) => {
+    setTimeRange(newTimeRange);
+  }, []);
+
   return (
     <div className="Budget">
       <Card className="w-100 mb-3">
@@ -53,15 +65,20 @@ export const MonthlyBudgetPage: React.FC = () => {
           />
 
           {/* Chart section */}
-          <BudgetBarChart data={monthlyData} />
+          <BudgetBarChart 
+            data={monthlyData} 
+            averageData={averageData}
+            timeRange={timeRange}
+            onTimeRangeChange={handleTimeRangeChange}
+          />
 
-          {/* We still need the MonthlyBudget component for data fetching, but we'll hide it */}
-          <div style={{ display: "none" }}>
-            <MonthlyBudget
-              budget={budget}
-              onDataReceived={handleDataReceived}
-            />
-          </div>
+          {/* Data fetching component (renders nothing) */}
+          <MonthlyBudget
+            budget={budget}
+            timeRange={timeRange}
+            onDataReceived={handleDataReceived}
+            onAverageDataReceived={handleAverageDataReceived}
+          />
         </Card.Body>
       </Card>
     </div>

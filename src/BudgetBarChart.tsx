@@ -7,11 +7,13 @@ import {
   CartesianGrid,
   LabelList,
   Legend,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
+import { AverageSpendPeriod } from "./MonthlyBudget";
 
 type MonthlyAmount = {
   currency: string;
@@ -38,6 +40,9 @@ type DateRange = {
 
 type Props = {
   data: MonthlyBudgetData[];
+  averageData: AverageSpendPeriod[];
+  timeRange: number;
+  onTimeRangeChange?: (timeRange: number) => void;
 };
 
 // Custom label formatter to round to nearest integer
@@ -61,11 +66,11 @@ const renderCustomBarLabel = (props: any) => {
   );
 };
 
-const BudgetBarChart: React.FC<Props> = ({ data }) => {
+const BudgetBarChart: React.FC<Props> = ({ data, averageData, timeRange, onTimeRangeChange }) => {
   const [chartData, setChartData] = useState<DataByCurrency>({});
   const [currencies, setCurrencies] = useState<string[]>([]);
   const [activeCurrency, setActiveCurrency] = useState<string>("");
-  const [timeRange, setTimeRange] = useState<number>(6); // Default to 6 months
+  const [internalTimeRange, setInternalTimeRange] = useState<number>(timeRange || 6);
   const [filteredData, setFilteredData] = useState<MonthlyBudgetData[]>([]);
 
   // Predefined date ranges
@@ -75,6 +80,11 @@ const BudgetBarChart: React.FC<Props> = ({ data }) => {
     { label: "2Y", months: 24 },
     { label: "All", months: 999 }, // Very large number to include all
   ];
+
+  // Sync internal time range with prop
+  useEffect(() => {
+    setInternalTimeRange(timeRange);
+  }, [timeRange]);
 
   // Filter data based on selected time range
   useEffect(() => {
@@ -87,7 +97,7 @@ const BudgetBarChart: React.FC<Props> = ({ data }) => {
     let filtered = [...data];
 
     // Only filter if not showing all time
-    if (timeRange !== 999) {
+    if (internalTimeRange !== 999) {
       filtered = data.filter((monthData) => {
         const monthIdx = [
           "January",
@@ -110,12 +120,19 @@ const BudgetBarChart: React.FC<Props> = ({ data }) => {
         const monthsAgo =
           (currentYear - monthData.year) * 12 + (currentMonth - monthIdx);
 
-        return monthsAgo < timeRange;
+        return monthsAgo < internalTimeRange;
       });
     }
 
     setFilteredData(filtered);
-  }, [data, timeRange]);
+  }, [data, internalTimeRange]);
+
+  // Notify parent component when time range changes
+  useEffect(() => {
+    if (onTimeRangeChange) {
+      onTimeRangeChange(internalTimeRange);
+    }
+  }, [internalTimeRange, onTimeRangeChange]);
 
   useEffect(() => {
     if (!filteredData || filteredData.length === 0) return;
@@ -193,6 +210,19 @@ const BudgetBarChart: React.FC<Props> = ({ data }) => {
     }
   }, [filteredData, activeCurrency]);
 
+  // Get the average spend for the current time range and currency
+  const getAverageForCurrentPeriod = () => {
+    if (!averageData || averageData.length === 0 || !activeCurrency) return null;
+
+    const periodData = averageData.find(avg => avg.periodMonths === internalTimeRange);
+    if (!periodData) return null;
+
+    const currencyAverage = periodData.averages.find(avg => avg.currency === activeCurrency);
+    return currencyAverage ? currencyAverage.averageMonthlySpend : null;
+  };
+
+  const averageValue = getAverageForCurrentPeriod();
+
   if (!data || data.length === 0 || currencies.length === 0) {
     return (
       <Card className="mt-3 mb-3 text-center">No data available for chart</Card>
@@ -209,9 +239,9 @@ const BudgetBarChart: React.FC<Props> = ({ data }) => {
               <Button
                 key={range.months}
                 variant={
-                  timeRange === range.months ? "primary" : "outline-primary"
+                  internalTimeRange === range.months ? "primary" : "outline-primary"
                 }
-                onClick={() => setTimeRange(range.months)}
+                onClick={() => setInternalTimeRange(range.months)}
               >
                 {range.label}
               </Button>
@@ -238,7 +268,7 @@ const BudgetBarChart: React.FC<Props> = ({ data }) => {
           <ResponsiveContainer width="100%" height={300}>
             <BarChart
               data={chartData[activeCurrency]}
-              margin={{ top: 30, right: 30, left: 20, bottom: 5 }}
+              margin={{ top: 30, right: 80, left: 20, bottom: 5 }}
             >
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="name" />
@@ -256,6 +286,20 @@ const BudgetBarChart: React.FC<Props> = ({ data }) => {
                 ]}
               />
               <Legend />
+              {/* Average reference line */}
+              {averageValue && (
+                <ReferenceLine
+                  y={averageValue}
+                  stroke="#ff7300"
+                  strokeDasharray="5 5"
+                  strokeWidth={2}
+                  label={{
+                    value: `Avg: ${getSymbolFromCurrency(activeCurrency)}${Math.round(averageValue)}`,
+                    position: "right",
+                    style: { fontSize: "12px", fontWeight: "600", fill: "#ff7300" }
+                  }}
+                />
+              )}
               <Bar
                 dataKey="expenses"
                 name="Expenses"
