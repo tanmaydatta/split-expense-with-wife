@@ -64,7 +64,7 @@ const TransactionList: React.FC<TransactionListProps> = ({
               {dateToShortStr(new Date(transaction.date))}
             </div>
             <div onClick={() => handleClick(transaction)}>
-              {transaction.description}
+              {transaction.description.length > 50 ? transaction.description.slice(0, 30) + "..." : transaction.description}
             </div>
             <div onClick={() => handleClick(transaction)}>
               {getSymbolFromCurrency(transaction.currency)}
