@@ -1,4 +1,8 @@
-// Cloudflare Workers types
+// Import all shared types
+export * from '../../shared-types';
+import type { User, Session, Group } from '../../shared-types';
+
+// Cloudflare Workers specific types
 export interface CFHeaders {
   get(name: string): string | null;
   set(name: string, value: string): void;
@@ -75,75 +79,7 @@ export interface Env {
   GROUP_IDS: string; // Comma-separated list of group IDs
 }
 
-// Database models
-export interface User {
-  Id: number;
-  username: string;
-  FirstName: string;
-  groupid: number;
-  password?: string; // Only used in login
-}
-
-export interface Session {
-  username: string;
-  sessionid: string;
-  expiry_time: string; // ISO string format
-}
-
-export interface Group {
-  groupid: number;
-  budgets: string; // JSON string
-  userids: string; // JSON string
-  metadata: string; // JSON string
-}
-
-export interface BudgetEntry {
-  id: number;
-  description: string;
-  added_time: string; // ISO string format
-  price: string;
-  amount: number;
-  name: string;
-  deleted?: string; // ISO string format
-  groupid: number;
-  currency: string;
-}
-
-export interface Transaction {
-  id: number;
-  description: string;
-  amount: number;
-  created_at: string; // ISO string format
-  metadata: string; // JSON string
-  currency: string;
-  transaction_id: string;
-  group_id: number;
-  deleted?: string; // ISO string format
-}
-
-export interface TransactionUser {
-  transaction_id: string;
-  user_id: number;
-  amount: number;
-  owed_to_user_id: number;
-  group_id: number;
-  currency: string;
-  deleted?: string; // ISO string format
-}
-
-// Parsed metadata types
-export interface GroupMetadata {
-  defaultShare: Record<string, number>;
-  defaultCurrency: string;
-}
-
-export interface TransactionMetadata {
-  paidByShares: Record<string, number>;
-  owedAmounts: Record<string, number>;
-  owedToAmounts: Record<string, number>;
-}
-
-// Session context
+// Session context (CF Worker specific)
 export interface CurrentSession {
   session: Session;
   user: User;
@@ -151,113 +87,13 @@ export interface CurrentSession {
   usersById: Record<number, User>;
 }
 
-// Request/Response types
-export interface LoginRequest {
-  username: string;
-  password: string;
-}
-
-export interface LoginResponse {
-  username: string;
-  groupId: number;
-  budgets: string[];
-  users: User[];
-  userids: number[];
-  metadata: GroupMetadata;
-  userId: number;
-  token: string;
-}
-
-export interface BudgetRequest {
-  amount: number;
-  description: string;
-  pin: string;
-  name: string;
-  groupid: number;
-  currency: string;
-}
-
-export interface BudgetListRequest {
-  offset: number;
-  pin: string;
-  name: string;
-}
-
-export interface BudgetTotalRequest {
-  pin: string;
-  name: string;
-}
-
-export interface BudgetDeleteRequest {
-  pin: string;
-  id: number;
-}
-
-export interface BudgetMonthlyRequest {
-  name: string;
-}
-
-export interface MonthlyAmount {
-  currency: string;
-  amount: number;
-}
-
-export interface MonthlyBudget {
-  month: string;
-  year: number;
-  amounts: MonthlyAmount[];
-}
-
-export interface SplitRequest {
-  amount: number;
-  description: string;
-  paidByShares: Record<string, number>;
-  pin: string;
-  splitPctShares: Record<string, number>;
-  currency: string;
-}
-
-export interface SplitNewRequest {
-  amount: number;
-  description: string;
-  paidByShares: Record<string, number>;
-  pin: string;
-  splitPctShares: Record<string, number>;
-  currency: string;
-}
-
-export interface SplitDeleteRequest {
-  id: string;
-  pin: string;
-}
-
-export interface TransactionsListRequest {
-  offset: number;
-}
-
-export interface TransactionsListResponse {
-  transactions: Transaction[];
-  transactionDetails: Record<string, TransactionUser[]>;
-}
-
-export interface TransactionBalances {
-  user_id: number;
-  amount: number;
-  owed_to_user_id: number;
-  currency: string;
-}
-
-// Constants
-export const CURRENCIES = ['USD', 'EUR', 'GBP', 'INR', 'CAD', 'AUD', 'JPY', 'CHF', 'CNY', 'SGD'];
-
-// Utility types
-export type ApiResponse<T = any> = {
-  success: boolean;
-  data?: T;
-  error?: string;
-};
-
-export interface ErrorResponse {
-  error: string;
-  statusCode: number;
+// Cookie options (CF Worker specific)
+export interface CookieOptions {
+  httpOnly?: boolean;
+  secure?: boolean;
+  sameSite?: 'Strict' | 'Lax' | 'None';
+  path?: string;
+  maxAge?: number;
+  expires?: Date;
+  domain?: string;
 } 

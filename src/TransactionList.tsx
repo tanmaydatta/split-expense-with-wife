@@ -10,22 +10,10 @@ import {
 } from "react-bootstrap-icons";
 import { dateToShortStr } from "./BudgetTable";
 import "./TransactionList.css";
-
-export type Transaction = {
-  id: number;
-  transactionId: string;
-  description: string;
-  totalAmount: number;
-  date: string;
-  amountOwed: Map<string, number>;
-  paidBy: Map<string, number>;
-  owedTo: Map<string, number>;
-  totalOwed: number;
-  currency: string;
-};
+import type { FrontendTransaction } from '../shared-types';
 
 type TransactionListProps = {
-  transactions: Transaction[];
+  transactions: FrontendTransaction[];
   deleteTransaction(id: number): void;
 };
 
@@ -35,9 +23,9 @@ const TransactionList: React.FC<TransactionListProps> = ({
 }) => {
   console.log(transactions);
   const [selectedTransaction, setSelectedTransaction] =
-    useState<Transaction | null>(null);
+    useState<FrontendTransaction | null>(null);
 
-  const handleClick = (transaction: Transaction) => {
+  const handleClick = (transaction: FrontendTransaction) => {
     console.log("clicked", transaction);
     if (
       selectedTransaction?.transactionId ??
@@ -109,14 +97,20 @@ const TransactionList: React.FC<TransactionListProps> = ({
   );
 };
 
-function TransactionDetails(selectedTransaction: Transaction) {
+function TransactionDetails(selectedTransaction: FrontendTransaction) {
   console.log("TransactionDetails", selectedTransaction);
+  console.log("amountOwed", selectedTransaction.amountOwed);
+  console.log("paidBy", selectedTransaction.paidBy);
+  console.log("owedTo", selectedTransaction.owedTo);
+  console.log("totalOwed", selectedTransaction.totalOwed);
+  console.log("currency", selectedTransaction.currency);
   return (
     <div className="detailsWrapper">
       <div>
         Amount owed:{" "}
         {Object.entries(selectedTransaction.amountOwed).map(
-          ([user, amount]) => {
+          ([user, amount]: [string, number]) => {
+            console.log("user", user, "amount", amount);
             return (
               <div>
                 {user}: {getSymbolFromCurrency(selectedTransaction.currency)}
@@ -128,7 +122,7 @@ function TransactionDetails(selectedTransaction: Transaction) {
       </div>
       <div>
         Paid by:{" "}
-        {Object.entries(selectedTransaction.paidBy).map(([user, amount]) => {
+        {Object.entries(selectedTransaction.paidBy).map(([user, amount]: [string, number]) => {
           return (
             <div>
               {user}: {getSymbolFromCurrency(selectedTransaction.currency)}

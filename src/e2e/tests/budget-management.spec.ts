@@ -267,16 +267,6 @@ test.describe('Budget Management', () => {
   test('should show loading state during budget submission', async ({ authenticatedPage }) => {
     const budgetHelper = new BudgetTestHelper(authenticatedPage);
 
-    // Mock delayed response using correct URL pattern
-    await authenticatedPage.page.route('**/.netlify/functions/budget', async (route) => {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ message: 'Success' })
-      });
-    });
-
     // Navigate to Add page
     await authenticatedPage.navigateToPage('Add');
 

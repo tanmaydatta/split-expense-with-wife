@@ -4,7 +4,8 @@ import {
   SplitRequest,
   SplitNewRequest,
   SplitDeleteRequest,
-  TransactionsListRequest
+  TransactionsListRequest,
+  TransactionsListResponse
 } from '../types';
 import {
   authenticate,
@@ -244,10 +245,11 @@ export async function handleSplitNew(request: CFRequest, env: Env): Promise<Resp
       ]
     }, ...userBatchStatements]);
 
-    return createJsonResponse({
+    const response: { message: string; transactionId: string } = { 
       message: 'Transaction created successfully',
       transactionId: transactionId
-    }, 200, {}, request, env);
+    };
+    return createJsonResponse(response, 200, {}, request, env);
 
   } catch (error) {
     console.error('Split new error:', error);
@@ -364,10 +366,11 @@ export async function handleTransactionsList(request: CFRequest, env: Env): Prom
       };
     });
 
-    return createJsonResponse({
+    const response: TransactionsListResponse = {
       transactions: formattedTransactions,
       transactionDetails: transactionDetails
-    }, 200, {}, request, env);
+    };
+    return createJsonResponse(response, 200, {}, request, env);
 
   } catch (error) {
     console.error('Transactions list error:', error);

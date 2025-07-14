@@ -3,22 +3,14 @@ import { Card } from "react-bootstrap";
 import { useNavigate, useParams } from "react-router-dom";
 import "./Budget.css";
 import BudgetBarChart from "./BudgetBarChart";
-import { MonthlyBudget, AverageSpendPeriod } from "./MonthlyBudget";
+import { MonthlyBudgetComponent } from "./MonthlyBudget";
+import type { MonthlyBudget, AverageSpendPeriod } from '../shared-types';
 import { SelectBudget } from "./SelectBudget";
-
-type MonthlyBudgetData = {
-  month: string;
-  year: number;
-  amounts: {
-    currency: string;
-    amount: number;
-  }[];
-};
 
 export const MonthlyBudgetPage: React.FC = () => {
   const { budgetName } = useParams<{ budgetName: string }>();
   const [budget, setBudget] = useState(budgetName || "house");
-  const [monthlyData, setMonthlyData] = useState<MonthlyBudgetData[]>([]);
+  const [monthlyData, setMonthlyData] = useState<MonthlyBudget[]>([]);
   const [averageData, setAverageData] = useState<AverageSpendPeriod[]>([]);
   const [timeRange, setTimeRange] = useState<number>(6); // Default to 6 months
   const navigate = useNavigate();
@@ -38,7 +30,7 @@ export const MonthlyBudgetPage: React.FC = () => {
   }, [budgetName]);
 
   // Callback function to receive data from the MonthlyBudget component
-  const handleDataReceived = useCallback((data: MonthlyBudgetData[]) => {
+  const handleDataReceived = useCallback((data: MonthlyBudget[]) => {
     setMonthlyData(data);
   }, []);
 
@@ -73,7 +65,7 @@ export const MonthlyBudgetPage: React.FC = () => {
           />
 
           {/* Data fetching component (renders nothing) */}
-          <MonthlyBudget
+          <MonthlyBudgetComponent
             budget={budget}
             timeRange={timeRange}
             onDataReceived={handleDataReceived}

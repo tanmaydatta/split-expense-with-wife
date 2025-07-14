@@ -7,7 +7,8 @@ import "./Budget.css";
 import BudgetTable from "./BudgetTable";
 import { SelectBudget } from "./SelectBudget";
 import { entry } from "./model";
-import api from "./utils/api";
+import { typedApi } from "./utils/api";
+import { BudgetListRequest, BudgetTotalRequest, BudgetDeleteRequest, BudgetEntry, BudgetTotal } from '../shared-types';
 
 export const Budget: React.FC = () => {
   const [budgetHistory, setBudgetHistory] = useState<entry[]>([]);
@@ -20,84 +21,81 @@ export const Budget: React.FC = () => {
   const [pin, setPin] = useState("");
   const handleChangeBudget = (val: string) => setBudget(val);
   const navigate = useNavigate();
-  const fetchTotal = useCallback(() => {
-    api
-      .post("/budget_total", {
+  const fetchTotal = useCallback(async () => {
+    try {
+      const request: BudgetTotalRequest = {
+        pin: "", // Will be updated when we implement PIN properly
         name: budget,
-      })
-      .then((res) => {
-        setBudgetsLeft(res.data);
-      })
-      .catch((e) => {
-        console.log(e);
-        if (e.response.status === 401) {
-          navigate("/login");
-        }
-      });
+      };
+      
+      const response: BudgetTotal[] = await typedApi.post("/budget_total", request);
+      setBudgetsLeft(response);
+    } catch (e: any) {
+      console.log(e);
+      if (e.response?.status === 401) {
+        navigate("/login");
+      }
+    }
   }, [budget, navigate]);
 
   const fetchHistory = useCallback(
-    (offset: number, history: entry[]) => {
+    async (offset: number, history: entry[]) => {
       setLoading(true);
-      api
-        .post("/budget_list", {
+      try {
+        const request: BudgetListRequest = {
           name: budget,
           offset: offset,
-        })
-        .then((res) => {
-          console.log(res.data);
-          var entries: entry[] = [];
-          res.data.map(
-            (e: {
-              added_time: string;
-              description: string;
-              price: string;
-              id: number;
-              deleted?: string;
-              currency: string;
-            }) =>
-              entries.push({
-                id: e.id,
-                date: e.added_time,
-                description: e.description as string,
-                amount: e.price,
-                deleted: e.deleted,
-                currency: e.currency as string,
-              })
-          );
+          pin: "", // Will be updated when we implement PIN properly
+        };
+        
+        const response: BudgetEntry[] = await typedApi.post("/budget_list", request);
+        console.log(response);
+        var entries: entry[] = [];
+        response.map(
+          (e: BudgetEntry) =>
+            entries.push({
+              id: e.id,
+              date: e.added_time,
+              description: e.description as string,
+              amount: e.price,
+              deleted: e.deleted,
+              currency: e.currency as string,
+            })
+        );
 
-          console.log("budget list", [...history, ...entries]);
-          setBudgetHistory([...history, ...entries]);
-        })
-        .catch((e) => {
-          console.log(e);
-          if (e.response.status === 401) {
-            navigate("/login");
-          }
-        })
-        .finally(() => setLoading(false));
+        console.log("budget list", [...history, ...entries]);
+        setBudgetHistory([...history, ...entries]);
+      } catch (e: any) {
+        console.log(e);
+        if (e.response?.status === 401) {
+          navigate("/login");
+        }
+      } finally {
+        setLoading(false);
+      }
     },
     [budget, navigate]
   );
-  const deleteBudgetEntry = (id: number) => {
+  const deleteBudgetEntry = async (id: number) => {
     setLoading(true);
-    api
-      .post("/budget_delete", {
+    try {
+      const request: BudgetDeleteRequest = {
         id: id,
         pin: sha256(pin).toString(),
-      })
-      .then((res) => {
-        alert(res.status);
-        fetchTotal();
-        fetchHistory(0, []);
-      })
-      .catch((e) => {
-        alert(e.response.data);
-        if (e.response.status === 401) {
-          navigate("/login");
-        }
-      })
-      .finally(() => setLoading(false));
+      };
+      
+      const response: { message: string } = await typedApi.post("/budget_delete", request);
+      alert(response.message);
+      fetchTotal();
+      fetchHistory(0, []);
+    } catch (e: any) {
+      alert(e.response?.data);
+      if (e.response?.status === 401) {
+        navigate("/login");
+      }
+    } finally {
+      setLoading(false);
+    }
   };
   useEffect(() => {
     fetchTotal();

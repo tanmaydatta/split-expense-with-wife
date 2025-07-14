@@ -5,7 +5,10 @@ import {
   BudgetListRequest,
   BudgetTotalRequest,
   BudgetDeleteRequest,
-  BudgetMonthlyRequest
+  BudgetMonthlyRequest,
+  AverageSpendData,
+  AverageSpendPeriod,
+  BudgetMonthlyResponse
 } from '../types';
 import { 
   authenticate, 
@@ -134,7 +137,7 @@ export async function handleBudget(request: CFRequest, env: Env): Promise<Respon
       body.currency
     ).run();
     
-    return createJsonResponse({ message: 'Budget entry created successfully' }, 200, {}, request, env);
+    return createJsonResponse({ message: '200' }, 200, {}, request, env);
     
   } catch (error) {
     console.error('Budget error:', error);
@@ -178,7 +181,7 @@ export async function handleBudgetDelete(request: CFRequest, env: Env): Promise<
       return createErrorResponse('Budget entry not found or already deleted', 404, request, env);
     }
     
-    return createJsonResponse({ message: 'Budget entry deleted successfully' }, 200, {}, request, env);
+    return createJsonResponse({ message: '200' }, 200, {}, request, env);
     
   } catch (error) {
     console.error('Budget delete error:', error);
@@ -322,7 +325,7 @@ export async function handleBudgetMonthly(request: CFRequest, env: Env): Promise
     });
     
     // Calculate rolling averages for different time periods
-    const rollingAverages = [];
+    const rollingAverages: AverageSpendPeriod[] = [];
     
     // Determine the range of data we have
     let maxMonthsBack = 1;
@@ -371,12 +374,11 @@ export async function handleBudgetMonthly(request: CFRequest, env: Env): Promise
     
       
       // Create average entries for each currency
-      const currencyAverages = Object.entries(currencyTotals).map(([currency, total]) => ({
+      const currencyAverages: AverageSpendData[] = Object.entries(currencyTotals).map(([currency, total]) => ({
         currency,
         averageMonthlySpend: totalMonthsWithData > 0 ? total / totalMonthsWithData : 0,
         totalSpend: total,
-        monthsAnalyzed: totalMonthsWithData,
-        periodMonths: monthsBack
+        monthsAnalyzed: totalMonthsWithData
       }));
       
       // If no data for this period, still add a default entry
@@ -385,21 +387,22 @@ export async function handleBudgetMonthly(request: CFRequest, env: Env): Promise
           currency: 'USD',
           averageMonthlySpend: 0,
           totalSpend: 0,
-          monthsAnalyzed: 0,
-          periodMonths: monthsBack
+          monthsAnalyzed: 0
         });
       }
       
-      rollingAverages.push({
+      const averageSpendPeriod: AverageSpendPeriod = {
         periodMonths: monthsBack,
         averages: currencyAverages
-      });
+      };
+      
+      rollingAverages.push(averageSpendPeriod);
     }
     
     const averages = rollingAverages;
     
     // Return combined response
-    const result = {
+    const result: BudgetMonthlyResponse = {
       monthlyBudgets,
       averageMonthlySpend: averages,
       periodAnalyzed: {

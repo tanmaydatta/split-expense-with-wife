@@ -548,7 +548,7 @@ describe("Budget Handlers", () => {
 
       expect(response.status).toBe(200);
       const json = await response.json() as any;
-      expect(json.message).toBe("Budget entry created successfully");
+      expect(json.message).toBe("200");
     });
 
     it("should return 401 if not authorized for budget", async () => {
@@ -607,7 +607,7 @@ describe("Budget Handlers", () => {
 
       expect(response.status).toBe(200);
       const json = await response.json() as any;
-      expect(json.message).toBe("Budget entry deleted successfully");
+      expect(json.message).toBe("200");
     });
   });
 
