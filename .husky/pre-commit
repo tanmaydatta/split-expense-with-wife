@@ -1,7 +1,27 @@
 #!/usr/bin/env sh
 
+echo "🔍 Running linting for React app..."
+npm run lint
+
+if [ $? -ne 0 ]; then
+  echo "❌ React linting failed! Commit aborted."
+  exit 1
+fi
+
+echo "✅ React linting passed!"
+
+echo "🔍 Running linting in cf-worker directory..."
+cd cf-worker && npm run lint
+
+if [ $? -ne 0 ]; then
+  echo "❌ CF Worker linting failed! Commit aborted."
+  exit 1
+fi
+
+echo "✅ CF Worker linting passed!"
+
 echo "🧪 Running tests in cf-worker directory..."
-cd cf-worker && npm test
+npm test
 
 if [ $? -ne 0 ]; then
   echo "❌ Tests failed! Commit aborted."
