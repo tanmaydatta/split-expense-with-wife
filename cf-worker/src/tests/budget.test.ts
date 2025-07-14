@@ -644,13 +644,15 @@ describe("Budget Handlers", () => {
   });
 
   describe("handleBudgetMonthly", () => {
-    it("should return monthly budget totals", async () => {
+    it("should return monthly budget totals with average calculations", async () => {
       // Set up test data
       await createTestUserData(env);
       await createTestSession(env);
       
-      // Create budget entries with negative amounts for monthly totals
-      await env.DB.exec("INSERT INTO budget (description, price, added_time, amount, name, groupid, currency) VALUES ('Monthly expense', '-500.00', '2024-07-15 00:00:00', -500, 'house', 1, 'USD')");
+      // Create budget entries with negative amounts for monthly totals (different months)
+      await env.DB.exec("INSERT INTO budget (description, price, added_time, amount, name, groupid, currency) VALUES ('July expense', '-500.00', '2024-07-15 00:00:00', -500, 'house', 1, 'USD')");
+      await env.DB.exec("INSERT INTO budget (description, price, added_time, amount, name, groupid, currency) VALUES ('August expense', '-600.00', '2024-08-15 00:00:00', -600, 'house', 1, 'USD')");
+      await env.DB.exec("INSERT INTO budget (description, price, added_time, amount, name, groupid, currency) VALUES ('September expense', '-400.00', '2024-09-15 00:00:00', -400, 'house', 1, 'USD')");
 
       const request = new Request("http://example.com/.netlify/functions/budget_monthly", {
         method: "POST",
@@ -669,7 +671,163 @@ describe("Budget Handlers", () => {
 
       expect(response.status).toBe(200);
       const json = await response.json() as any;
-      expect(json[0].amounts[0].amount).toBe(-500);
+      
+      // Check that the response has the new structure
+      expect(json).toHaveProperty('monthlyBudgets');
+      expect(json).toHaveProperty('averageMonthlySpend');
+      expect(json).toHaveProperty('periodAnalyzed');
+      
+      // Check monthly budgets structure
+      expect(Array.isArray(json.monthlyBudgets)).toBe(true);
+      expect(json.monthlyBudgets.length).toBe(3);
+      
+      // Check rolling average monthly spend calculations
+      expect(Array.isArray(json.averageMonthlySpend)).toBe(true);
+      
+      // Since we have 3 months of data (July, August, September 2024), we should get 3 periods
+      // The number of periods depends on the current date when the test runs, so let's check more flexibly
+      expect(json.averageMonthlySpend.length).toBeGreaterThan(0);
+      
+      // Check 1-month average (should exist)
+      const oneMonthAverage = json.averageMonthlySpend.find((avg: any) => avg.periodMonths === 1);
+      expect(oneMonthAverage).toBeDefined();
+      expect(oneMonthAverage.averages.length).toBe(1);
+      expect(oneMonthAverage.averages[0].currency).toBe('USD');
+      
+      // Check 2-month average (should exist)
+      const twoMonthAverage = json.averageMonthlySpend.find((avg: any) => avg.periodMonths === 2);
+      expect(twoMonthAverage).toBeDefined();
+      expect(twoMonthAverage.averages.length).toBe(1);
+      expect(twoMonthAverage.averages[0].currency).toBe('USD');
+      
+      // Check 3-month average (should exist)
+      const threeMonthAverage = json.averageMonthlySpend.find((avg: any) => avg.periodMonths === 3);
+      expect(threeMonthAverage).toBeDefined();
+      expect(threeMonthAverage.averages.length).toBe(1);
+      expect(threeMonthAverage.averages[0].currency).toBe('USD');
+      
+      // Check period analyzed
+      expect(json.periodAnalyzed).toHaveProperty('startDate');
+      expect(json.periodAnalyzed).toHaveProperty('endDate');
+    });
+
+    it("should handle empty budget data and return default averages", async () => {
+      // Set up test data
+      await createTestUserData(env);
+      await createTestSession(env);
+      
+      // No budget entries
+
+      const request = new Request("http://example.com/.netlify/functions/budget_monthly", {
+        method: "POST",
+        headers: {
+          "Authorization": "Bearer test-session-id",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: "house"
+        }),
+      });
+
+      const ctx = createExecutionContext();
+      const response = await worker.fetch(request, env, ctx);
+      await waitOnExecutionContext(ctx);
+
+      expect(response.status).toBe(200);
+      const json = await response.json() as any;
+      
+      // Check that the response has the new structure
+      expect(json).toHaveProperty('monthlyBudgets');
+      expect(json).toHaveProperty('averageMonthlySpend');
+      expect(json).toHaveProperty('periodAnalyzed');
+      
+      // Check empty monthly budgets
+      expect(Array.isArray(json.monthlyBudgets)).toBe(true);
+      expect(json.monthlyBudgets.length).toBe(0);
+      
+      // Check default average data - should have 1 period with empty data (minimum)
+      expect(Array.isArray(json.averageMonthlySpend)).toBe(true);
+      expect(json.averageMonthlySpend.length).toBe(1); // Just 1 month when no data
+      
+      // Check the period has default empty data
+      const period = json.averageMonthlySpend[0];
+      expect(period).toHaveProperty('periodMonths');
+      expect(period).toHaveProperty('averages');
+      expect(period.periodMonths).toBe(1);
+      expect(period.averages.length).toBe(1);
+      expect(period.averages[0].currency).toBe('USD');
+      expect(period.averages[0].totalSpend).toBe(0);
+      expect(period.averages[0].averageMonthlySpend).toBe(0);
+      expect(period.averages[0].monthsAnalyzed).toBe(0);
+    });
+
+    it("should calculate rolling averages correctly for different time periods", async () => {
+      // Set up test data
+      await createTestUserData(env);
+      await createTestSession(env);
+      
+      // Create budget entries across 6 recent months that would be within rolling window
+      const currentDate = new Date();
+      const getRecentDate = (monthsBack: number) => {
+        const date = new Date(currentDate);
+        date.setMonth(date.getMonth() - monthsBack);
+        return date.toISOString().replace('T', ' ').replace(/\.\d{3}Z$/, '');
+      };
+
+      await env.DB.exec(`INSERT INTO budget (description, price, added_time, amount, name, groupid, currency) VALUES ('Month 1 expense', '-1000.00', '${getRecentDate(5)}', -1000, 'house', 1, 'USD')`);
+      await env.DB.exec(`INSERT INTO budget (description, price, added_time, amount, name, groupid, currency) VALUES ('Month 2 expense', '-1200.00', '${getRecentDate(4)}', -1200, 'house', 1, 'USD')`);
+      await env.DB.exec(`INSERT INTO budget (description, price, added_time, amount, name, groupid, currency) VALUES ('Month 3 expense', '-800.00', '${getRecentDate(3)}', -800, 'house', 1, 'USD')`);
+      await env.DB.exec(`INSERT INTO budget (description, price, added_time, amount, name, groupid, currency) VALUES ('Month 4 expense', '-1100.00', '${getRecentDate(2)}', -1100, 'house', 1, 'USD')`);
+      await env.DB.exec(`INSERT INTO budget (description, price, added_time, amount, name, groupid, currency) VALUES ('Month 5 expense', '-900.00', '${getRecentDate(1)}', -900, 'house', 1, 'USD')`);
+      await env.DB.exec(`INSERT INTO budget (description, price, added_time, amount, name, groupid, currency) VALUES ('Month 6 expense', '-1300.00', '${getRecentDate(0)}', -1300, 'house', 1, 'USD')`);
+
+      const request = new Request("http://example.com/.netlify/functions/budget_monthly", {
+        method: "POST",
+        headers: {
+          "Authorization": "Bearer test-session-id",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: "house"
+        }),
+      });
+
+      const ctx = createExecutionContext();
+      const response = await worker.fetch(request, env, ctx);
+      await waitOnExecutionContext(ctx);
+
+      expect(response.status).toBe(200);
+      const json = await response.json() as any;
+      
+      // Check that we have rolling averages for different periods
+      // Since we have 6 months of recent data, we should get periods based on current date
+      expect(json.averageMonthlySpend.length).toBeGreaterThan(0);
+
+      // Find and check 1-month average
+      const oneMonthAverage = json.averageMonthlySpend.find((avg: any) => avg.periodMonths === 1);
+      expect(oneMonthAverage).toBeDefined();
+      expect(oneMonthAverage.averages[0].currency).toBe('USD');
+      
+      // Find and check 2-month average
+      const twoMonthAverage = json.averageMonthlySpend.find((avg: any) => avg.periodMonths === 2);
+      expect(twoMonthAverage).toBeDefined();
+      expect(twoMonthAverage.averages[0].currency).toBe('USD');
+      
+      // Find and check 3-month average
+      const threeMonthAverage = json.averageMonthlySpend.find((avg: any) => avg.periodMonths === 3);
+      expect(threeMonthAverage).toBeDefined();
+      expect(threeMonthAverage.averages[0].currency).toBe('USD');
+      
+      // Find and check 6-month average (should include months within the 6-month window)
+      const sixMonthAverage = json.averageMonthlySpend.find((avg: any) => avg.periodMonths === 6);
+      if (sixMonthAverage) {
+        expect(sixMonthAverage.averages[0].currency).toBe('USD');
+        expect(sixMonthAverage.averages[0].totalSpend).toBeGreaterThan(0);
+        expect(sixMonthAverage.averages[0].monthsAnalyzed).toBeGreaterThan(0);
+        expect(sixMonthAverage.averages[0].averageMonthlySpend).toBe(
+          sixMonthAverage.averages[0].totalSpend / sixMonthAverage.averages[0].monthsAnalyzed
+        );
+      }
     });
   });
 

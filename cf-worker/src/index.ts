@@ -7,7 +7,7 @@ import {
   handleBudgetDelete, 
   handleBudgetList, 
   handleBudgetMonthly, 
-  handleBudgetTotal 
+  handleBudgetTotal
 } from './handlers/budget';
 import { 
   handleSplit, 

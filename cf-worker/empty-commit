@@ -1,1 +1,8 @@
-7
+8
+- average monthly spend
+- consistent types
+- finish e2e tests
+- remove redux
+- use hono or something in backend
+- retire netlify functions
+- refactor ui
