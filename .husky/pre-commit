@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 
 echo "🔍 Running linting for React app..."
-# npm run lint
+npm run lint
 
 if [ $? -ne 0 ]; then
   echo "❌ React linting failed! Commit aborted."
