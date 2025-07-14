@@ -2,7 +2,7 @@ import getSymbolFromCurrency from "currency-symbol-map";
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "./Balances.css";
-import api from "./utils/api";
+import { typedApi } from "./utils/api";
 const Balances: React.FC = () => {
   const [balances, setBalances] = useState<Map<string, Map<string, number>>>(
     new Map()
@@ -13,26 +13,25 @@ const Balances: React.FC = () => {
   useEffect(() => {
     const fetchBalances = async () => {
       setLoading(true);
-      await api
-        .post("/balances", {})
-        .then((res) => {
-          var localBalances = new Map<string, Map<string, number>>();
-          Object.keys(res.data).forEach((key) => {
-            var currencyBalances = new Map<string, number>();
-            Object.keys(res.data[key]).forEach((key2) => {
-              currencyBalances.set(key2, res.data[key][key2]);
-            });
-            localBalances.set(key, currencyBalances);
+      try {
+        const response: Record<string, Record<string, number>> = await typedApi.post("/balances", {});
+        var localBalances = new Map<string, Map<string, number>>();
+        Object.keys(response).forEach((key) => {
+          var currencyBalances = new Map<string, number>();
+          Object.keys(response[key]).forEach((key2) => {
+            currencyBalances.set(key2, response[key][key2]);
           });
-          setBalances(localBalances);
-        })
-        .catch((e) => {
-          console.log(e);
-          if (e.response.status === 401) {
-            navigate("/login");
-          }
-        })
-        .finally(() => setLoading(false));
+          localBalances.set(key, currencyBalances);
+        });
+        setBalances(localBalances);
+      } catch (e: any) {
+        console.log(e);
+        if (e.response?.status === 401) {
+          navigate("/login");
+        }
+      } finally {
+        setLoading(false);
+      }
     };
 
     fetchBalances();

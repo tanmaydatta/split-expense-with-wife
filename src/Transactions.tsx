@@ -2,92 +2,72 @@ import React, { useCallback, useEffect, useState } from "react";
 import { Button } from "react-bootstrap";
 import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
-import TransactionList, { Transaction } from "./TransactionList";
+import TransactionList from "./TransactionList";
 import "./Transactions.css";
 import "./common.css";
-import api from "./utils/api";
-type TransactionMetadata = {
-  owedAmounts: Map<string, number>;
-  paidByShares: Map<string, number>;
-  owedToAmounts: Map<string, number>;
-};
-type TransactionUser = {
-  transaction_id: string;
-  user_id: number;
-  amount: number;
-  owed_to_user_id: number;
-  group_id: number;
-};
+import { typedApi } from "./utils/api";
+import type { TransactionsListRequest, TransactionsListResponse, SplitDeleteRequest, TransactionMetadata, TransactionUser, FrontendTransaction } from '../shared-types';
 
 const Transactions: React.FC = () => {
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [transactions, setTransactions] = useState<FrontendTransaction[]>([]);
   const navigate = useNavigate();
 
   const data = useSelector((state: any) => state.value);
   const [loading, setLoading] = useState<boolean>(false);
   const fetchTransactions = useCallback(
-    (offset: number, transactions: Transaction[]) => {
+    async (offset: number, transactions: FrontendTransaction[]) => {
       setLoading(true);
-      api
-        .post("/transactions_list", {
-          offset: offset,
-        })
-        .then((res) => {
-          console.log("txnslist", res);
-          var entries: Transaction[] = [];
-          res.data.transactions.map(
-            (e: {
-              id: number;
-              description: string;
-              amount: number;
-              created_at: string;
-              metadata: string;
-              currency: string;
-              transaction_id: string;
-              group_id: number;
-            }) => {
-              var totalOwed: number = 0.0;
-              const txnDetails = res.data.transactionDetails[
-                e.transaction_id
-              ] as TransactionUser[] || [];
-              console.log("txnDetails", txnDetails);
-              txnDetails.forEach((txn) => {
-                if (data.userId === txn.owed_to_user_id) {
-                  totalOwed += txn.amount;
-                }
-                if (data.userId === txn.user_id) {
-                  totalOwed -= txn.amount;
-                }
-              });
-              const metadata = JSON.parse(e.metadata) as TransactionMetadata || {
-                owedAmounts: new Map(),
-                paidByShares: new Map(),
-                owedToAmounts: new Map(),
-              };
-              console.log("metadata for txn", e.description, metadata);
-              return entries.push({
-                id: e.id,
-                transactionId: e.transaction_id,
-                description: e.description as string,
-                totalAmount: e.amount,
-                date: e.created_at,
-                amountOwed: metadata.owedAmounts,
-                paidBy: metadata.paidByShares,
-                owedTo: metadata.owedToAmounts,
-                totalOwed: totalOwed,
-                currency: e.currency,
-              });
-            }
-          );
-          setTransactions([...transactions, ...entries]);
-        })
-        .catch((e) => {
-          console.log(e);
-          if (e.response.status === 401) {
-            navigate("/login");
+      try {
+        const request: TransactionsListRequest = { offset };
+        const response: TransactionsListResponse = await typedApi.post("/transactions_list", request);
+        
+        console.log("txnslist", response);
+        var entries: FrontendTransaction[] = [];
+        response.transactions.map(
+          (e) => {
+            var totalOwed: number = 0.0;
+            const txnDetails = response.transactionDetails[
+              e.transaction_id
+            ] as TransactionUser[] || [];
+            console.log("txnDetails", txnDetails);
+            txnDetails.forEach((txn) => {
+              if (data.userId === txn.owed_to_user_id) {
+                totalOwed += txn.amount;
+              }
+              if (data.userId === txn.user_id) {
+                totalOwed -= txn.amount;
+              }
+            });
+            const metadata = JSON.parse(e.metadata) as TransactionMetadata || {
+              owedAmounts: {},
+              paidByShares: {},
+              owedToAmounts: {},
+            };
+            console.log("metadata for txn", e.description, metadata);
+            
+            return entries.push({
+              id: e.id,
+              transactionId: e.transaction_id,
+              description: e.description as string,
+              totalAmount: e.amount,
+              date: e.created_at,
+              amountOwed: metadata.owedAmounts,
+              paidBy: metadata.paidByShares,
+              owedTo: metadata.owedToAmounts,
+              totalOwed: totalOwed,
+              currency: e.currency,
+            });
           }
-        })
-        .finally(() => setLoading(false));
+        );
+        setTransactions([...transactions, ...entries]);
+      } catch (e: any) {
+        console.log(e);
+        if (e.response?.status === 401) {
+          navigate("/login");
+        }
+      } finally {
+        setLoading(false);
+      }
     },
     [data.userId, navigate]
   );
@@ -96,23 +76,25 @@ const Transactions: React.FC = () => {
     fetchTransactions(0, []);
   }, [fetchTransactions]);
 
-  const deleteTransaction = (id: number) => {
+  const deleteTransaction = async (id: number) => {
     setLoading(true);
-    api
-      .post("/split_delete", {
-        id: id,
-      })
-      .then((res) => {
-        alert(res.status);
-        fetchTransactions(0, []);
-      })
-      .catch((e) => {
-        alert(e.response.data);
-        if (e.response.status === 401) {
-          navigate("/login");
-        }
-      })
-      .finally(() => setLoading(false));
+    try {
+      const request: SplitDeleteRequest = {
+        id: id.toString(),
+        pin: "", // Will be updated when we implement PIN properly
+      };
+      
+      const response: { message: string } = await typedApi.post("/split_delete", request);
+      alert(response.message);
+      fetchTransactions(0, []);
+    } catch (e: any) {
+      alert(e.response?.data);
+      if (e.response?.status === 401) {
+        navigate("/login");
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

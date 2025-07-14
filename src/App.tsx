@@ -7,7 +7,8 @@ import { useNavigate } from "react-router-dom";
 import "./App.css";
 import { CreditDebit } from "./CreditDebit";
 import { SelectBudget } from "./SelectBudget";
-import api from "./utils/api";
+import { typedApi } from "./utils/api";
+import type { BudgetRequest, SplitNewRequest } from '../shared-types';
 import axios from "axios";
 
 function App(): JSX.Element {
@@ -53,32 +54,33 @@ function App(): JSX.Element {
   const handleChangeBudget = (val: string) => setBudget(val);
   const handleChangeCreditDebit = (val: string) => setCreditDebit(val);
 
-  const submitBudget = (e: React.FormEvent) => {
+  const submitBudget = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     console.log(currency);
-    api
-      .post("/budget", {
+    try {
+      const request: BudgetRequest = {
         amount: (creditDebit === 'Debit' ? -1 : 1) * Number(amount),
         description: description,
         pin: sha256(pin).toString(),
         name: budget,
         groupid: data?.groupId,
         currency: currency,
-      })
-      .then((res) => {
-        console.log("res", res);
-        alert(res.status);
-      })
-      .catch((e) => {
-        alert(e.response.data);
-        if (e.response.status === 401) {
-          navigate("/login");
-        }
-      })
-      .finally(() => setLoading(false));
+      };
+      
+      const response: { message: string } = await typedApi.post("/budget", request);
+      console.log("res", response);
+      alert(response.message);
+    } catch (e: any) {
+      alert(e.response?.data);
+      if (e.response?.status === 401) {
+        navigate("/login");
+      }
+    } finally {
+      setLoading(false);
+    }
   };
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     const target = e.target as typeof e.target & {
@@ -101,8 +103,8 @@ function App(): JSX.Element {
         .then((res) => alert(res.status))
         .catch((e) => alert(e.response.data));
     }
-    api
-      .post("/split_new", {
+    try {
+      const request: SplitNewRequest = {
         amount: Number(target.amount.value),
         currency: currency,
         description: target.description.value,
@@ -111,15 +113,18 @@ function App(): JSX.Element {
         },
         pin: sha256(target.pin.value).toString(),
         splitPctShares: Object.fromEntries(splitPctShares),
-      })
-      .then((res) => alert(res.status))
-      .catch((e) => {
-        alert(e.response.data);
-        if (e.response.status === 401) {
-          navigate("/login");
-        }
-      })
-      .finally(() => setLoading(false));
+      };
+      
+      const response: { message: string } = await typedApi.post("/split_new", request);
+      alert(response.message);
+    } catch (e: any) {
+      alert(e.response?.data);
+      if (e.response?.status === 401) {
+        navigate("/login");
+      }
+    } finally {
+      setLoading(false);
+    }
   };
   return (
     <>

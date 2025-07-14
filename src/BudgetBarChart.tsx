@@ -13,18 +13,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { AverageSpendPeriod } from "./MonthlyBudget";
-
-type MonthlyAmount = {
-  currency: string;
-  amount: number;
-};
-
-type MonthlyBudgetData = {
-  month: string;
-  year: number;
-  amounts: MonthlyAmount[];
-};
+import type { MonthlyBudget, AverageSpendPeriod } from '../shared-types';
 
 type DataByCurrency = {
   [currency: string]: {
@@ -39,7 +28,7 @@ type DateRange = {
 };
 
 type Props = {
-  data: MonthlyBudgetData[];
+  data: MonthlyBudget[];
   averageData: AverageSpendPeriod[];
   timeRange: number;
   onTimeRangeChange?: (timeRange: number) => void;
@@ -71,7 +60,7 @@ const BudgetBarChart: React.FC<Props> = ({ data, averageData, timeRange, onTimeR
   const [currencies, setCurrencies] = useState<string[]>([]);
   const [activeCurrency, setActiveCurrency] = useState<string>("");
   const [internalTimeRange, setInternalTimeRange] = useState<number>(timeRange || 6);
-  const [filteredData, setFilteredData] = useState<MonthlyBudgetData[]>([]);
+  const [filteredData, setFilteredData] = useState<MonthlyBudget[]>([]);
 
   // Predefined date ranges
   const dateRanges: DateRange[] = [

@@ -5,7 +5,8 @@ import { useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import "./Login.css";
 import { setData, unsetData } from "./redux/data";
-import api from "./utils/api";
+import { typedApi } from "./utils/api";
+import { LoginRequest, LoginResponse } from '../shared-types';
 
 function LoginPage() {
   const [username, setUsername] = useState("");
@@ -18,8 +19,13 @@ function LoginPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      const response = await api.post('/login', { username, password: sha256(password).toString() });
-      const { token, ...userData } = response.data;
+      const loginRequest: LoginRequest = {
+        username,
+        password: sha256(password).toString()
+      };
+      
+      const response: LoginResponse = await typedApi.post('/login', loginRequest);
+      const { token, ...userData } = response;
 
       // Store token in local storage
       localStorage.setItem('sessionToken', token);
@@ -31,6 +37,8 @@ function LoginPage() {
       navigate('/');
     } catch (err) {
       console.log('Invalid username or password');
+    } finally {
+      setLoading(false);
     }
   };
 
