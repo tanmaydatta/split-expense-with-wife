@@ -8,12 +8,12 @@ ALLOWED_ORIGINS = "https://splitexpense.netlify.app,https://deploy-preview-5--sp
 GROUP_IDS = "1"
 
 [[d1_databases]]
-#binding = "DB"
-#database_name = "splitexpense-dev"
-#database_id = "a721ee7e-a5ee-452d-88d4-ebb97a1f0786" 
 binding = "DB"
-database_name = "splitexpense"
-database_id = "56f19864-f964-4c28-b176-001047d58e00" 
+database_name = "splitexpense-dev"
+database_id = "a721ee7e-a5ee-452d-88d4-ebb97a1f0786" 
+#binding = "DB"
+#database_name = "splitexpense"
+#database_id = "56f19864-f964-4c28-b176-001047d58e00" 
 
 
 [triggers]
