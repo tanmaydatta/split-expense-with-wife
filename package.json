@@ -54,7 +54,7 @@
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "prepare": "husky",
-    "lint": "eslint src/*.tsx"
+    "lint": "eslint src/*.tsx --max-warnings 0"
   },
   "eslintConfig": {
     "extends": [
