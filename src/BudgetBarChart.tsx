@@ -214,10 +214,14 @@ const BudgetBarChart: React.FC<Props> = ({ data, averageData, timeRange, onTimeR
   const getAverageForCurrentPeriod = () => {
     if (!averageData || averageData.length === 0 || !activeCurrency) return null;
 
-    const periodData = averageData.find(avg => avg.periodMonths === internalTimeRange);
-    if (!periodData) return null;
+    let periodData = averageData.find(avg => avg.periodMonths === internalTimeRange);
+    if (!periodData && averageData.length > 0) {
+      periodData = averageData.reduce((max, current) => 
+        current.periodMonths > max.periodMonths ? current : max
+      );
+    }
 
-    const currencyAverage = periodData.averages.find(avg => avg.currency === activeCurrency);
+    const currencyAverage = periodData?.averages.find(avg => avg.currency === activeCurrency);
     return currencyAverage ? currencyAverage.averageMonthlySpend : null;
   };
 
