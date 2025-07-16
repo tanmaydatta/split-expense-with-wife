@@ -1,0 +1,11 @@
+8
+- consistent types - ✅
+- finish e2e tests
+- retire netlify functions
+- refactor ui
+- remove pin
+- schedule actions
+- scan receipt
+- full text search
+- transaction/add
+- budget/add
