@@ -1,17 +1,49 @@
 import sha256 from "crypto-js/sha256";
 import React, { useState } from "react";
-import Button from "react-bootstrap/Button";
-import Form from "react-bootstrap/Form";
 import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
-import "./App.css";
-import { CreditDebit } from "./CreditDebit";
-import { SelectBudget } from "./SelectBudget";
-import { typedApi } from "./utils/api";
-import type { BudgetRequest, SplitNewRequest } from '../shared-types';
+import styled from "styled-components";
+import { Button } from "../components/Button";
+import { Input } from "../components/Form/Input";
+import { Select } from "../components/Form/Select";
+import { Loader } from "../components/Loader";
+import { CreditDebit } from "../CreditDebit";
+import { SelectBudget } from "../SelectBudget";
+import { typedApi } from "../utils/api";
+import type { BudgetRequest, SplitNewRequest } from '../../shared-types';
 import axios from "axios";
 
-function App(): JSX.Element {
+const DashboardContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: ${({ theme }) => theme.spacing.large};
+  padding: ${({ theme }) => theme.spacing.large};
+`;
+
+const FormContainer = styled.form`
+  display: flex;
+  flex-direction: column;
+  gap: ${({ theme }) => theme.spacing.medium};
+  width: 100%;
+  max-width: 500px;
+`;
+
+const SplitPercentageContainer = styled.div`
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  width: 100%;
+  gap: ${({ theme }) => theme.spacing.medium};
+`;
+
+const SplitPercentageInputContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: ${({ theme }) => theme.spacing.small};
+`;
+
+function Dashboard(): JSX.Element {
   const [loading, setLoading] = useState<boolean>(false);
   const navigate = useNavigate();
   
@@ -49,8 +81,6 @@ function App(): JSX.Element {
     setSplitPctShares(localSplitShares);
   }, [metadata.defaultShare, setSplitPctShares]);
   
-  // const [entries, setEntries] = useState<entry>();
-  // const handleChange = (val: string) => setPaidBy(val);
   const handleChangeBudget = (val: string) => setBudget(val);
   const handleChangeCreditDebit = (val: string) => setCreditDebit(val);
 
@@ -128,76 +158,40 @@ function App(): JSX.Element {
   };
   return (
     <>
-      {loading && (
-        <div
-          style={{
-            width: "100%",
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-          }}
-        >
-          <div className="loader"></div>
-        </div>
-      )}
+      {loading && <Loader />}
       {!loading && (
-        <div className="App">
-          <Form
+        <DashboardContainer>
+          <FormContainer
             onSubmit={submit}
-            className="ExpenseForm"
-            style={{
-              justifyContent: "center",
-              margin: "1%",
-            }}
           >
-            <Form.Group className="mb-3" controlId="formBasicEmail">
-              <Form.Control
-                name="description"
-                type="text"
-                placeholder="Description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-              />
-            </Form.Group>
+            <Input
+              name="description"
+              type="text"
+              placeholder="Description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
 
-            <Form.Group className="mb-3" controlId="formBasicPassword">
-              <Form.Control
-                type="number"
-                placeholder="Amount"
-                name="amount"
-                step=".01"
-                onChange={(e) => {
-                  setAmount(parseFloat(e.target.value));
-                }}
-              />
-            </Form.Group>
-            <div
-              className="SplitPercentageContainer"
-              style={{
-                display: "flex",
-                flexDirection: "row",
-                justifyContent: "flex-start",
-                flexWrap: "wrap",
-                width: "100%",
+            <Input
+              type="number"
+              placeholder="Amount"
+              name="amount"
+              step=".01"
+              onChange={(e) => {
+                setAmount(parseFloat(e.target.value));
               }}
-            >
+            />
+            <SplitPercentageContainer>
               {users.map(
                 (u: { FirstName: string; Id: number }, i: Number) => (
-                  <div
+                  <SplitPercentageInputContainer
                     key={u.Id}
-                    className="SplitPercentageInput"
-                    style={{
-                      height: "fit-content",
-                      width: "fit-content",
-                      display: "flex",
-                      flexDirection: "column",
-                    }}
                   >
-                    <Form.Label>
+                    <label>
                       {u.FirstName}
                       {"%"}
-                    </Form.Label>
-                    <Form.Control
+                    </label>
+                    <Input
                       type="number"
                       placeholder={u.FirstName + "%"}
                       value={splitPctShares.get(String(u.Id))}
@@ -210,68 +204,57 @@ function App(): JSX.Element {
                         setSplitPctShares(newSplitPctShares);
                       }}
                     />
-                  </div>
+                  </SplitPercentageInputContainer>
                 )
               )}
-            </div>
-            <Form.Group className="mb-3">
-              <Form.Select
-                defaultValue={currency}
-                name="currency"
-                onChange={(v) => setCurrency(v.target.value)}
-              >
-                <option>Currency</option>
-                <option value="USD">USD</option>
-                <option value="EUR">EUR</option>
-                <option value="GBP">GBP</option>
-                <option value="INR">INR</option>
-              </Form.Select>
-            </Form.Group>
-            <Form.Group className="mb-3" controlId="formBasicPassword">
-              <Form.Control
-                type="password"
-                placeholder="PIN"
-                name="pin"
-                value={pin}
-                onChange={(e) => setPin(e.target.value)}
-              />
-            </Form.Group>
-            <Form.Group className="mb-3">
-              <Form.Label>Paid by</Form.Label>{" "}
-              <Form.Select
-                defaultValue={data?.userId}
-                name="paidBy"
-                onChange={(v) => {
-                  console.log(v.target.value);
-                  setPaidBy({
-                    Id: Number(v.target.value),
-                    Name:
-                      users.find(
-                        (u: { Id: number; FirstName: string }) =>
-                          u.Id === Number(v.target.value)
-                      )?.FirstName || "",
-                  });
-                }}
-              >
-                {users.map(
-                  (u: { FirstName: string; Id: number }, i: Number) => (
-                    <option key={u.Id} value={u.Id}>{u.FirstName}</option>
-                  )
-                )}
-              </Form.Select>
-            </Form.Group>
-            <Button variant="primary" type="submit" style={{ width: "100%" }}>
+            </SplitPercentageContainer>
+            <Select
+              defaultValue={currency}
+              name="currency"
+              onChange={(v) => setCurrency(v.target.value)}
+            >
+              <option>Currency</option>
+              <option value="USD">USD</option>
+              <option value="EUR">EUR</option>
+              <option value="GBP">GBP</option>
+              <option value="INR">INR</option>
+            </Select>
+            <Input
+              type="password"
+              placeholder="PIN"
+              name="pin"
+              value={pin}
+              onChange={(e) => setPin(e.target.value)}
+            />
+            <label>Paid by</label>{" "}
+            <Select
+              defaultValue={data?.userId}
+              name="paidBy"
+              onChange={(v) => {
+                console.log(v.target.value);
+                setPaidBy({
+                  Id: Number(v.target.value),
+                  Name:
+                    users.find(
+                      (u: { Id: number; FirstName: string }) =>
+                        u.Id === Number(v.target.value)
+                    )?.FirstName || "",
+                });
+              }}
+            >
+              {users.map(
+                (u: { FirstName: string; Id: number }, i: Number) => (
+                  <option key={u.Id} value={u.Id}>{u.FirstName}</option>
+                )
+              )}
+            </Select>
+            <Button type="submit">
               Submit
             </Button>
-          </Form>
+          </FormContainer>
 
-          <Form
+          <FormContainer
             onSubmit={submitBudget}
-            style={{
-              justifyContent: "center",
-              width: "fit-content",
-              margin: "1%",
-            }}
           >
             <SelectBudget
               budget={budget}
@@ -282,14 +265,14 @@ function App(): JSX.Element {
               handleChangeBudget={handleChangeCreditDebit}
             />
 
-            <Button variant="primary" type="submit" style={{ width: "100%" }}>
+            <Button type="submit">
               Submit
             </Button>
-          </Form>
-        </div>
+          </FormContainer>
+        </DashboardContainer>
       )}
     </>
   );
 }
 
-export default App;
+export default Dashboard;

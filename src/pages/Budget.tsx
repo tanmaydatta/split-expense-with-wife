@@ -1,14 +1,39 @@
 import sha256 from "crypto-js/sha256";
 import getSymbolFromCurrency from "currency-symbol-map";
 import { useCallback, useEffect, useState } from "react";
-import { Button, Card, Form } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
-import "./Budget.css";
-import BudgetTable from "./BudgetTable";
-import { SelectBudget } from "./SelectBudget";
-import { entry } from "./model";
-import { typedApi } from "./utils/api";
-import { BudgetListRequest, BudgetTotalRequest, BudgetDeleteRequest, BudgetEntry, BudgetTotal } from '../shared-types';
+import styled from "styled-components";
+import { Button } from "../components/Button";
+import { Card } from "../components/Card";
+import { Input } from "../components/Form/Input";
+import { Loader } from "../components/Loader";
+import BudgetTable from "../BudgetTable";
+import { SelectBudget } from "../SelectBudget";
+import { entry } from "../model";
+import { typedApi } from "../utils/api";
+import { BudgetListRequest, BudgetTotalRequest, BudgetDeleteRequest, BudgetEntry, BudgetTotal } from '../../shared-types';
+
+const BudgetContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: ${({ theme }) => theme.spacing.large};
+  padding: ${({ theme }) => theme.spacing.large};
+`;
+
+const BudgetCard = styled(Card)`
+  display: flex;
+  flex-direction: column;
+  gap: ${({ theme }) => theme.spacing.medium};
+`;
+
+const BudgetsLeftContainer = styled.div`
+  display: flex;
+  gap: ${({ theme }) => theme.spacing.medium};
+`;
+
+const BudgetLeft = styled.div<{ color: string }>`
+  color: ${({ color }) => color};
+`;
 
 export const Budget: React.FC = () => {
   const [budgetHistory, setBudgetHistory] = useState<entry[]>([]);
@@ -102,71 +127,49 @@ export const Budget: React.FC = () => {
     fetchHistory(0, []);
   }, [fetchTotal, fetchHistory]);
   return (
-    <div className="Budget">
-      {loading && <div className="loader"></div>}
+    <BudgetContainer>
+      {loading && <Loader />}
       {!loading && (
-        <Form.Group className="mb-3" controlId="formBasicPassword">
-          <Form.Control
+        <>
+          <Input
             type="password"
             placeholder="PIN"
             name="pin"
             value={pin}
             onChange={(e) => setPin(e.target.value)}
           />
-        </Form.Group>
-      )}
-      {!loading && (
-        <Card.Title style={{ marginTop: "1%" }}>
-          Budget left
-          <div className="budgetTotal">
-            {budgetsLeft
-              .map((e) => ({
-                text:
-                  (e.amount > 0 ? "+" : "-") +
-                  getSymbolFromCurrency(e.currency) +
-                  Math.abs(e.amount).toFixed(2),
-                color: e.amount > 0 ? "green" : "red",
-              }))
-              .map((e) => (
-                <div
-                  style={{
-                    color: e.color,
-                  }}
-                >
-                  {e.text}
-                </div>
-              ))}
-          </div>
-        </Card.Title>
-      )}
-      {!loading && (
-        <SelectBudget budget={budget} handleChangeBudget={handleChangeBudget} />
-      )}
-
-      {!loading && (
-        <div style={{ width: "100%", marginBottom: "1%" }}>
+          <BudgetCard>
+            <h3>Budget left</h3>
+            <BudgetsLeftContainer>
+              {budgetsLeft
+                .map((e) => ({
+                  text:
+                    (e.amount > 0 ? "+" : "-") +
+                    getSymbolFromCurrency(e.currency) +
+                    Math.abs(e.amount).toFixed(2),
+                  color: e.amount > 0 ? "green" : "red",
+                }))
+                .map((e) => (
+                  <BudgetLeft color={e.color}>
+                    {e.text}
+                  </BudgetLeft>
+                ))}
+            </BudgetsLeftContainer>
+          </BudgetCard>
+          <SelectBudget budget={budget} handleChangeBudget={handleChangeBudget} />
           <Button
-            variant="outline-primary"
-            style={{ width: "100%", marginBottom: "1%" }}
             onClick={() => navigate(`/monthly-budget/${budget}`)}
           >
             View Monthly Budget Breakdown
           </Button>
-        </div>
+          <BudgetTable entries={budgetHistory} onDelete={deleteBudgetEntry} />
+          <Button
+            onClick={() => fetchHistory(budgetHistory.length, budgetHistory)}
+          >
+            Show more
+          </Button>
+        </>
       )}
-
-      {!loading && (
-        <BudgetTable entries={budgetHistory} onDelete={deleteBudgetEntry} />
-      )}
-      {!loading && (
-        <Button
-          variant="outline-secondary"
-          style={{ width: "100%", marginBottom: "1%" }}
-          onClick={() => fetchHistory(budgetHistory.length, budgetHistory)}
-        >
-          Show more
-        </Button>
-      )}
-    </div>
+    </BudgetContainer>
   );
 };

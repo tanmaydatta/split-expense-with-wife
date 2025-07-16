@@ -1,12 +1,28 @@
 import sha256 from "crypto-js/sha256";
 import React, { useState } from "react";
-import { Button, Container, Form } from "react-bootstrap";
 import { useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
-import "./Login.css";
-import { setData, unsetData } from "./redux/data";
-import { typedApi } from "./utils/api";
-import { LoginRequest, LoginResponse } from '../shared-types';
+import styled from "styled-components";
+import { Button } from "../components/Button";
+import { Input } from "../components/Form/Input";
+import { Loader } from "../components/Loader";
+import { setData, unsetData } from "../redux/data";
+import { typedApi } from "../utils/api";
+import { LoginRequest, LoginResponse } from '../../shared-types';
+
+const LoginContainer = styled.div`
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+`;
+
+const LoginForm = styled.form`
+  display: flex;
+  flex-direction: column;
+  gap: ${({ theme }) => theme.spacing.medium};
+  width: 300px;
+`;
 
 function LoginPage() {
   const [username, setUsername] = useState("");
@@ -46,32 +62,28 @@ function LoginPage() {
     dispatch(unsetData());
   }, [dispatch]);
   return (
-    <Container className="LoginWrapper">
-      {loading && <div className="loader" style={{ margin: "auto" }}></div>}
+    <LoginContainer>
+      {loading && <Loader />}
       {!loading && (
-        <Form onSubmit={handleLogin}>
-          <Form.Group>
-            <Form.Control
-              placeholder="Username"
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-            />
-          </Form.Group>
-          <Form.Group>
-            <Form.Control
-              placeholder="Password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </Form.Group>
-          <Button variant="primary" type="submit" className="LoginButton">
+        <LoginForm onSubmit={handleLogin}>
+          <Input
+            placeholder="Username"
+            type="text"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+          />
+          <Input
+            placeholder="Password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          <Button type="submit">
             Login
           </Button>
-        </Form>
+        </LoginForm>
       )}
-    </Container>
+    </LoginContainer>
   );
 }
 
