@@ -11,7 +11,7 @@ import {
   persistStore,
 } from "redux-persist";
 import storage from "redux-persist/lib/storage";
-import dataReducer from "./data";
+import dataReducer from "@/redux/data";
 
 const persistConfig = {
   key: "root",
@@ -30,3 +30,9 @@ export const store = configureStore({
     }),
 });
 export const persistor = persistStore(store);
+
+// Infer the `RootState` and `AppDispatch` types from the store itself
+export type RootState = ReturnType<typeof store.getState>;
+export type AppDispatch = typeof store.dispatch;
+
+

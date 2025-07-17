@@ -104,6 +104,8 @@ export interface BudgetDeleteRequest {
 
 export interface BudgetMonthlyRequest {
   name: string;
+  timeRange?: '6M' | '1Y' | '2Y' | 'All';
+  currency?: string;
 }
 
 export interface SplitRequest {

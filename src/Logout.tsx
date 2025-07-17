@@ -1,30 +1,24 @@
 import React, { useEffect } from 'react';
-import { useDispatch } from 'react-redux';
-import { useNavigate } from 'react-router-dom';
-import { unsetData } from './redux/data';
-import { typedApi } from './utils/api';
+import { logout } from '@/utils/auth';
+import { typedApi } from '@/utils/api';
 
 const Logout: React.FC = () => {
-  const dispatch = useDispatch();
-  const navigate = useNavigate();
-
   useEffect(() => {
     const performLogout = async () => {
       try {
+        // Call logout API endpoint
         await typedApi.post('/logout', {});
       } catch (error) {
-        console.error('Logout failed:', error);
+        console.error('Logout API call failed:', error);
+        // Note: Even if the API call fails, we still want to clear local data
       } finally {
-        // Clear session token and Redux store
-        localStorage.removeItem('sessionToken');
-        dispatch(unsetData());
-        // Redirect to login page
-        navigate('/login');
+        // Use centralized logout function to clear all data and redirect
+        logout();
       }
     };
 
     performLogout();
-  }, [dispatch, navigate]);
+  }, []);
 
   return <div>Logging out...</div>;
 };

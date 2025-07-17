@@ -1,0 +1,80 @@
+.toggle-button-group {
+  display: flex;
+  width: 100%;
+  border-radius: var(--border-radius);
+  overflow: hidden;
+  box-shadow: var(--shadow-small);
+  margin-bottom: var(--spacing-small);
+}
+
+.toggle-button {
+  flex: 1;
+  padding: var(--spacing-small) var(--spacing-medium);
+  border: 1px solid var(--color-primary);
+  background-color: var(--color-white);
+  color: var(--color-primary);
+  font-size: var(--font-size-medium);
+  font-family: var(--font-main);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-right: none;
+  position: relative;
+}
+
+.toggle-button:last-child {
+  border-right: 1px solid var(--color-primary);
+}
+
+.toggle-button:hover {
+  background-color: var(--color-primary);
+  color: var(--color-white);
+  z-index: 1;
+}
+
+.toggle-button.selected {
+  background-color: var(--color-primary);
+  color: var(--color-white);
+  z-index: 2;
+}
+
+.toggle-button:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+  z-index: 3;
+}
+
+.toggle-button:active {
+  transform: translateY(1px);
+}
+
+/* Variant styles */
+.toggle-button-outline-primary {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.toggle-button-outline-primary.selected,
+.toggle-button-outline-primary:hover {
+  background-color: var(--color-primary);
+  color: var(--color-white);
+}
+
+.toggle-button-outline-success {
+  border-color: var(--color-success);
+  color: var(--color-success);
+}
+
+.toggle-button-outline-success.selected,
+.toggle-button-outline-success:hover {
+  background-color: var(--color-success);
+  color: var(--color-white);
+}
+
+/* Responsive design */
+@media (max-width: 600px) {
+  .toggle-button {
+    padding: var(--spacing-small);
+    font-size: var(--font-size-small);
+  }
+} 

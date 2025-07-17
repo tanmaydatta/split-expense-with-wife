@@ -2,38 +2,17 @@ import sha256 from "crypto-js/sha256";
 import getSymbolFromCurrency from "currency-symbol-map";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import styled from "styled-components";
-import { Button } from "../components/Button";
-import { Card } from "../components/Card";
-import { Input } from "../components/Form/Input";
-import { Loader } from "../components/Loader";
-import BudgetTable from "../BudgetTable";
-import { SelectBudget } from "../SelectBudget";
-import { entry } from "../model";
-import { typedApi } from "../utils/api";
-import { BudgetListRequest, BudgetTotalRequest, BudgetDeleteRequest, BudgetEntry, BudgetTotal } from '../../shared-types';
-
-const BudgetContainer = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${({ theme }) => theme.spacing.large};
-  padding: ${({ theme }) => theme.spacing.large};
-`;
-
-const BudgetCard = styled(Card)`
-  display: flex;
-  flex-direction: column;
-  gap: ${({ theme }) => theme.spacing.medium};
-`;
-
-const BudgetsLeftContainer = styled.div`
-  display: flex;
-  gap: ${({ theme }) => theme.spacing.medium};
-`;
-
-const BudgetLeft = styled.div<{ color: string }>`
-  color: ${({ color }) => color};
-`;
+import { Button } from "@/components/Button";
+import { Card } from "@/components/Card";
+import { Input } from "@/components/Form/Input";
+import { Loader } from "@/components/Loader";
+import { AmountGrid } from "@/components/AmountGrid";
+import BudgetTable from "./BudgetTable";
+import { SelectBudget } from "@/SelectBudget";
+import { entry } from "@/model";
+import { typedApi } from "@/utils/api";
+import { BudgetListRequest, BudgetTotalRequest, BudgetDeleteRequest, BudgetEntry, BudgetTotal } from '@shared-types';
+import "./index.css";
 
 export const Budget: React.FC = () => {
   const [budgetHistory, setBudgetHistory] = useState<entry[]>([]);
@@ -127,7 +106,7 @@ export const Budget: React.FC = () => {
     fetchHistory(0, []);
   }, [fetchTotal, fetchHistory]);
   return (
-    <BudgetContainer>
+    <div className="budget-container">
       {loading && <Loader />}
       {!loading && (
         <>
@@ -138,24 +117,10 @@ export const Budget: React.FC = () => {
             value={pin}
             onChange={(e) => setPin(e.target.value)}
           />
-          <BudgetCard>
+          <Card className="budget-card">
             <h3>Budget left</h3>
-            <BudgetsLeftContainer>
-              {budgetsLeft
-                .map((e) => ({
-                  text:
-                    (e.amount > 0 ? "+" : "-") +
-                    getSymbolFromCurrency(e.currency) +
-                    Math.abs(e.amount).toFixed(2),
-                  color: e.amount > 0 ? "green" : "red",
-                }))
-                .map((e) => (
-                  <BudgetLeft color={e.color}>
-                    {e.text}
-                  </BudgetLeft>
-                ))}
-            </BudgetsLeftContainer>
-          </BudgetCard>
+            <AmountGrid amounts={budgetsLeft} />
+          </Card>
           <SelectBudget budget={budget} handleChangeBudget={handleChangeBudget} />
           <Button
             onClick={() => navigate(`/monthly-budget/${budget}`)}
@@ -170,6 +135,6 @@ export const Budget: React.FC = () => {
           </Button>
         </>
       )}
-    </BudgetContainer>
+    </div>
   );
 };

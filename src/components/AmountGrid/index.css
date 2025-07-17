@@ -1,0 +1,74 @@
+.amount-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-medium);
+  margin: 0; /* Ensure no extra margin */
+}
+
+.amount-item {
+  padding: var(--spacing-medium);
+  border-radius: var(--border-radius);
+  background: var(--color-white);
+  box-shadow: var(--shadow-small);
+  border-left: 4px solid;
+  min-width: 200px;
+  font-weight: bold;
+  font-size: var(--font-size-medium);
+  flex: 1 1 200px; /* Allow flexible growth */
+  line-height: 1.2; /* Control line height */
+  min-height: auto; /* Prevent excessive height */
+  height: auto; /* Let content determine height */
+}
+
+.amount-item.positive {
+  border-left-color: var(--color-success);
+  color: var(--color-success);
+}
+
+.amount-item.negative {
+  border-left-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+.amount-item.zero {
+  border-left-color: var(--color-secondary);
+  color: var(--color-secondary);
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  .amount-grid {
+    gap: var(--spacing-small); /* Standard gap */
+    flex-direction: row; /* Back to row layout for 2 columns */
+    flex-wrap: wrap; /* Allow wrapping */
+  }
+  
+  .amount-item {
+    min-width: calc(50% - var(--spacing-small) / 2); /* 2 items per row */
+    flex: 1 1 calc(50% - var(--spacing-small) / 2); /* Grow to fill space */
+    padding: var(--spacing-small) var(--spacing-medium); /* Desktop-like padding */
+    font-size: var(--font-size-medium);
+    text-align: center;
+    height: auto; /* Content-based height */
+    line-height: 1.4; /* Comfortable line height */
+    min-height: 44px; /* Touch-friendly minimum height */
+  }
+}
+
+/* Small mobile */
+@media (max-width: 480px) {
+  .amount-grid {
+    gap: var(--spacing-small); /* Keep standard gap */
+  }
+  
+  .amount-item {
+    min-width: calc(50% - var(--spacing-small) / 2); /* Still 2 per row */
+    flex: 1 1 calc(50% - var(--spacing-small) / 2);
+    padding: var(--spacing-small); /* Slightly reduced but still substantial */
+    font-size: var(--font-size-medium); /* Keep readable size */
+    border-left-width: 3px;
+    height: auto; /* Content-only height */
+    line-height: 1.3; /* Good readability */
+    min-height: 40px; /* Touch-friendly */
+  }
+} 

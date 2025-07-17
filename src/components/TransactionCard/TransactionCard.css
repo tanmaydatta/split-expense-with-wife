@@ -1,0 +1,252 @@
+/* Transaction Card Styles */
+.transaction-card {
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-bottom: var(--spacing-small);
+  padding: var(--spacing-medium) !important; /* Override Card component padding */
+}
+
+.transaction-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-medium);
+}
+
+.transaction-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-small);
+  padding-bottom: var(--spacing-small);
+  border-bottom: 1px solid var(--color-light);
+  gap: var(--spacing-small);
+}
+
+.transaction-date {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-small);
+  color: var(--color-secondary);
+  font-size: var(--font-size-small);
+  font-weight: 500;
+  flex: 1;
+  min-width: 0; /* Allow text to wrap */
+}
+
+.transaction-date span {
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.delete-button {
+  background: none;
+  border: none;
+  color: var(--color-danger);
+  cursor: pointer;
+  padding: var(--spacing-small);
+  border-radius: var(--border-radius);
+  transition: all 0.2s ease;
+  min-height: 44px;
+  min-width: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.delete-button:hover {
+  background-color: rgba(220, 53, 69, 0.1);
+  transform: scale(1.1);
+}
+
+.transaction-card-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-medium);
+  overflow: hidden;
+  min-width: 0; /* Allow flex items to shrink below content size */
+}
+
+.transaction-description {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-small);
+  font-weight: 600;
+  color: var(--color-dark);
+}
+
+.transaction-description span {
+  flex: 1;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  hyphens: auto;
+  line-height: 1.4;
+  max-width: 100%;
+  /* Limit very long descriptions to 3 lines with fade effect */
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  position: relative;
+}
+
+.transaction-description span::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 30px;
+  height: 1.4em;
+  background: linear-gradient(to right, transparent, var(--color-white));
+  pointer-events: none;
+}
+
+.transaction-amounts {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-small);
+  margin: 0;
+}
+
+.transaction-total {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-small);
+  flex: 1;
+}
+
+.total-value {
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: var(--color-dark);
+}
+
+.transaction-share-container {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-small);
+  flex: 1;
+  justify-content: flex-end;
+}
+
+.share-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background-color: var(--color-secondary);
+  color: var(--color-white);
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+.share-value {
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+.transaction-share-container.positive .share-value {
+  color: var(--color-success);
+}
+
+.transaction-share-container.positive .share-icon {
+  background-color: var(--color-success);
+}
+
+.transaction-share-container.negative .share-value {
+  color: var(--color-danger);
+}
+
+.transaction-share-container.negative .share-icon {
+  background-color: var(--color-danger);
+}
+
+.transaction-share-container.zero .share-value {
+  color: var(--color-secondary);
+}
+
+.transaction-card-details {
+  margin-top: var(--spacing-medium);
+  padding-top: var(--spacing-medium);
+  border-top: 1px solid var(--color-light);
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+  .transaction-card {
+    padding: 16px !important;
+    margin-bottom: 8px;
+  }
+  
+  .transaction-card-header {
+    margin-bottom: 0 !important;
+    padding-bottom: 0 !important;
+    border-bottom: none !important;
+  }
+  
+  .transaction-amounts {
+    gap: 12px;
+    margin: 0;
+  }
+  
+  .transaction-date {
+    font-size: 0.8rem;
+    gap: 6px;
+  }
+  
+  .transaction-date span {
+    font-size: 0.75rem;
+    line-height: 1.2;
+  }
+  
+  .total-value,
+  .share-value {
+    font-size: 1rem;
+  }
+  
+  .share-icon {
+    width: 18px;
+    height: 18px;
+    font-size: 9px;
+  }
+}
+
+/* Small mobile */
+@media (max-width: 480px) {
+  .transaction-card {
+    padding: 12px !important;
+    margin-bottom: 6px;
+  }
+  
+  .transaction-card-header {
+    margin-bottom: 0 !important;
+    padding-bottom: 0 !important;
+    border-bottom: none !important;
+  }
+  
+  .transaction-date {
+    font-size: 0.8rem;
+  }
+  
+  .delete-button {
+    min-height: 36px;
+    min-width: 36px;
+    padding: 6px;
+  }
+  
+  .transaction-amounts {
+    gap: 8px;
+    margin: 0;
+  }
+  
+  .total-value,
+  .share-value {
+    font-size: 0.95rem;
+  }
+  
+  .share-icon {
+    width: 16px;
+    height: 16px;
+    font-size: 8px;
+  }
+} 

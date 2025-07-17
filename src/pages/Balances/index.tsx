@@ -1,8 +1,10 @@
-import getSymbolFromCurrency from "currency-symbol-map";
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import "./Balances.css";
-import { typedApi } from "./utils/api";
+import { typedApi } from "@/utils/api";
+import { Loader } from "@/components/Loader";
+import { AmountGrid, AmountItem } from "@/components/AmountGrid";
+import "./index.css";
+
 const Balances: React.FC = () => {
   const [balances, setBalances] = useState<Map<string, Map<string, number>>>(
     new Map()
@@ -26,9 +28,7 @@ const Balances: React.FC = () => {
         setBalances(localBalances);
       } catch (e: any) {
         console.log(e);
-        if (e.response?.status === 401) {
-          navigate("/login");
-        }
+        // Note: 401 errors are now handled globally by API interceptor
       } finally {
         setLoading(false);
       }
@@ -37,30 +37,35 @@ const Balances: React.FC = () => {
     fetchBalances();
   }, [navigate]);
 
+  if (loading) {
+    return <Loader />;
+  }
+
+  if (balances.size === 0) {
+    return (
+      <div className="balances-container">
+        <div className="empty-state">No balances to display</div>
+      </div>
+    );
+  }
+
   return (
-    <div className="BalancesWrapper">
-      {loading && <div className="loader"></div>}
-      {!loading &&
-        Array.from(balances, ([k, v]) => (
-          <div className="BalanceItemWrapper">
-            <div className="user">
-              <div>{k}</div>
-            </div>
-            <div className="currencyBalances">
-              {Array.from(balances.get(k) ?? new Map(), ([c, a]) => (
-                <div className="currencyBalanceItem">
-                  {a > 0 ? "You are owed" : "You owe"}{" "}
-                  <span className={a > 0 ? "positive" : "negative"}>
-                    {getSymbolFromCurrency(c)}
-                    {Math.abs(a).toFixed(2)}
-                  </span>{" "}
-                </div>
-              ))}
-            </div>
+    <div className="balances-container">
+      {Array.from(balances, ([userName, userBalances]) => {
+        const amounts: AmountItem[] = Array.from(userBalances, ([currency, amount]) => ({
+          currency,
+          amount
+        }));
+        
+        return (
+          <div key={userName} className="balance-section">
+            <h3 className="user-header">{userName}</h3>
+            <AmountGrid amounts={amounts} />
           </div>
-        ))}
+        );
+      })}
     </div>
   );
 };
 
-export default Balances;
+export default Balances; 

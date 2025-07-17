@@ -3,12 +3,12 @@ import React, { useState } from "react";
 import { useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
-import { Button } from "../components/Button";
-import { Input } from "../components/Form/Input";
-import { Loader } from "../components/Loader";
-import { setData, unsetData } from "../redux/data";
-import { typedApi } from "../utils/api";
-import { LoginRequest, LoginResponse } from '../../shared-types';
+import { Button } from "@/components/Button";
+import { Input } from "@/components/Form/Input";
+import { Loader } from "@/components/Loader";
+import { setData, unsetData } from "@/redux/data";
+import { typedApi } from "@/utils/api";
+import { LoginRequest, LoginResponse } from '@shared-types';
 
 const LoginContainer = styled.div`
   display: flex;

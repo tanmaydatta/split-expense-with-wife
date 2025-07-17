@@ -1,4 +1,4 @@
-import { ToggleButton, ToggleButtonGroup } from "react-bootstrap";
+import { ToggleButton, ToggleButtonGroup } from "./components/ToggleButtonGroup";
 import { useSelector } from "react-redux";
 
 interface SelectBudgetProps {
@@ -30,7 +30,6 @@ export const SelectBudget: React.FC<SelectBudgetProps> = ({
           id={`radio-${b}`}
           type="radio"
           variant="outline-primary"
-          name="radio"
           value={b}
           checked={budget === b}
         >

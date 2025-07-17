@@ -1,5 +1,5 @@
 import { useSelector } from "react-redux";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import styled from "styled-components";
 
 const SidebarContainer = styled.div`
@@ -9,7 +9,7 @@ const SidebarContainer = styled.div`
   padding: ${({ theme }) => theme.spacing.medium};
   background: ${({ theme }) => theme.colors.dark};
   color: ${({ theme }) => theme.colors.white};
-  height: 100vh;
+  height: 100%;
 `;
 
 const SidebarHeader = styled.div`
@@ -18,12 +18,13 @@ const SidebarHeader = styled.div`
   border-bottom: 1px solid ${({ theme }) => theme.colors.light};
 `;
 
-const SidebarItem = styled.div`
+const SidebarItem = styled.div<{ $active?: boolean }>`
   cursor: pointer;
   padding: ${({ theme }) => theme.spacing.small};
   border-radius: ${({ theme }) => theme.borderRadius};
+  background: ${({ theme, $active }) => $active ? theme.colors.primary : 'transparent'};
   &:hover {
-    background: ${({ theme }) => theme.colors.secondary};
+    background: ${({ theme, $active }) => $active ? theme.colors.primary : theme.colors.secondary};
   }
 `;
 
@@ -31,9 +32,26 @@ const LogoutButton = styled(SidebarItem)`
   margin-top: auto;
 `;
 
-function Sidebar(): JSX.Element {
+interface SidebarProps {
+  onNavigate?: () => void;
+}
+
+function Sidebar({ onNavigate }: SidebarProps): JSX.Element {
   const navigate = useNavigate();
+  const location = useLocation();
   const data = useSelector((state: any) => state.value);
+  
+  const isActive = (path: string) => {
+    if (path === "/" && location.pathname === "/") return true;
+    if (path !== "/" && location.pathname.startsWith(path)) return true;
+    return false;
+  };
+
+  const handleNavigate = (path: string) => {
+    navigate(path);
+    onNavigate?.();
+  };
+  
   return (
     <SidebarContainer>
       <SidebarHeader>
@@ -48,22 +66,37 @@ function Sidebar(): JSX.Element {
           </div>
         )}
       </SidebarHeader>
-      <SidebarItem onClick={() => navigate("/")}>
+      <SidebarItem 
+        $active={isActive("/")} 
+        onClick={() => handleNavigate("/")}
+      >
         Add
       </SidebarItem>
-      <SidebarItem onClick={() => navigate("/expenses")}>
+      <SidebarItem 
+        $active={isActive("/expenses")} 
+        onClick={() => handleNavigate("/expenses")}
+      >
         Expenses
       </SidebarItem>
-      <SidebarItem onClick={() => navigate("/balances")}>
+      <SidebarItem 
+        $active={isActive("/balances")} 
+        onClick={() => handleNavigate("/balances")}
+      >
         Balances
       </SidebarItem>
-      <SidebarItem onClick={() => navigate("/budget")}>
+      <SidebarItem 
+        $active={isActive("/budget")} 
+        onClick={() => handleNavigate("/budget")}
+      >
         Budget
       </SidebarItem>
-      <SidebarItem onClick={() => navigate("/monthly-budget")}>
+      <SidebarItem 
+        $active={isActive("/monthly-budget")} 
+        onClick={() => handleNavigate("/monthly-budget")}
+      >
         Monthly Budget
       </SidebarItem>
-      <LogoutButton onClick={() => navigate("/logout")}>
+      <LogoutButton onClick={() => handleNavigate("/logout")}>
         <div>Logout</div>
       </LogoutButton>
     </SidebarContainer>

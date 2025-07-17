@@ -2,10 +2,10 @@ import getSymbolFromCurrency from "currency-symbol-map";
 import React, { useCallback, useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
-import styled from "styled-components";
-import { Button } from "../components/Button";
-import { Loader } from "../components/Loader";
-import { Table } from "../components/Table";
+import { Button } from "@/components/Button";
+import { Loader } from "@/components/Loader";
+import { Table, TableWrapper } from "@/components/Table";
+import { TransactionCard } from "@/components/TransactionCard";
 import {
   ArrowDownUp,
   Calendar,
@@ -13,26 +13,11 @@ import {
   Coin,
   Trash,
   XLg,
-} from "react-bootstrap-icons";
-import { dateToShortStr } from "../BudgetTable";
-import { typedApi } from "../utils/api";
-import type { FrontendTransaction, TransactionsListRequest, TransactionsListResponse, SplitDeleteRequest, TransactionMetadata, TransactionUser } from '../../shared-types';
-
-const TransactionsContainer = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${({ theme }) => theme.spacing.large};
-  padding: ${({ theme }) => theme.spacing.large};
-`;
-
-const TransactionDetailsContainer = styled.div`
-  padding: ${({ theme }) => theme.spacing.medium};
-  background: ${({ theme }) => theme.colors.light};
-`;
-
-const TransactionRow = styled.tr`
-  cursor: pointer;
-`;
+} from "@/components/Icons";
+import { dateToFullStr } from "@/utils/date";
+import { typedApi } from "@/utils/api";
+import type { FrontendTransaction, TransactionsListRequest, TransactionsListResponse, SplitDeleteRequest, TransactionMetadata, TransactionUser } from '@shared-types';
+import "./index.css";
 
 const TransactionList: React.FC<{
   transactions: FrontendTransaction[];
@@ -44,7 +29,7 @@ const TransactionList: React.FC<{
   const [selectedTransaction, setSelectedTransaction] =
     useState<FrontendTransaction | null>(null);
 
-  const handleClick = (transaction: FrontendTransaction) => {
+  const handleSelect = (transaction: FrontendTransaction) => {
     if (
       selectedTransaction?.transactionId === transaction.transactionId
     ) {
@@ -55,65 +40,95 @@ const TransactionList: React.FC<{
   };
 
   return (
-    <Table>
-      <thead>
-        <tr>
-          <th><Calendar /> Date</th>
-          <th><CardText /> Description</th>
-          <th><Coin /> Amount</th>
-          <th><ArrowDownUp /> Share</th>
-          <th><Trash /></th>
-        </tr>
-      </thead>
-      <tbody>
+    <>
+      {/* Desktop Table View */}
+      <div className="desktop-table">
+        <TableWrapper>
+          <Table>
+            <thead>
+              <tr>
+                <th><Calendar /> Date</th>
+                <th><CardText /> Description</th>
+                <th><Coin /> Amount</th>
+                <th><ArrowDownUp /> Share</th>
+                <th><Trash /></th>
+              </tr>
+            </thead>
+            <tbody>
+              {transactions.map((transaction) => (
+                <React.Fragment key={transaction.id}>
+                  <tr className="transaction-row" onClick={() => handleSelect(transaction)}>
+                    <td>{dateToFullStr(new Date(transaction.date))}</td>
+                    <td className="description-cell">{transaction.description}</td>
+                    <td>
+                      {getSymbolFromCurrency(transaction.currency)}
+                      {Math.abs(transaction.totalAmount).toFixed(2)}
+                    </td>
+                    <td
+                      className={
+                        transaction.totalOwed > 0 
+                          ? "positive" 
+                          : transaction.totalOwed < 0 
+                          ? "negative" 
+                          : "zero"
+                      }
+                    >
+                      {transaction.totalOwed !== 0 && (transaction.totalOwed > 0 ? "+" : "-")}
+                      {getSymbolFromCurrency(transaction.currency)}
+                      {Math.abs(transaction.totalOwed).toFixed(2)}
+                    </td>
+                    <td>
+                      <XLg
+                        style={{
+                          fontWeight: 500,
+                          color: "red",
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteTransaction(transaction.id)
+                        }}
+                      />
+                    </td>
+                  </tr>
+                  {selectedTransaction &&
+                    transaction.transactionId === selectedTransaction.transactionId && (
+                      <tr>
+                        <td colSpan={5}>
+                          <TransactionDetails {...selectedTransaction} />
+                        </td>
+                      </tr>
+                    )}
+                </React.Fragment>
+              ))}
+            </tbody>
+          </Table>
+        </TableWrapper>
+      </div>
+
+      {/* Mobile Card View */}
+      <div className="mobile-cards">
         {transactions.map((transaction) => (
-          <React.Fragment key={transaction.id}>
-            <TransactionRow onClick={() => handleClick(transaction)}>
-              <td>{dateToShortStr(new Date(transaction.date))}</td>
-              <td>{transaction.description}</td>
-              <td>
-                {getSymbolFromCurrency(transaction.currency)}
-                {Math.abs(transaction.totalAmount).toFixed(2)}
-              </td>
-              <td
-                className={transaction.totalOwed > 0 ? "positive" : "negative"}
-              >
-                {" "}
-                {transaction.totalOwed > 0 ? "+" : "-"}
-                {getSymbolFromCurrency(transaction.currency)}
-                {Math.abs(transaction.totalOwed).toFixed(2)}
-              </td>
-              <td>
-                <XLg
-                  style={{
-                    fontWeight: 500,
-                    color: "red",
-                  }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    deleteTransaction(transaction.id)
-                  }}
-                />
-              </td>
-            </TransactionRow>
-            {selectedTransaction &&
-              transaction.transactionId === selectedTransaction.transactionId && (
-                <tr>
-                  <td colSpan={5}>
-                    <TransactionDetails {...selectedTransaction} />
-                  </td>
-                </tr>
-              )}
-          </React.Fragment>
+          <TransactionCard
+            key={transaction.id}
+            transaction={transaction}
+            isSelected={selectedTransaction?.transactionId === transaction.transactionId}
+            onSelect={handleSelect}
+            onDelete={deleteTransaction}
+          >
+            <TransactionDetails {...transaction} />
+          </TransactionCard>
         ))}
-      </tbody>
-    </Table>
+      </div>
+    </>
   );
 };
 
 function TransactionDetails(selectedTransaction: FrontendTransaction) {
   return (
-    <TransactionDetailsContainer>
+    <div className="transaction-details-container">
+      <div className="transaction-full-description">
+        <strong>Full Description:</strong> {selectedTransaction.description}
+      </div>
       <div>
         Amount owed:{" "}
         {Object.entries(selectedTransaction.amountOwed).map(
@@ -139,16 +154,27 @@ function TransactionDetails(selectedTransaction: FrontendTransaction) {
         })}
       </div>
       <div
-        className={selectedTransaction.totalOwed > 0 ? "positive" : "negative"}
+        className={
+          selectedTransaction.totalOwed > 0 
+            ? "positive" 
+            : selectedTransaction.totalOwed < 0 
+            ? "negative" 
+            : "zero"
+        }
       >
-        You {selectedTransaction.totalOwed > 0 ? "are owed " : "owe "}
+        {selectedTransaction.totalOwed > 0 
+          ? "You are owed " 
+          : selectedTransaction.totalOwed < 0 
+          ? "You owe " 
+          : "No amount owed "
+        }
         <div>
-          {selectedTransaction.totalOwed > 0 ? "+" : "-"}
+          {selectedTransaction.totalOwed !== 0 && (selectedTransaction.totalOwed > 0 ? "+" : "-")}
           {getSymbolFromCurrency(selectedTransaction.currency)}
           {Math.abs(selectedTransaction.totalOwed).toFixed(2)}
         </div>
       </div>
-    </TransactionDetailsContainer>
+    </div>
   );
 }
 
@@ -239,13 +265,15 @@ const Transactions: React.FC = () => {
   };
 
   return (
-    <TransactionsContainer>
+    <div className="transactions-container">
       {loading && <Loader />}
       {!loading && (
-        <TransactionList
-          transactions={transactions}
-          deleteTransaction={deleteTransaction}
-        />
+        <>
+          <TransactionList
+            transactions={transactions}
+            deleteTransaction={deleteTransaction}
+          />
+        </>
       )}
       {!loading && (
         <Button
@@ -256,7 +284,7 @@ const Transactions: React.FC = () => {
           Show more
         </Button>
       )}
-    </TransactionsContainer>
+    </div>
   );
 };
 

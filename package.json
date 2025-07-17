@@ -25,8 +25,6 @@
     "install": "^0.13.0",
     "npm": "^9.5.1",
     "react": "^18.2.0",
-    "react-bootstrap": "^2.7.2",
-    "react-bootstrap-icons": "^1.10.3",
     "react-cookie": "^7.0.1",
     "react-dom": "^18.2.0",
     "react-redux": "^9.0.4",
@@ -52,9 +50,9 @@
     "workbox-streams": "^7.3.0"
   },
   "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test",
+    "start": "craco start",
+    "build": "craco build",
+    "test": "craco test",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:debug": "playwright test --debug",
@@ -85,6 +83,7 @@
     ]
   },
   "devDependencies": {
+    "@craco/craco": "^7.1.0",
     "@playwright/test": "^1.54.1",
     "customize-cra": "^1.0.0",
     "husky": "^9.1.7",
