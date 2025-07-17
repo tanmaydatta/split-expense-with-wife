@@ -62,23 +62,25 @@ function LoginPage() {
     dispatch(unsetData());
   }, [dispatch]);
   return (
-    <LoginContainer>
-      {loading && <Loader />}
+    <LoginContainer data-test-id="login-container">
+      {loading && <Loader data-test-id="login-loader" />}
       {!loading && (
-        <LoginForm onSubmit={handleLogin}>
+        <LoginForm onSubmit={handleLogin} data-test-id="login-form">
           <Input
             placeholder="Username"
             type="text"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
+            data-test-id="username-input"
           />
           <Input
             placeholder="Password"
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            data-test-id="password-input"
           />
-          <Button type="submit">
+          <Button type="submit" data-test-id="login-button">
             Login
           </Button>
         </LoginForm>

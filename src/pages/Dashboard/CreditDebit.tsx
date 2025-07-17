@@ -4,11 +4,13 @@ import { useSelector } from "react-redux";
 interface SelectBudgetProps {
   budget: string;
   handleChangeBudget: (val: string) => void;
+  disabled?: boolean;
 }
 
 export const CreditDebit: React.FC<SelectBudgetProps> = ({
   budget,
   handleChangeBudget,
+  disabled = false,
 }) => {
   const data = useSelector((state: any) => state.value);
   console.log(data, "hehkbjhbjg");
@@ -19,6 +21,7 @@ export const CreditDebit: React.FC<SelectBudgetProps> = ({
       name="credit-debit"
       value={budget}
       onChange={handleChangeBudget}
+      disabled={disabled}
     >
       {["Credit", "Debit"].map((b: string) => (
         <ToggleButton

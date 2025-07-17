@@ -193,10 +193,6 @@ function Dashboard(): JSX.Element {
     );
   };
 
-  if (loading) {
-    return <Loader />;
-  }
-
   if (!isAuthenticated) {
     return <Loader />; // Show loading while redirecting to login
   }
@@ -245,6 +241,7 @@ function Dashboard(): JSX.Element {
           placeholder="Enter description"
           value={description || ""}
           onChange={(e) => setDescription(e.target.value)}
+          disabled={loading}
           required
           minLength={2}
           maxLength={100}
@@ -260,6 +257,7 @@ function Dashboard(): JSX.Element {
           max="999999"
           value={amount?.toString() || ""}
           onChange={(e) => setAmount(parseFloat(e.target.value))}
+          disabled={loading}
           required
           title="Please enter a valid amount greater than 0"
         />
@@ -281,6 +279,7 @@ function Dashboard(): JSX.Element {
                     onChange={(e) =>
                       updateUserPercentage(u.Id, parseFloat(e.target.value) || 0)
                     }
+                    disabled={loading}
                     required={addExpense}
                     title="Please enter a percentage between 0-100"
                   />
@@ -296,6 +295,7 @@ function Dashboard(): JSX.Element {
           value={currency} 
           onChange={(e) => setCurrency(e.target.value)}
           className="currency-select"
+          disabled={loading}
           required
           title="Please select a currency"
         >
@@ -312,6 +312,7 @@ function Dashboard(): JSX.Element {
           placeholder="Enter PIN"
           value={pin}
           onChange={(e) => setPin(e.target.value)}
+          disabled={loading}
           required
           minLength={1}
           maxLength={10}
@@ -326,6 +327,7 @@ function Dashboard(): JSX.Element {
               value={paidBy || ""} 
               onChange={(e) => setPaidBy(parseInt(e.target.value))}
               className="paid-by-select"
+              disabled={loading}
               required={addExpense}
               title="Please select who paid for this expense"
             >
@@ -345,10 +347,12 @@ function Dashboard(): JSX.Element {
             <CreditDebit
               budget={creditDebit}
               handleChangeBudget={setCreditDebit}
+              disabled={loading}
             />
             <SelectBudget
               budget={budget}
               handleChangeBudget={setBudget}
+              disabled={loading}
             />
           </>
         )}
@@ -362,6 +366,7 @@ function Dashboard(): JSX.Element {
                 type="checkbox"
                 checked={addExpense}
                 onChange={(e) => setAddExpense(e.target.checked)}
+                disabled={loading}
               />
               Add Expense
             </label>
@@ -370,6 +375,7 @@ function Dashboard(): JSX.Element {
                 type="checkbox"
                 checked={updateBudget}
                 onChange={(e) => setUpdateBudget(e.target.checked)}
+                disabled={loading}
               />
               Update Budget
             </label>

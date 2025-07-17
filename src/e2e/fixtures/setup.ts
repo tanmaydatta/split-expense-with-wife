@@ -22,7 +22,6 @@ export const test = base.extend<TestFixtures>({
     const helper = new TestHelper(page);
     
     // Mock successful login response
-    await helper.mockApiResponse('login', testData.mockResponses.login.success);
     
     // Login with test user
     await helper.login(testData.users.user1);

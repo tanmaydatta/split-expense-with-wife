@@ -1,6 +1,8 @@
 8
 - consistent types - ✅
 - finish e2e tests
+    - mobile version as well
+    - data-test-id
 - retire netlify functions
 - refactor ui
 - remove pin

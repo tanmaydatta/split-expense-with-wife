@@ -8,6 +8,7 @@ interface ToggleButtonGroupProps {
   children: React.ReactNode;
   className?: string;
   style?: React.CSSProperties;
+  disabled?: boolean;
 }
 
 export const ToggleButtonGroup: React.FC<ToggleButtonGroupProps> = ({
@@ -16,7 +17,8 @@ export const ToggleButtonGroup: React.FC<ToggleButtonGroupProps> = ({
   name,
   children,
   className = '',
-  style
+  style,
+  disabled = false
 }) => {
   return (
     <div 
@@ -31,7 +33,8 @@ export const ToggleButtonGroup: React.FC<ToggleButtonGroupProps> = ({
             ...child.props,
             onChange,
             name,
-            isSelected: child.props.value === value
+            isSelected: child.props.value === value,
+            disabled: disabled
           });
         }
         return child;
@@ -50,6 +53,7 @@ interface ToggleButtonProps {
   type?: string;
   variant?: string;
   checked?: boolean;
+  disabled?: boolean;
 }
 
 export const ToggleButton: React.FC<ToggleButtonProps> = ({
@@ -61,20 +65,23 @@ export const ToggleButton: React.FC<ToggleButtonProps> = ({
   id,
   type = 'radio',
   variant = 'outline-primary',
-  checked
+  checked,
+  disabled = false
 }) => {
   const handleClick = () => {
-    if (onChange) {
-      onChange(value);
+    if (disabled || !onChange) {
+      return;
     }
+    onChange(value);
   };
 
   return (
     <button
       id={id}
       type="button"
-      className={`toggle-button toggle-button-${variant} ${isSelected ? 'selected' : ''}`}
+      className={`toggle-button toggle-button-${variant} ${isSelected ? 'selected' : ''} ${disabled ? 'disabled' : ''}`}
       onClick={handleClick}
+      disabled={disabled}
       role="radio"
       aria-checked={isSelected}
       aria-label={typeof children === 'string' ? children : value}

@@ -4,11 +4,13 @@ import { useSelector } from "react-redux";
 interface SelectBudgetProps {
   budget: string;
   handleChangeBudget: (val: string) => void;
+  disabled?: boolean;
 }
 
 export const SelectBudget: React.FC<SelectBudgetProps> = ({
   budget,
   handleChangeBudget,
+  disabled = false,
 }) => {
   const data = useSelector((state: any) => state.value);
   console.log(data, "hehkbjhbjg");
@@ -23,6 +25,7 @@ export const SelectBudget: React.FC<SelectBudgetProps> = ({
       name="budget"
       value={budget}
       onChange={handleChangeBudget}
+      disabled={disabled}
     >
       {budgets.map((b: string) => (
         <ToggleButton
