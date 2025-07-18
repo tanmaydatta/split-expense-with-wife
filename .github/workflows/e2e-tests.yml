@@ -34,7 +34,7 @@ jobs:
       run: npm run build
     
     - name: Run E2E tests
-      run: npm run test:e2e -- src/e2e/tests/auth.spec.ts src/e2e/tests/budget-management.spec.ts  --project=chromium
+      run: npm run test:e2e -- src/e2e/tests/auth.spec.ts src/e2e/tests/budget-management.spec.ts
     
     - name: Upload test results
       uses: actions/upload-artifact@v4

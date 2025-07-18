@@ -1,3 +1,4 @@
+import React from 'react';
 import styled, { keyframes } from 'styled-components';
 
 const spin = keyframes`
@@ -14,4 +15,10 @@ const StyledLoader = styled.div`
   animation: ${spin} 2s linear infinite;
 `;
 
-export const Loader = () => <StyledLoader data-testid="loader" />;
+interface LoaderProps {
+  'data-test-id'?: string;
+}
+
+export const Loader: React.FC<LoaderProps> = ({ 'data-test-id': testId = 'loader' }) => (
+  <StyledLoader data-test-id={testId} />
+);

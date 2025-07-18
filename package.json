@@ -53,7 +53,7 @@
     "start": "craco start",
     "build": "craco build",
     "test": "craco test",
-    "test:e2e": "playwright test",
+    "test:e2e": "playwright test --project=chromium --project=webkit --project=\"Mobile Chrome\" --project=\"Mobile Safari\"",
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:debug": "playwright test --debug",
     "test:e2e:ui": "playwright test --ui",
