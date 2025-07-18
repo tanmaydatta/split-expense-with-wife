@@ -29,6 +29,149 @@ test.describe('Expense Management', () => {
     await expect(authenticatedPage.page.locator('[data-test-id="submit-button"]')).toBeVisible();
   });
 
+  test('should set default currency from login metadata', async ({ testHelper }) => {
+    // Create custom login response with EUR as default currency
+    const customLoginResponse = {
+      ...testData.mockResponses.login.success,
+      metadata: {
+        defaultCurrency: 'EUR',
+        defaultShare: { '1': 50, '2': 50 }
+      }
+    };
+    
+    // Mock login with EUR default currency
+    await testHelper.mockApiResponse('login', customLoginResponse);
+    
+    // Login
+    await testHelper.login(testData.users.user1);
+    
+    // Verify currency selector has EUR selected by default
+    await expect(testHelper.page.locator('[data-test-id="currency-select"]')).toHaveValue('EUR');
+  });
+
+  test('should set default split percentages from login metadata', async ({ testHelper }) => {
+    // Create custom login response with 60/40 split
+    const customLoginResponse = {
+      ...testData.mockResponses.login.success,
+      metadata: {
+        defaultCurrency: 'USD',
+        defaultShare: { '1': 60, '2': 40 }
+      }
+    };
+    
+    // Mock login with custom split percentages
+    await testHelper.mockApiResponse('login', customLoginResponse);
+    
+    // Login
+    await testHelper.login(testData.users.user1);
+    
+    // Verify percentage inputs have the default values from metadata
+    await expect(testHelper.page.locator('[data-test-id="percentage-input-1"]')).toHaveValue('60');
+    await expect(testHelper.page.locator('[data-test-id="percentage-input-2"]')).toHaveValue('40');
+  });
+
+  test('should preserve user-modified percentages after successful form submission', async ({ testHelper }) => {
+    // Mock successful expense submission
+    await testHelper.mockApiResponse('split_new', { message: 'Expense added successfully' });
+    
+    // Login with default 50/50 split
+    await testHelper.login(testData.users.user1);
+    
+    // Verify initial default percentages (50/50)
+    await expect(testHelper.page.locator('[data-test-id="percentage-input-1"]')).toHaveValue('50');
+    await expect(testHelper.page.locator('[data-test-id="percentage-input-2"]')).toHaveValue('50');
+    
+    // Modify split percentages to 70/30
+    await testHelper.page.fill('[data-test-id="percentage-input-1"]', '70');
+    await testHelper.page.fill('[data-test-id="percentage-input-2"]', '30');
+    
+    // Fill and submit expense form
+    await testHelper.page.fill('[data-test-id="description-input"]', 'Test expense');
+    await testHelper.page.fill('[data-test-id="amount-input"]', '100');
+    await testHelper.page.selectOption('[data-test-id="paid-by-select"]', '1');
+    await testHelper.page.fill('[data-test-id="pin-input"]', testData.pin);
+    await testHelper.page.click('[data-test-id="submit-button"]');
+    
+    // Wait for form submission
+    await testHelper.waitForLoading();
+    
+    // Verify form fields are reset except percentages
+    await expect(testHelper.page.locator('[data-test-id="description-input"]')).toHaveValue('');
+    await expect(testHelper.page.locator('[data-test-id="amount-input"]')).toHaveValue('');
+    await expect(testHelper.page.locator('[data-test-id="pin-input"]')).toHaveValue('');
+    
+    // Verify custom percentages are preserved (not reset to defaults)
+    await expect(testHelper.page.locator('[data-test-id="percentage-input-1"]')).toHaveValue('70');
+    await expect(testHelper.page.locator('[data-test-id="percentage-input-2"]')).toHaveValue('30');
+  });
+
+  test('should preserve custom currency selection after form submission', async ({ testHelper }) => {
+    // Mock successful expense submission
+    await testHelper.mockApiResponse('split_new', { message: 'Expense added successfully' });
+    
+    // Login (default USD currency)
+    await testHelper.login(testData.users.user1);
+    
+    // Change currency to EUR
+    await testHelper.page.selectOption('[data-test-id="currency-select"]', 'EUR');
+    
+    // Fill and submit expense form
+    await testHelper.page.fill('[data-test-id="description-input"]', 'Test expense');
+    await testHelper.page.fill('[data-test-id="amount-input"]', '100');
+    await testHelper.page.selectOption('[data-test-id="paid-by-select"]', '1');
+    await testHelper.page.fill('[data-test-id="pin-input"]', testData.pin);
+    await testHelper.page.click('[data-test-id="submit-button"]');
+    
+    // Wait for form submission
+    await testHelper.waitForLoading();
+    
+    // Verify currency selection is preserved
+    await expect(testHelper.page.locator('[data-test-id="currency-select"]')).toHaveValue('EUR');
+  });
+
+  test('should handle metadata with missing defaultShare gracefully', async ({ testHelper }) => {
+    // Create login response with missing defaultShare
+    const customLoginResponse = {
+      ...testData.mockResponses.login.success,
+      metadata: {
+        defaultCurrency: 'USD'
+        // defaultShare is missing
+      }
+    };
+    
+    // Mock login with incomplete metadata
+    await testHelper.mockApiResponse('login', customLoginResponse);
+    
+    // Login
+    await testHelper.login(testData.users.user1);
+    
+    // Should fall back to equal split (50/50 for 2 users)
+    await expect(testHelper.page.locator('[data-test-id="percentage-input-1"]')).toHaveValue('50');
+    await expect(testHelper.page.locator('[data-test-id="percentage-input-2"]')).toHaveValue('50');
+  });
+
+  test('should handle metadata with partial defaultShare gracefully', async ({ testHelper }) => {
+    // Create login response with partial defaultShare (only user 1 defined)
+    const customLoginResponse = {
+      ...testData.mockResponses.login.success,
+      metadata: {
+        defaultCurrency: 'USD',
+        defaultShare: { '1': 75 }
+        // User 2 is missing from defaultShare
+      }
+    };
+    
+    // Mock login with partial metadata
+    await testHelper.mockApiResponse('login', customLoginResponse);
+    
+    // Login
+    await testHelper.login(testData.users.user1);
+    
+    // User 1 should get defined percentage, User 2 should get equal split fallback
+    await expect(testHelper.page.locator('[data-test-id="percentage-input-1"]')).toHaveValue('75');
+    await expect(testHelper.page.locator('[data-test-id="percentage-input-2"]')).toHaveValue('50'); // fallback to equal split
+  });
+
   test('should successfully add a new expense', async ({ authenticatedPage }) => {
     // Mock successful expense submission
     await authenticatedPage.mockApiResponse('split_new', { message: 'Expense added successfully' });

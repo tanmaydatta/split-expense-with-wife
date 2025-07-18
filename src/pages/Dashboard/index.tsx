@@ -1,5 +1,5 @@
 
-import  { useState, useEffect } from "react";
+import  { useState, useEffect, useCallback } from "react";
 import sha256 from "crypto-js/sha256";
 import { useSelector } from "react-redux";
 import { Button } from "@/components/Button";
@@ -33,11 +33,35 @@ function Dashboard(): JSX.Element {
   const [addExpense, setAddExpense] = useState<boolean>(true);
   const [updateBudget, setUpdateBudget] = useState<boolean>(true);
 
+  // Track if defaults have been set to avoid overriding user changes
+  const [defaultsInitialized, setDefaultsInitialized] = useState<boolean>(false);
+
   // Get auth data from the data store (where login puts it)
   const data = useSelector((state: any) => state.value);
   
   // Check if user is authenticated by checking if data exists
   const isAuthenticated = data && Object.keys(data).length > 0;
+
+  // Helper function to calculate default user percentages from metadata
+  const calculateDefaultUserPercentages = useCallback((usersFromAuth: { FirstName: string; Id: number }[]) => {
+    if (data.metadata?.defaultShare && usersFromAuth.length > 0) {
+      return usersFromAuth.map((u: any) => {
+        // Convert user ID to string to match defaultShare keys
+        const userIdStr = u.Id.toString();
+        const defaultPercentage = data.metadata.defaultShare[userIdStr];
+        return {
+          ...u,
+          percentage: defaultPercentage !== undefined ? defaultPercentage : (100 / usersFromAuth.length),
+        };
+      });
+    } else {
+      // Fallback to equal split if no default share available
+      return usersFromAuth.map((u: any) => ({
+        ...u,
+        percentage: 100 / usersFromAuth.length,
+      }));
+    }
+  }, [data.metadata]);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -48,22 +72,38 @@ function Dashboard(): JSX.Element {
     const usersFromAuth = data.users || [];
     setUsersState(usersFromAuth);
     
-    const defaultUsers = usersFromAuth.map((u: any) => ({
-      ...u,
-      percentage: 100 / usersFromAuth.length,
-    }));
-    setUsers(defaultUsers);
-    
-    // Set default budget from available budgets
-    if (data.budgets && data.budgets.length > 0 && !budget) {
-      setBudget(data.budgets[0]);
-    }
+    // Only set defaults if they haven't been initialized yet (to avoid overriding user changes)
+    if (!defaultsInitialized) {
+      // Set default currency from metadata
+      if (data.metadata?.defaultCurrency) {
+        setCurrency(data.metadata.defaultCurrency);
+      }
 
-    // Set default paid by to current user
-    if (data.userId && !paidBy) {
-      setPaidBy(data.userId);
+      // Set default split percentages from metadata
+      const defaultUsers = calculateDefaultUserPercentages(usersFromAuth);
+      setUsers(defaultUsers);
+
+      // Set default budget from available budgets
+      if (data.budgets && data.budgets.length > 0 && !budget) {
+        setBudget(data.budgets[0]);
+      }
+
+      // Set default paid by to current user
+      if (data.userId && !paidBy) {
+        setPaidBy(data.userId);
+      }
+
+      // Mark defaults as initialized
+      setDefaultsInitialized(true);
+    } else {
+      // If defaults are already initialized, only update users state if it's empty
+      // This handles the case where users state might get reset
+      if (users.length === 0 && usersFromAuth.length > 0) {
+        const defaultUsers = calculateDefaultUserPercentages(usersFromAuth);
+        setUsers(defaultUsers);
+      }
     }
-  }, [isAuthenticated, data.users, data.budgets, data.userId, budget, paidBy]);
+  }, [isAuthenticated, data.users, data.budgets, data.userId, data.metadata, budget, paidBy, defaultsInitialized, users.length, calculateDefaultUserPercentages]);
 
   const onSubmitExpense = async () => {
     if (!data?.userId) {
@@ -142,15 +182,10 @@ function Dashboard(): JSX.Element {
         responses.budget = await onSubmitBudget();
       }
 
-      // Reset form
+      // Reset form (but preserve user's percentage splits)
       setAmount(undefined);
       setDescription("");
       setPin("");
-      const defaultUsers = usersState.map((u: any) => ({
-        ...u,
-        percentage: 100 / usersState.length,
-      }));
-      setUsers(defaultUsers);
 
       // Create success message from API responses
       const messages = [];
