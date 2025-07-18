@@ -1,0 +1,130 @@
+.transactions-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-medium);
+  padding: var(--spacing-large);
+  margin: 0 auto;
+  min-height: 100vh;
+  background: var(--color-light);
+  width: 100%;
+  max-width: 1200px;
+  box-sizing: border-box;
+}
+
+/* Responsive layout - show table on desktop, cards on mobile */
+.desktop-table {
+  display: block;
+}
+
+.mobile-cards {
+  display: none;
+}
+
+.transaction-details-container {
+  margin-top: var(--spacing-medium);
+  padding: var(--spacing-medium);
+  background-color: var(--color-white);
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow-small);
+}
+
+.transaction-full-description {
+  margin-bottom: var(--spacing-medium);
+  padding: var(--spacing-small);
+  background-color: var(--color-light);
+  border-radius: var(--border-radius);
+  word-break: break-word;
+  overflow-wrap: break-word;
+  line-height: 1.4;
+}
+
+.transaction-full-description strong {
+  color: var(--color-secondary);
+  font-size: var(--font-size-small);
+  display: block;
+  margin-bottom: 4px;
+}
+
+.transaction-row {
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.transaction-row:hover {
+  background-color: #f5f5f5;
+}
+
+.positive {
+  color: var(--color-success);
+  font-weight: bold;
+}
+
+.negative {
+  color: var(--color-danger);
+  font-weight: bold;
+}
+
+.zero {
+  color: var(--color-secondary);
+  font-weight: bold;
+}
+
+/* Tablet */
+@media (max-width: 1024px) {
+  .transactions-container {
+    padding: var(--spacing-medium);
+    max-width: 100%;
+  }
+}
+
+/* Mobile - Switch to card layout */
+@media (max-width: 768px) {
+  .transactions-container {
+    padding: 8px;
+    gap: 8px;
+  }
+  
+  /* Hide table, show cards */
+  .desktop-table {
+    display: none;
+  }
+  
+  .mobile-cards {
+    display: block;
+  }
+  
+  .transaction-details-container {
+    margin-top: var(--spacing-small);
+    padding: var(--spacing-small);
+  }
+}
+
+/* Small mobile */
+@media (max-width: 480px) {
+  .transactions-container {
+    padding: 4px;
+  }
+  
+  .transaction-details-container {
+    padding: 12px;
+  }
+}
+
+/* Scroll indicator for mobile tables */
+.scroll-hint {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .scroll-hint {
+    display: block;
+    text-align: center;
+    font-size: var(--font-size-small);
+    color: var(--color-secondary);
+    margin-top: var(--spacing-small);
+    padding: var(--spacing-small);
+    background: var(--color-light);
+    border-radius: var(--border-radius);
+    font-style: italic;
+  }
+} 

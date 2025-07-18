@@ -1,8 +1,12 @@
 8
 - consistent types - ✅
 - finish e2e tests
+    - mobile version as well
+    - data-test-id
+- very big check boxes
+- remove all alerts
 - retire netlify functions
-- refactor ui
+- prettier ui on mobile
 - remove pin
 - schedule actions
 - scan receipt

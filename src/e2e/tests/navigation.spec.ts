@@ -186,10 +186,11 @@ test.describe('Navigation and Routing', () => {
     await authenticatedPage.page.setViewportSize({ width: 375, height: 667 });
     
     // Verify mobile navigation (hamburger menu, etc.)
-    if (await authenticatedPage.page.locator('.mobile-menu-toggle').isVisible()) {
-      await authenticatedPage.page.click('.mobile-menu-toggle');
-      await expect(authenticatedPage.page.locator('.mobile-menu')).toBeVisible();
-    }
+    // On mobile viewport, mobile menu toggle should be visible and functional
+    const mobileToggle = authenticatedPage.page.locator('.mobile-menu-toggle');
+    await expect(mobileToggle).toBeVisible();
+    await mobileToggle.click();
+    await expect(authenticatedPage.page.locator('.mobile-menu')).toBeVisible();
   });
 
   test('should handle deep linking to specific budget', async ({ authenticatedPage }) => {

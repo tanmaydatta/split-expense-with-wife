@@ -1,0 +1,313 @@
+.budget-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-medium);
+  padding: var(--spacing-large);
+  margin: 0 auto;
+  min-height: 100vh;
+  background: var(--color-light);
+  width: 100%;
+  max-width: 1200px;
+  box-sizing: border-box;
+}
+
+/* Responsive layout - show table on desktop, cards on mobile */
+.desktop-table {
+  display: block;
+}
+
+.mobile-cards {
+  display: none;
+}
+
+.budget-card {
+  margin-bottom: var(--spacing-medium);
+  /* Override Card padding for budget cards with AmountGrid */
+  padding: var(--spacing-medium) var(--spacing-medium) var(--spacing-small) var(--spacing-medium) !important;
+}
+
+.budget-card h3 {
+  margin-top: 0;
+  margin-bottom: var(--spacing-small);
+  font-size: var(--font-size-large);
+  color: var(--color-dark);
+}
+
+/* Budget Entry Card Styles */
+.budget-entry-card {
+  cursor: default;
+  margin-bottom: var(--spacing-small);
+  padding: var(--spacing-medium) !important; /* Override Card component padding */
+}
+
+.budget-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-small);
+  padding-bottom: var(--spacing-small);
+  border-bottom: 1px solid var(--color-light);
+  gap: var(--spacing-small);
+}
+
+/* Mobile - reduce spacing between date and description */
+@media (max-width: 768px) {
+  .budget-card-header {
+    margin-bottom: 0 !important;
+    padding-bottom: 0 !important;
+    border-bottom: none !important;
+  }
+  
+  .budget-card-content {
+    gap: var(--spacing-small);
+  }
+  
+  .delete-button {
+    min-height: 32px;
+    min-width: 32px;
+    padding: 4px;
+  }
+}
+
+@media (max-width: 480px) {
+  .budget-card-header {
+    margin-bottom: 0 !important;
+    padding-bottom: 0 !important;
+    border-bottom: none !important;
+  }
+  
+  .budget-card-content {
+    gap: 6px;
+  }
+  
+  .delete-button {
+    min-height: 28px;
+    min-width: 28px;
+    padding: 2px;
+  }
+}
+
+.budget-date {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-small);
+  color: var(--color-secondary);
+  font-size: var(--font-size-small);
+  font-weight: 500;
+  flex: 1;
+  min-width: 0; /* Allow text to wrap */
+}
+
+.budget-date span {
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.delete-button {
+  background: none;
+  border: none;
+  color: var(--color-danger);
+  cursor: pointer;
+  padding: var(--spacing-small);
+  border-radius: var(--border-radius);
+  transition: all 0.2s ease;
+  min-height: 44px;
+  min-width: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.delete-button:hover {
+  background-color: rgba(220, 53, 69, 0.1);
+  transform: scale(1.1);
+}
+
+.budget-card-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-medium);
+  overflow: hidden;
+  min-width: 0; /* Allow flex items to shrink below content size */
+}
+
+.budget-description {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-small);
+  font-weight: 600;
+  color: var(--color-dark);
+}
+
+.budget-description span {
+  flex: 1;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  hyphens: auto;
+  line-height: 1.4;
+  max-width: 100%;
+  /* Limit very long descriptions to 3 lines with fade effect */
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  position: relative;
+}
+
+.budget-description span::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 30px;
+  height: 1.4em;
+  background: linear-gradient(to right, transparent, var(--color-white));
+  pointer-events: none;
+}
+
+.budget-amount-container {
+  display: flex;
+  align-items: center;
+  margin: 0;
+}
+
+.budget-amount {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-small);
+  flex: 1;
+  padding: var(--spacing-small);
+  background-color: rgba(248, 249, 250, 0.5);
+  border-radius: var(--border-radius);
+  border-left: 4px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.budget-amount .amount-value {
+  font-weight: 600;
+  font-size: 1.2rem;
+  margin-left: auto;
+}
+
+.budget-amount .amount-value.positive {
+  color: var(--color-success);
+}
+
+.budget-amount .amount-value.negative {
+  color: var(--color-danger);
+}
+
+.budget-amount:has(.amount-value.positive) {
+  border-left-color: var(--color-success);
+  background-color: rgba(40, 167, 69, 0.05);
+}
+
+.budget-amount:has(.amount-value.negative) {
+  border-left-color: var(--color-danger);
+  background-color: rgba(220, 53, 69, 0.05);
+}
+
+.budget-deleted {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-small);
+  padding: var(--spacing-small);
+  background-color: #ffebee;
+  border: 1px solid #ffcdd2;
+  border-radius: var(--border-radius);
+  font-size: var(--font-size-small);
+}
+
+.deleted-label {
+  color: var(--color-danger);
+  font-weight: 600;
+}
+
+.deleted-date {
+  color: var(--color-secondary);
+  margin-left: auto;
+}
+
+/* Tablet */
+@media (max-width: 1024px) {
+  .budget-container {
+    padding: var(--spacing-medium);
+    max-width: 100%;
+  }
+}
+
+/* Mobile - Switch to card layout */
+@media (max-width: 768px) {
+  .budget-container {
+    padding: 8px;
+    gap: 8px;
+  }
+  
+  /* Hide table, show cards */
+  .desktop-table {
+    display: none;
+  }
+  
+  .mobile-cards {
+    display: block;
+  }
+  
+  .budget-card h3 {
+    font-size: var(--font-size-medium);
+    text-align: center;
+    margin-bottom: 6px; /* Very compact spacing */
+  }
+  
+  /* Make budget card very compact on mobile */
+  .budget-card {
+    padding: 8px 12px 4px 12px !important; /* Very compact padding */
+    margin-bottom: var(--spacing-small);
+  }
+  
+  /* PIN input styling */
+  .budget-container input[type="password"] {
+    min-height: 44px;
+    font-size: 16px; /* Prevent zoom on iOS */
+    padding: var(--spacing-medium);
+    margin-bottom: var(--spacing-medium);
+  }
+  
+  /* Button styling */
+  .budget-container button {
+    min-height: 48px;
+    font-size: var(--font-size-medium);
+    font-weight: 600;
+    margin-bottom: var(--spacing-small);
+  }
+  
+  /* Monthly budget button */
+  .budget-container button[onClick*="monthly-budget"] {
+    background: var(--color-info);
+    color: var(--color-white);
+    border: none;
+    border-radius: var(--border-radius);
+    padding: var(--spacing-medium);
+  }
+}
+
+/* Small mobile */
+@media (max-width: 480px) {
+  .budget-container {
+    padding: 4px;
+  }
+  
+  .budget-card {
+    margin-bottom: var(--spacing-small);
+  }
+  
+  .budget-card h3 {
+    font-size: var(--font-size-medium);
+    margin-bottom: 4px; /* Even more compact */
+  }
+  
+  /* Ultra compact budget card on small mobile */
+  .budget-card {
+    padding: 6px 8px 2px 8px !important; /* Ultra compact padding */
+  }
+}
+ 

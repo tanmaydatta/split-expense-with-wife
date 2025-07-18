@@ -30,19 +30,21 @@ export class TestHelper {
    */
   async login(user: TestUser): Promise<void> {
     await this.page.goto('/login');
-    await this.page.waitForSelector('input[placeholder="Username"]');
+    await this.page.waitForSelector('[data-test-id="username-input"]');
     await this.page.waitForTimeout(2000);
 
-    await this.page.fill('input[placeholder="Username"]', user.username);
-    await this.page.fill('input[placeholder="Password"]', user.password);
-    await this.page.click('.LoginButton');
-    await this.page.waitForTimeout(2000);
-    // Login is successful when the login form disappears
-    console.log('Login successful');
-    await expect(this.page.locator('.LoginWrapper')).not.toBeVisible();
-    console.log('Login form disappeared');
-    await this.page.waitForTimeout(2000);
-    console.log('Waiting for 2 seconds');
+    await this.page.fill('[data-test-id="username-input"]', user.username);
+    await this.page.fill('[data-test-id="password-input"]', user.password);
+    await this.page.click('[data-test-id="login-button"]');
+    
+    // Wait for redirect to home page after successful login
+    await this.page.waitForURL('/');
+    console.log('Redirected to home page');
+    
+    // Wait for dashboard elements to load
+    await this.page.waitForSelector('[data-test-id="dashboard-container"]', { timeout: 10000 });
+    console.log('Dashboard loaded successfully');
+    await this.page.waitForTimeout(1000);
   }
 
   /**
@@ -59,7 +61,22 @@ export class TestHelper {
    * Navigate using sidebar
    */
   async navigateToPage(page: 'Add' | 'Expenses' | 'Balances' | 'Budget' | 'Monthly Budget'): Promise<void> {
-    await this.page.click(`.SidebarItem:has-text("${page}")`);
+    // Check if we're on mobile (viewport width <= 768px)
+    const viewport = this.page.viewportSize();
+    const isMobile = viewport && viewport.width <= 768;
+    
+    if (isMobile) {
+      // On mobile, first open the sidebar using the hamburger button
+      const hamburger = this.page.locator('button:has(span)').first();
+      if (await hamburger.isVisible()) {
+        await hamburger.click();
+        // Wait for sidebar to animate in
+        await this.page.waitForTimeout(500);
+      }
+    }
+    
+    // Use text-based selector that works with styled components
+    await this.page.click(`text="${page}"`);
     
     // Wait for navigation to complete
     const urlMap = {
@@ -90,7 +107,7 @@ export class TestHelper {
     await this.page.selectOption('select[name="paidBy"]', { label: expense.paidBy });
     
     // Set split percentages
-    for (const [userId, percentage] of Object.entries(expense.splitPercentages)) {
+    for (const [, percentage] of Object.entries(expense.splitPercentages)) {
       const splitInput = this.page.locator(`input[value="${percentage}"]`).first();
       await splitInput.fill(percentage.toString());
     }
@@ -246,7 +263,7 @@ export class TestHelper {
    */
   async mockApiResponse(endpoint: string, response: any, method: string = 'POST'): Promise<void> {
     // Use exact production URL pattern that we discovered works
-    await this.page.route(`**/splitexpense.tanmaydatta.workers.dev/.netlify/functions/${endpoint}`, (route) => {
+    await this.page.route(`**/.netlify/functions/${endpoint}`, (route) => {
       if (route.request().method() === method) {
         route.fulfill({
           status: 200,

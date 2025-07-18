@@ -679,7 +679,33 @@ describe("Budget Handlers", () => {
       
       // Check monthly budgets structure
       expect(Array.isArray(json.monthlyBudgets)).toBe(true);
-      expect(json.monthlyBudgets.length).toBe(3);
+      // Should include all months from today back to oldest data date
+      // The function generates from current month back to oldest month with actual data (July 2024)
+      const today = new Date();
+      const currentDate = new Date(today.getFullYear(), today.getMonth()); // Start of current month
+      const oldestDataDate = new Date(2024, 6); // July 2024 (months are 0-indexed)
+      
+      // Calculate months between start and end dates
+      let monthCount = 0;
+      const tempDate = new Date(currentDate);
+      while (tempDate >= oldestDataDate) {
+        monthCount++;
+        tempDate.setMonth(tempDate.getMonth() - 1);
+      }
+      
+      expect(json.monthlyBudgets.length).toBe(monthCount);
+      
+      // Check that the months with data show correct amounts
+      const julyBudget = json.monthlyBudgets.find((b: any) => b.month === 'July' && b.year === 2024);
+      const augustBudget = json.monthlyBudgets.find((b: any) => b.month === 'August' && b.year === 2024);
+      const septemberBudget = json.monthlyBudgets.find((b: any) => b.month === 'September' && b.year === 2024);
+      
+      expect(julyBudget).toBeDefined();
+      expect(julyBudget.amounts[0].amount).toBe(-500);
+      expect(augustBudget).toBeDefined();
+      expect(augustBudget.amounts[0].amount).toBe(-600);
+      expect(septemberBudget).toBeDefined();
+      expect(septemberBudget.amounts[0].amount).toBe(-400);
       
       // Check rolling average monthly spend calculations
       expect(Array.isArray(json.averageMonthlySpend)).toBe(true);
@@ -741,24 +767,44 @@ describe("Budget Handlers", () => {
       expect(json).toHaveProperty('averageMonthlySpend');
       expect(json).toHaveProperty('periodAnalyzed');
       
-      // Check empty monthly budgets
+      // Check monthly budgets structure (should still show all months, just with 0 amounts)
       expect(Array.isArray(json.monthlyBudgets)).toBe(true);
-      expect(json.monthlyBudgets.length).toBe(0);
+      // Should include all months from today back to 2 years ago, even with no data
+      // The function generates from current month back to oldest month (2 years ago)
+      const today = new Date();
+      const currentDate = new Date(today.getFullYear(), today.getMonth()); // Start of current month
+      const oldestData = new Date();
+      oldestData.setFullYear(oldestData.getFullYear() - 2);
+      const endDate = new Date(oldestData.getFullYear(), oldestData.getMonth()); // Start of oldest month
       
-      // Check default average data - should have 1 period with empty data (minimum)
+      // Calculate months between start and end dates
+      let monthCount = 0;
+      const tempDate = new Date(currentDate);
+      while (tempDate >= endDate) {
+        monthCount++;
+        tempDate.setMonth(tempDate.getMonth() - 1);
+      }
+      
+      expect(json.monthlyBudgets.length).toBe(monthCount);
+      
+      // All months should have 0 amounts since no budget data exists
+      json.monthlyBudgets.forEach((budget: any) => {
+        expect(budget.amounts[0].amount).toBe(0);
+        expect(budget.amounts[0].currency).toBe('USD');
+      });
+      
+      // Check average data - should have multiple periods even with no spending data
       expect(Array.isArray(json.averageMonthlySpend)).toBe(true);
-      expect(json.averageMonthlySpend.length).toBe(1); // Just 1 month when no data
+      expect(json.averageMonthlySpend.length).toBeGreaterThan(0);
       
-      // Check the period has default empty data
-      const period = json.averageMonthlySpend[0];
-      expect(period).toHaveProperty('periodMonths');
-      expect(period).toHaveProperty('averages');
-      expect(period.periodMonths).toBe(1);
-      expect(period.averages.length).toBe(1);
-      expect(period.averages[0].currency).toBe('USD');
-      expect(period.averages[0].totalSpend).toBe(0);
-      expect(period.averages[0].averageMonthlySpend).toBe(0);
-      expect(period.averages[0].monthsAnalyzed).toBe(0);
+      // Check the first period (1-month average)
+      const oneMonthPeriod = json.averageMonthlySpend.find((avg: any) => avg.periodMonths === 1);
+      expect(oneMonthPeriod).toBeDefined();
+      expect(oneMonthPeriod.averages.length).toBe(1);
+      expect(oneMonthPeriod.averages[0].currency).toBe('USD');
+      expect(oneMonthPeriod.averages[0].totalSpend).toBe(0);
+      expect(oneMonthPeriod.averages[0].averageMonthlySpend).toBe(0);
+      expect(oneMonthPeriod.averages[0].monthsAnalyzed).toBe(1);
     });
 
     it("should calculate rolling averages correctly for different time periods", async () => {
