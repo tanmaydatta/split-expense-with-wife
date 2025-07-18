@@ -11,6 +11,7 @@
 - prettier ui on mobile
 - remove pin
 - use jwt so that verification is done with making db call
+- change defaults feat
 - schedule actions
 - scan receipt
 - full text search
