@@ -4,6 +4,7 @@
     - mobile version as well
     - data-test-id
 - very big check boxes
+- avg line not on the right
 - remove all alerts
 - retire netlify functions
 - prettier ui on mobile
