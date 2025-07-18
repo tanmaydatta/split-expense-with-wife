@@ -27,7 +27,7 @@ jobs:
     - name: Install dependencies
       run: npm ci
     
-    - name: Install Playwright Browsers
+    - name: Install Playwright Browsers and System Dependencies
       run: npm run test:e2e:install
     
     - name: Build the application

@@ -63,3 +63,5 @@ schema.pg.sql
 # Playwright
 node_modules/
 /blob-report/
+
+pr-description.md
