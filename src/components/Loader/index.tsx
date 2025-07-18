@@ -5,7 +5,7 @@ const spin = keyframes`
   100% { transform: rotate(360deg); }
 `;
 
-export const Loader = styled.div`
+const StyledLoader = styled.div`
   border: 4px solid ${({ theme }) => theme.colors.light};
   border-top: 4px solid ${({ theme }) => theme.colors.primary};
   border-radius: 50%;
@@ -13,3 +13,5 @@ export const Loader = styled.div`
   height: 40px;
   animation: ${spin} 2s linear infinite;
 `;
+
+export const Loader = () => <StyledLoader data-testid="loader" />;

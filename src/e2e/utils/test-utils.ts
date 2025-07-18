@@ -107,7 +107,7 @@ export class TestHelper {
     await this.page.selectOption('select[name="paidBy"]', { label: expense.paidBy });
     
     // Set split percentages
-    for (const [userId, percentage] of Object.entries(expense.splitPercentages)) {
+    for (const [, percentage] of Object.entries(expense.splitPercentages)) {
       const splitInput = this.page.locator(`input[value="${percentage}"]`).first();
       await splitInput.fill(percentage.toString());
     }

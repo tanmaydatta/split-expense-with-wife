@@ -338,7 +338,6 @@ test.describe('Budget Management', () => {
   });
 
   test('should show loading state during budget submission', async ({ authenticatedPage }) => {
-    const budgetHelper = new BudgetTestHelper(authenticatedPage);
 
     // Mock both APIs since the form submits to both expense and budget endpoints
     await authenticatedPage.page.route('**/.netlify/functions/budget', async (route) => {

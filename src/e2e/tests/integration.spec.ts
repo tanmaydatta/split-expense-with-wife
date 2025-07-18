@@ -234,11 +234,8 @@ test.describe('Integration Tests - Complete User Workflows', () => {
     await testHelper.page.click('button[type="submit"]');
     await testHelper.waitForLoading();
     
-    // 4. Test mobile navigation
-    if (await testHelper.page.locator('.mobile-menu-toggle').isVisible()) {
-      await testHelper.page.click('.mobile-menu-toggle');
-      await expect(testHelper.page.locator('.mobile-menu')).toBeVisible();
-    }
+    // 4. Test responsive behavior - skip mobile-specific tests in integration flow
+    // Mobile navigation testing is covered in dedicated navigation tests
     
     // 5. Logout
     await testHelper.logout();

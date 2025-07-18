@@ -1,5 +1,4 @@
 import sha256 from "crypto-js/sha256";
-import getSymbolFromCurrency from "currency-symbol-map";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/Button";

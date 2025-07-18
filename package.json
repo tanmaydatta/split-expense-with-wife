@@ -62,7 +62,7 @@
     "test:all": "npm run test && npm run test:e2e",
     "eject": "react-scripts eject",
     "prepare": "husky",
-    "lint": "eslint src/*.tsx --max-warnings 0"
+    "lint": "eslint 'src/**/*.{ts,tsx}' --max-warnings 0"
   },
   "eslintConfig": {
     "extends": [

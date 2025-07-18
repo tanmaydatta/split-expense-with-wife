@@ -1,5 +1,5 @@
 import getSymbolFromCurrency from "currency-symbol-map";
-import { Trash, Calendar, CardText, Coin } from "@/components/Icons";
+import { Trash } from "@/components/Icons";
 import { Table, TableWrapper } from "@/components/Table";
 import { BudgetCard } from "@/components/BudgetCard";
 import { entry } from "@/model";

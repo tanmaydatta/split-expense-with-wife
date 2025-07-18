@@ -4,7 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Bar, BarChart, CartesianGrid, Legend, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Card } from "@/components/Card";
 import { SelectBudget } from "@/SelectBudget";
-import type { MonthlyBudget, AverageSpendPeriod } from '@shared-types';
+import type { MonthlyBudget } from '@shared-types';
 import { typedApi } from "@/utils/api";
 import { BudgetMonthlyResponse } from "@shared-types";
 import "./index.css";
@@ -52,28 +52,6 @@ const CustomTooltip = ({ active, payload, label }: any) => {
     );
   }
   return null;
-};
-
-const CustomizedLabel = (props: any) => {
-  const { x, y, width, value, payload } = props;
-  
-  // Safety check for value and payload
-  if (!value || value === 0 || !payload || !payload.currency) {
-    return null;
-  }
-  
-  return (
-    <text
-      x={x + width / 2}
-      y={y - 8}
-      fill="#333"
-      textAnchor="middle"
-      fontSize="12"
-      fontWeight="600"
-    >
-      {getSymbolFromCurrency(payload.currency)}{Math.round(value).toLocaleString()}
-    </text>
-  );
 };
 
 export const MonthlyBudgetPage: React.FC = () => {
@@ -235,7 +213,7 @@ export const MonthlyBudgetPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [budget, timeRange, selectedCurrency, navigate]);
+  }, [budget, timeRange, selectedCurrency]);
 
   useEffect(() => {
     fetchMonthlyData();
