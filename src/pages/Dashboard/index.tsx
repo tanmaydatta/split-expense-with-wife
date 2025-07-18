@@ -234,7 +234,7 @@ function Dashboard(): JSX.Element {
 
   return (
     <div className="dashboard-container" data-test-id="dashboard-container">
-      <form className="form-container">
+      <form className="form-container" data-test-id="expense-form">
         {/* Error Container */}
         {error && (
           <div className="error-container">

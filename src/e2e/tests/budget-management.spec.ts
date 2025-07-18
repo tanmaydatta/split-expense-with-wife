@@ -7,11 +7,6 @@ class BudgetTestHelper {
     // No alert handling needed for budget operations
   }
 
-  async isMobile(): Promise<boolean> {
-    const viewport = this.authenticatedPage.page.viewportSize();
-    return viewport && viewport.width <= 768;
-  }
-
   async addBudgetEntry(budget: any, type: 'Credit' | 'Debit') {
     const budgetForm = this.authenticatedPage.page.locator('form');
 
@@ -64,7 +59,7 @@ class BudgetTestHelper {
 
   async verifyBudgetDataDisplay() {
     // Check viewport to determine if we're on mobile or desktop
-    const isMobile = await this.isMobile();
+    const isMobile = await this.authenticatedPage.isMobile();
     
     if (isMobile) {
       // On mobile, look for the card container
@@ -98,7 +93,7 @@ class BudgetTestHelper {
     console.log("verifySpecificBudgetEntry", "description", description, "amount", amount, "currency", currency);
     
     // Check viewport to determine if we're on mobile or desktop
-    const isMobile = await this.isMobile();
+    const isMobile = await this.authenticatedPage.isMobile();
     
     if (isMobile) {
       // On mobile, look for the entry in the card layout
@@ -121,7 +116,7 @@ class BudgetTestHelper {
     console.log("verifyBudgetEntryNotPresent", "description", description);
     
     // Check viewport to determine if we're on mobile or desktop (reusing the same logic)
-    const isMobile = await this.isMobile();
+    const isMobile = await this.authenticatedPage.isMobile();
     
     if (isMobile) {
       // On mobile, verify no card contains this description
@@ -140,7 +135,7 @@ class BudgetTestHelper {
     // Try to find and delete the budget entry
     try {
       // Check viewport to determine if we're on mobile or desktop
-      const isMobile = await this.isMobile();
+      const isMobile = await this.authenticatedPage.isMobile();
 
       // Enter PIN first before clicking delete
       const pinField = this.authenticatedPage.page.locator('[data-test-id="pin-input"]').first();
