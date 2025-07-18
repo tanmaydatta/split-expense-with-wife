@@ -57,7 +57,7 @@ const TransactionList: React.FC<{
             <tbody>
               {transactions.map((transaction) => (
                 <React.Fragment key={transaction.id}>
-                  <tr className="transaction-row" onClick={() => handleSelect(transaction)}>
+                  <tr className="transaction-row" data-test-id="transaction-item" onClick={() => handleSelect(transaction)}>
                     <td>{dateToFullStr(new Date(transaction.date))}</td>
                     <td className="description-cell">{transaction.description}</td>
                     <td>
@@ -265,7 +265,7 @@ const Transactions: React.FC = () => {
   };
 
   return (
-    <div className="transactions-container">
+    <div className="transactions-container" data-test-id="expenses-container">
       {loading && <Loader />}
       {!loading && (
         <>
@@ -277,6 +277,7 @@ const Transactions: React.FC = () => {
       )}
       {!loading && (
         <Button
+          data-test-id="show-more-button"
           onClick={() => {
             fetchTransactions(transactions.length, transactions);
           }}

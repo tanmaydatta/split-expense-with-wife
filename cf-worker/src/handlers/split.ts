@@ -17,7 +17,8 @@ import {
   isValidCurrency,
   validateSplitPercentages,
   validatePaidAmounts,
-  calculateSplitAmounts
+  calculateSplitAmounts,
+  generateRandomId
 } from '../utils';
 
 // Handle split with Splitwise API
@@ -164,8 +165,10 @@ export async function handleSplitNew(request: CFRequest, env: Env): Promise<Resp
       return createErrorResponse('Paid amounts must equal total amount', 400, request, env);
     }
 
-    // Generate transaction ID
-    const transactionId = Math.floor(Math.random() * 1000000).toString();
+    // Generate transaction ID using robust random ID with timestamp prefix
+    const timestamp = Date.now().toString();
+    const randomPart = generateRandomId(8);
+    const transactionId = `${timestamp}_${randomPart}`;
     const createdAt = formatSQLiteTime();
 
 

@@ -26,6 +26,14 @@ export class TestHelper {
   constructor(public page: Page) {}
 
   /**
+   * Check if we're on mobile viewport
+   */
+  async isMobile(): Promise<boolean> {
+    const viewport = this.page.viewportSize();
+    return viewport ? viewport.width <= 768 : false;
+  }
+
+  /**
    * Navigate to root page and authenticate user
    */
   async login(user: TestUser): Promise<void> {
@@ -61,9 +69,8 @@ export class TestHelper {
    * Navigate using sidebar
    */
   async navigateToPage(page: 'Add' | 'Expenses' | 'Balances' | 'Budget' | 'Monthly Budget'): Promise<void> {
-    // Check if we're on mobile (viewport width <= 768px)
-    const viewport = this.page.viewportSize();
-    const isMobile = viewport && viewport.width <= 768;
+    // Check if we're on mobile
+    const isMobile = await this.isMobile();
     
     if (isMobile) {
       // On mobile, first open the sidebar using the hamburger button

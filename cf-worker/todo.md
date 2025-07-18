@@ -3,12 +3,15 @@
 - finish e2e tests
     - mobile version as well
     - data-test-id
+    - check 60-40 split in expense management test
 - very big check boxes
 - avg line not on the right
 - remove all alerts
 - retire netlify functions
 - prettier ui on mobile
 - remove pin
+- use jwt so that verification is done with making db call
+- change defaults feat
 - schedule actions
 - scan receipt
 - full text search
