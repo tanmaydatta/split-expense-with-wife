@@ -18,6 +18,7 @@ export const CreditDebit: React.FC<SelectBudgetProps> = ({
     <ToggleButtonGroup
       style={{ width: "100%" }}
       className="mb-2"
+      data-test-id="credit-debit-group"
       name="credit-debit"
       value={budget}
       onChange={handleChangeBudget}
@@ -27,6 +28,7 @@ export const CreditDebit: React.FC<SelectBudgetProps> = ({
         <ToggleButton
           key={b}
           id={`radio-${b}`}
+          data-test-id={`${b.toLowerCase()}-radio`}
           type="radio"
           variant="outline-primary"
           value={b}

@@ -249,7 +249,7 @@ export const MonthlyBudgetPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="monthly-budget-container">
+      <div className="monthly-budget-container" data-test-id="monthly-budget-container">
         <Card>
           <p>Loading monthly budget data...</p>
         </Card>
@@ -258,7 +258,7 @@ export const MonthlyBudgetPage: React.FC = () => {
   }
 
   return (
-    <div className="monthly-budget-container">
+    <div className="monthly-budget-container" data-test-id="monthly-budget-container">
       <Card>
         {/* Header Section */}
         <div className="chart-header">

@@ -198,7 +198,7 @@ function Dashboard(): JSX.Element {
   }
 
   return (
-    <div className="dashboard-container">
+    <div className="dashboard-container" data-test-id="dashboard-container">
       <form className="form-container">
         {/* Error Container */}
         {error && (
@@ -219,8 +219,8 @@ function Dashboard(): JSX.Element {
 
         {/* Success Container */}
         {success && (
-          <div className="success-container">
-            <div className="success-message">
+          <div className="success-container" data-test-id="success-container">
+            <div className="success-message" data-test-id="success-message">
               {success}
             </div>
             <button 
@@ -239,6 +239,8 @@ function Dashboard(): JSX.Element {
         <Input
           type="text"
           placeholder="Enter description"
+          name="description"
+          data-test-id="description-input"
           value={description || ""}
           onChange={(e) => setDescription(e.target.value)}
           disabled={loading}
@@ -252,6 +254,8 @@ function Dashboard(): JSX.Element {
         <Input
           type="number"
           placeholder="Enter amount"
+          name="amount"
+          data-test-id="amount-input"
           step="0.01"
           min="0.01"
           max="999999"
@@ -272,6 +276,7 @@ function Dashboard(): JSX.Element {
                   <Input
                     type="number"
                     placeholder="Percentage"
+                    data-test-id={`percentage-input-${u.Id}`}
                     step="0.01"
                     min="0"
                     max="100"
@@ -295,6 +300,8 @@ function Dashboard(): JSX.Element {
           value={currency} 
           onChange={(e) => setCurrency(e.target.value)}
           className="currency-select"
+          name="currency"
+          data-test-id="currency-select"
           disabled={loading}
           required
           title="Please select a currency"
@@ -310,6 +317,8 @@ function Dashboard(): JSX.Element {
         <Input
           type="password"
           placeholder="Enter PIN"
+          name="pin"
+          data-test-id="pin-input"
           value={pin}
           onChange={(e) => setPin(e.target.value)}
           disabled={loading}
@@ -327,6 +336,8 @@ function Dashboard(): JSX.Element {
               value={paidBy || ""} 
               onChange={(e) => setPaidBy(parseInt(e.target.value))}
               className="paid-by-select"
+              name="paidBy"
+              data-test-id="paid-by-select"
               disabled={loading}
               required={addExpense}
               title="Please select who paid for this expense"
@@ -364,6 +375,7 @@ function Dashboard(): JSX.Element {
             <label className="checkbox-label">
               <input
                 type="checkbox"
+                data-test-id="add-expense-checkbox"
                 checked={addExpense}
                 onChange={(e) => setAddExpense(e.target.checked)}
                 disabled={loading}
@@ -373,6 +385,7 @@ function Dashboard(): JSX.Element {
             <label className="checkbox-label">
               <input
                 type="checkbox"
+                data-test-id="update-budget-checkbox"
                 checked={updateBudget}
                 onChange={(e) => setUpdateBudget(e.target.checked)}
                 disabled={loading}
@@ -386,6 +399,7 @@ function Dashboard(): JSX.Element {
         <div className="button-container">
           <Button 
             type="submit"
+            data-test-id="submit-button"
             onClick={(e) => {
               e.preventDefault();
               const form = e.currentTarget.form;

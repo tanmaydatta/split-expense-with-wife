@@ -22,6 +22,7 @@ export const SelectBudget: React.FC<SelectBudgetProps> = ({
     <ToggleButtonGroup
       style={{ width: "100%" }}
       className="mb-2 BudgetSelectionGroup"
+      data-test-id="budget-selection-group"
       name="budget"
       value={budget}
       onChange={handleChangeBudget}
@@ -31,6 +32,7 @@ export const SelectBudget: React.FC<SelectBudgetProps> = ({
         <ToggleButton
           key={b}
           id={`radio-${b}`}
+          data-test-id={`budget-radio-${b}`}
           type="radio"
           variant="outline-primary"
           value={b}

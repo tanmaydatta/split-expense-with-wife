@@ -14,7 +14,7 @@ interface AmountGridProps {
 
 export const AmountGrid: React.FC<AmountGridProps> = ({ amounts, className = "" }) => {
   return (
-    <div className={`amount-grid ${className}`.trim()}>
+    <div className={`amount-grid ${className}`.trim()} data-test-id="amount-grid">
       {amounts.map((item, index) => {
         const isPositive = item.amount > 0;
         const isZero = item.amount === 0;
@@ -27,7 +27,7 @@ export const AmountGrid: React.FC<AmountGridProps> = ({ amounts, className = "" 
             : "amount-item negative";
         
         return (
-          <div key={`${item.currency}-${index}`} className={itemClassName}>
+          <div key={`${item.currency}-${index}`} className={itemClassName} data-test-id="amount-item">
             {sign}{getSymbolFromCurrency(item.currency)}{displayAmount}
           </div>
         );

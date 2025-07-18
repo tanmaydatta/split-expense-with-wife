@@ -106,7 +106,7 @@ export const Budget: React.FC = () => {
     fetchHistory(0, []);
   }, [fetchTotal, fetchHistory]);
   return (
-    <div className="budget-container">
+    <div className="budget-container" data-test-id="budget-container">
       {loading && <Loader />}
       {!loading && (
         <>
@@ -114,6 +114,7 @@ export const Budget: React.FC = () => {
             type="password"
             placeholder="PIN"
             name="pin"
+            data-test-id="pin-input"
             value={pin}
             onChange={(e) => setPin(e.target.value)}
           />

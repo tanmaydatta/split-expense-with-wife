@@ -35,7 +35,7 @@ test.describe('Authentication Flow', () => {
 
     // Verify successful login - dashboard is visible
     await expect(testHelper.page).toHaveURL('/');
-    await expect(testHelper.page.locator('.dashboard-container')).toBeVisible();
+    await expect(testHelper.page.locator('[data-test-id="dashboard-container"]')).toBeVisible();
 
     // Verify authentication token is stored
     const sessionToken = await testHelper.page.evaluate(() => localStorage.getItem('sessionToken'));
@@ -81,7 +81,7 @@ test.describe('Authentication Flow', () => {
 
     // Wait for login to complete and redirect to dashboard
     await expect(testHelper.page).toHaveURL('/');
-    await expect(testHelper.page.locator('.dashboard-container')).toBeVisible();
+    await expect(testHelper.page.locator('[data-test-id="dashboard-container"]')).toBeVisible();
     
     // Loader should disappear after login completes
     await expect(testHelper.page.locator('[data-test-id="login-loader"]')).not.toBeVisible();
@@ -91,7 +91,7 @@ test.describe('Authentication Flow', () => {
     await testHelper.login(testData.users.user1);
 
     // Verify initial login state (dashboard is visible)
-    await expect(testHelper.page.locator('.dashboard-container')).toBeVisible();
+    await expect(testHelper.page.locator('[data-test-id="dashboard-container"]')).toBeVisible();
 
     // Store token for verification
     const sessionToken = await testHelper.page.evaluate(() => localStorage.getItem('sessionToken'));
@@ -121,7 +121,7 @@ test.describe('Authentication Flow', () => {
     await testHelper.login(testData.users.user1);
 
     // Verify user is logged in (dashboard is visible)
-    await expect(testHelper.page.locator('.dashboard-container')).toBeVisible();
+    await expect(testHelper.page.locator('[data-test-id="dashboard-container"]')).toBeVisible();
 
     // Verify session token exists
     let sessionToken = await testHelper.page.evaluate(() => localStorage.getItem('sessionToken'));

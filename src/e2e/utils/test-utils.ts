@@ -42,7 +42,7 @@ export class TestHelper {
     console.log('Redirected to home page');
     
     // Wait for dashboard elements to load
-    await this.page.waitForSelector('.dashboard-container', { timeout: 10000 });
+    await this.page.waitForSelector('[data-test-id="dashboard-container"]', { timeout: 10000 });
     console.log('Dashboard loaded successfully');
     await this.page.waitForTimeout(1000);
   }

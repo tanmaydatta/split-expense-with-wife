@@ -9,6 +9,7 @@ interface ToggleButtonGroupProps {
   className?: string;
   style?: React.CSSProperties;
   disabled?: boolean;
+  'data-test-id'?: string;
 }
 
 export const ToggleButtonGroup: React.FC<ToggleButtonGroupProps> = ({
@@ -18,7 +19,8 @@ export const ToggleButtonGroup: React.FC<ToggleButtonGroupProps> = ({
   children,
   className = '',
   style,
-  disabled = false
+  disabled = false,
+  'data-test-id': dataTestId
 }) => {
   return (
     <div 
@@ -26,6 +28,7 @@ export const ToggleButtonGroup: React.FC<ToggleButtonGroupProps> = ({
       style={style}
       role="radiogroup"
       aria-label={name}
+      data-test-id={dataTestId}
     >
       {React.Children.map(children, (child) => {
         if (React.isValidElement(child)) {
@@ -54,6 +57,7 @@ interface ToggleButtonProps {
   variant?: string;
   checked?: boolean;
   disabled?: boolean;
+  'data-test-id'?: string;
 }
 
 export const ToggleButton: React.FC<ToggleButtonProps> = ({
@@ -66,7 +70,8 @@ export const ToggleButton: React.FC<ToggleButtonProps> = ({
   type = 'radio',
   variant = 'outline-primary',
   checked,
-  disabled = false
+  disabled = false,
+  'data-test-id': dataTestId
 }) => {
   const handleClick = () => {
     if (disabled || !onChange) {
@@ -85,6 +90,7 @@ export const ToggleButton: React.FC<ToggleButtonProps> = ({
       role="radio"
       aria-checked={isSelected}
       aria-label={typeof children === 'string' ? children : value}
+      data-test-id={dataTestId}
     >
       {children}
     </button>

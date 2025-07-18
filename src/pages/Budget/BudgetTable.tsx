@@ -14,7 +14,7 @@ export default function BudgetTable(props: Props): JSX.Element {
   return (
     <>
       {/* Desktop Table View */}
-      <div className="desktop-table">
+      <div className="desktop-table" data-test-id="desktop-table">
         <TableWrapper>
           <Table>
             <thead>
@@ -39,14 +39,29 @@ export default function BudgetTable(props: Props): JSX.Element {
                     <td
                       style={{
                         textAlign: "center",
-                        cursor: "pointer",
                       }}
-                      onClick={() => props.onDelete(e.id)}
                     >
                       {e.deleted != null ? (
                         dateToFullStr(new Date(e.deleted))
                       ) : (
-                        <Trash />
+                        <button
+                          className="delete-button"
+                          data-test-id="delete-button"
+                          onClick={() => props.onDelete(e.id)}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            cursor: "pointer",
+                            padding: "4px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            margin: "0 auto"
+                          }}
+                          aria-label="Delete budget entry"
+                        >
+                          <Trash />
+                        </button>
                       )}
                     </td>
                   </tr>
@@ -58,7 +73,7 @@ export default function BudgetTable(props: Props): JSX.Element {
       </div>
 
       {/* Mobile Card View */}
-      <div className="mobile-cards">
+      <div className="mobile-cards" data-test-id="mobile-cards">
         {props.entries.map((e) => (
           <BudgetCard
             key={e.date}

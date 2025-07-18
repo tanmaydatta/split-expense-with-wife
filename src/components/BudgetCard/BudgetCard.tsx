@@ -16,7 +16,7 @@ export const BudgetCard: React.FC<BudgetCardProps> = ({
   onDelete
 }) => {
   return (
-    <Card className="budget-entry-card">
+    <Card className="budget-entry-card" data-test-id="budget-entry-card">
       <div className="budget-card-header">
         <div className="budget-date">
           <Calendar />
@@ -25,6 +25,7 @@ export const BudgetCard: React.FC<BudgetCardProps> = ({
         {entry.deleted == null && (
           <button
             className="delete-button"
+            data-test-id="delete-button"
             onClick={() => onDelete(entry.id)}
             aria-label="Delete budget entry"
           >

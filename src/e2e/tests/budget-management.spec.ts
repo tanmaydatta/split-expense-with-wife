@@ -21,20 +21,20 @@ class BudgetTestHelper {
     const description = `${type} for ${budget.name} ${randomId}${timestamp}`;
     console.log("description", description);
     // Fill the form
-    await budgetForm.locator(`.BudgetSelectionGroup button#radio-${budget.name}`).click();
-    await budgetForm.locator(`button#radio-${type}`).click();
-    await this.authenticatedPage.page.fill('input[placeholder="Enter description"]', description);
-    await this.authenticatedPage.page.fill('input[placeholder="Enter amount"]', budget.amount.toString());
-    await this.authenticatedPage.page.selectOption('.currency-select', budget.currency);
-    await this.authenticatedPage.page.fill('input[placeholder="Enter PIN"]', testData.pin);
+    await budgetForm.locator(`[data-test-id="budget-radio-${budget.name}"]`).click();
+    await budgetForm.locator(`[data-test-id="${type.toLowerCase()}-radio"]`).click();
+    await this.authenticatedPage.page.fill('[data-test-id="description-input"]', description);
+    await this.authenticatedPage.page.fill('[data-test-id="amount-input"]', budget.amount.toString());
+    await this.authenticatedPage.page.selectOption('[data-test-id="currency-select"]', budget.currency);
+    await this.authenticatedPage.page.fill('[data-test-id="pin-input"]', testData.pin);
 
     // Submit and wait for response
-    await budgetForm.locator('button[type="submit"]').click();
+    await budgetForm.locator('[data-test-id="submit-button"]').click();
     await this.authenticatedPage.waitForLoading();
 
     // Wait for and verify success message appears
-    await this.authenticatedPage.page.waitForSelector('.success-container', { timeout: 10000 });
-    const successMessage = await this.authenticatedPage.page.locator('.success-message').textContent();
+    await this.authenticatedPage.page.waitForSelector('[data-test-id="success-container"]', { timeout: 10000 });
+    const successMessage = await this.authenticatedPage.page.locator('[data-test-id="success-message"]').textContent();
     console.log("Success message received:", successMessage);
 
     return { description, successMessage };
@@ -43,13 +43,13 @@ class BudgetTestHelper {
   async verifyBudgetPageComponents() {
     // Verify basic budget page structure
     await expect(this.authenticatedPage.page).toHaveURL('/budget');
-    await expect(this.authenticatedPage.page.locator('.budget-container')).toBeVisible();
+    await expect(this.authenticatedPage.page.locator('[data-test-id="budget-container"]')).toBeVisible();
 
     // Verify budget selection group is present
-    await expect(this.authenticatedPage.page.locator('.BudgetSelectionGroup')).toBeVisible();
+    await expect(this.authenticatedPage.page.locator('[data-test-id="budget-selection-group"]')).toBeVisible();
 
     // Verify budget category buttons are present (at least one should exist)
-    const budgetButtons = this.authenticatedPage.page.locator('.BudgetSelectionGroup button');
+    const budgetButtons = this.authenticatedPage.page.locator('[data-test-id="budget-selection-group"] button');
     await expect(budgetButtons.first()).toBeVisible();
     
     // Log available budget categories for debugging
@@ -58,7 +58,7 @@ class BudgetTestHelper {
   }
 
   async selectBudgetCategory(category: string) {
-    await this.authenticatedPage.page.locator(`.BudgetSelectionGroup button#radio-${category}`).click();
+    await this.authenticatedPage.page.locator(`[data-test-id="budget-radio-${category}"]`).click();
     await this.authenticatedPage.waitForLoading();
   }
 
@@ -68,12 +68,12 @@ class BudgetTestHelper {
     
     if (isMobile) {
       // On mobile, look for the card container
-      const mobileContainer = this.authenticatedPage.page.locator('.mobile-cards');
+      const mobileContainer = this.authenticatedPage.page.locator('[data-test-id="mobile-cards"]');
       await expect(mobileContainer).toBeVisible();
       return mobileContainer;
     } else {
       // On desktop, look for the table
-      const desktopContainer = this.authenticatedPage.page.locator('.desktop-table table');
+      const desktopContainer = this.authenticatedPage.page.locator('[data-test-id="desktop-table"] table');
       await expect(desktopContainer).toBeVisible();
       return desktopContainer;
     }
@@ -81,11 +81,11 @@ class BudgetTestHelper {
 
   async verifyBudgetTotals() {
     // Check for budget totals display (AmountGrid component)
-    const budgetTotals = this.authenticatedPage.page.locator('.amount-grid');
+    const budgetTotals = this.authenticatedPage.page.locator('[data-test-id="amount-grid"]');
     await expect(budgetTotals).toBeVisible();
     
     // Verify there are budget amounts displayed
-    const amountItems = budgetTotals.locator('.amount-item');
+    const amountItems = budgetTotals.locator('[data-test-id="amount-item"]');
     await expect(amountItems.first()).toBeVisible();
     
     const itemCount = await amountItems.count();
@@ -102,7 +102,7 @@ class BudgetTestHelper {
     
     if (isMobile) {
       // On mobile, look for the entry in the card layout
-      const entryCard = this.authenticatedPage.page.locator('.budget-entry-card').filter({ hasText: description });
+      const entryCard = this.authenticatedPage.page.locator('[data-test-id="budget-entry-card"]').filter({ hasText: description });
       await expect(entryCard).toBeVisible();
       
       // Check that the card contains the amount
@@ -125,7 +125,7 @@ class BudgetTestHelper {
     
     if (isMobile) {
       // On mobile, verify no card contains this description
-      const entryCards = await this.authenticatedPage.page.locator('.budget-entry-card').filter({ hasText: description }).count();
+      const entryCards = await this.authenticatedPage.page.locator('[data-test-id="budget-entry-card"]').filter({ hasText: description }).count();
       expect(entryCards).toBe(0);
       console.log(`Verified deletion on mobile: ${description} not found in any cards`);
     } else {
@@ -143,19 +143,21 @@ class BudgetTestHelper {
       const isMobile = await this.isMobile();
 
       // Enter PIN first before clicking delete
-      const pinField = this.authenticatedPage.page.locator('input[placeholder="PIN"], input[name="pin"], input[type="password"]').first();
+      const pinField = this.authenticatedPage.page.locator('[data-test-id="pin-input"]').first();
       if (await pinField.isVisible({ timeout: 2000 })) {
         await pinField.fill(testPin);
         console.log("PIN entered for deletion");
+        // Wait for PIN to be processed
+        await this.authenticatedPage.page.waitForTimeout(500);
       }
 
       let deleteButton;
 
       if (isMobile) {
         // On mobile, look for the card with the description and find its delete button
-        const entryCard = this.authenticatedPage.page.locator('.budget-entry-card').filter({ hasText: description });
+        const entryCard = this.authenticatedPage.page.locator('[data-test-id="budget-entry-card"]').filter({ hasText: description });
         if (await entryCard.isVisible({ timeout: 2000 })) {
-          deleteButton = entryCard.locator('.delete-button');
+          deleteButton = entryCard.locator('[data-test-id="delete-button"]');
         } else {
           console.log('No budget entry card found with description:', description);
           return false;
@@ -164,7 +166,7 @@ class BudgetTestHelper {
         // On desktop, look for the table row with the description and find its delete button
         const entryRow = this.authenticatedPage.page.locator('tbody tr').filter({ hasText: description });
         if (await entryRow.isVisible({ timeout: 2000 })) {
-          deleteButton = entryRow.locator('td:nth-child(4)');
+          deleteButton = entryRow.locator('[data-test-id="delete-button"]');
         } else {
           console.log('No budget entry row found with description:', description);
           return false;
@@ -223,14 +225,14 @@ test.describe('Budget Management', () => {
     await expect(mainForm).toBeVisible();
     
     // Verify "Update Budget" checkbox is checked by default
-    const updateBudgetCheckbox = mainForm.locator('label:has-text("Update Budget") input[type="checkbox"]');
+    const updateBudgetCheckbox = mainForm.locator('[data-test-id="update-budget-checkbox"]');
     await expect(updateBudgetCheckbox).toBeChecked();
     
     // Verify budget-related elements are visible when "Update Budget" is checked
-    await expect(mainForm.locator('button#radio-Credit')).toBeVisible();
-    await expect(mainForm.locator('button#radio-Debit')).toBeVisible();
-    await expect(mainForm.locator('.BudgetSelectionGroup')).toBeVisible();
-    await expect(mainForm.locator('button[type="submit"]')).toBeVisible();
+    await expect(mainForm.locator('[data-test-id="credit-radio"]')).toBeVisible();
+    await expect(mainForm.locator('[data-test-id="debit-radio"]')).toBeVisible();
+    await expect(mainForm.locator('[data-test-id="budget-selection-group"]')).toBeVisible();
+    await expect(mainForm.locator('[data-test-id="submit-button"]')).toBeVisible();
   });
 
   test('should successfully add a budget credit entry', async ({ authenticatedPage }) => {
@@ -243,7 +245,7 @@ test.describe('Budget Management', () => {
     await budgetHelper.addBudgetEntry(budget, 'Credit');
 
     // Verify form was reset after successful submission
-    await expect(authenticatedPage.page.locator('input[placeholder="Enter amount"]')).toHaveValue('');
+    await expect(authenticatedPage.page.locator('[data-test-id="amount-input"]')).toHaveValue('');
 
     // Verify we're still on the home page
     await expect(authenticatedPage.page).toHaveURL('/');
@@ -259,7 +261,7 @@ test.describe('Budget Management', () => {
     await budgetHelper.addBudgetEntry(budget, 'Debit');
 
     // Verify form was reset after successful submission
-    await expect(authenticatedPage.page.locator('input[placeholder="Enter amount"]')).toHaveValue('');
+    await expect(authenticatedPage.page.locator('[data-test-id="amount-input"]')).toHaveValue('');
 
     // Verify we're still on the home page
     await expect(authenticatedPage.page).toHaveURL('/');
@@ -362,22 +364,22 @@ test.describe('Budget Management', () => {
     const description = `Debit for ${budget.name} ${randomId}${timestamp}`;
 
     // Uncheck "Add Expense" to test only budget submission
-    const addExpenseCheckbox = authenticatedPage.page.locator('label:has-text("Add Expense") input[type="checkbox"]');
+    const addExpenseCheckbox = authenticatedPage.page.locator('[data-test-id="add-expense-checkbox"]');
     await addExpenseCheckbox.uncheck();
     
     // Ensure "Update Budget" is checked
-    const updateBudgetCheckbox = authenticatedPage.page.locator('label:has-text("Update Budget") input[type="checkbox"]');
+    const updateBudgetCheckbox = authenticatedPage.page.locator('[data-test-id="update-budget-checkbox"]');
     await updateBudgetCheckbox.check();
 
-    await budgetForm.locator(`.BudgetSelectionGroup button#radio-${budget.name}`).click();
-    await budgetForm.locator(`button#radio-Debit`).click();
-    await authenticatedPage.page.fill('input[placeholder="Enter description"]', description);
-    await authenticatedPage.page.fill('input[placeholder="Enter amount"]', budget.amount.toString());
-    await authenticatedPage.page.selectOption('.currency-select', budget.currency);
-    await authenticatedPage.page.fill('input[placeholder="Enter PIN"]', testData.pin);
+    await budgetForm.locator(`[data-test-id="budget-radio-${budget.name}"]`).click();
+    await budgetForm.locator('[data-test-id="debit-radio"]').click();
+    await authenticatedPage.page.fill('[data-test-id="description-input"]', description);
+    await authenticatedPage.page.fill('[data-test-id="amount-input"]', budget.amount.toString());
+    await authenticatedPage.page.selectOption('[data-test-id="currency-select"]', budget.currency);
+    await authenticatedPage.page.fill('[data-test-id="pin-input"]', testData.pin);
 
     // Verify initial button state
-    const submitButton = budgetForm.locator('button[type="submit"]');
+    const submitButton = budgetForm.locator('[data-test-id="submit-button"]');
     await expect(submitButton).toHaveText('Submit');
     await expect(submitButton).not.toBeDisabled();
 
@@ -394,8 +396,8 @@ test.describe('Budget Management', () => {
     console.log('✓ Loading state detected: button text changed to Processing...');
 
     // Wait for submission to complete and verify success
-    await authenticatedPage.page.waitForSelector('.success-container', { timeout: 10000 });
-    const successMessage = await authenticatedPage.page.locator('.success-message').textContent();
+    await authenticatedPage.page.waitForSelector('[data-test-id="success-container"]', { timeout: 10000 });
+    const successMessage = await authenticatedPage.page.locator('[data-test-id="success-message"]').textContent();
     console.log("Success message received:", successMessage);
     expect(successMessage).toBeTruthy();
 
@@ -406,7 +408,7 @@ test.describe('Budget Management', () => {
     console.log('✓ Loading state was properly detected during form submission');
 
     // Verify form was reset after successful submission
-    await expect(authenticatedPage.page.locator('input[placeholder="Enter amount"]')).toHaveValue('');
+    await expect(authenticatedPage.page.locator('[data-test-id="amount-input"]')).toHaveValue('');
 
     // Verify we're still on the home page
     await expect(authenticatedPage.page).toHaveURL('/');
@@ -420,11 +422,11 @@ test.describe('Budget Management', () => {
     await authenticatedPage.navigateToPage('Monthly Budget');
 
     // Verify monthly budget page elements
-    await expect(authenticatedPage.page.locator('.BudgetSelectionGroup')).toBeVisible(); // Budget selector
+    await expect(authenticatedPage.page.locator('[data-test-id="budget-selection-group"]')).toBeVisible(); // Budget selector
     // Remove chart container check as it might not exist
 
     // Click a budget toggle button
-    await authenticatedPage.page.locator('.BudgetSelectionGroup button#radio-house').click();
+    await authenticatedPage.page.locator('[data-test-id="budget-radio-house"]').click();
     await authenticatedPage.waitForLoading();
   });
 
@@ -436,11 +438,11 @@ test.describe('Budget Management', () => {
     await authenticatedPage.navigateToPage('Monthly Budget');
 
     // Click a budget toggle button
-    await authenticatedPage.page.locator('.BudgetSelectionGroup button#radio-house').click();
+    await authenticatedPage.page.locator('[data-test-id="budget-radio-house"]').click();
     await authenticatedPage.waitForLoading();
 
     // Just verify the page loads - chart elements may not be present without proper data
-    await expect(authenticatedPage.page.locator('.monthly-budget-container')).toBeVisible();
+    await expect(authenticatedPage.page.locator('[data-test-id="monthly-budget-container"]')).toBeVisible();
   });
 
   test('should handle budget deletion', async ({ authenticatedPage }) => {
@@ -502,10 +504,10 @@ test.describe('Budget Management', () => {
     await authenticatedPage.page.goto('/monthly-budget/house');
 
     // Verify page loads - toggle buttons may not show selected state via value
-    await expect(authenticatedPage.page.locator('.monthly-budget-container')).toBeVisible();
+    await expect(authenticatedPage.page.locator('[data-test-id="monthly-budget-container"]')).toBeVisible();
 
     // Verify budget selector is present
-    await expect(authenticatedPage.page.locator('.BudgetSelectionGroup')).toBeVisible();
+    await expect(authenticatedPage.page.locator('[data-test-id="budget-selection-group"]')).toBeVisible();
 
     // Verify we can navigate to regular budget page as well
     await authenticatedPage.page.goto('/budget');
@@ -553,7 +555,7 @@ test.describe('Budget Management', () => {
     // Check that at least 3 different currency symbols are present in the amount grid
     let foundCurrencies = 0;
     for (const symbol of currencySymbols) {
-      const currencyItems = await authenticatedPage.page.locator(`.amount-item:has-text("${symbol}")`).count();
+      const currencyItems = await authenticatedPage.page.locator(`[data-test-id="amount-item"]:has-text("${symbol}")`).count();
       if (currencyItems > 0) {
         foundCurrencies++;
         console.log(`Found currency symbol: ${symbol}`);
@@ -564,7 +566,7 @@ test.describe('Budget Management', () => {
     expect(foundCurrencies).toBe(3);
 
     // Verify that budget totals contain proper formatting (currency symbol and amount)
-    const amountItems = await authenticatedPage.page.locator('.amount-item').all();
+    const amountItems = await authenticatedPage.page.locator('[data-test-id="amount-item"]').all();
     expect(amountItems.length).toBeGreaterThan(0);
 
     // Check that at least one amount item has a valid currency format
@@ -588,7 +590,7 @@ test.describe('Budget Management', () => {
     ];
 
     for (const expectedTotal of expectedTotals) {
-      const totalElement = authenticatedPage.page.locator(`.amount-item:has-text("${expectedTotal}")`);
+      const totalElement = authenticatedPage.page.locator(`[data-test-id="amount-item"]:has-text("${expectedTotal}")`);
       await expect(totalElement).toBeVisible({ timeout: 5000 });
       console.log(`✓ Verified mocked total: ${expectedTotal}`);
     }
