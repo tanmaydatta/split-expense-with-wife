@@ -4,6 +4,7 @@
     - mobile version as well
     - data-test-id
     - check 60-40 split in expense management test
+    - check expense details when we tap on expense item
 - very big check boxes
 - avg line not on the right
 - remove all alerts
@@ -11,6 +12,7 @@
 - prettier ui on mobile
 - remove pin
 - use jwt so that verification is done with making db call
+- drizzle
 - change defaults feat
 - schedule actions
 - scan receipt

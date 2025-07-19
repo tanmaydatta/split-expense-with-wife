@@ -62,9 +62,13 @@
 .budget-description {
   display: flex;
   align-items: flex-start;
+  justify-content: space-between;
   gap: var(--spacing-small);
   font-weight: 600;
   color: var(--color-dark);
+  border-radius: var(--border-radius);
+  border-left: 4px solid transparent;
+  padding: var(--spacing-small);
 }
 
 .budget-description span {
@@ -81,7 +85,7 @@
   overflow: hidden;
   position: relative;
 }
-
+/* 
 .budget-description span::after {
   content: "";
   position: absolute;
@@ -91,46 +95,27 @@
   height: 1.4em;
   background: linear-gradient(to right, transparent, var(--color-white));
   pointer-events: none;
-}
+} */
 
-.budget-amount-container {
+.budget-description-text {
   display: flex;
-  align-items: center;
-  margin: 0;
-}
-
-.budget-amount {
-  display: flex;
-  align-items: center;
   gap: var(--spacing-small);
-  flex: 1;
-  padding: var(--spacing-small);
-  background-color: rgba(248, 249, 250, 0.5);
-  border-radius: var(--border-radius);
-  border-left: 4px solid transparent;
-  transition: all 0.2s ease;
 }
 
-.budget-amount .amount-value {
-  font-weight: 600;
-  font-size: 1.2rem;
-  margin-left: auto;
-}
-
-.budget-amount .amount-value.positive {
+.budget-description .amount-value.positive {
   color: var(--color-success);
 }
 
-.budget-amount .amount-value.negative {
+.budget-description .amount-value.negative {
   color: var(--color-danger);
 }
 
-.budget-amount:has(.amount-value.positive) {
+.budget-description:has(.amount-value.positive) {
   border-left-color: var(--color-success);
   background-color: rgba(40, 167, 69, 0.05);
 }
 
-.budget-amount:has(.amount-value.negative) {
+.budget-description:has(.amount-value.negative) {
   border-left-color: var(--color-danger);
   background-color: rgba(220, 53, 69, 0.05);
 }
@@ -188,9 +173,6 @@
     line-height: 1.2;
   }
   
-  .budget-amount .amount-value {
-    font-size: 1.1rem;
-  }
 }
 
 /* Small mobile */
@@ -213,10 +195,6 @@
     min-height: 28px;
     min-width: 28px;
     padding: 2px;
-  }
-  
-  .budget-amount .amount-value {
-    font-size: 1rem;
   }
   
   .budget-deleted {

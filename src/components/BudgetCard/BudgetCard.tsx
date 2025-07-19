@@ -1,7 +1,7 @@
 import React from "react";
 import getSymbolFromCurrency from "currency-symbol-map";
 import { Card } from "@/components/Card";
-import { Trash, Calendar, CardText, Coin } from "@/components/Icons";
+import { Trash, Calendar, CardText } from "@/components/Icons";
 import { dateToFullStr } from "@/utils/date";
 import { entry } from "@/model";
 import "./BudgetCard.css";
@@ -33,26 +33,23 @@ export const BudgetCard: React.FC<BudgetCardProps> = ({
           </button>
         )}
       </div>
-      
+
       <div className="budget-card-content">
+
         <div className="budget-description">
-          <CardText />
-          <span>{entry.description}</span>
-        </div>
-        
-        <div className="budget-amount-container">
-          <div className="budget-amount">
-            <Coin />
-            <span 
-              className={`amount-value ${entry.amount.startsWith("+") ? "positive" : "negative"}`}
-            >
-              {entry.amount[0]}
-              {getSymbolFromCurrency(entry.currency)}
-              {entry.amount.substring(1)}
-            </span>
+          <div className="budget-description-text">
+            <CardText />
+            <span>{entry.description}</span>
+          </div>
+          <div
+            className={`amount-value ${entry.amount.startsWith("+") ? "positive" : "negative"}`}
+          >
+            {entry.amount[0]}
+            {getSymbolFromCurrency(entry.currency)}
+            {entry.amount.substring(1)}
           </div>
         </div>
-        
+
         {entry.deleted != null && (
           <div className="budget-deleted">
             <span className="deleted-label">Deleted:</span>
