@@ -13,6 +13,7 @@
 - remove pin
 - use jwt so that verification is done with making db call
 - drizzle
+- search
 - change defaults feat
 - schedule actions
 - scan receipt

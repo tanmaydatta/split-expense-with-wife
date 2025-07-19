@@ -544,9 +544,9 @@ test.describe('Budget Management', () => {
     await budgetHelper.verifyBudgetTotals();
 
     // Verify that multiple currencies are displayed
-    const currencySymbols = ['$', '€', '£']; // USD/CAD use $, EUR uses €, GBP uses £
+    const currencySymbols = ['$', 'C$', '€', '£']; // USD uses $, CAD uses C$, EUR uses €, GBP uses £
     
-    // Check that at least 3 different currency symbols are present in the amount grid
+    // Check that at least 4 different currency symbols are present in the amount grid
     let foundCurrencies = 0;
     for (const symbol of currencySymbols) {
       const currencyItems = await authenticatedPage.page.locator(`[data-test-id="amount-item"]:has-text("${symbol}")`).count();
@@ -556,8 +556,8 @@ test.describe('Budget Management', () => {
       }
     }
 
-    // Verify we have 3 different currency symbols (USD/CAD both use $, EUR uses €, GBP uses £)
-    expect(foundCurrencies).toBe(3);
+    // Verify we have 4 different currency symbols (USD, CAD, EUR, GBP)
+    expect(foundCurrencies).toBe(4);
 
     // Verify that budget totals contain proper formatting (currency symbol and amount)
     const amountItems = await authenticatedPage.page.locator('[data-test-id="amount-item"]').all();
@@ -580,7 +580,7 @@ test.describe('Budget Management', () => {
       '+$250.00', // USD
       '+€50.00',  // EUR
       '+£80.00',  // GBP
-      '-$25.00'   // CAD (negative)
+      '-C$25.00'  // CAD (negative) - uses C$ to distinguish from USD
     ];
 
     for (const expectedTotal of expectedTotals) {

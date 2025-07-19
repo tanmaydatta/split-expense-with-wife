@@ -43,14 +43,14 @@ const Balances: React.FC = () => {
 
   if (balances.size === 0) {
     return (
-      <div className="balances-container">
-        <div className="empty-state">No balances to display</div>
+      <div className="balances-container" data-test-id="balances-container">
+        <div className="empty-state" data-test-id="empty-balances">No balances to display</div>
       </div>
     );
   }
 
   return (
-    <div className="balances-container">
+    <div className="balances-container" data-test-id="balances-container">
       {Array.from(balances, ([userName, userBalances]) => {
         const amounts: AmountItem[] = Array.from(userBalances, ([currency, amount]) => ({
           currency,
@@ -58,8 +58,8 @@ const Balances: React.FC = () => {
         }));
         
         return (
-          <div key={userName} className="balance-section">
-            <h3 className="user-header">{userName}</h3>
+          <div key={userName} className="balance-section" data-test-id={`balance-section-${userName.toLowerCase()}`}>
+            <h3 className="user-header" data-test-id={`user-header-${userName.toLowerCase()}`}>{userName}</h3>
             <AmountGrid amounts={amounts} />
           </div>
         );

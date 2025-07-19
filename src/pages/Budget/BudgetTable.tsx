@@ -1,4 +1,4 @@
-import getSymbolFromCurrency from "currency-symbol-map";
+import { getCurrencySymbol } from "@/utils/currency";
 import { Trash } from "@/components/Icons";
 import { Table, TableWrapper } from "@/components/Table";
 import { BudgetCard } from "@/components/BudgetCard";
@@ -33,7 +33,7 @@ export default function BudgetTable(props: Props): JSX.Element {
                     <td className="description-cell">{e.description}</td>
                     <td style={{ color: e.amount.startsWith("+") ? "green" : "red" }}>
                       {e.amount[0]}
-                      {getSymbolFromCurrency(e.currency)}
+                      {getCurrencySymbol(e.currency)}
                       {e.amount.substring(1)}
                     </td>
                     <td
