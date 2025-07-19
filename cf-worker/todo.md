@@ -20,3 +20,4 @@
 - full text search
 - transaction/add
 - budget/add
+- group context
