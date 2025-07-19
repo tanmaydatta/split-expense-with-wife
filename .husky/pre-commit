@@ -11,7 +11,7 @@ fi
 echo "✅ React linting passed!"
 
 echo "🔍 Running linting in cf-worker directory..."
-cd cf-worker && npm run lint
+cd cf-worker && yarn lint
 
 if [ $? -ne 0 ]; then
   echo "❌ CF Worker linting failed! Commit aborted."
