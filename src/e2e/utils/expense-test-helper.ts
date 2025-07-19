@@ -137,7 +137,7 @@ export class ExpenseTestHelper {
         // Look for "Show more" button using data-test-id
         const showMoreButton = this.authenticatedPage.page.locator('[data-test-id="show-more-button"]');
         
-        if (await showMoreButton.isVisible({ timeout: 5000 })) {
+        if (await showMoreButton.isVisible({ timeout: 10000 })) {
           console.log("Clicking 'Show more' button to load more expenses");
           await showMoreButton.click();
           await this.authenticatedPage.page.waitForTimeout(2000); // Wait for new expenses to load
