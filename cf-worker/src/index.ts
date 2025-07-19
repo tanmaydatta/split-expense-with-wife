@@ -1,29 +1,29 @@
 import { CFRequest, Env, CFContext } from './types';
 import { createErrorResponse, createOptionsResponse } from './utils';
 import { handleLogin, handleLogout } from './handlers/auth';
-import { 
-  handleBalances, 
-  handleBudget, 
-  handleBudgetDelete, 
-  handleBudgetList, 
-  handleBudgetMonthly, 
+import {
+  handleBalances,
+  handleBudget,
+  handleBudgetDelete,
+  handleBudgetList,
+  handleBudgetMonthly,
   handleBudgetTotal
 } from './handlers/budget';
-import { 
-  handleSplit, 
-  handleSplitNew, 
-  handleSplitDelete, 
-  handleTransactionsList 
+import {
+  handleSplit,
+  handleSplitNew,
+  handleSplitDelete,
+  handleTransactionsList
 } from './handlers/split';
 import { handleHelloWorld } from './handlers/hello';
 import { handleCron } from './handlers/cron';
 
 // Global types for Cloudflare Workers
 declare global {
-  function fetch(input: string, init?: { 
-    method?: string; 
-    headers?: Record<string, string>; 
-    body?: string 
+  function fetch(input: string, init?: {
+    method?: string;
+    headers?: Record<string, string>;
+    body?: string
   }): Promise<{
     ok: boolean;
     status: number;
@@ -33,15 +33,15 @@ declare global {
 }
 
 export default {
-  async fetch(request: CFRequest, env: Env, ctx: CFContext): Promise<Response> {
+  async fetch(request: CFRequest, env: Env, _ctx: CFContext): Promise<Response> {
     // Handle CORS preflight requests
     if (request.method === 'OPTIONS') {
       return createOptionsResponse(request, env);
     }
-    
+
     const url = new URL(request.url);
     const path = url.pathname;
-    
+
     // Route to the appropriate handler
     if (path === '/.netlify/functions/login') {
       return await handleLogin(request, env);
@@ -75,11 +75,11 @@ export default {
   },
 
   async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
-    console.log("ScheduledController details:", {
+    console.log('ScheduledController details:', {
       cron: controller.cron,
       scheduledTime: controller.scheduledTime,
       toString: controller.toString ? controller.toString() : undefined
     });
     ctx.waitUntil(handleCron(env, controller.cron));
-  },
-}; 
+  }
+};

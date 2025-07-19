@@ -5,7 +5,9 @@ import {
   SplitNewRequest,
   SplitDeleteRequest,
   TransactionsListRequest,
-  TransactionsListResponse
+  TransactionsListResponse,
+  TransactionRow,
+  TransactionDetailRow
 } from '../types';
 import {
   authenticate,
@@ -56,7 +58,7 @@ export async function handleSplit(request: CFRequest, env: Env): Promise<Respons
     const groupId = env.SPLITWISE_GROUP_ID;
     const apiKey = env.SPLITWISE_API_KEY;
 
-    const splitwiseResponse = await fetch(`https://secure.splitwise.com/api/v3.0/create_expense`, {
+    const splitwiseResponse = await fetch('https://secure.splitwise.com/api/v3.0/create_expense', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
@@ -190,7 +192,7 @@ export async function handleSplitNew(request: CFRequest, env: Env): Promise<Resp
         split.amount,
         split.owed_to_user_id,
         split.currency,
-        session.group.groupid,
+        session.group.groupid
       ]
     }));
     const paidByShares: Record<string, number> = {};
@@ -248,7 +250,7 @@ export async function handleSplitNew(request: CFRequest, env: Env): Promise<Resp
       ]
     }, ...userBatchStatements]);
 
-    const response: { message: string; transactionId: string } = { 
+    const response: { message: string; transactionId: string } = {
       message: 'Transaction created successfully',
       transactionId: transactionId
     };
@@ -273,18 +275,18 @@ export async function handleSplitDelete(request: CFRequest, env: Env): Promise<R
     }
 
     const body = await request.json() as SplitDeleteRequest;
-    
+
 
     // Soft delete transaction
     const deletedTime = formatSQLiteTime();
 
     const batchStatements = [
       {
-        sql: `UPDATE transactions SET deleted = ? WHERE transaction_id = ? AND group_id = ?`,
+        sql: 'UPDATE transactions SET deleted = ? WHERE transaction_id = ? AND group_id = ?',
         params: [deletedTime, body.id, session.group.groupid]
       },
       {
-        sql: `UPDATE transaction_users SET deleted = ? WHERE transaction_id = ? AND group_id = ?`,
+        sql: 'UPDATE transaction_users SET deleted = ? WHERE transaction_id = ? AND group_id = ?',
         params: [deletedTime, body.id, session.group.groupid]
       }
     ];
@@ -328,9 +330,9 @@ export async function handleTransactionsList(request: CFRequest, env: Env): Prom
     ).all();
 
     // Get transaction details for all transactions
-    const transactionIds = transactionsResult.results.map((t: any) => t.transaction_id);
+    const transactionIds = (transactionsResult.results as TransactionRow[]).map((t) => t.transaction_id);
 
-    let transactionDetails: any = {};
+    const transactionDetails: Record<string, TransactionDetailRow[]> = {};
     console.log(transactionIds);
     if (transactionIds.length > 0) {
       const placeholders = transactionIds.map(() => '?').join(',');
@@ -345,7 +347,7 @@ export async function handleTransactionsList(request: CFRequest, env: Env): Prom
 
       // Group details by transaction_id
       for (const detail of detailsResult.results) {
-        const detailRecord = detail as any;
+        const detailRecord = detail as TransactionDetailRow;
         const transactionId = detailRecord.transaction_id;
         if (!transactionDetails[transactionId]) {
           transactionDetails[transactionId] = [];
@@ -353,11 +355,11 @@ export async function handleTransactionsList(request: CFRequest, env: Env): Prom
         transactionDetails[transactionId].push(detailRecord);
       }
     }
-    const formattedTransactions = transactionsResult.results.map((transaction: any) => {
+    const formattedTransactions = (transactionsResult.results as TransactionRow[]).map((transaction) => {
       const metadata = JSON.parse(transaction.metadata);
 
       return {
-        id: transaction.transaction_id,
+        id: transaction.id,
         description: transaction.description,
         amount: transaction.amount,
         created_at: transaction.created_at,
@@ -379,4 +381,4 @@ export async function handleTransactionsList(request: CFRequest, env: Env): Prom
     console.error('Transactions list error:', error);
     return createErrorResponse('Internal server error', 500, request, env);
   }
-} 
+}
