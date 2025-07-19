@@ -217,6 +217,8 @@ function Dashboard(): JSX.Element {
       // AppWrapper will handle auth state if 401 error
     } finally {
       setLoading(false);
+      // Scroll to top after submit is complete
+      window.scrollTo(0, 0);
     }
   };
 
