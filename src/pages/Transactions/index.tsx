@@ -57,7 +57,7 @@ const TransactionList: React.FC<{
             <tbody>
               {transactions.map((transaction) => (
                 <React.Fragment key={transaction.id}>
-                  <tr className="transaction-row" data-test-id="transaction-item" onClick={() => handleSelect(transaction)}>
+                  <tr className="transaction-row" data-test-id="transaction-item" data-transaction-id={transaction.transactionId} onClick={() => handleSelect(transaction)}>
                     <td>{dateToFullStr(new Date(transaction.date))}</td>
                     <td className="description-cell">{transaction.description}</td>
                     <td>
@@ -125,16 +125,16 @@ const TransactionList: React.FC<{
 
 function TransactionDetails(selectedTransaction: FrontendTransaction) {
   return (
-    <div className="transaction-details-container">
-      <div className="transaction-full-description">
+    <div className="transaction-details-container" data-test-id={`transaction-details-${selectedTransaction.transactionId}`}>
+      <div className="transaction-full-description" data-test-id="full-description">
         <strong>Full Description:</strong> {selectedTransaction.description}
       </div>
-      <div>
+      <div data-test-id="amount-owed-section">
         Amount owed:{" "}
         {Object.entries(selectedTransaction.amountOwed).map(
           ([user, amount]: [string, number]) => {
             return (
-              <div key={user}>
+              <div key={user} data-test-id={`amount-owed-${user.toLowerCase()}`}>
                 {user}: {getSymbolFromCurrency(selectedTransaction.currency)}
                 {amount.toFixed(2)}
               </div>
@@ -142,11 +142,11 @@ function TransactionDetails(selectedTransaction: FrontendTransaction) {
           }
         )}
       </div>
-      <div>
+      <div data-test-id="paid-by-section">
         Paid by:{" "}
         {Object.entries(selectedTransaction.paidBy).map(([user, amount]: [string, number]) => {
           return (
-            <div key={user}>
+            <div key={user} data-test-id={`paid-by-${user.toLowerCase()}`}>
               {user}: {getSymbolFromCurrency(selectedTransaction.currency)}
               {amount.toFixed(2)}
             </div>
@@ -161,6 +161,7 @@ function TransactionDetails(selectedTransaction: FrontendTransaction) {
             ? "negative" 
             : "zero"
         }
+        data-test-id="total-owed-section"
       >
         {selectedTransaction.totalOwed > 0 
           ? "You are owed " 
@@ -168,7 +169,7 @@ function TransactionDetails(selectedTransaction: FrontendTransaction) {
           ? "You owe " 
           : "No amount owed "
         }
-        <div>
+        <div data-test-id="total-owed-amount">
           {selectedTransaction.totalOwed !== 0 && (selectedTransaction.totalOwed > 0 ? "+" : "-")}
           {getSymbolFromCurrency(selectedTransaction.currency)}
           {Math.abs(selectedTransaction.totalOwed).toFixed(2)}
