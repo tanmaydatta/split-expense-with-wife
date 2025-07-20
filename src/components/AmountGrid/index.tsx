@@ -1,5 +1,5 @@
-import getSymbolFromCurrency from "currency-symbol-map";
 import React from "react";
+import { getCurrencySymbol } from "@/utils/currency";
 import "./index.css";
 
 export interface AmountItem {
@@ -28,7 +28,7 @@ export const AmountGrid: React.FC<AmountGridProps> = ({ amounts, className = "" 
         
         return (
           <div key={`${item.currency}-${index}`} className={itemClassName} data-test-id="amount-item">
-            {sign}{getSymbolFromCurrency(item.currency)}{displayAmount}
+            {sign}{getCurrencySymbol(item.currency)}{displayAmount}
           </div>
         );
       })}

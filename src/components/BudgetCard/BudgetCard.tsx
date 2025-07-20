@@ -1,5 +1,5 @@
 import React from "react";
-import getSymbolFromCurrency from "currency-symbol-map";
+import { getCurrencySymbol } from "@/utils/currency";
 import { Card } from "@/components/Card";
 import { Trash, Calendar, CardText } from "@/components/Icons";
 import { dateToFullStr } from "@/utils/date";
@@ -45,7 +45,7 @@ export const BudgetCard: React.FC<BudgetCardProps> = ({
             className={`amount-value ${entry.amount.startsWith("+") ? "positive" : "negative"}`}
           >
             {entry.amount[0]}
-            {getSymbolFromCurrency(entry.currency)}
+            {getCurrencySymbol(entry.currency)}
             {entry.amount.substring(1)}
           </div>
         </div>

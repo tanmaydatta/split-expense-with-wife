@@ -35,6 +35,7 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
     <Card 
       className="transaction-card"
       data-test-id="transaction-card"
+      data-transaction-id={transaction.transactionId}
       onClick={handleClick}
     >
       <div className="transaction-card-header">

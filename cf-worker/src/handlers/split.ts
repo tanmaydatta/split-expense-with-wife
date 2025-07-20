@@ -319,7 +319,7 @@ export async function handleTransactionsList(request: CFRequest, env: Env): Prom
       FROM transactions t
       WHERE t.group_id = ? AND t.deleted IS NULL
       ORDER BY t.created_at DESC
-      LIMIT 5 OFFSET ?
+      LIMIT 10 OFFSET ?
     `);
 
     const transactionsResult = await transactionsStmt.bind(
