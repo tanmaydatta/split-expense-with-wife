@@ -43,5 +43,5 @@ crons = [ "0 0 1 * *" ]
     database_id = "a721ee7e-a5ee-452d-88d4-ebb97a1f0786" 
 
     [env.dev.vars]
-    ALLOWED_ORIGINS = "https://splitexpense.netlify.app,https://deploy-preview-5--splitexpense.netlify.app,http://localhost:3000,http://localhost:3001"
+    ALLOWED_ORIGINS = "https://staging--splitexpense.netlify.app,https://splitexpense.netlify.app,https://deploy-preview-5--splitexpense.netlify.app,http://localhost:3000,http://localhost:3001"
     GROUP_IDS = "1"

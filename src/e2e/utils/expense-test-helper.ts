@@ -57,6 +57,9 @@ export class ExpenseTestHelper {
   }
 
   async verifySpecificExpenseEntry(description: string, amount: string, currency: string, expectedShare?: string) {
+    await expect(this.authenticatedPage.page).toHaveURL('/expenses');
+    await this.authenticatedPage.page.reload();
+    await this.authenticatedPage.page.waitForTimeout(1000);
     console.log("verifySpecificExpenseEntry", "description", description, "amount", amount, "currency", currency, "expectedShare", expectedShare);
     
     let expenseFound = false;
@@ -136,7 +139,7 @@ export class ExpenseTestHelper {
         
         // Look for "Show more" button using data-test-id
         const showMoreButton = this.authenticatedPage.page.locator('[data-test-id="show-more-button"]');
-        
+        await expect(this.authenticatedPage.page).toHaveURL('/expenses');
         if (await showMoreButton.isVisible({ timeout: 10000 })) {
           console.log("Clicking 'Show more' button to load more expenses");
           await showMoreButton.click();
