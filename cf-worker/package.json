@@ -36,5 +36,6 @@
   "dependencies": {
     "@types/node": "^22.9.0",
     "eslint": "^9.31.0"
-  }
+  },
+  "packageManager": "yarn@4.5.0"
 }

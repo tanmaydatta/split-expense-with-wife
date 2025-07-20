@@ -65,3 +65,10 @@ node_modules/
 /blob-report/
 
 pr-description.md
+
+# Yarn 2+ 
+**/.yarn/install-state.gz
+**/.yarn/cache
+**/.yarn/unplugged
+**/.yarn/build-state.yml
+**/.yarn/install-state.yml
