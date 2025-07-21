@@ -49,7 +49,7 @@ module.exports = [
         varsIgnorePattern: '^_',
         ignoreRestSiblings: true
       }],
-      '@typescript-eslint/no-explicit-any': 'warn',
+      '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/no-non-null-assertion': 'warn',
       
       // General code quality rules
@@ -85,7 +85,7 @@ module.exports = [
   {
     files: ['**/*.test.ts', '**/tests/**/*.ts'],
     rules: {
-      '@typescript-eslint/no-explicit-any': 'off' // Allow any in tests
+      // No special rules for test files - same strict typing applies
     }
   },
   

@@ -2,6 +2,8 @@ import { env, createExecutionContext, waitOnExecutionContext } from 'cloudflare:
 import { describe, it, expect, beforeEach } from 'vitest';
 import worker from '../index';
 import { setupAndCleanDatabase, createTestUserData, createTestSession } from './test-utils';
+import { LoginResponse } from '../types';
+import { TestSuccessResponse } from './types';
 
 describe('Auth handlers', () => {
   beforeEach(async () => {
@@ -30,7 +32,7 @@ describe('Auth handlers', () => {
 
       expect(response.status).toBe(200);
 
-      const json = await response.json() as any;
+      const json = await response.json() as LoginResponse;
       expect(json.username).toBe('testuser');
       expect(json.groupId).toBe(1);
       expect(json.budgets).toEqual(['house', 'food']);
@@ -122,7 +124,7 @@ describe('Auth handlers', () => {
 
       expect(response.status).toBe(200);
 
-      const json = await response.json() as any;
+      const json = await response.json() as TestSuccessResponse;
       expect(json.message).toBe('Logged out successfully');
 
       // Verify session was deleted from database
@@ -147,7 +149,7 @@ describe('Auth handlers', () => {
 
       expect(response.status).toBe(200);
 
-      const json = await response.json() as any;
+      const json = await response.json() as TestSuccessResponse;
       expect(json.message).toBe('Logged out successfully');
     });
 

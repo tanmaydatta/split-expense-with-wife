@@ -2,6 +2,7 @@ import { env, createExecutionContext, waitOnExecutionContext } from 'cloudflare:
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import worker from '../index';
 import { setupAndCleanDatabase, createTestUserData, createTestSession } from './test-utils';
+import { TestSuccessResponse, TestTransactionCreateResponse, TestTransactionsListResponse, TestErrorResponse, TestTransactionDbResult, TestTransactionUserDbResult } from './types';
 
 describe('Split Handlers', () => {
   beforeEach(async () => {
@@ -44,7 +45,7 @@ describe('Split Handlers', () => {
       await waitOnExecutionContext(ctx);
 
       expect(response.status).toBe(200);
-      const json = await response.json() as any;
+      const json = await response.json() as TestSuccessResponse;
       expect(json.message).toBe('Split created successfully');
 
       // Verify the mock was called with the correct URL
@@ -98,15 +99,16 @@ describe('Split Handlers', () => {
       await waitOnExecutionContext(ctx);
 
       expect(response.status).toBe(200);
-      const json = await response.json() as any;
+      const json = await response.json() as TestTransactionCreateResponse;
       expect(json.message).toBe('Split created successfully');
       expect(json.transactionId).toBeDefined();
 
       // Verify the transaction was stored in database
       const transactionResult = await env.DB.prepare('SELECT * FROM transactions WHERE transaction_id = ?').bind(json.transactionId).first();
       expect(transactionResult).toBeTruthy();
-      expect((transactionResult as any).description).toBe('Groceries');
-      expect((transactionResult as any).amount).toBe(200);
+      const transaction = transactionResult as TestTransactionDbResult;
+      expect(transaction.description).toBe('Groceries');
+      expect(transaction.amount).toBe(200);
 
       vi.unstubAllGlobals();
     });
@@ -145,7 +147,7 @@ describe('Split Handlers', () => {
       await waitOnExecutionContext(ctx);
 
       expect(response.status).toBe(200);
-      const json = await response.json() as any;
+      const json = await response.json() as TestTransactionCreateResponse;
       expect(json.message).toBe('Split created successfully');
       expect(json.transactionId).toBeDefined();
 
@@ -192,7 +194,7 @@ describe('Split Handlers', () => {
       await waitOnExecutionContext(ctx);
 
       expect(response.status).toBe(200);
-      const json = await response.json() as any;
+      const json = await response.json() as TestTransactionCreateResponse;
       expect(json.message).toBe('Split created successfully');
       expect(json.transactionId).toBeDefined();
 
@@ -234,7 +236,7 @@ describe('Split Handlers', () => {
       await waitOnExecutionContext(ctx);
 
       expect(response.status).toBe(400);
-      const json = await response.json() as any;
+      const json = await response.json() as TestErrorResponse;
       expect(json.error).toBe('Split percentages must total 100%');
     });
 
@@ -264,7 +266,7 @@ describe('Split Handlers', () => {
       await waitOnExecutionContext(ctx);
 
       expect(response.status).toBe(400);
-      const json = await response.json() as any;
+      const json = await response.json() as TestErrorResponse;
       expect(json.error).toBe('Paid amounts must equal total amount');
     });
   });
@@ -296,7 +298,7 @@ describe('Split Handlers', () => {
       await waitOnExecutionContext(ctx);
 
       expect(response.status).toBe(200);
-      const json = await response.json() as any;
+      const json = await response.json() as TestSuccessResponse;
       expect(json.message).toBe('Transaction deleted successfully');
     });
   });
@@ -328,7 +330,7 @@ describe('Split Handlers', () => {
       await waitOnExecutionContext(ctx);
 
       expect(response.status).toBe(200);
-      const json = await response.json() as any;
+      const json = await response.json() as TestSuccessResponse;
       expect(json.message).toBe('Transaction created successfully');
     });
 
@@ -358,14 +360,14 @@ describe('Split Handlers', () => {
       await waitOnExecutionContext(ctx);
 
       expect(response.status).toBe(200);
-      const json = await response.json() as any;
+      const json = await response.json() as TestTransactionCreateResponse;
       expect(json.message).toBe('Transaction created successfully');
       expect(json.transactionId).toBeDefined();
 
       // Verify the transaction was stored in database
       const transactionResult = await env.DB.prepare('SELECT * FROM transactions WHERE transaction_id = ?').bind(json.transactionId).first();
       expect(transactionResult).toBeTruthy();
-      expect((transactionResult as any).amount).toBe(150);
+      expect((transactionResult as TestTransactionDbResult).amount).toBe(150);
     });
 
     it('should create a new split with 3 users (equal shares)', async () => {
@@ -394,7 +396,7 @@ describe('Split Handlers', () => {
       await waitOnExecutionContext(ctx);
 
       expect(response.status).toBe(200);
-      const json = await response.json() as any;
+      const json = await response.json() as TestTransactionCreateResponse;
       expect(json.message).toBe('Transaction created successfully');
       expect(json.transactionId).toBeDefined();
 
@@ -431,7 +433,7 @@ describe('Split Handlers', () => {
       await waitOnExecutionContext(ctx);
 
       expect(response.status).toBe(200);
-      const json = await response.json() as any;
+      const json = await response.json() as TestTransactionCreateResponse;
       expect(json.message).toBe('Transaction created successfully');
       expect(json.transactionId).toBeDefined();
 
@@ -442,9 +444,9 @@ describe('Split Handlers', () => {
       expect(userTransactions.results.length).toBe(3);
 
       // Check that the amounts match the expected split
-      const user1Transaction = userTransactions.results.find((t: any) => t.user_id === 1);
+      const user1Transaction = userTransactions.results.find((t: TestTransactionUserDbResult) => t.user_id === 1);
       expect(user1Transaction).toBeTruthy();
-      expect((user1Transaction as any).amount).toBe(200); // 40% of 500
+      expect((user1Transaction as TestTransactionUserDbResult).amount).toBe(200); // 40% of 500
     });
 
     it('should create a new split with multiple people paying', async () => {
@@ -473,14 +475,14 @@ describe('Split Handlers', () => {
       await waitOnExecutionContext(ctx);
 
       expect(response.status).toBe(200);
-      const json = await response.json() as any;
+      const json = await response.json() as TestTransactionCreateResponse;
       expect(json.message).toBe('Transaction created successfully');
       expect(json.transactionId).toBeDefined();
 
       // Verify the transaction was stored
       const transactionResult = await env.DB.prepare('SELECT * FROM transactions WHERE transaction_id = ?').bind(json.transactionId).first();
       expect(transactionResult).toBeTruthy();
-      expect((transactionResult as any).amount).toBe(240);
+      expect((transactionResult as TestTransactionDbResult).amount).toBe(240);
     });
 
     it('should reject invalid split percentages in split_new', async () => {
@@ -509,7 +511,7 @@ describe('Split Handlers', () => {
       await waitOnExecutionContext(ctx);
 
       expect(response.status).toBe(400);
-      const json = await response.json() as any;
+      const json = await response.json() as TestErrorResponse;
       expect(json.error).toBe('Split percentages must total 100%');
     });
 
@@ -539,7 +541,7 @@ describe('Split Handlers', () => {
       await waitOnExecutionContext(ctx);
 
       expect(response.status).toBe(400);
-      const json = await response.json() as any;
+      const json = await response.json() as TestErrorResponse;
       expect(json.error).toBe('Paid amounts must equal total amount');
     });
   });
@@ -569,7 +571,7 @@ describe('Split Handlers', () => {
       await waitOnExecutionContext(ctx);
 
       expect(response.status).toBe(200);
-      const json = await response.json() as any;
+      const json = await response.json() as TestTransactionsListResponse;
       expect(json.transactions[0].description).toBe('Transaction 1');
     });
   });

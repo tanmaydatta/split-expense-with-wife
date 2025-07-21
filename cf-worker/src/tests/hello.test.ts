@@ -1,6 +1,7 @@
 import { env, createExecutionContext, waitOnExecutionContext } from 'cloudflare:test';
 import { describe, it, expect } from 'vitest';
 import worker from '../index';
+import { TestHelloResponse } from './types';
 
 describe('Hello World handler', () => {
   it("should return a 'Hello World!' message", async () => {
@@ -13,7 +14,7 @@ describe('Hello World handler', () => {
 
     expect(response.status).toBe(200);
 
-    const json = await response.json() as any;
+    const json = await response.json() as TestHelloResponse;
     expect(json).toHaveProperty('message', 'Hello World!');
     expect(json).toHaveProperty('timestamp');
     expect(json).toHaveProperty('worker', 'split-expense-worker');
@@ -29,7 +30,7 @@ describe('Hello World handler', () => {
 
     expect(response.status).toBe(200);
 
-    const json = await response.json() as any;
+    const json = await response.json() as TestHelloResponse;
     expect(json).toHaveProperty('message', 'Hello World!');
   });
 

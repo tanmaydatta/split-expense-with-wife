@@ -131,3 +131,47 @@ export interface TransactionDetailRow {
   deleted?: string;
   first_name: string;
 }
+
+// Utility types for balance calculations
+export interface SplitAmount {
+  user_id: number;
+  amount: number;
+  owed_to_user_id: number;
+  currency: string;
+}
+
+export interface BatchStatement {
+  sql: string;
+  params: (string | number)[];
+}
+
+export interface UserBalance {
+  user_id: number;
+  owed_to_user_id: number;
+  currency: string;
+  amount: number;
+}
+
+export interface BudgetTotal {
+  currency: string;
+  amount: number;
+}
+
+// Budget handler types
+export interface BudgetEntry {
+  name: string;
+  currency: string;
+  amount: number;
+}
+
+export type UserBalancesByUser = Record<string, Record<string, number>>;
+
+// Split handler types
+export interface SplitwiseResponse {
+  id: number;
+}
+
+export interface TransactionCreateResponse {
+  message: string;
+  transactionId: string;
+}

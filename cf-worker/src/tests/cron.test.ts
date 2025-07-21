@@ -3,6 +3,7 @@ import { env} from 'cloudflare:test';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { handleCron } from '../handlers/cron';
 import { setupAndCleanDatabase } from './test-utils';
+import { TestBudgetListItem } from './types';
 
 describe('Cron Handler', () => {
   beforeEach(async () => {
@@ -26,19 +27,20 @@ describe('Cron Handler', () => {
     expect(budgetEntries.results).toHaveLength(3); // house, aayushi, tanmay (invalid_budget should be skipped)
 
     // Check specific entries
-    const houseEntry = budgetEntries.results.find((entry: any) => entry.name === 'house');
-    expect(houseEntry).toBeDefined();
-    expect(houseEntry.amount).toBe(800);
-    expect(houseEntry.groupid).toBe(1);
+    const results = budgetEntries.results as TestBudgetListItem[];
+    const houseEntry = results.find((entry: TestBudgetListItem) => entry.name === 'house');
+    expect(houseEntry).toBeTruthy();
+    expect((houseEntry as TestBudgetListItem).amount).toBe(800);
+    expect((houseEntry as TestBudgetListItem).groupid).toBe(1);
 
-    const aayushiEntry = budgetEntries.results.find((entry: any) => entry.name === 'aayushi');
-    expect(aayushiEntry).toBeDefined();
-    expect(aayushiEntry.amount).toBe(133);
-    expect(aayushiEntry.groupid).toBe(1);
+    const aayushiEntry = results.find((entry: TestBudgetListItem) => entry.name === 'aayushi');
+    expect(aayushiEntry).toBeTruthy();
+    expect((aayushiEntry as TestBudgetListItem).amount).toBe(133);
+    expect((aayushiEntry as TestBudgetListItem).groupid).toBe(1);
 
-    const tanmayEntry = budgetEntries.results.find((entry: any) => entry.name === 'tanmay');
-    expect(tanmayEntry).toBeDefined();
-    expect(tanmayEntry.amount).toBe(150);
-    expect(tanmayEntry.groupid).toBe(2);
+    const tanmayEntry = results.find((entry: TestBudgetListItem) => entry.name === 'tanmay');
+    expect(tanmayEntry).toBeTruthy();
+    expect((tanmayEntry as TestBudgetListItem).amount).toBe(150);
+    expect((tanmayEntry as TestBudgetListItem).groupid).toBe(2);
   });
 });

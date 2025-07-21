@@ -5,7 +5,11 @@ import {
   User,
   Group,
   CFRequest,
-  UserRow
+  UserRow,
+  SplitAmount,
+  BatchStatement,
+  UserBalance,
+  BudgetTotal
 } from './types';
 
 
@@ -197,7 +201,7 @@ export function createErrorResponse(error: string, status: number = 500, request
 }
 
 // Execute database batch operations
-export async function executeBatch(env: Env, statements: { sql: string; params: unknown[] }[]): Promise<void> {
+export async function executeBatch(env: Env, statements: BatchStatement[]): Promise<void> {
   const preparedStatements = statements.map(stmt => {
     return env.DB.prepare(stmt.sql).bind(...stmt.params);
   });
@@ -308,4 +312,113 @@ export function calculateSplitAmounts(
   }
 
   return amounts;
+}
+
+// Utility function to generate balance update statements (without executing them)
+export function generateBalanceUpdateStatements(
+  splitAmounts: SplitAmount[],
+  groupId: string,
+  operation: 'add' | 'remove'
+): BatchStatement[] {
+  const multiplier = operation === 'add' ? 1 : -1;
+
+  return splitAmounts.map(split => ({
+    sql: `INSERT INTO user_balances (group_id, user_id, owed_to_user_id, currency, balance, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?)
+          ON CONFLICT(group_id, user_id, owed_to_user_id, currency) 
+          DO UPDATE SET 
+            balance = balance + ?,
+            updated_at = ?`,
+    params: [
+      groupId,
+      split.user_id,
+      split.owed_to_user_id,
+      split.currency,
+      split.amount * multiplier,
+      formatSQLiteTime(),
+      split.amount * multiplier,
+      formatSQLiteTime()
+    ]
+  }));
+}
+
+// Utility function to rebuild balances for a specific group (for data integrity)
+export async function rebuildGroupBalances(env: Env, groupId: string): Promise<void> {
+  const currentTime = formatSQLiteTime();
+
+  const batchStatements = [
+    {
+      sql: 'DELETE FROM user_balances WHERE group_id = ?',
+      params: [groupId]
+    },
+    {
+      sql: `INSERT INTO user_balances (group_id, user_id, owed_to_user_id, currency, balance, updated_at)
+            SELECT 
+              group_id,
+              user_id,
+              owed_to_user_id,
+              currency,
+              sum(amount) as balance,
+              ? as updated_at
+            FROM transaction_users 
+            WHERE group_id = ? AND deleted IS NULL 
+            GROUP BY group_id, user_id, owed_to_user_id, currency`,
+      params: [currentTime, groupId]
+    }
+  ];
+
+  await executeBatch(env, batchStatements);
+}
+
+// Utility function to get balances from materialized table
+export async function getUserBalances(env: Env, groupId: string): Promise<UserBalance[]> {
+  const balancesStmt = env.DB.prepare(`
+    SELECT user_id, owed_to_user_id, currency, balance as amount 
+    FROM user_balances 
+    WHERE group_id = ? AND balance != 0
+  `);
+
+  const balancesResult = await balancesStmt.bind(groupId).all();
+  return balancesResult.results as UserBalance[];
+}
+
+// Utility function to generate budget total update statements
+export function generateBudgetTotalUpdateStatements(
+  groupId: number,
+  name: string,
+  currency: string,
+  amount: number,
+  operation: 'add' | 'remove'
+): BatchStatement[] {
+  const multiplier = operation === 'add' ? 1 : -1;
+
+  return [{
+    sql: `INSERT INTO budget_totals (group_id, name, currency, total_amount, updated_at)
+          VALUES (?, ?, ?, ?, ?)
+          ON CONFLICT(group_id, name, currency) 
+          DO UPDATE SET 
+            total_amount = total_amount + ?,
+            updated_at = ?`,
+    params: [
+      groupId,
+      name,
+      currency,
+      amount * multiplier,
+      formatSQLiteTime(),
+      amount * multiplier,
+      formatSQLiteTime()
+    ]
+  }];
+}
+
+// Utility function to get budget totals from materialized table
+export async function getBudgetTotals(env: Env, groupId: string, name: string): Promise<BudgetTotal[]> {
+  const totalsStmt = env.DB.prepare(`
+    SELECT currency, total_amount as amount 
+    FROM budget_totals 
+    WHERE group_id = ? AND name = ?
+  `);
+
+  const totalsResult = await totalsStmt.bind(groupId, name).all();
+  return totalsResult.results as BudgetTotal[];
 }
