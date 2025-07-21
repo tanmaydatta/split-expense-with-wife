@@ -18,13 +18,13 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: '22'
-        cache: 'npm'
+        cache: 'yarn'
     
     - name: Install dependencies
-      run: npm ci
+      run: yarn install --immutable
     
     - name: Run React linting
-      run: npm run lint
+      run: yarn lint
 
   lint-cf-worker:
     name: Lint CF Worker
@@ -37,17 +37,18 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: '22'
-        cache: 'npm'
+        cache: 'yarn'
+        cache-dependency-path: 'cf-worker/yarn.lock'
     
     - name: Install CF Worker dependencies
       run: |
         cd cf-worker
-        npm ci
+        yarn install --immutable
     
     - name: Run CF Worker linting
       run: |
         cd cf-worker
-        npm run lint
+        yarn lint
 
   test-cf-worker:
     name: Test CF Worker
@@ -61,14 +62,15 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: '22'
-        cache: 'npm'
+        cache: 'yarn'
+        cache-dependency-path: 'cf-worker/yarn.lock'
     
     - name: Install CF Worker dependencies
       run: |
         cd cf-worker
-        npm ci
+        yarn install --immutable
     
     - name: Run CF Worker tests
       run: |
         cd cf-worker
-        npm test 
+        yarn test 
