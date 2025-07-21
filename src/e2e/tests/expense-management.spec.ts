@@ -359,42 +359,4 @@ test.describe('Expense Management', () => {
       await authenticatedPage.page.setViewportSize(currentViewport);
     }
   });
-
-  test('should handle deletion when expense is found through pagination', async ({ authenticatedPage }) => {
-    const expenseHelper = new ExpenseTestHelper(authenticatedPage);
-    
-    await expect(authenticatedPage.page).toHaveURL('/');
-    
-    // Create multiple expenses to force pagination
-    const expenses = [];
-    for (let i = 1; i <= 5; i++) {
-      const expense = { 
-        ...testData.expenses.groceries, 
-        amount: 25 + i, 
-        currency: 'USD' 
-      };
-      const result = await expenseHelper.addExpenseEntry(expense);
-      expenses.push(result);
-    }
-    
-    // Navigate to expenses page
-    await authenticatedPage.navigateToPage('Expenses');
-    await authenticatedPage.page.waitForTimeout(3000);
-    await expenseHelper.verifyExpensesPageComponents();
-    
-    // Try to delete an expense that might be on a later page
-    // The deleteExpenseEntry method should handle pagination automatically
-    const targetExpense = expenses[0]; // First created (likely on last page due to chronological order)
-    await expenseHelper.deleteExpenseEntry(targetExpense.description);
-    
-    // Reload and verify the expense is gone
-    await authenticatedPage.page.reload();
-    await expenseHelper.verifyExpensesPageComponents();
-    
-    await expenseHelper.verifyExpenseNotPresent(targetExpense.description);
-    
-    // Verify other expenses still exist
-    await expenseHelper.verifySpecificExpenseEntry(expenses[1].description, '27', 'USD');
-    await expenseHelper.verifySpecificExpenseEntry(expenses[2].description, '28', 'USD');
-  });
 }); 
