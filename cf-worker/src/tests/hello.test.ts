@@ -1,11 +1,11 @@
-import { env, createExecutionContext, waitOnExecutionContext } from "cloudflare:test";
-import { describe, it, expect } from "vitest";
-import worker from "../index";
+import { env, createExecutionContext, waitOnExecutionContext } from 'cloudflare:test';
+import { describe, it, expect } from 'vitest';
+import worker from '../index';
 
-describe("Hello World handler", () => {
+describe('Hello World handler', () => {
   it("should return a 'Hello World!' message", async () => {
-    const request = new Request("http://example.com/hello", {
-      method: "GET",
+    const request = new Request('http://example.com/hello', {
+      method: 'GET'
     });
     const ctx = createExecutionContext();
     const response = await worker.fetch(request, env, ctx);
@@ -14,14 +14,14 @@ describe("Hello World handler", () => {
     expect(response.status).toBe(200);
 
     const json = await response.json() as any;
-    expect(json).toHaveProperty("message", "Hello World!");
-    expect(json).toHaveProperty("timestamp");
-    expect(json).toHaveProperty("worker", "split-expense-worker");
+    expect(json).toHaveProperty('message', 'Hello World!');
+    expect(json).toHaveProperty('timestamp');
+    expect(json).toHaveProperty('worker', 'split-expense-worker');
   });
 
-  it("should work on root path", async () => {
-    const request = new Request("http://example.com/", {
-      method: "GET",
+  it('should work on root path', async () => {
+    const request = new Request('http://example.com/', {
+      method: 'GET'
     });
     const ctx = createExecutionContext();
     const response = await worker.fetch(request, env, ctx);
@@ -30,18 +30,18 @@ describe("Hello World handler", () => {
     expect(response.status).toBe(200);
 
     const json = await response.json() as any;
-    expect(json).toHaveProperty("message", "Hello World!");
+    expect(json).toHaveProperty('message', 'Hello World!');
   });
 
-  it("should handle OPTIONS request", async () => {
-    const request = new Request("http://example.com/hello", {
-      method: "OPTIONS",
+  it('should handle OPTIONS request', async () => {
+    const request = new Request('http://example.com/hello', {
+      method: 'OPTIONS'
     });
     const ctx = createExecutionContext();
     const response = await worker.fetch(request, env, ctx);
     await waitOnExecutionContext(ctx);
 
     expect(response.status).toBe(200);
-    expect(response.headers.get("Access-Control-Allow-Methods")).toContain("GET");
+    expect(response.headers.get('Access-Control-Allow-Methods')).toContain('GET');
   });
 });

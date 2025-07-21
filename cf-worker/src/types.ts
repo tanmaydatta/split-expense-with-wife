@@ -96,4 +96,38 @@ export interface CookieOptions {
   maxAge?: number;
   expires?: Date;
   domain?: string;
-} 
+}
+
+// Database result types
+export interface UserRow {
+  id: number;
+  username: string;
+  first_name: string;
+  last_name: string;
+  groupid: number;
+  password: string;
+  created_at: string;
+}
+
+export interface TransactionRow {
+  id: number;
+  description: string;
+  amount: number;
+  created_at: string;
+  metadata: string;
+  currency: string;
+  transaction_id: string;
+  group_id: number;
+  deleted?: string;
+}
+
+export interface TransactionDetailRow {
+  transaction_id: string;
+  user_id: number;
+  amount: number;
+  owed_to_user_id: number;
+  group_id: number;
+  currency: string;
+  deleted?: string;
+  first_name: string;
+}

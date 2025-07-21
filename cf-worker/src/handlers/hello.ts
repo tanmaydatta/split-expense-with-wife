@@ -8,4 +8,4 @@ export async function handleHelloWorld(request: CFRequest, env: Env): Promise<Re
     timestamp: new Date().toISOString(),
     worker: 'split-expense-worker'
   }, 200, {}, request, env);
-} 
+}

@@ -1,5 +1,4 @@
-8
-- consistent types - ✅
+9
 - finish e2e tests
     - mobile version as well
     - data-test-id
@@ -8,15 +7,17 @@
 - very big check boxes
 - avg line not on the right
 - remove all alerts
+- add/remove budgets
+- change defaults feat
 - retire netlify functions
-- prettier ui on mobile
 - remove pin
 - use jwt so that verification is done with making db call
 - drizzle
-- search
 - change defaults feat
+- sessions api
 - schedule actions
 - scan receipt
 - full text search
 - transaction/add
 - budget/add
+- group context

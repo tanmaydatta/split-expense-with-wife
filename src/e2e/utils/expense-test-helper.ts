@@ -59,7 +59,7 @@ export class ExpenseTestHelper {
   async verifySpecificExpenseEntry(description: string, amount: string, currency: string, expectedShare?: string) {
     await expect(this.authenticatedPage.page).toHaveURL('/expenses');
     await this.authenticatedPage.page.reload();
-    await this.authenticatedPage.page.waitForTimeout(1000);
+    await this.authenticatedPage.page.waitForTimeout(2000);
     console.log("verifySpecificExpenseEntry", "description", description, "amount", amount, "currency", currency, "expectedShare", expectedShare);
     
     let expenseFound = false;

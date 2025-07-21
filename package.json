@@ -23,7 +23,6 @@
     "crypto-js": "^4.1.1",
     "currency-symbol-map": "^5.1.0",
     "install": "^0.13.0",
-    "npm": "^9.5.1",
     "react": "^18.2.0",
     "react-cookie": "^7.0.1",
     "react-dom": "^18.2.0",
@@ -59,7 +58,7 @@
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:report": "playwright show-report",
     "test:e2e:install": "playwright install --with-deps",
-    "test:all": "npm run test && npm run test:e2e",
+    "test:all": "yarn test && yarn test:e2e",
     "eject": "react-scripts eject",
     "prepare": "husky",
     "lint": "eslint 'src/**/*.{ts,tsx}' --max-warnings 0"
