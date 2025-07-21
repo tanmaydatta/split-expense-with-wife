@@ -217,6 +217,7 @@ function Dashboard(): JSX.Element {
       // AppWrapper will handle auth state if 401 error
     } finally {
       setLoading(false);
+      scrollToTop();
     }
   };
 
@@ -226,6 +227,28 @@ function Dashboard(): JSX.Element {
         user.Id === userId ? { ...user, percentage } : user
       )
     );
+  };
+
+  const scrollToTop = () => {
+    // Find the scrollable container by traversing up the DOM
+    const findScrollableParent = (element: Element | null): Element | null => {
+      if (!element) return null;
+      const style = window.getComputedStyle(element);
+      if (style.overflow === 'auto' || style.overflowY === 'auto' || style.overflow === 'scroll' || style.overflowY === 'scroll') {
+        return element;
+      }
+      return findScrollableParent(element.parentElement);
+    };
+    
+    const dashboardElement = document.querySelector('[data-test-id="dashboard-container"]');
+    const scrollableContainer = findScrollableParent(dashboardElement);
+    
+    if (scrollableContainer) {
+      scrollableContainer.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      // Fallback to window scroll
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   };
 
   if (!isAuthenticated) {
