@@ -151,7 +151,8 @@ class TransactionBalanceTestHelper {
 
   async verifyBalances(expectedBalances: Record<string, Record<string, number>>) {
     console.log("Verifying expected balances");
-
+    await this.authenticatedPage.page.reload();
+    await this.authenticatedPage.page.waitForTimeout(1000);
     const currentBalances = await this.getCurrentBalances();
 
     // Verify each expected balance
