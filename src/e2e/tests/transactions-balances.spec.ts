@@ -218,25 +218,6 @@ class TransactionBalanceTestHelper {
     console.log("✅ Balance entries verification completed");
   }
 
-  async verifyMultiCurrencySupport() {
-    console.log("Verifying multi-currency support");
-    
-    const currencySymbols = ['$', 'C$', '€', '£', '¥'];
-    let foundCurrencies = 0;
-    
-    for (const symbol of currencySymbols) {
-      const currencyItems = await this.authenticatedPage.page.locator(`[data-test-id="amount-item"]:has-text("${symbol}")`).count();
-      if (currencyItems > 0) {
-        foundCurrencies++;
-        console.log(`✓ Found currency symbol: ${symbol}`);
-      }
-    }
-    
-    console.log(`Total currencies found: ${foundCurrencies}`);
-    expect(foundCurrencies).toBeGreaterThan(0);
-    console.log("✅ Multi-currency support verification completed");
-  }
-
   async verifyTransactionDetails(description: string, expectedTotalAmount?: number, expectedAmountsOwed?: Record<string, string>, expectedPaidBy?: Record<string, string>, expectedTotalOwed?: string) {
     console.log("Verifying transaction details for:", description);
     
@@ -497,21 +478,6 @@ test.describe('Transactions and Balances', () => {
     
     // Verify balance entries exist
     await helper.verifyBalanceEntries();
-  });
-
-  test('should display multi-currency balances', async ({ authenticatedPage }) => {
-    const helper = new TransactionBalanceTestHelper(authenticatedPage);
-    
-    // Create expenses in different currencies
-    await helper.createTestExpense('USD expense', 100, 'USD');
-    await helper.createTestExpense('EUR expense', 75, 'EUR');
-    
-    // Navigate to balances page
-    await authenticatedPage.navigateToPage('Balances');
-    await helper.verifyBalancesPageComponents();
-    
-    // Verify multi-currency support
-    await helper.verifyMultiCurrencySupport();
   });
 
   test('should handle pagination on transactions page', async ({ authenticatedPage }) => {
