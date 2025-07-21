@@ -87,12 +87,14 @@ CREATE INDEX IF NOT EXISTS sessions_sessionid_idx ON sessions(sessionid);
 CREATE INDEX IF NOT EXISTS transactions_group_id_deleted_created_at_idx ON transactions(group_id, deleted, created_at DESC);
 CREATE INDEX IF NOT EXISTS budget_name_groupid_deleted_idx ON budget(name, groupid, deleted);
 CREATE INDEX IF NOT EXISTS budget_name_groupid_deleted_added_time_amount_idx ON budget(name, groupid, deleted, added_time, amount);
+CREATE INDEX IF NOT EXISTS budget_monthly_query_idx ON budget(name, groupid, deleted, added_time) WHERE amount < 0;
 CREATE INDEX IF NOT EXISTS transaction_users_group_id_deleted_idx ON transaction_users(group_id, deleted);
 -- Optimized indexes for balance calculations
 CREATE INDEX IF NOT EXISTS transaction_users_balances_idx ON transaction_users(group_id, deleted, user_id, owed_to_user_id, currency);
 CREATE INDEX IF NOT EXISTS transaction_users_group_user_idx ON transaction_users(group_id, user_id, deleted);
 CREATE INDEX IF NOT EXISTS transaction_users_group_owed_idx ON transaction_users(group_id, owed_to_user_id, deleted);
 CREATE INDEX IF NOT EXISTS transaction_users_transaction_idx ON transaction_users(transaction_id, deleted);
+CREATE INDEX IF NOT EXISTS transaction_users_transaction_group_idx ON transaction_users(transaction_id, group_id, deleted);
 -- Indexes for user_balances table
 CREATE INDEX IF NOT EXISTS user_balances_group_user_idx ON user_balances(group_id, user_id, currency);
 CREATE INDEX IF NOT EXISTS user_balances_group_owed_idx ON user_balances(group_id, owed_to_user_id, currency);

@@ -2,6 +2,15 @@ import { defineConfig, devices } from '@playwright/test';
 
 /**
  * @see https://playwright.dev/docs/test-configuration
+ * 
+ * To enable slow motion for debugging, use:
+ * PLAYWRIGHT_SLOWMO=1000 yarn playwright test --headed
+ * 
+ * Or use debug mode (enables slow motion automatically):
+ * yarn playwright test --debug
+ * 
+ * For specific tests:
+ * PLAYWRIGHT_SLOWMO=500 yarn playwright test --grep "test name" --headed
  */
 export default defineConfig({
   testDir: './src/e2e',
@@ -29,6 +38,11 @@ export default defineConfig({
     
     /* Video on failure */
     video: 'retain-on-failure',
+    
+    /* Slow motion for debugging via environment variable */
+    launchOptions: {
+      slowMo: process.env.PLAYWRIGHT_SLOWMO ? parseInt(process.env.PLAYWRIGHT_SLOWMO, 10) : 0,
+    },
   },
 
   /* Configure projects for major browsers */
