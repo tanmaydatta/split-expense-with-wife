@@ -59,6 +59,7 @@ schema.pg.sql
 /cf-worker/.dev.vars
 /cf-worker/.wrangler/
 /cf-worker/*.sql
+!/cf-worker/dev-schema.sql
 
 # Playwright
 node_modules/

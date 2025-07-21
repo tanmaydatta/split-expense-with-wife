@@ -238,4 +238,109 @@ export class ExpenseTestHelper {
     await expect(this.authenticatedPage.page.locator('[data-test-id="pin-input"]')).toBeVisible();
     await expect(this.authenticatedPage.page.locator('[data-test-id="submit-button"]')).toBeVisible();
   }
+
+  async deleteExpenseEntry(description: string): Promise<void> {
+    console.log("Attempting to delete expense with description:", description);
+    
+    // Navigate to expenses page if not already there
+    if (!this.authenticatedPage.page.url().includes('/expenses')) {
+      await this.authenticatedPage.navigateToPage('Expenses');
+    }
+    await this.authenticatedPage.page.reload();
+    await this.authenticatedPage.page.waitForTimeout(2000);
+    // First find the expense entry
+    let expenseFound = false;
+    let deleteButton = null;
+    let attempts = 0;
+    const maxAttempts = 8;
+
+    while (!expenseFound && attempts <= maxAttempts) {
+      attempts++;
+      console.log(`Attempt ${attempts} to find expense for deletion: ${description}`);
+      
+      // Check viewport to determine if we're on mobile or desktop
+      const isMobile = await this.authenticatedPage.isMobile();
+      
+      if (isMobile) {
+        // On mobile, look for the card with the description and find its delete button
+        const expenseCards = this.authenticatedPage.page.locator('[data-test-id="transaction-card"]');
+        const cardCount = await expenseCards.count();
+        
+        for (let i = 0; i < cardCount; i++) {
+          const card = expenseCards.nth(i);
+          const text = await card.textContent();
+          if (text && text.includes(description)) {
+            // Mobile uses button with data-test-id="delete-button"
+            deleteButton = card.locator('[data-test-id="delete-button"]');
+            if (await deleteButton.isVisible({ timeout: 2000 })) {
+              expenseFound = true;
+              console.log(`Found expense for deletion on mobile: ${description}`);
+              break;
+            }
+          }
+        }
+      } else {
+        // On desktop, look for the table row with the description and find its delete button
+        const expenseRows = this.authenticatedPage.page.locator('[data-test-id="transaction-item"]');
+        const rowCount = await expenseRows.count();
+        
+        for (let i = 0; i < rowCount; i++) {
+          const row = expenseRows.nth(i);
+          const text = await row.textContent();
+          if (text && text.includes(description)) {
+            // Desktop uses delete button with data-test-id="delete-button"
+            deleteButton = row.locator('[data-test-id="delete-button"]');
+            if (await deleteButton.isVisible({ timeout: 2000 })) {
+              expenseFound = true;
+              console.log(`Found expense for deletion on desktop: ${description}`);
+              break;
+            }
+          }
+        }
+      }
+
+      // If we found the expense and delete button, proceed with deletion
+      if (expenseFound && deleteButton) {
+        break; // Exit the search loop
+      }
+
+      // If not found and we have attempts left, try clicking "Show more"
+      if (!expenseFound && attempts <= maxAttempts) {
+        const showMoreButton = this.authenticatedPage.page.locator('[data-test-id="show-more-button"]');
+        if (await showMoreButton.isVisible({ timeout: 2000 })) {
+          console.log("Clicking 'Show more' button to load more expenses");
+          await showMoreButton.click();
+          // Wait for new expenses to load instead of fixed timeout
+          await this.verifyExpensesPageComponents();
+        } else {
+          console.log("No 'Show more' button found, stopping pagination attempts");
+          break;
+        }
+      }
+    }
+
+    // Expect that we found the expense for deletion
+    expect(expenseFound).toBe(true);
+    expect(deleteButton).not.toBeNull();
+    await expect(deleteButton!).toBeVisible();
+
+    // Note: PIN is not yet implemented for expense deletion in the UI
+
+    // Set up alert handler to capture any confirmation dialogs
+    this.authenticatedPage.page.once('dialog', async (dialog: any) => {
+      console.log(`Dialog message: ${dialog.message()}`);
+      await dialog.accept();
+    });
+
+    // Click delete button and expect it to be clickable
+    await expect(deleteButton!).toBeEnabled();
+    await deleteButton!.click();
+    console.log("Delete button clicked");
+    
+    // Wait for deletion to complete
+    await this.authenticatedPage.waitForLoading();
+    await this.verifyExpensesPageComponents();
+    
+    console.log(`Successfully deleted expense: ${description}`);
+  }
 } 

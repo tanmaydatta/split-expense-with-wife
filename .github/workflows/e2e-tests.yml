@@ -27,11 +27,33 @@ jobs:
     - name: Install dependencies
       run: yarn install --immutable
     
+    - name: Install cf-worker dependencies
+      run: |
+        cd cf-worker
+        yarn install --immutable
+    
     - name: Install Playwright Browsers and System Dependencies
       run: yarn test:e2e:install
     
     - name: Build the application
       run: yarn build
+    
+    - name: Setup local database
+      run: |
+        cd cf-worker
+        # Execute the database schema setup
+        yarn wrangler d1 execute splitexpense-dev --local --file=dev-schema.sql
+        echo "Database schema setup completed!"
+    
+    - name: Start cf-worker locally
+      run: |
+        cd cf-worker
+        yarn dev &
+        echo "Waiting for cf-worker to start..."
+        sleep 10
+        # Wait for cf-worker to be ready (check if port 8787 is responding)
+        timeout 30 bash -c 'until curl -f http://localhost:8787/hello > /dev/null 2>&1; do sleep 2; done'
+        echo "cf-worker is ready!"
     
     - name: Run E2E tests
       run: yarn test:e2e --workers=1
