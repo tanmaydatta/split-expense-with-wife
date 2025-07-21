@@ -684,9 +684,6 @@ test.describe('Transactions and Balances', () => {
     // Check balances after adding both expenses
     await authenticatedPage.navigateToPage('Balances');
     await helper.verifyBalancesPageComponents();
-    const balancesAfterAddition = await helper.getCurrentBalances();
-    console.log("Balances after adding both expenses:", JSON.stringify(balancesAfterAddition, null, 2));
-
     // Calculate expected balances after adding both expenses (deep copy to avoid mutation)
     const expectedAfterAddition = JSON.parse(JSON.stringify(initialBalances));
     if (!expectedAfterAddition['Jane']) expectedAfterAddition['Jane'] = {};
@@ -707,9 +704,6 @@ test.describe('Transactions and Balances', () => {
     // Check balances after deleting first expense
     await authenticatedPage.navigateToPage('Balances');
     await helper.verifyBalancesPageComponents();
-    const balancesAfterFirstDeletion = await helper.getCurrentBalances();
-    console.log("Balances after deleting first expense:", JSON.stringify(balancesAfterFirstDeletion, null, 2));
-
     // Calculate expected balances after deleting first expense (deep copy to avoid mutation)
     // We should be back to initial + second expense only
     const expectedAfterFirstDeletion = JSON.parse(JSON.stringify(initialBalances));
@@ -727,9 +721,6 @@ test.describe('Transactions and Balances', () => {
     // Check final balances after deleting both expenses
     await authenticatedPage.navigateToPage('Balances');
     await helper.verifyBalancesPageComponents();
-    const finalBalances = await helper.getCurrentBalances();
-    console.log("Final balances after deleting both expenses:", JSON.stringify(finalBalances, null, 2));
-
     // Balances should return to initial state
     await helper.verifyBalances(initialBalances);
 
