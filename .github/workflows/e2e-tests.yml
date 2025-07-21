@@ -59,7 +59,7 @@ jobs:
         AUTH_PIN: ${{ secrets.AUTH_PIN }}
     
     - name: Run E2E tests
-      run: yarn test:e2e --workers=1
+      run: yarn test:e2e --workers=1 --reporter=list,html --trace=on
       env:
         AUTH_PIN: ${{ secrets.AUTH_PIN }}
     
