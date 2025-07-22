@@ -712,6 +712,11 @@ describe('Budget Handlers', () => {
       await env.DB.exec("INSERT INTO budget (description, price, added_time, amount, name, groupid, currency) VALUES ('August expense', '-600.00', '2024-08-15 00:00:00', -600, 'house', 1, 'USD')");
       await env.DB.exec("INSERT INTO budget (description, price, added_time, amount, name, groupid, currency) VALUES ('September expense', '-400.00', '2024-09-15 00:00:00', -400, 'house', 1, 'USD')");
 
+      // Populate materialized table for monthly queries
+      await env.DB.exec("INSERT INTO budget_monthly (group_id, name, currency, year, month, total_amount, updated_at) VALUES (1, 'house', 'USD', 2024, 7, -500, '2024-07-15 00:00:00')");
+      await env.DB.exec("INSERT INTO budget_monthly (group_id, name, currency, year, month, total_amount, updated_at) VALUES (1, 'house', 'USD', 2024, 8, -600, '2024-08-15 00:00:00')");
+      await env.DB.exec("INSERT INTO budget_monthly (group_id, name, currency, year, month, total_amount, updated_at) VALUES (1, 'house', 'USD', 2024, 9, -400, '2024-09-15 00:00:00')");
+
       const request = new Request('http://example.com/.netlify/functions/budget_monthly', {
         method: 'POST',
         headers: {
@@ -884,6 +889,27 @@ describe('Budget Handlers', () => {
       await env.DB.exec(`INSERT INTO budget (description, price, added_time, amount, name, groupid, currency) VALUES ('Month 4 expense', '-1100.00', '${getRecentDate(2)}', -1100, 'house', 1, 'USD')`);
       await env.DB.exec(`INSERT INTO budget (description, price, added_time, amount, name, groupid, currency) VALUES ('Month 5 expense', '-900.00', '${getRecentDate(1)}', -900, 'house', 1, 'USD')`);
       await env.DB.exec(`INSERT INTO budget (description, price, added_time, amount, name, groupid, currency) VALUES ('Month 6 expense', '-1300.00', '${getRecentDate(0)}', -1300, 'house', 1, 'USD')`);
+
+      // Populate materialized table for monthly queries
+      const getMonthYear = (monthsBack: number) => {
+        const date = new Date(currentDate);
+        date.setMonth(date.getMonth() - monthsBack);
+        return { year: date.getFullYear(), month: date.getMonth() + 1 };
+      };
+
+      const month1 = getMonthYear(5);
+      const month2 = getMonthYear(4);
+      const month3 = getMonthYear(3);
+      const month4 = getMonthYear(2);
+      const month5 = getMonthYear(1);
+      const month6 = getMonthYear(0);
+
+      await env.DB.exec(`INSERT INTO budget_monthly (group_id, name, currency, year, month, total_amount, updated_at) VALUES (1, 'house', 'USD', ${month1.year}, ${month1.month}, -1000, '${getRecentDate(5)}')`);
+      await env.DB.exec(`INSERT INTO budget_monthly (group_id, name, currency, year, month, total_amount, updated_at) VALUES (1, 'house', 'USD', ${month2.year}, ${month2.month}, -1200, '${getRecentDate(4)}')`);
+      await env.DB.exec(`INSERT INTO budget_monthly (group_id, name, currency, year, month, total_amount, updated_at) VALUES (1, 'house', 'USD', ${month3.year}, ${month3.month}, -800, '${getRecentDate(3)}')`);
+      await env.DB.exec(`INSERT INTO budget_monthly (group_id, name, currency, year, month, total_amount, updated_at) VALUES (1, 'house', 'USD', ${month4.year}, ${month4.month}, -1100, '${getRecentDate(2)}')`);
+      await env.DB.exec(`INSERT INTO budget_monthly (group_id, name, currency, year, month, total_amount, updated_at) VALUES (1, 'house', 'USD', ${month5.year}, ${month5.month}, -900, '${getRecentDate(1)}')`);
+      await env.DB.exec(`INSERT INTO budget_monthly (group_id, name, currency, year, month, total_amount, updated_at) VALUES (1, 'house', 'USD', ${month6.year}, ${month6.month}, -1300, '${getRecentDate(0)}')`);
 
       const request = new Request('http://example.com/.netlify/functions/budget_monthly', {
         method: 'POST',

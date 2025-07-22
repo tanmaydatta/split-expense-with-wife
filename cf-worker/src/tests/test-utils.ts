@@ -27,10 +27,7 @@ export async function setupDatabase(env: Env): Promise<void> {
   await env.DB.exec('CREATE INDEX IF NOT EXISTS transaction_users_balances_idx ON transaction_users (group_id, deleted, user_id, owed_to_user_id, currency)');
   await env.DB.exec('CREATE INDEX IF NOT EXISTS budget_totals_group_name_idx ON budget_totals (group_id, name)');
 
-  // Budget table indexes for optimal query performance
-  await env.DB.exec('CREATE INDEX IF NOT EXISTS budget_monthly_query_idx ON budget (groupid, name, deleted, added_time, amount)');
-  await env.DB.exec('CREATE INDEX IF NOT EXISTS budget_list_query_idx ON budget (groupid, name, deleted, added_time)');
-  await env.DB.exec('CREATE INDEX IF NOT EXISTS budget_general_idx ON budget (groupid, deleted, added_time)');
+  // Note: Monthly queries use budget_monthly materialized table, existing budget indexes are sufficient for other queries
 }
 
 /**

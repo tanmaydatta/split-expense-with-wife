@@ -97,11 +97,7 @@ CREATE INDEX IF NOT EXISTS sessions_sessionid_idx ON sessions(sessionid);
 CREATE INDEX IF NOT EXISTS transactions_group_id_deleted_created_at_idx ON transactions(group_id, deleted, created_at DESC);
 CREATE INDEX IF NOT EXISTS budget_name_groupid_deleted_idx ON budget(name, groupid, deleted);
 CREATE INDEX IF NOT EXISTS budget_name_groupid_deleted_added_time_amount_idx ON budget(name, groupid, deleted, added_time, amount);
--- Optimized indexes for budget queries (especially monthly aggregations)
-
-CREATE INDEX IF NOT EXISTS budget_monthly_query_idx ON budget(groupid, name, deleted, added_time, amount);
-CREATE INDEX IF NOT EXISTS budget_list_query_idx ON budget(groupid, name, deleted, added_time);
-CREATE INDEX IF NOT EXISTS budget_general_idx ON budget(groupid, deleted, added_time);
+-- Note: Monthly queries now use budget_monthly materialized table for optimal performance
 
 CREATE INDEX IF NOT EXISTS transaction_users_group_id_deleted_idx ON transaction_users(group_id, deleted);
 -- Optimized indexes for balance calculations

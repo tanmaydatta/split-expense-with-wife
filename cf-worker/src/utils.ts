@@ -443,15 +443,14 @@ export function generateMonthlyBudgetUpdateStatements(
   }];
 }
 
-// Utility function to get monthly budget data from materialized table with fallback
+// Utility function to get monthly budget data from materialized table
 export async function getMonthlyBudgets(
   env: Env,
   groupId: string,
   name: string,
   oldestDate: Date
 ): Promise<Array<{ month: number; year: number; currency: string; amount: number }>> {
-  // First try the materialized table
-  const materializedStmt = env.DB.prepare(`
+  const stmt = env.DB.prepare(`
     SELECT year, month, currency, total_amount as amount
     FROM budget_monthly
     WHERE group_id = ? AND name = ? AND total_amount < 0
@@ -462,7 +461,7 @@ export async function getMonthlyBudgets(
   const oldestYear = oldestDate.getFullYear();
   const oldestMonth = oldestDate.getMonth() + 1;
 
-  const materializedResult = await materializedStmt.bind(
+  const result = await stmt.bind(
     groupId,
     name,
     oldestYear,
@@ -470,39 +469,7 @@ export async function getMonthlyBudgets(
     oldestMonth
   ).all();
 
-  // If we have data in the materialized table, use it
-  if (materializedResult.results.length > 0) {
-    return materializedResult.results as Array<{ month: number; year: number; currency: string; amount: number }>;
-  }
-
-  // Fallback to direct aggregation from budget table (for tests and migration scenarios)
-  const fallbackStmt = env.DB.prepare(`
-    SELECT
-      CAST(strftime('%m', added_time) AS INTEGER) as month,
-      CAST(strftime('%Y', added_time) AS INTEGER) as year,
-      currency,
-      SUM(amount) as amount
-    FROM budget
-    WHERE 
-      name = ? AND 
-      groupid = ? AND 
-      deleted IS NULL AND
-      added_time >= ? AND
-      amount < 0
-    GROUP BY 
-      1, 2, 3
-    ORDER BY 
-      2 DESC, 
-      1 DESC
-  `);
-
-  const fallbackResult = await fallbackStmt.bind(
-    name,
-    parseInt(groupId),
-    formatSQLiteTime(oldestDate)
-  ).all();
-
-  return fallbackResult.results as Array<{ month: number; year: number; currency: string; amount: number }>;
+  return result.results as Array<{ month: number; year: number; currency: string; amount: number }>;
 }
 
 // Migration utility to backfill monthly budget aggregation table
