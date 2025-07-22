@@ -20,7 +20,9 @@ import {
   isAuthorizedForBudget,
   getUserBalances,
   generateBudgetTotalUpdateStatements,
+  generateMonthlyBudgetUpdateStatements,
   getBudgetTotals,
+  getMonthlyBudgets,
   executeBatch
 } from '../utils';
 import { BudgetEntry, UserBalancesByUser } from '../types';
@@ -128,6 +130,11 @@ export async function handleBudget(request: CFRequest, env: Env): Promise<Respon
       ]
     };
 
+    const addedTime = formatSQLiteTime();
+
+    // Update budget statement to use the same timestamp
+    budgetStatement.params[2] = addedTime;
+
     // Generate budget total update statements
     const budgetTotalStatements = generateBudgetTotalUpdateStatements(
       body.groupid,
@@ -137,8 +144,18 @@ export async function handleBudget(request: CFRequest, env: Env): Promise<Respon
       'add'
     );
 
-    // Execute both budget creation and total update in a single batch
-    await executeBatch(env, [budgetStatement, ...budgetTotalStatements]);
+    // Generate monthly budget update statements
+    const monthlyBudgetStatements = generateMonthlyBudgetUpdateStatements(
+      body.groupid,
+      name,
+      body.currency,
+      body.amount,
+      addedTime,
+      'add'
+    );
+
+    // Execute budget creation, total update, and monthly update in a single batch
+    await executeBatch(env, [budgetStatement, ...budgetTotalStatements, ...monthlyBudgetStatements]);
 
     return createJsonResponse({ message: '200' }, 200, {}, request, env);
 
@@ -169,7 +186,7 @@ export async function handleBudgetDelete(request: CFRequest, env: Env): Promise<
 
     // Get the budget entry details before deletion for updating totals
     const budgetEntryStmt = env.DB.prepare(`
-      SELECT name, currency, amount 
+      SELECT name, currency, amount, added_time
       FROM budget 
       WHERE groupid = ? AND id = ? AND deleted IS NULL
     `);
@@ -180,7 +197,7 @@ export async function handleBudgetDelete(request: CFRequest, env: Env): Promise<
       return createErrorResponse('Budget entry not found or already deleted', 404, request, env);
     }
 
-    const budgetEntry = budgetEntryResult as BudgetEntry;
+    const budgetEntry = budgetEntryResult as BudgetEntry & { added_time: string };
 
     // Soft delete budget entry
     const deleteStatement = {
@@ -197,8 +214,18 @@ export async function handleBudgetDelete(request: CFRequest, env: Env): Promise<
       'remove'
     );
 
-    // Execute both deletion and total update in a single batch
-    await executeBatch(env, [deleteStatement, ...budgetTotalStatements]);
+    // Generate monthly budget update statements to remove the deleted amount
+    const monthlyBudgetStatements = generateMonthlyBudgetUpdateStatements(
+      session.group.groupid,
+      budgetEntry.name,
+      budgetEntry.currency,
+      budgetEntry.amount,
+      budgetEntry.added_time,
+      'remove'
+    );
+
+    // Execute deletion, total update, and monthly update in a single batch
+    await executeBatch(env, [deleteStatement, ...budgetTotalStatements, ...monthlyBudgetStatements]);
 
     return createJsonResponse({ message: '200' }, 200, {}, request, env);
 
@@ -277,39 +304,13 @@ export async function handleBudgetMonthly(request: CFRequest, env: Env): Promise
     const oldestData = new Date();
     oldestData.setFullYear(oldestData.getFullYear() - 2);
 
-    // Get monthly budget data
-    const monthlyStmt = env.DB.prepare(`
-      SELECT
-        CAST(strftime('%m', added_time) AS INTEGER) as month,
-        CAST(strftime('%Y', added_time) AS INTEGER) as year,
-        currency,
-        SUM(amount) as amount
-      FROM budget
-      WHERE 
-        name = ? AND 
-        groupid = ? AND 
-        deleted IS NULL AND
-        added_time >= ? AND
-        amount < 0
-      GROUP BY 
-        1, 2, 3
-      ORDER BY 
-        2 DESC, 
-        1 DESC
-    `);
-
-    const monthlyResult = await monthlyStmt.bind(
+    // Get monthly budget data from materialized table (much faster than aggregating budget entries)
+    const monthlyData = await getMonthlyBudgets(
+      env,
+      session.group.groupid.toString(),
       name,
-      session.group.groupid,
-      formatSQLiteTime(oldestData)
-    ).all();
-
-    const monthlyData = monthlyResult.results as Array<{
-      month: number;
-      year: number;
-      currency: string;
-      amount: number;
-    }>;
+      oldestData
+    );
 
     // Process data into monthly format
     const monthToName = [

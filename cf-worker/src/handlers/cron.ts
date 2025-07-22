@@ -1,5 +1,10 @@
 import { Env, Group } from '../types';
-import { formatSQLiteTime } from '../utils';
+import {
+  formatSQLiteTime,
+  generateBudgetTotalUpdateStatements,
+  generateMonthlyBudgetUpdateStatements,
+  executeBatch
+} from '../utils';
 
 const MONTHLY_CREDITS: { [key: string]: number } = {
   'house': 800,
@@ -33,26 +38,56 @@ export async function handleCron(env: Env, cron: string) {
         continue;
       }
 
+      const statements = [];
+
       for (const budget of budgets) {
         const amount = MONTHLY_CREDITS[budget] || MONTHLY_CREDITS['default'];
         if (amount <= 0) {
           continue;
         }
 
-        const budgetStmt = env.DB.prepare(`
-          INSERT INTO budget (description, price, added_time, amount, name, groupid, currency)
-          VALUES (?, ?, ?, ?, ?, ?, ?)
-        `);
+        const addedTime = formatSQLiteTime();
 
-        await budgetStmt.bind(
-          description,
-          `+${amount.toFixed(2)}`,
-          formatSQLiteTime(),
-          amount,
+        // Create budget entry statement
+        const budgetStatement = {
+          sql: `INSERT INTO budget (description, price, added_time, amount, name, groupid, currency)
+                VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          params: [
+            description,
+            `+${amount.toFixed(2)}`,
+            addedTime,
+            amount,
+            budget,
+            groupId,
+            'GBP'
+          ]
+        };
+
+        // Generate budget total update statements
+        const budgetTotalStatements = generateBudgetTotalUpdateStatements(
+          parseInt(groupId),
           budget,
-          groupId,
-          'GBP'
-        ).run();
+          'GBP',
+          amount,
+          'add'
+        );
+
+        // Generate monthly budget update statements
+        const monthlyBudgetStatements = generateMonthlyBudgetUpdateStatements(
+          parseInt(groupId),
+          budget,
+          'GBP',
+          amount,
+          addedTime,
+          'add'
+        );
+
+        statements.push(budgetStatement, ...budgetTotalStatements, ...monthlyBudgetStatements);
+      }
+
+      // Execute all budget operations for this group in a single batch
+      if (statements.length > 0) {
+        await executeBatch(env, statements);
       }
     } catch (error) {
       console.error(`Error processing group ${groupId}:`, error);

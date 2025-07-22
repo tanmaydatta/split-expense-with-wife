@@ -19,10 +19,18 @@ export async function setupDatabase(env: Env): Promise<void> {
   // Create budget totals table for optimized budget aggregations
   await env.DB.exec('CREATE TABLE IF NOT EXISTS budget_totals (group_id INTEGER NOT NULL, name VARCHAR(100) NOT NULL, currency VARCHAR(10) NOT NULL, total_amount REAL NOT NULL DEFAULT 0, updated_at DATETIME NOT NULL, PRIMARY KEY (group_id, name, currency))');
 
+  // Create monthly budget aggregations table for optimized monthly reports
+  await env.DB.exec('CREATE TABLE IF NOT EXISTS budget_monthly (group_id INTEGER NOT NULL, name VARCHAR(100) NOT NULL, currency VARCHAR(10) NOT NULL, year INTEGER NOT NULL, month INTEGER NOT NULL, total_amount REAL NOT NULL DEFAULT 0, updated_at DATETIME NOT NULL, PRIMARY KEY (group_id, name, currency, year, month))');
+
   // Create indexes for performance
   await env.DB.exec('CREATE INDEX IF NOT EXISTS user_balances_group_user_idx ON user_balances (group_id, user_id, currency)');
   await env.DB.exec('CREATE INDEX IF NOT EXISTS transaction_users_balances_idx ON transaction_users (group_id, deleted, user_id, owed_to_user_id, currency)');
   await env.DB.exec('CREATE INDEX IF NOT EXISTS budget_totals_group_name_idx ON budget_totals (group_id, name)');
+
+  // Budget table indexes for optimal query performance
+  await env.DB.exec('CREATE INDEX IF NOT EXISTS budget_monthly_query_idx ON budget (groupid, name, deleted, added_time, amount)');
+  await env.DB.exec('CREATE INDEX IF NOT EXISTS budget_list_query_idx ON budget (groupid, name, deleted, added_time)');
+  await env.DB.exec('CREATE INDEX IF NOT EXISTS budget_general_idx ON budget (groupid, deleted, added_time)');
 }
 
 /**

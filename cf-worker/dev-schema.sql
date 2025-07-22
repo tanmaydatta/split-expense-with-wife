@@ -70,6 +70,16 @@ CREATE TABLE IF NOT EXISTS budget_totals (
     updated_at DATETIME NOT NULL,
     PRIMARY KEY (group_id, name, currency)
 );
+CREATE TABLE IF NOT EXISTS budget_monthly (
+    group_id INTEGER NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    currency VARCHAR(10) NOT NULL,
+    year INTEGER NOT NULL,
+    month INTEGER NOT NULL,
+    total_amount REAL NOT NULL DEFAULT 0,
+    updated_at DATETIME NOT NULL,
+    PRIMARY KEY (group_id, name, currency, year, month)
+);
 DELETE FROM sqlite_sequence;
 CREATE INDEX IF NOT EXISTS budget_added_time_idx ON budget(added_time);
 CREATE INDEX IF NOT EXISTS budget_name_added_time_idx ON budget(name, added_time);
@@ -87,7 +97,12 @@ CREATE INDEX IF NOT EXISTS sessions_sessionid_idx ON sessions(sessionid);
 CREATE INDEX IF NOT EXISTS transactions_group_id_deleted_created_at_idx ON transactions(group_id, deleted, created_at DESC);
 CREATE INDEX IF NOT EXISTS budget_name_groupid_deleted_idx ON budget(name, groupid, deleted);
 CREATE INDEX IF NOT EXISTS budget_name_groupid_deleted_added_time_amount_idx ON budget(name, groupid, deleted, added_time, amount);
-CREATE INDEX IF NOT EXISTS budget_monthly_query_idx ON budget(name, groupid, deleted, added_time) WHERE amount < 0;
+-- Optimized indexes for budget queries (especially monthly aggregations)
+
+CREATE INDEX IF NOT EXISTS budget_monthly_query_idx ON budget(groupid, name, deleted, added_time, amount);
+CREATE INDEX IF NOT EXISTS budget_list_query_idx ON budget(groupid, name, deleted, added_time);
+CREATE INDEX IF NOT EXISTS budget_general_idx ON budget(groupid, deleted, added_time);
+
 CREATE INDEX IF NOT EXISTS transaction_users_group_id_deleted_idx ON transaction_users(group_id, deleted);
 -- Optimized indexes for balance calculations
 CREATE INDEX IF NOT EXISTS transaction_users_balances_idx ON transaction_users(group_id, deleted, user_id, owed_to_user_id, currency);
@@ -130,7 +145,25 @@ FROM budget
 WHERE deleted IS NULL 
 GROUP BY groupid, name, currency;
 
+-- Step 3: Rebuild budget_monthly
+DELETE FROM budget_monthly;
+INSERT INTO budget_monthly (group_id, name, currency, year, month, total_amount, updated_at)
+SELECT 
+  groupid as group_id,
+  name,
+  currency,
+  CAST(strftime('%Y', added_time) AS INTEGER) as year,
+  CAST(strftime('%m', added_time) AS INTEGER) as month,
+  sum(amount) as total_amount,
+  datetime('now') as updated_at
+FROM budget 
+WHERE deleted IS NULL 
+GROUP BY groupid, name, currency, year, month
+HAVING total_amount != 0;
+
 -- Verification queries
 SELECT 'user_balances' as table_name, count(*) as row_count FROM user_balances
 UNION ALL
-SELECT 'budget_totals' as table_name, count(*) as row_count FROM budget_totals;
+SELECT 'budget_totals' as table_name, count(*) as row_count FROM budget_totals
+UNION ALL
+SELECT 'budget_monthly' as table_name, count(*) as row_count FROM budget_monthly;

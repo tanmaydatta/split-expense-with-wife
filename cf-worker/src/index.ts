@@ -1,5 +1,5 @@
 import { CFRequest, Env, CFContext } from './types';
-import { createErrorResponse, createOptionsResponse } from './utils';
+import { createErrorResponse, createOptionsResponse, backfillMonthlyBudgets, createJsonResponse } from './utils';
 import { handleLogin, handleLogout } from './handlers/auth';
 import {
   handleBalances,
@@ -69,6 +69,15 @@ export default {
       return await handleTransactionsList(request, env);
     } else if (path === '/hello' || path === '/') {
       return await handleHelloWorld(request, env);
+    } else if (path === '/migrate/monthly-budgets') {
+      // Migration endpoint to backfill monthly budget aggregations
+      try {
+        await backfillMonthlyBudgets(env);
+        return createJsonResponse({ message: 'Monthly budget backfill completed successfully' }, 200, {}, request, env);
+      } catch (error) {
+        console.error('Migration error:', error);
+        return createErrorResponse('Migration failed', 500, request, env);
+      }
     } else {
       return createErrorResponse('Not found', 404, request, env);
     }

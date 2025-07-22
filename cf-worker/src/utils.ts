@@ -408,6 +408,161 @@ export function generateBudgetTotalUpdateStatements(
   }];
 }
 
+// Utility function to generate monthly budget update statements
+export function generateMonthlyBudgetUpdateStatements(
+  groupId: number,
+  name: string,
+  currency: string,
+  amount: number,
+  addedTime: string,
+  operation: 'add' | 'remove'
+): BatchStatement[] {
+  const date = new Date(addedTime);
+  const year = date.getFullYear();
+  const month = date.getMonth() + 1; // JS months are 0-indexed
+  const multiplier = operation === 'add' ? 1 : -1;
+
+  return [{
+    sql: `INSERT INTO budget_monthly (group_id, name, currency, year, month, total_amount, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(group_id, name, currency, year, month) 
+          DO UPDATE SET 
+            total_amount = total_amount + ?,
+            updated_at = ?`,
+    params: [
+      groupId,
+      name,
+      currency,
+      year,
+      month,
+      amount * multiplier,
+      formatSQLiteTime(),
+      amount * multiplier,
+      formatSQLiteTime()
+    ]
+  }];
+}
+
+// Utility function to get monthly budget data from materialized table with fallback
+export async function getMonthlyBudgets(
+  env: Env,
+  groupId: string,
+  name: string,
+  oldestDate: Date
+): Promise<Array<{ month: number; year: number; currency: string; amount: number }>> {
+  // First try the materialized table
+  const materializedStmt = env.DB.prepare(`
+    SELECT year, month, currency, total_amount as amount
+    FROM budget_monthly
+    WHERE group_id = ? AND name = ? AND total_amount < 0
+    AND (year > ? OR (year = ? AND month >= ?))
+    ORDER BY year DESC, month DESC
+  `);
+
+  const oldestYear = oldestDate.getFullYear();
+  const oldestMonth = oldestDate.getMonth() + 1;
+
+  const materializedResult = await materializedStmt.bind(
+    groupId,
+    name,
+    oldestYear,
+    oldestYear,
+    oldestMonth
+  ).all();
+
+  // If we have data in the materialized table, use it
+  if (materializedResult.results.length > 0) {
+    return materializedResult.results as Array<{ month: number; year: number; currency: string; amount: number }>;
+  }
+
+  // Fallback to direct aggregation from budget table (for tests and migration scenarios)
+  const fallbackStmt = env.DB.prepare(`
+    SELECT
+      CAST(strftime('%m', added_time) AS INTEGER) as month,
+      CAST(strftime('%Y', added_time) AS INTEGER) as year,
+      currency,
+      SUM(amount) as amount
+    FROM budget
+    WHERE 
+      name = ? AND 
+      groupid = ? AND 
+      deleted IS NULL AND
+      added_time >= ? AND
+      amount < 0
+    GROUP BY 
+      1, 2, 3
+    ORDER BY 
+      2 DESC, 
+      1 DESC
+  `);
+
+  const fallbackResult = await fallbackStmt.bind(
+    name,
+    parseInt(groupId),
+    formatSQLiteTime(oldestDate)
+  ).all();
+
+  return fallbackResult.results as Array<{ month: number; year: number; currency: string; amount: number }>;
+}
+
+// Migration utility to backfill monthly budget aggregation table
+export async function backfillMonthlyBudgets(env: Env): Promise<void> {
+  console.log('Starting monthly budget backfill...');
+
+  // Get all budget data that needs to be aggregated
+  const budgetDataStmt = env.DB.prepare(`
+    SELECT 
+      groupid,
+      name,
+      currency,
+      CAST(strftime('%Y', added_time) AS INTEGER) as year,
+      CAST(strftime('%m', added_time) AS INTEGER) as month,
+      SUM(amount) as total_amount
+    FROM budget
+    WHERE deleted IS NULL
+    GROUP BY groupid, name, currency, year, month
+    HAVING total_amount != 0
+  `);
+
+  const budgetData = await budgetDataStmt.all();
+  const results = budgetData.results as Array<{
+    groupid: number;
+    name: string;
+    currency: string;
+    year: number;
+    month: number;
+    total_amount: number;
+  }>;
+
+  console.log(`Found ${results.length} monthly aggregations to backfill`);
+
+  // Batch insert into monthly budget table
+  const statements = results.map(row => ({
+    sql: `INSERT OR REPLACE INTO budget_monthly 
+          (group_id, name, currency, year, month, total_amount, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    params: [
+      row.groupid,
+      row.name,
+      row.currency,
+      row.year,
+      row.month,
+      row.total_amount,
+      formatSQLiteTime()
+    ]
+  }));
+
+  // Execute in batches to avoid hitting limits
+  const batchSize = 50;
+  for (let i = 0; i < statements.length; i += batchSize) {
+    const batch = statements.slice(i, i + batchSize);
+    await executeBatch(env, batch);
+    console.log(`Backfilled batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(statements.length / batchSize)}`);
+  }
+
+  console.log('Monthly budget backfill completed');
+}
+
 // Utility function to get budget totals from materialized table
 export async function getBudgetTotals(env: Env, groupId: string, name: string): Promise<BudgetTotal[]> {
   const totalsStmt = env.DB.prepare(`
