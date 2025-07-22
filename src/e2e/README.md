@@ -77,6 +77,12 @@ npx playwright test src/e2e/tests/auth.spec.ts
 # Run specific test by name
 npx playwright test --grep "should successfully login"
 
+# Run expense deletion tests specifically
+npx playwright test --grep "deletion"
+
+# Run all expense management tests
+npx playwright test src/e2e/tests/expense-management.spec.ts
+
 # Run tests on specific browser
 npx playwright test --project=chromium
 ```
@@ -135,12 +141,52 @@ The `TestHelper` class provides utilities for:
 - Logout functionality
 - Authentication error handling
 
+## Expense Deletion Testing
+
+The test suite includes comprehensive coverage for expense deletion functionality:
+
+### Key Features Tested
+
+1. **Basic Deletion**: Successfully deleting expenses and verifying removal
+2. **Security**: PIN requirement enforcement for deletion operations
+3. **Cross-Platform**: Testing deletion from both mobile and desktop views
+4. **Pagination**: Handling deletion of expenses across multiple pages
+5. **Balance Integration**: Verifying that balances update correctly after deletion
+6. **Multi-Currency**: Testing deletion with various currencies
+7. **Batch Operations**: Testing multiple consecutive deletions
+
+### Test Scenarios
+
+- **Single Expense Deletion**: Create → Verify → Delete → Confirm Removal
+- **Multiple Expense Deletion**: Create multiple → Delete selectively → Verify state
+- **PIN-Protected Deletion**: Ensure PIN is required for deletion operations
+- **Viewport Testing**: Delete from both mobile cards and desktop table views
+- **Pagination Testing**: Delete expenses that may be on different pages
+- **Balance Verification**: Ensure balances recalculate correctly after deletion
+
+### Usage Example
+
+```bash
+# Run all expense deletion tests
+npx playwright test --grep "deletion"
+
+# Run specific deletion test
+npx playwright test --grep "should successfully delete an expense"
+
+# Run with debug mode for deletion tests
+npx playwright test --grep "deletion" --debug
+```
+
 ### Expense Management Tests (`expense-management.spec.ts`)
 
 - Expense form validation
 - Adding new expenses
 - Split percentage calculations
 - Multi-currency support
+- **Expense deletion functionality**
+- **PIN-based deletion security**
+- **Mobile and desktop deletion views**
+- **Pagination handling during deletion**
 - Error handling
 - Loading states
 
@@ -159,8 +205,11 @@ The `TestHelper` class provides utilities for:
 - Balance calculations
 - Multi-currency balances
 - Transaction details
+- **Balance updates after expense deletion**
+- **Integration testing of deletion effects**
 - Empty states
 - Error handling
+- Loading states
 
 ### Navigation Tests (`navigation.spec.ts`)
 

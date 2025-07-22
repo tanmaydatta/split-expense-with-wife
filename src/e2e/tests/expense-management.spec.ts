@@ -191,4 +191,172 @@ test.describe('Expense Management', () => {
     await expenseHelper.verifySpecificExpenseEntry(eurResult.description, '85', 'EUR', '-€42.50');
     await expenseHelper.verifySpecificExpenseEntry(usdResult.description, '150', 'USD', '+$75.00');
   });
+
+  test('should successfully delete an expense and verify it no longer appears', async ({ authenticatedPage }) => {
+    const expenseHelper = new ExpenseTestHelper(authenticatedPage);
+    
+    await expect(authenticatedPage.page).toHaveURL('/');
+    
+    // Create a test expense to delete
+    const expense = { ...testData.expenses.groceries, amount: 100, currency: 'USD' };
+    const result = await expenseHelper.addExpenseEntry(expense);
+    
+    // Navigate to expenses page and verify the expense exists
+    await authenticatedPage.navigateToPage('Expenses');
+    await authenticatedPage.page.waitForTimeout(2000);
+    await expenseHelper.verifyExpensesPageComponents();
+    await expenseHelper.verifySpecificExpenseEntry(result.description, '100', 'USD', '+$50.00');
+    
+    // Delete the expense
+    await expenseHelper.deleteExpenseEntry(result.description);
+    
+    // Reload the page to ensure fresh data
+    await authenticatedPage.page.reload();
+    await expenseHelper.verifyExpensesPageComponents();
+    
+    // Verify the expense no longer appears in the list
+    await expenseHelper.verifyExpenseNotPresent(result.description);
+  });
+
+  test('should handle deletion of multiple different expenses', async ({ authenticatedPage }) => {
+    const expenseHelper = new ExpenseTestHelper(authenticatedPage);
+    
+    await expect(authenticatedPage.page).toHaveURL('/');
+    
+    // Create multiple test expenses to delete
+    const expense1 = { ...testData.expenses.groceries, amount: 50, currency: 'USD' };
+    const result1 = await expenseHelper.addExpenseEntry(expense1);
+    
+    const expense2 = { ...testData.expenses.restaurant, amount: 75, currency: 'EUR' };
+    const result2 = await expenseHelper.addExpenseEntry(expense2);
+    
+    const expense3 = { ...testData.expenses.utilities, amount: 120, currency: 'USD' };
+    const result3 = await expenseHelper.addExpenseEntry(expense3, { '1': 70, '2': 30 });
+    
+    // Navigate to expenses page and verify all expenses exist
+    await authenticatedPage.navigateToPage('Expenses');
+    await authenticatedPage.page.waitForTimeout(3000);
+    await expenseHelper.verifyExpensesPageComponents();
+    
+    await expenseHelper.verifySpecificExpenseEntry(result1.description, '50', 'USD', '+$25.00');
+    await expenseHelper.verifySpecificExpenseEntry(result2.description, '75', 'EUR', '-€37.50');
+    await expenseHelper.verifySpecificExpenseEntry(result3.description, '120', 'USD', '+$36.00');
+    
+    // Delete the first expense (USD)
+    await expenseHelper.deleteExpenseEntry(result1.description);
+    
+    // Reload and verify first expense is gone but others remain
+    await authenticatedPage.page.reload();
+    await expenseHelper.verifyExpensesPageComponents();
+    
+    await expenseHelper.verifyExpenseNotPresent(result1.description);
+    await expenseHelper.verifySpecificExpenseEntry(result2.description, '75', 'EUR', '-€37.50');
+    await expenseHelper.verifySpecificExpenseEntry(result3.description, '120', 'USD', '+$36.00');
+    
+    // Delete the third expense (USD with custom split)
+    await expenseHelper.deleteExpenseEntry(result3.description);
+    
+    // Reload and verify third expense is gone but second remains
+    await authenticatedPage.page.reload();
+    await expenseHelper.verifyExpensesPageComponents();
+    
+    await expenseHelper.verifyExpenseNotPresent(result1.description);
+    await expenseHelper.verifyExpenseNotPresent(result3.description);
+    await expenseHelper.verifySpecificExpenseEntry(result2.description, '75', 'EUR', '-€37.50');
+    
+    // Delete the second expense (EUR)
+    await expenseHelper.deleteExpenseEntry(result2.description);
+    
+    // Reload and verify all expenses are gone
+    await authenticatedPage.page.reload();
+    // Wait for expenses page to load instead of fixed timeout
+    await expenseHelper.verifyExpensesPageComponents();
+    
+    await expenseHelper.verifyExpenseNotPresent(result2.description);
+  });
+
+  test('should handle deletion with PIN requirement', async ({ authenticatedPage }) => {
+    const expenseHelper = new ExpenseTestHelper(authenticatedPage);
+    
+    await expect(authenticatedPage.page).toHaveURL('/');
+    
+    // Create a test expense to delete
+    const expense = { ...testData.expenses.groceries, amount: 200, currency: 'GBP' };
+    const result = await expenseHelper.addExpenseEntry(expense);
+    
+    // Navigate to expenses page and verify the expense exists
+    await authenticatedPage.navigateToPage('Expenses');
+    await authenticatedPage.page.waitForTimeout(2000);
+    await expenseHelper.verifyExpensesPageComponents();
+    await expenseHelper.verifySpecificExpenseEntry(result.description, '200', 'GBP', '+£100.00');
+    
+    // Delete the expense (PIN is handled automatically in the deleteExpenseEntry method)
+    await expenseHelper.deleteExpenseEntry(result.description);
+    
+    // Reload the page to ensure fresh data
+    await authenticatedPage.page.reload();
+    await expenseHelper.verifyExpensesPageComponents();
+    
+    // Verify the expense no longer appears in the list
+    await expenseHelper.verifyExpenseNotPresent(result.description);
+  });
+
+  test('should handle deletion from both mobile and desktop views', async ({ authenticatedPage }) => {
+    const expenseHelper = new ExpenseTestHelper(authenticatedPage);
+    
+    await expect(authenticatedPage.page).toHaveURL('/');
+    
+    // Create test expenses to delete from different views
+    const expense1 = { ...testData.expenses.groceries, amount: 150, currency: 'USD' };
+    const result1 = await expenseHelper.addExpenseEntry(expense1);
+    
+    const expense2 = { ...testData.expenses.restaurant, amount: 90, currency: 'EUR' };
+    const result2 = await expenseHelper.addExpenseEntry(expense2);
+    
+    // Test deletion in current viewport
+    await authenticatedPage.navigateToPage('Expenses');
+    await authenticatedPage.page.waitForTimeout(2000);
+    await expenseHelper.verifyExpensesPageComponents();
+    
+    // Verify both expenses exist
+    await expenseHelper.verifySpecificExpenseEntry(result1.description, '150', 'USD', '+$75.00');
+    await expenseHelper.verifySpecificExpenseEntry(result2.description, '90', 'EUR', '-€45.00');
+    
+    // Delete first expense
+    await expenseHelper.deleteExpenseEntry(result1.description);
+    
+    // Change viewport size to test the other view (mobile <-> desktop)
+    const currentViewport = authenticatedPage.page.viewportSize();
+    const isMobile = currentViewport ? currentViewport.width <= 768 : false;
+    
+    if (isMobile) {
+      // Switch to desktop viewport
+      await authenticatedPage.page.setViewportSize({ width: 1024, height: 768 });
+    } else {
+      // Switch to mobile viewport
+      await authenticatedPage.page.setViewportSize({ width: 375, height: 667 });
+    }
+    
+    // Reload page to apply new viewport and verify first expense is gone
+    await authenticatedPage.page.reload();
+    await expenseHelper.verifyExpensesPageComponents();
+    
+    await expenseHelper.verifyExpenseNotPresent(result1.description);
+    await expenseHelper.verifySpecificExpenseEntry(result2.description, '90', 'EUR', '-€45.00');
+    
+    // Delete second expense from the different viewport
+    await expenseHelper.deleteExpenseEntry(result2.description);
+    
+    // Verify both expenses are gone
+    await authenticatedPage.page.reload();
+    await expenseHelper.verifyExpensesPageComponents();
+    
+    await expenseHelper.verifyExpenseNotPresent(result1.description);
+    await expenseHelper.verifyExpenseNotPresent(result2.description);
+    
+    // Restore original viewport
+    if (currentViewport) {
+      await authenticatedPage.page.setViewportSize(currentViewport);
+    }
+  });
 }); 

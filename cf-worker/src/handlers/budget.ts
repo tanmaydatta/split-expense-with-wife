@@ -17,8 +17,13 @@ import {
   formatSQLiteTime,
   isValidPin,
   isValidCurrency,
-  isAuthorizedForBudget
+  isAuthorizedForBudget,
+  getUserBalances,
+  generateBudgetTotalUpdateStatements,
+  getBudgetTotals,
+  executeBatch
 } from '../utils';
+import { BudgetEntry, UserBalancesByUser } from '../types';
 
 // Handle balances
 export async function handleBalances(request: CFRequest, env: Env): Promise<Response> {
@@ -32,24 +37,11 @@ export async function handleBalances(request: CFRequest, env: Env): Promise<Resp
       return createErrorResponse('Unauthorized', 401, request, env);
     }
 
-    // Get transaction balances
-    const balancesStmt = env.DB.prepare(`
-      SELECT user_id, owed_to_user_id, currency, sum(amount) as amount 
-      FROM transaction_users 
-      WHERE group_id = ? AND deleted IS NULL 
-      GROUP BY user_id, owed_to_user_id, currency
-    `);
-
-    const balancesResult = await balancesStmt.bind(session.group.groupid).all();
-    const balances = balancesResult.results as Array<{
-      user_id: number;
-      owed_to_user_id: number;
-      currency: string;
-      amount: number;
-    }>;
+    // Get balances from materialized table (much faster than aggregating transaction_users)
+    const balances = await getUserBalances(env, session.group.groupid.toString());
 
     // Process balances for current user
-    const balancesByUser: Record<string, Record<string, number>> = {};
+    const balancesByUser: UserBalancesByUser = {};
 
     for (const balance of balances) {
       if (balance.user_id === balance.owed_to_user_id) {
@@ -122,20 +114,31 @@ export async function handleBudget(request: CFRequest, env: Env): Promise<Respon
     const sign = body.amount < 0 ? '-' : '+';
     const name = body.name || 'house';
 
-    const budgetStmt = env.DB.prepare(`
-      INSERT INTO budget (description, price, added_time, amount, name, groupid, currency)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `);
+    const budgetStatement = {
+      sql: `INSERT INTO budget (description, price, added_time, amount, name, groupid, currency)
+            VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      params: [
+        body.description,
+        `${sign}${Math.abs(body.amount).toFixed(2)}`,
+        formatSQLiteTime(),
+        body.amount,
+        name,
+        body.groupid,
+        body.currency
+      ]
+    };
 
-    await budgetStmt.bind(
-      body.description,
-      `${sign}${Math.abs(body.amount).toFixed(2)}`,
-      formatSQLiteTime(),
-      body.amount,
-      name,
+    // Generate budget total update statements
+    const budgetTotalStatements = generateBudgetTotalUpdateStatements(
       body.groupid,
-      body.currency
-    ).run();
+      name,
+      body.currency,
+      body.amount,
+      'add'
+    );
+
+    // Execute both budget creation and total update in a single batch
+    await executeBatch(env, [budgetStatement, ...budgetTotalStatements]);
 
     return createJsonResponse({ message: '200' }, 200, {}, request, env);
 
@@ -164,22 +167,38 @@ export async function handleBudgetDelete(request: CFRequest, env: Env): Promise<
       return createErrorResponse('Invalid pin', 400, request, env);
     }
 
-    // Delete budget entry (soft delete)
-    const deleteStmt = env.DB.prepare(`
-      UPDATE budget 
-      SET deleted = ? 
-      WHERE groupid = ? AND id = ?
+    // Get the budget entry details before deletion for updating totals
+    const budgetEntryStmt = env.DB.prepare(`
+      SELECT name, currency, amount 
+      FROM budget 
+      WHERE groupid = ? AND id = ? AND deleted IS NULL
     `);
 
-    const result = await deleteStmt.bind(
-      formatSQLiteTime(),
-      session.group.groupid,
-      body.id
-    ).run();
+    const budgetEntryResult = await budgetEntryStmt.bind(session.group.groupid, body.id).first();
 
-    if (result.meta.changes === 0) {
+    if (!budgetEntryResult) {
       return createErrorResponse('Budget entry not found or already deleted', 404, request, env);
     }
+
+    const budgetEntry = budgetEntryResult as BudgetEntry;
+
+    // Soft delete budget entry
+    const deleteStatement = {
+      sql: 'UPDATE budget SET deleted = ? WHERE groupid = ? AND id = ?',
+      params: [formatSQLiteTime(), session.group.groupid, body.id]
+    };
+
+    // Generate budget total update statements to remove the deleted amount
+    const budgetTotalStatements = generateBudgetTotalUpdateStatements(
+      session.group.groupid,
+      budgetEntry.name,
+      budgetEntry.currency,
+      budgetEntry.amount,
+      'remove'
+    );
+
+    // Execute both deletion and total update in a single batch
+    await executeBatch(env, [deleteStatement, ...budgetTotalStatements]);
 
     return createJsonResponse({ message: '200' }, 200, {}, request, env);
 
@@ -457,20 +476,10 @@ export async function handleBudgetTotal(request: CFRequest, env: Env): Promise<R
 
     const name = body.name || 'house';
 
-    // Get budget totals
-    const totalStmt = env.DB.prepare(`
-      SELECT currency, sum(amount) as amount
-      FROM budget 
-      WHERE name = ? AND groupid = ? AND deleted IS NULL
-      GROUP BY currency
-    `);
+    // Get budget totals from materialized table (much faster than aggregating budget entries)
+    const totals = await getBudgetTotals(env, session.group.groupid.toString(), name);
 
-    const totalResult = await totalStmt.bind(
-      name,
-      session.group.groupid
-    ).all();
-
-    return createJsonResponse(totalResult.results, 200, {}, request, env);
+    return createJsonResponse(totals, 200, {}, request, env);
 
   } catch (error) {
     console.error('Budget total error:', error);

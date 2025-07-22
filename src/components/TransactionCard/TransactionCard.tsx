@@ -16,7 +16,7 @@ interface TransactionCardProps {
   transaction: FrontendTransaction;
   isSelected: boolean;
   onSelect: (transaction: FrontendTransaction) => void;
-  onDelete: (id: number) => void;
+  onDelete: (id: string) => void;
   children?: React.ReactNode; // For expanded details
 }
 
@@ -45,9 +45,10 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
         </div>
         <button
           className="delete-button"
+          data-test-id="delete-button"
           onClick={(e) => {
             e.stopPropagation();
-            onDelete(transaction.id);
+            onDelete(transaction.transactionId);
           }}
           aria-label="Delete transaction"
         >

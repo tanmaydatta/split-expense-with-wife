@@ -1,7 +1,11 @@
-import { env, createExecutionContext, waitOnExecutionContext } from 'cloudflare:test';
+import { env as testEnv, createExecutionContext, waitOnExecutionContext } from 'cloudflare:test';
 import { describe, it, expect, beforeEach } from 'vitest';
 import worker from '../index';
-import { setupAndCleanDatabase, createTestUserData, createTestSession } from './test-utils';
+import { setupAndCleanDatabase, createTestUserData, createTestSession, populateMaterializedTables } from './test-utils';
+import { TestBudgetMonthlyResponse, TestBudgetTotalResponse, TestMonthlyBudgetItem, TestAverageSpendItem } from './types';
+import { UserBalancesByUser, Env } from '../types';
+
+const env = testEnv as unknown as Env;
 
 describe('Budget Handlers', () => {
   beforeEach(async () => {
@@ -18,6 +22,12 @@ describe('Budget Handlers', () => {
       await env.DB.exec("INSERT INTO transactions (transaction_id, description, amount, currency, group_id, created_at) VALUES ('test-tx-1', 'Test transaction', 100, 'USD', 1, '2024-01-01 00:00:00')");
       await env.DB.exec("INSERT INTO transaction_users (transaction_id, user_id, amount, owed_to_user_id, currency, group_id) VALUES ('test-tx-1', 1, 50, 2, 'USD', 1), ('test-tx-1', 2, 20, 1, 'USD', 1)");
 
+      // Populate materialized tables for optimized queries
+      await populateMaterializedTables(env);
+
+      // Populate materialized tables for optimized queries
+      await populateMaterializedTables(env);
+
       const request = new Request('http://example.com/.netlify/functions/balances', {
         method: 'POST',
         headers: {
@@ -32,7 +42,7 @@ describe('Budget Handlers', () => {
       await waitOnExecutionContext(ctx);
 
       expect(response.status).toBe(200);
-      const json = await response.json() as any;
+      const json = await response.json() as UserBalancesByUser;
       expect(json.Other.USD).toBe(-30);
     });
 
@@ -45,6 +55,9 @@ describe('Budget Handlers', () => {
       // Net: user 2 owes 50 to user 1
       await env.DB.exec("INSERT INTO transaction_users (transaction_id, user_id, amount, owed_to_user_id, currency, group_id) VALUES ('tx-2', 2, 75, 1, 'USD', 1), ('tx-2', 1, 25, 2, 'USD', 1)");
 
+      // Populate materialized tables for optimized queries
+      await populateMaterializedTables(env);
+
       const request = new Request('http://example.com/.netlify/functions/balances', {
         method: 'POST',
         headers: {
@@ -59,7 +72,7 @@ describe('Budget Handlers', () => {
       await waitOnExecutionContext(ctx);
 
       expect(response.status).toBe(200);
-      const json = await response.json() as any;
+      const json = await response.json() as UserBalancesByUser;
       expect(json.Other.USD).toBe(50); // Other owes 50 to testuser
     });
 
@@ -74,6 +87,9 @@ describe('Budget Handlers', () => {
       // User 3 (Third) owes 20 to user 1 (testuser)
       await env.DB.exec("INSERT INTO transaction_users (transaction_id, user_id, amount, owed_to_user_id, currency, group_id) VALUES ('tx-3a', 1, 30, 2, 'USD', 1), ('tx-3b', 2, 40, 3, 'USD', 1), ('tx-3c', 3, 20, 1, 'USD', 1)");
 
+      // Populate materialized tables for optimized queries
+      await populateMaterializedTables(env);
+
       const request = new Request('http://example.com/.netlify/functions/balances', {
         method: 'POST',
         headers: {
@@ -88,7 +104,7 @@ describe('Budget Handlers', () => {
       await waitOnExecutionContext(ctx);
 
       expect(response.status).toBe(200);
-      const json = await response.json() as any;
+      const json = await response.json() as UserBalancesByUser;
       expect(json.Other.USD).toBe(-30); // testuser owes 30 to Other
       expect(json.Third.USD).toBe(20); // Third owes 20 to testuser
     });
@@ -105,6 +121,9 @@ describe('Budget Handlers', () => {
       // User 1 (testuser) owes 20 to user 4 (Fourth)
       await env.DB.exec("INSERT INTO transaction_users (transaction_id, user_id, amount, owed_to_user_id, currency, group_id) VALUES ('tx-4a', 1, 50, 2, 'USD', 1), ('tx-4b', 3, 30, 1, 'USD', 1), ('tx-4c', 4, 40, 1, 'USD', 1), ('tx-4d', 1, 20, 4, 'USD', 1)");
 
+      // Populate materialized tables for optimized queries
+      await populateMaterializedTables(env);
+
       const request = new Request('http://example.com/.netlify/functions/balances', {
         method: 'POST',
         headers: {
@@ -119,7 +138,7 @@ describe('Budget Handlers', () => {
       await waitOnExecutionContext(ctx);
 
       expect(response.status).toBe(200);
-      const json = await response.json() as any;
+      const json = await response.json() as UserBalancesByUser;
       expect(json.Other.USD).toBe(-50); // testuser owes 50 to Other
       expect(json.Third.USD).toBe(30); // Third owes 30 to testuser
       expect(json.Fourth.USD).toBe(20); // Fourth owes 20 to testuser (40 - 20 = 20)
@@ -135,6 +154,9 @@ describe('Budget Handlers', () => {
       // User 3 owes 100 GBP to user 1
       await env.DB.exec("INSERT INTO transaction_users (transaction_id, user_id, amount, owed_to_user_id, currency, group_id) VALUES ('tx-5a', 1, 50, 2, 'USD', 1), ('tx-5b', 2, 30, 1, 'EUR', 1), ('tx-5c', 3, 100, 1, 'GBP', 1)");
 
+      // Populate materialized tables for optimized queries
+      await populateMaterializedTables(env);
+
       const request = new Request('http://example.com/.netlify/functions/balances', {
         method: 'POST',
         headers: {
@@ -149,7 +171,7 @@ describe('Budget Handlers', () => {
       await waitOnExecutionContext(ctx);
 
       expect(response.status).toBe(200);
-      const json = await response.json() as any;
+      const json = await response.json() as UserBalancesByUser;
       expect(json.Other.USD).toBe(-50); // testuser owes 50 USD to Other
       expect(json.Other.EUR).toBe(30); // Other owes 30 EUR to testuser
       expect(json.Third.GBP).toBe(100); // Third owes 100 GBP to testuser
@@ -176,7 +198,7 @@ describe('Budget Handlers', () => {
       await waitOnExecutionContext(ctx);
 
       expect(response.status).toBe(200);
-      const json = await response.json() as any;
+      const json = await response.json() as UserBalancesByUser;
       expect(json).toEqual({});
     });
 
@@ -187,6 +209,9 @@ describe('Budget Handlers', () => {
 
       // Add some self-owed amounts (should be ignored) and real balances
       await env.DB.exec("INSERT INTO transaction_users (transaction_id, user_id, amount, owed_to_user_id, currency, group_id) VALUES ('tx-6a', 1, 100, 1, 'USD', 1), ('tx-6b', 2, 50, 2, 'USD', 1), ('tx-6c', 1, 40, 2, 'USD', 1)");
+
+      // Populate materialized tables for optimized queries
+      await populateMaterializedTables(env);
 
       const request = new Request('http://example.com/.netlify/functions/balances', {
         method: 'POST',
@@ -202,7 +227,7 @@ describe('Budget Handlers', () => {
       await waitOnExecutionContext(ctx);
 
       expect(response.status).toBe(200);
-      const json = await response.json() as any;
+      const json = await response.json() as UserBalancesByUser;
       expect(json.Other.USD).toBe(-40); // Only the real debt should be counted
     });
 
@@ -218,6 +243,9 @@ describe('Budget Handlers', () => {
       // Net result: User 1 owes 60 to user 2, user 3 owes 50 to user 1
       await env.DB.exec("INSERT INTO transaction_users (transaction_id, user_id, amount, owed_to_user_id, currency, group_id) VALUES ('tx-7a', 1, 60, 2, 'USD', 1), ('tx-7b', 2, 10, 1, 'USD', 1), ('tx-7c', 1, 30, 2, 'USD', 1), ('tx-7d', 2, 20, 1, 'USD', 1), ('tx-7e', 3, 50, 1, 'USD', 1)");
 
+      // Populate materialized tables for optimized queries
+      await populateMaterializedTables(env);
+
       const request = new Request('http://example.com/.netlify/functions/balances', {
         method: 'POST',
         headers: {
@@ -232,7 +260,7 @@ describe('Budget Handlers', () => {
       await waitOnExecutionContext(ctx);
 
       expect(response.status).toBe(200);
-      const json = await response.json() as any;
+      const json = await response.json() as UserBalancesByUser;
       expect(json.Other.USD).toBe(-60); // testuser owes 60 to Other (90 - 30 = 60)
       expect(json.Third.USD).toBe(50); // Third owes 50 to testuser
     });
@@ -244,6 +272,9 @@ describe('Budget Handlers', () => {
 
       // User 1 owes 50 to user 2, user 2 owes 30 to user 3
       await env.DB.exec("INSERT INTO transaction_users (transaction_id, user_id, amount, owed_to_user_id, currency, group_id) VALUES ('tx-8a', 1, 50, 2, 'USD', 1), ('tx-8b', 2, 30, 3, 'USD', 1)");
+
+      // Populate materialized tables for optimized queries
+      await populateMaterializedTables(env);
 
       const request = new Request('http://example.com/.netlify/functions/balances', {
         method: 'POST',
@@ -259,7 +290,7 @@ describe('Budget Handlers', () => {
       await waitOnExecutionContext(ctx);
 
       expect(response.status).toBe(200);
-      const json = await response.json() as any;
+      const json = await response.json() as UserBalancesByUser;
       expect(json.Test.USD).toBe(50); // Test (user 1) owes 50 to Other (user 2)
       expect(json.Third.USD).toBe(-30); // Other (user 2) owes 30 to Third (user 3)
     });
@@ -272,6 +303,9 @@ describe('Budget Handlers', () => {
       // User 1 (testuser) owes 100 to user 2 (Other) and 75 to user 3 (Third)
       await env.DB.exec("INSERT INTO transaction_users (transaction_id, user_id, amount, owed_to_user_id, currency, group_id) VALUES ('tx-9a', 1, 100, 2, 'USD', 1), ('tx-9b', 1, 75, 3, 'USD', 1)");
 
+      // Populate materialized tables for optimized queries
+      await populateMaterializedTables(env);
+
       const request = new Request('http://example.com/.netlify/functions/balances', {
         method: 'POST',
         headers: {
@@ -286,7 +320,7 @@ describe('Budget Handlers', () => {
       await waitOnExecutionContext(ctx);
 
       expect(response.status).toBe(200);
-      const json = await response.json() as any;
+      const json = await response.json() as UserBalancesByUser;
       expect(json.Other.USD).toBe(-100); // testuser owes 100 to Other
       expect(json.Third.USD).toBe(-75); // testuser owes 75 to Third
     });
@@ -299,6 +333,9 @@ describe('Budget Handlers', () => {
       // User 2 (Other) owes 60 to user 1 (testuser) and user 3 (Third) owes 40 to user 1 (testuser)
       await env.DB.exec("INSERT INTO transaction_users (transaction_id, user_id, amount, owed_to_user_id, currency, group_id) VALUES ('tx-10a', 2, 60, 1, 'USD', 1), ('tx-10b', 3, 40, 1, 'USD', 1)");
 
+      // Populate materialized tables for optimized queries
+      await populateMaterializedTables(env);
+
       const request = new Request('http://example.com/.netlify/functions/balances', {
         method: 'POST',
         headers: {
@@ -313,7 +350,7 @@ describe('Budget Handlers', () => {
       await waitOnExecutionContext(ctx);
 
       expect(response.status).toBe(200);
-      const json = await response.json() as any;
+      const json = await response.json() as UserBalancesByUser;
       expect(json.Other.USD).toBe(60); // Other owes 60 to testuser
       expect(json.Third.USD).toBe(40); // Third owes 40 to testuser
     });
@@ -326,6 +363,9 @@ describe('Budget Handlers', () => {
       // Chain: User 1 owes 50 to user 2, user 2 owes 30 to user 3, user 3 owes 20 to user 1
       await env.DB.exec("INSERT INTO transaction_users (transaction_id, user_id, amount, owed_to_user_id, currency, group_id) VALUES ('tx-11a', 1, 50, 2, 'USD', 1), ('tx-11b', 2, 30, 3, 'USD', 1), ('tx-11c', 3, 20, 1, 'USD', 1)");
 
+      // Populate materialized tables for optimized queries
+      await populateMaterializedTables(env);
+
       const request = new Request('http://example.com/.netlify/functions/balances', {
         method: 'POST',
         headers: {
@@ -340,7 +380,7 @@ describe('Budget Handlers', () => {
       await waitOnExecutionContext(ctx);
 
       expect(response.status).toBe(200);
-      const json = await response.json() as any;
+      const json = await response.json() as UserBalancesByUser;
       expect(json.Other.USD).toBe(-50); // testuser owes 50 to Other
       expect(json.Third.USD).toBe(20); // Third owes 20 to testuser
     });
@@ -353,6 +393,9 @@ describe('Budget Handlers', () => {
       // User 1 (testuser) owes money to all other users
       await env.DB.exec("INSERT INTO transaction_users (transaction_id, user_id, amount, owed_to_user_id, currency, group_id) VALUES ('tx-12a', 1, 25, 2, 'USD', 1), ('tx-12b', 1, 35, 3, 'USD', 1), ('tx-12c', 1, 45, 4, 'USD', 1)");
 
+      // Populate materialized tables for optimized queries
+      await populateMaterializedTables(env);
+
       const request = new Request('http://example.com/.netlify/functions/balances', {
         method: 'POST',
         headers: {
@@ -367,7 +410,7 @@ describe('Budget Handlers', () => {
       await waitOnExecutionContext(ctx);
 
       expect(response.status).toBe(200);
-      const json = await response.json() as any;
+      const json = await response.json() as UserBalancesByUser;
       expect(json.Other.USD).toBe(-25); // testuser owes 25 to Other
       expect(json.Third.USD).toBe(-35); // testuser owes 35 to Third
       expect(json.Fourth.USD).toBe(-45); // testuser owes 45 to Fourth
@@ -381,6 +424,9 @@ describe('Budget Handlers', () => {
       // All other users owe money to user 1 (testuser)
       await env.DB.exec("INSERT INTO transaction_users (transaction_id, user_id, amount, owed_to_user_id, currency, group_id) VALUES ('tx-13a', 2, 80, 1, 'USD', 1), ('tx-13b', 3, 65, 1, 'USD', 1), ('tx-13c', 4, 55, 1, 'USD', 1)");
 
+      // Populate materialized tables for optimized queries
+      await populateMaterializedTables(env);
+
       const request = new Request('http://example.com/.netlify/functions/balances', {
         method: 'POST',
         headers: {
@@ -395,7 +441,7 @@ describe('Budget Handlers', () => {
       await waitOnExecutionContext(ctx);
 
       expect(response.status).toBe(200);
-      const json = await response.json() as any;
+      const json = await response.json() as UserBalancesByUser;
       expect(json.Other.USD).toBe(80); // Other owes 80 to testuser
       expect(json.Third.USD).toBe(65); // Third owes 65 to testuser
       expect(json.Fourth.USD).toBe(55); // Fourth owes 55 to testuser
@@ -410,6 +456,9 @@ describe('Budget Handlers', () => {
       // But we're user 1, so we only see our relationship with user 2
       await env.DB.exec("INSERT INTO transaction_users (transaction_id, user_id, amount, owed_to_user_id, currency, group_id) VALUES ('tx-14a', 1, 90, 2, 'USD', 1), ('tx-14b', 3, 70, 4, 'USD', 1)");
 
+      // Populate materialized tables for optimized queries
+      await populateMaterializedTables(env);
+
       const request = new Request('http://example.com/.netlify/functions/balances', {
         method: 'POST',
         headers: {
@@ -424,7 +473,7 @@ describe('Budget Handlers', () => {
       await waitOnExecutionContext(ctx);
 
       expect(response.status).toBe(200);
-      const json = await response.json() as any;
+      const json = await response.json() as UserBalancesByUser;
       expect(json.Other.USD).toBe(-90); // testuser owes 90 to Other
       expect(json.Third).toBeUndefined(); // Third doesn't have debt with testuser
       expect(json.Fourth).toBeUndefined(); // Fourth doesn't have debt with testuser
@@ -440,6 +489,9 @@ describe('Budget Handlers', () => {
       // User 3 owes 200 GBP to user 1, user 1 owes 75 EUR to user 3
       await env.DB.exec("INSERT INTO transaction_users (transaction_id, user_id, amount, owed_to_user_id, currency, group_id) VALUES ('tx-15a', 1, 100, 2, 'USD', 1), ('tx-15b', 2, 50, 1, 'EUR', 1), ('tx-15c', 3, 200, 1, 'GBP', 1), ('tx-15d', 1, 75, 3, 'EUR', 1)");
 
+      // Populate materialized tables for optimized queries
+      await populateMaterializedTables(env);
+
       const request = new Request('http://example.com/.netlify/functions/balances', {
         method: 'POST',
         headers: {
@@ -454,7 +506,7 @@ describe('Budget Handlers', () => {
       await waitOnExecutionContext(ctx);
 
       expect(response.status).toBe(200);
-      const json = await response.json() as any;
+      const json = await response.json() as UserBalancesByUser;
       expect(json.Other.USD).toBe(-100); // testuser owes 100 USD to Other
       expect(json.Other.EUR).toBe(50); // Other owes 50 EUR to testuser
       expect(json.Third.GBP).toBe(200); // Third owes 200 GBP to testuser
@@ -472,6 +524,9 @@ describe('Budget Handlers', () => {
       // User 4 owes 80 to user 1, user 1 owes 35 to user 4 (net: user 4 owes 45 to user 1)
       await env.DB.exec("INSERT INTO transaction_users (transaction_id, user_id, amount, owed_to_user_id, currency, group_id) VALUES ('tx-16a', 1, 40, 2, 'USD', 1), ('tx-16b', 2, 30, 1, 'USD', 1), ('tx-16c', 3, 60, 1, 'USD', 1), ('tx-16d', 1, 20, 3, 'USD', 1), ('tx-16e', 4, 80, 1, 'USD', 1), ('tx-16f', 1, 35, 4, 'USD', 1)");
 
+      // Populate materialized tables for optimized queries
+      await populateMaterializedTables(env);
+
       const request = new Request('http://example.com/.netlify/functions/balances', {
         method: 'POST',
         headers: {
@@ -486,7 +541,7 @@ describe('Budget Handlers', () => {
       await waitOnExecutionContext(ctx);
 
       expect(response.status).toBe(200);
-      const json = await response.json() as any;
+      const json = await response.json() as UserBalancesByUser;
       expect(json.Other.USD).toBe(-10); // testuser owes 10 to Other (40 - 30)
       expect(json.Third.USD).toBe(40); // Third owes 40 to testuser (60 - 20)
       expect(json.Fourth.USD).toBe(45); // Fourth owes 45 to testuser (80 - 35)
@@ -500,6 +555,9 @@ describe('Budget Handlers', () => {
       // Only debt between user 1 and user 2, user 3 has no debt with user 1
       await env.DB.exec("INSERT INTO transaction_users (transaction_id, user_id, amount, owed_to_user_id, currency, group_id) VALUES ('tx-17a', 1, 85, 2, 'USD', 1), ('tx-17b', 3, 50, 2, 'USD', 1)");
 
+      // Populate materialized tables for optimized queries
+      await populateMaterializedTables(env);
+
       const request = new Request('http://example.com/.netlify/functions/balances', {
         method: 'POST',
         headers: {
@@ -514,7 +572,7 @@ describe('Budget Handlers', () => {
       await waitOnExecutionContext(ctx);
 
       expect(response.status).toBe(200);
-      const json = await response.json() as any;
+      const json = await response.json() as UserBalancesByUser;
       expect(json.Other.USD).toBe(-85); // testuser owes 85 to Other
       expect(json.Third).toBeUndefined(); // Third has no debt with testuser
     });
@@ -547,7 +605,7 @@ describe('Budget Handlers', () => {
       await waitOnExecutionContext(ctx);
 
       expect(response.status).toBe(200);
-      const json = await response.json() as any;
+      const json = await response.json() as UserBalancesByUser;
       expect(json.message).toBe('200');
     });
 
@@ -606,7 +664,7 @@ describe('Budget Handlers', () => {
       await waitOnExecutionContext(ctx);
 
       expect(response.status).toBe(200);
-      const json = await response.json() as any;
+      const json = await response.json() as UserBalancesByUser;
       expect(json.message).toBe('200');
     });
   });
@@ -638,7 +696,7 @@ describe('Budget Handlers', () => {
       await waitOnExecutionContext(ctx);
 
       expect(response.status).toBe(200);
-      const json = await response.json() as any;
+      const json = await response.json() as UserBalancesByUser;
       expect(json[0].description).toBe('Groceries');
     });
   });
@@ -670,7 +728,7 @@ describe('Budget Handlers', () => {
       await waitOnExecutionContext(ctx);
 
       expect(response.status).toBe(200);
-      const json = await response.json() as any;
+      const json = await response.json() as TestBudgetMonthlyResponse;
 
       // Check that the response has the new structure
       expect(json).toHaveProperty('monthlyBudgets');
@@ -696,16 +754,16 @@ describe('Budget Handlers', () => {
       expect(json.monthlyBudgets.length).toBe(monthCount);
 
       // Check that the months with data show correct amounts
-      const julyBudget = json.monthlyBudgets.find((b: any) => b.month === 'July' && b.year === 2024);
-      const augustBudget = json.monthlyBudgets.find((b: any) => b.month === 'August' && b.year === 2024);
-      const septemberBudget = json.monthlyBudgets.find((b: any) => b.month === 'September' && b.year === 2024);
+      const julyBudget = json.monthlyBudgets.find((b: TestMonthlyBudgetItem) => b.month === 'July' && b.year === 2024);
+      const augustBudget = json.monthlyBudgets.find((b: TestMonthlyBudgetItem) => b.month === 'August' && b.year === 2024);
+      const septemberBudget = json.monthlyBudgets.find((b: TestMonthlyBudgetItem) => b.month === 'September' && b.year === 2024);
 
-      expect(julyBudget).toBeDefined();
-      expect(julyBudget.amounts[0].amount).toBe(-500);
-      expect(augustBudget).toBeDefined();
-      expect(augustBudget.amounts[0].amount).toBe(-600);
-      expect(septemberBudget).toBeDefined();
-      expect(septemberBudget.amounts[0].amount).toBe(-400);
+      expect(julyBudget).toBeTruthy();
+      expect((julyBudget as TestMonthlyBudgetItem).amounts[0].amount).toBe(-500);
+      expect(augustBudget).toBeTruthy();
+      expect((augustBudget as TestMonthlyBudgetItem).amounts[0].amount).toBe(-600);
+      expect(septemberBudget).toBeTruthy();
+      expect((septemberBudget as TestMonthlyBudgetItem).amounts[0].amount).toBe(-400);
 
       // Check rolling average monthly spend calculations
       expect(Array.isArray(json.averageMonthlySpend)).toBe(true);
@@ -715,22 +773,22 @@ describe('Budget Handlers', () => {
       expect(json.averageMonthlySpend.length).toBeGreaterThan(0);
 
       // Check 1-month average (should exist)
-      const oneMonthAverage = json.averageMonthlySpend.find((avg: any) => avg.periodMonths === 1);
-      expect(oneMonthAverage).toBeDefined();
-      expect(oneMonthAverage.averages.length).toBe(1);
-      expect(oneMonthAverage.averages[0].currency).toBe('USD');
+      const oneMonthAverage = json.averageMonthlySpend.find((avg: TestAverageSpendItem) => avg.periodMonths === 1);
+      expect(oneMonthAverage).toBeTruthy();
+      expect((oneMonthAverage as TestAverageSpendItem).averages.length).toBe(1);
+      expect((oneMonthAverage as TestAverageSpendItem).averages[0].currency).toBe('USD');
 
       // Check 2-month average (should exist)
-      const twoMonthAverage = json.averageMonthlySpend.find((avg: any) => avg.periodMonths === 2);
-      expect(twoMonthAverage).toBeDefined();
-      expect(twoMonthAverage.averages.length).toBe(1);
-      expect(twoMonthAverage.averages[0].currency).toBe('USD');
+      const twoMonthAverage = json.averageMonthlySpend.find((avg: TestAverageSpendItem) => avg.periodMonths === 2);
+      expect(twoMonthAverage).toBeTruthy();
+      expect((twoMonthAverage as TestAverageSpendItem).averages.length).toBe(1);
+      expect((twoMonthAverage as TestAverageSpendItem).averages[0].currency).toBe('USD');
 
       // Check 3-month average (should exist)
-      const threeMonthAverage = json.averageMonthlySpend.find((avg: any) => avg.periodMonths === 3);
-      expect(threeMonthAverage).toBeDefined();
-      expect(threeMonthAverage.averages.length).toBe(1);
-      expect(threeMonthAverage.averages[0].currency).toBe('USD');
+      const threeMonthAverage = json.averageMonthlySpend.find((avg: TestAverageSpendItem) => avg.periodMonths === 3);
+      expect(threeMonthAverage).toBeTruthy();
+      expect((threeMonthAverage as TestAverageSpendItem).averages.length).toBe(1);
+      expect((threeMonthAverage as TestAverageSpendItem).averages[0].currency).toBe('USD');
 
       // Check period analyzed
       expect(json.periodAnalyzed).toHaveProperty('startDate');
@@ -760,7 +818,7 @@ describe('Budget Handlers', () => {
       await waitOnExecutionContext(ctx);
 
       expect(response.status).toBe(200);
-      const json = await response.json() as any;
+      const json = await response.json() as TestBudgetMonthlyResponse;
 
       // Check that the response has the new structure
       expect(json).toHaveProperty('monthlyBudgets');
@@ -788,7 +846,7 @@ describe('Budget Handlers', () => {
       expect(json.monthlyBudgets.length).toBe(monthCount);
 
       // All months should have 0 amounts since no budget data exists
-      json.monthlyBudgets.forEach((budget: any) => {
+      json.monthlyBudgets.forEach((budget: TestMonthlyBudgetItem) => {
         expect(budget.amounts[0].amount).toBe(0);
         expect(budget.amounts[0].currency).toBe('USD');
       });
@@ -798,13 +856,13 @@ describe('Budget Handlers', () => {
       expect(json.averageMonthlySpend.length).toBeGreaterThan(0);
 
       // Check the first period (1-month average)
-      const oneMonthPeriod = json.averageMonthlySpend.find((avg: any) => avg.periodMonths === 1);
-      expect(oneMonthPeriod).toBeDefined();
-      expect(oneMonthPeriod.averages.length).toBe(1);
-      expect(oneMonthPeriod.averages[0].currency).toBe('USD');
-      expect(oneMonthPeriod.averages[0].totalSpend).toBe(0);
-      expect(oneMonthPeriod.averages[0].averageMonthlySpend).toBe(0);
-      expect(oneMonthPeriod.averages[0].monthsAnalyzed).toBe(1);
+      const oneMonthPeriod = json.averageMonthlySpend.find((avg: TestAverageSpendItem) => avg.periodMonths === 1);
+      expect(oneMonthPeriod).toBeTruthy();
+      expect((oneMonthPeriod as TestAverageSpendItem).averages.length).toBe(1);
+      expect((oneMonthPeriod as TestAverageSpendItem).averages[0].currency).toBe('USD');
+      expect((oneMonthPeriod as TestAverageSpendItem).averages[0].totalSpend).toBe(0);
+      expect((oneMonthPeriod as TestAverageSpendItem).averages[0].averageMonthlySpend).toBe(0);
+      expect((oneMonthPeriod as TestAverageSpendItem).averages[0].monthsAnalyzed).toBe(1);
     });
 
     it('should calculate rolling averages correctly for different time periods', async () => {
@@ -843,29 +901,29 @@ describe('Budget Handlers', () => {
       await waitOnExecutionContext(ctx);
 
       expect(response.status).toBe(200);
-      const json = await response.json() as any;
+      const json = await response.json() as TestBudgetMonthlyResponse;
 
       // Check that we have rolling averages for different periods
       // Since we have 6 months of recent data, we should get periods based on current date
       expect(json.averageMonthlySpend.length).toBeGreaterThan(0);
 
       // Find and check 1-month average
-      const oneMonthAverage = json.averageMonthlySpend.find((avg: any) => avg.periodMonths === 1);
-      expect(oneMonthAverage).toBeDefined();
-      expect(oneMonthAverage.averages[0].currency).toBe('USD');
+      const oneMonthAverage = json.averageMonthlySpend.find((avg: TestAverageSpendItem) => avg.periodMonths === 1);
+      expect(oneMonthAverage).toBeTruthy();
+      expect((oneMonthAverage as TestAverageSpendItem).averages[0].currency).toBe('USD');
 
       // Find and check 2-month average
-      const twoMonthAverage = json.averageMonthlySpend.find((avg: any) => avg.periodMonths === 2);
-      expect(twoMonthAverage).toBeDefined();
-      expect(twoMonthAverage.averages[0].currency).toBe('USD');
+      const twoMonthAverage = json.averageMonthlySpend.find((avg: TestAverageSpendItem) => avg.periodMonths === 2);
+      expect(twoMonthAverage).toBeTruthy();
+      expect((twoMonthAverage as TestAverageSpendItem).averages[0].currency).toBe('USD');
 
       // Find and check 3-month average
-      const threeMonthAverage = json.averageMonthlySpend.find((avg: any) => avg.periodMonths === 3);
-      expect(threeMonthAverage).toBeDefined();
-      expect(threeMonthAverage.averages[0].currency).toBe('USD');
+      const threeMonthAverage = json.averageMonthlySpend.find((avg: TestAverageSpendItem) => avg.periodMonths === 3);
+      expect(threeMonthAverage).toBeTruthy();
+      expect((threeMonthAverage as TestAverageSpendItem).averages[0].currency).toBe('USD');
 
       // Find and check 6-month average (should include months within the 6-month window)
-      const sixMonthAverage = json.averageMonthlySpend.find((avg: any) => avg.periodMonths === 6);
+      const sixMonthAverage = json.averageMonthlySpend.find((avg: TestAverageSpendItem) => avg.periodMonths === 6);
       if (sixMonthAverage) {
         expect(sixMonthAverage.averages[0].currency).toBe('USD');
         expect(sixMonthAverage.averages[0].totalSpend).toBeGreaterThan(0);
@@ -887,6 +945,9 @@ describe('Budget Handlers', () => {
       await env.DB.exec("INSERT INTO budget (description, price, added_time, amount, name, groupid, currency) VALUES ('Entry 1', '+500.00', '2024-01-01 00:00:00', 500, 'house', 1, 'USD')");
       await env.DB.exec("INSERT INTO budget (description, price, added_time, amount, name, groupid, currency) VALUES ('Entry 2', '+1000.00', '2024-02-01 00:00:00', 1000, 'house', 1, 'USD')");
 
+      // Populate materialized tables for optimized queries
+      await populateMaterializedTables(env);
+
       const request = new Request('http://example.com/.netlify/functions/budget_total', {
         method: 'POST',
         headers: {
@@ -904,7 +965,7 @@ describe('Budget Handlers', () => {
       await waitOnExecutionContext(ctx);
 
       expect(response.status).toBe(200);
-      const json = await response.json() as any;
+      const json = await response.json() as TestBudgetTotalResponse[];
       expect(json[0].amount).toBe(1500);
     });
   });

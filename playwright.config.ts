@@ -2,6 +2,15 @@ import { defineConfig, devices } from '@playwright/test';
 
 /**
  * @see https://playwright.dev/docs/test-configuration
+ * 
+ * To enable slow motion for debugging, use:
+ * PLAYWRIGHT_SLOWMO=1000 yarn playwright test --headed
+ * 
+ * Or use debug mode (enables slow motion automatically):
+ * yarn playwright test --debug
+ * 
+ * For specific tests:
+ * PLAYWRIGHT_SLOWMO=500 yarn playwright test --grep "test name" --headed
  */
 export default defineConfig({
   testDir: './src/e2e',
@@ -10,11 +19,13 @@ export default defineConfig({
   /* Fail the build on CI if you accidentally left test.only in the source code. */
   forbidOnly: !!process.env.CI,
   /* Retry on CI only */
-  retries: 2,
+  retries: process.env.CI ? 2 : 0,
   /* Opt out of parallel tests on CI. */
   workers: 1,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
-  reporter: 'html',
+  reporter: process.env.CI ? [['list'], ['html']] : 'html',
+  /* Test timeout set to 40 seconds */
+  timeout: 40 * 1000,
 
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
@@ -29,6 +40,11 @@ export default defineConfig({
     
     /* Video on failure */
     video: 'retain-on-failure',
+    
+    /* Slow motion for debugging via environment variable */
+    launchOptions: {
+      slowMo: process.env.PLAYWRIGHT_SLOWMO ? parseInt(process.env.PLAYWRIGHT_SLOWMO, 10) : 100,
+    },
   },
 
   /* Configure projects for major browsers */

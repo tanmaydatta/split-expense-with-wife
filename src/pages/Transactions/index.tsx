@@ -21,107 +21,117 @@ import "./index.css";
 
 const TransactionList: React.FC<{
   transactions: FrontendTransaction[];
-  deleteTransaction(id: number): void;
+  deleteTransaction(id: string): void;
 }> = ({
   transactions,
   deleteTransaction,
 }) => {
-  const [selectedTransaction, setSelectedTransaction] =
-    useState<FrontendTransaction | null>(null);
+    const [selectedTransaction, setSelectedTransaction] =
+      useState<FrontendTransaction | null>(null);
 
-  const handleSelect = (transaction: FrontendTransaction) => {
-    if (
-      selectedTransaction?.transactionId === transaction.transactionId
-    ) {
-      setSelectedTransaction(null);
-    } else {
-      setSelectedTransaction(transaction);
-    }
+    const handleSelect = (transaction: FrontendTransaction) => {
+      if (
+        selectedTransaction?.transactionId === transaction.transactionId
+      ) {
+        setSelectedTransaction(null);
+      } else {
+        setSelectedTransaction(transaction);
+      }
+    };
+
+    return (
+      <>
+        {/* Desktop Table View */}
+        <div className="desktop-table">
+          <TableWrapper>
+            <Table>
+              <thead>
+                <tr>
+                  <th><Calendar /> Date</th>
+                  <th><CardText /> Description</th>
+                  <th><Coin /> Amount</th>
+                  <th><ArrowDownUp /> Share</th>
+                  <th><Trash /></th>
+                </tr>
+              </thead>
+              <tbody>
+                {transactions.map((transaction) => (
+                  <React.Fragment key={transaction.id}>
+                    <tr className="transaction-row" data-test-id="transaction-item" data-transaction-id={transaction.transactionId} onClick={() => handleSelect(transaction)}>
+                      <td>{dateToFullStr(new Date(transaction.date))}</td>
+                      <td className="description-cell">{transaction.description}</td>
+                      <td>
+                        {getSymbolFromCurrency(transaction.currency)}
+                        {Math.abs(transaction.totalAmount).toFixed(2)}
+                      </td>
+                      <td
+                        className={
+                          transaction.totalOwed > 0
+                            ? "positive"
+                            : transaction.totalOwed < 0
+                              ? "negative"
+                              : "zero"
+                        }
+                      >
+                        {transaction.totalOwed !== 0 && (transaction.totalOwed > 0 ? "+" : "-")}
+                        {getSymbolFromCurrency(transaction.currency)}
+                        {Math.abs(transaction.totalOwed).toFixed(2)}
+                      </td>
+                      <td>
+                        <button
+                          data-test-id="delete-button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteTransaction(transaction.transactionId)
+                          }}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            cursor: "pointer",
+                            padding: "4px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            color: "red"
+                          }}
+                          aria-label="Delete transaction"
+                        >
+                                                      <XLg />
+                        </button>
+                      </td>
+                    </tr>
+                    {selectedTransaction &&
+                      transaction.transactionId === selectedTransaction.transactionId && (
+                        <tr>
+                          <td colSpan={5}>
+                            <TransactionDetails {...selectedTransaction} />
+                          </td>
+                        </tr>
+                      )}
+                  </React.Fragment>
+                ))}
+              </tbody>
+            </Table>
+          </TableWrapper>
+        </div>
+
+        {/* Mobile Card View */}
+        <div className="mobile-cards">
+          {transactions.map((transaction) => (
+            <TransactionCard
+              key={transaction.id}
+              transaction={transaction}
+              isSelected={selectedTransaction?.transactionId === transaction.transactionId}
+              onSelect={handleSelect}
+              onDelete={deleteTransaction}
+            >
+              <TransactionDetails {...transaction} />
+            </TransactionCard>
+          ))}
+        </div>
+      </>
+    );
   };
-
-  return (
-    <>
-      {/* Desktop Table View */}
-      <div className="desktop-table">
-        <TableWrapper>
-          <Table>
-            <thead>
-              <tr>
-                <th><Calendar /> Date</th>
-                <th><CardText /> Description</th>
-                <th><Coin /> Amount</th>
-                <th><ArrowDownUp /> Share</th>
-                <th><Trash /></th>
-              </tr>
-            </thead>
-            <tbody>
-              {transactions.map((transaction) => (
-                <React.Fragment key={transaction.id}>
-                  <tr className="transaction-row" data-test-id="transaction-item" data-transaction-id={transaction.transactionId} onClick={() => handleSelect(transaction)}>
-                    <td>{dateToFullStr(new Date(transaction.date))}</td>
-                    <td className="description-cell">{transaction.description}</td>
-                    <td>
-                      {getSymbolFromCurrency(transaction.currency)}
-                      {Math.abs(transaction.totalAmount).toFixed(2)}
-                    </td>
-                    <td
-                      className={
-                        transaction.totalOwed > 0 
-                          ? "positive" 
-                          : transaction.totalOwed < 0 
-                          ? "negative" 
-                          : "zero"
-                      }
-                    >
-                      {transaction.totalOwed !== 0 && (transaction.totalOwed > 0 ? "+" : "-")}
-                      {getSymbolFromCurrency(transaction.currency)}
-                      {Math.abs(transaction.totalOwed).toFixed(2)}
-                    </td>
-                    <td>
-                      <XLg
-                        style={{
-                          fontWeight: 500,
-                          color: "red",
-                        }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          deleteTransaction(transaction.id)
-                        }}
-                      />
-                    </td>
-                  </tr>
-                  {selectedTransaction &&
-                    transaction.transactionId === selectedTransaction.transactionId && (
-                      <tr>
-                        <td colSpan={5}>
-                          <TransactionDetails {...selectedTransaction} />
-                        </td>
-                      </tr>
-                    )}
-                </React.Fragment>
-              ))}
-            </tbody>
-          </Table>
-        </TableWrapper>
-      </div>
-
-      {/* Mobile Card View */}
-      <div className="mobile-cards">
-        {transactions.map((transaction) => (
-          <TransactionCard
-            key={transaction.id}
-            transaction={transaction}
-            isSelected={selectedTransaction?.transactionId === transaction.transactionId}
-            onSelect={handleSelect}
-            onDelete={deleteTransaction}
-          >
-            <TransactionDetails {...transaction} />
-          </TransactionCard>
-        ))}
-      </div>
-    </>
-  );
-};
 
 function TransactionDetails(selectedTransaction: FrontendTransaction) {
   return (
@@ -155,19 +165,19 @@ function TransactionDetails(selectedTransaction: FrontendTransaction) {
       </div>
       <div
         className={
-          selectedTransaction.totalOwed > 0 
-            ? "positive" 
-            : selectedTransaction.totalOwed < 0 
-            ? "negative" 
-            : "zero"
+          selectedTransaction.totalOwed > 0
+            ? "positive"
+            : selectedTransaction.totalOwed < 0
+              ? "negative"
+              : "zero"
         }
         data-test-id="total-owed-section"
       >
-        {selectedTransaction.totalOwed > 0 
-          ? "You are owed " 
-          : selectedTransaction.totalOwed < 0 
-          ? "You owe " 
-          : "No amount owed "
+        {selectedTransaction.totalOwed > 0
+          ? "You are owed "
+          : selectedTransaction.totalOwed < 0
+            ? "You owe "
+            : "No amount owed "
         }
         <div data-test-id="total-owed-amount">
           {selectedTransaction.totalOwed !== 0 && (selectedTransaction.totalOwed > 0 ? "+" : "-")}
@@ -212,7 +222,6 @@ const Transactions: React.FC = () => {
               paidByShares: {},
               owedToAmounts: {},
             };
-
             return entries.push({
               id: e.id,
               transactionId: e.transaction_id,
@@ -244,7 +253,7 @@ const Transactions: React.FC = () => {
     fetchTransactions(0, []);
   }, [fetchTransactions]);
 
-  const deleteTransaction = async (id: number) => {
+  const deleteTransaction = async (id: string) => {
     setLoading(true);
     try {
       const request: SplitDeleteRequest = {
@@ -256,6 +265,7 @@ const Transactions: React.FC = () => {
       alert(response.message);
       fetchTransactions(0, []);
     } catch (e: any) {
+      console.log(e);
       alert(e.response?.data);
       if (e.response?.status === 401) {
         navigate("/login");

@@ -20,8 +20,10 @@ import {
   validateSplitPercentages,
   validatePaidAmounts,
   calculateSplitAmounts,
-  generateRandomId
+  generateRandomId,
+  generateBalanceUpdateStatements
 } from '../utils';
+import { SplitwiseResponse, TransactionCreateResponse, SplitAmount } from '../types';
 
 // Handle split with Splitwise API
 export async function handleSplit(request: CFRequest, env: Env): Promise<Response> {
@@ -80,7 +82,7 @@ export async function handleSplit(request: CFRequest, env: Env): Promise<Respons
       return createErrorResponse('Error creating expense in Splitwise', 500, request, env);
     }
 
-    const splitwiseData = await splitwiseResponse.json() as { id: number };
+    const splitwiseData = await splitwiseResponse.json() as SplitwiseResponse;
 
     // Store in database
     const transactionId = splitwiseData.id;
@@ -123,7 +125,11 @@ export async function handleSplit(request: CFRequest, env: Env): Promise<Respons
       ]
     }));
 
-    await executeBatch(env, userBatchStatements);
+    // Generate balance update statements
+    const balanceStatements = generateBalanceUpdateStatements(splitAmounts, session.group.groupid.toString(), 'add');
+
+    // Execute all statements in a single batch
+    await executeBatch(env, [...userBatchStatements, ...balanceStatements]);
 
     return createJsonResponse({
       message: 'Split created successfully',
@@ -236,6 +242,11 @@ export async function handleSplitNew(request: CFRequest, env: Env): Promise<Resp
       owedAmounts,
       owedToAmounts
     });
+
+    // Generate balance update statements
+    const balanceStatements = generateBalanceUpdateStatements(splitAmounts, session.group.groupid.toString(), 'add');
+
+    // Execute all statements in a single batch
     await executeBatch(env, [{
       sql: `INSERT INTO transactions (transaction_id, description, amount, currency, group_id, created_at, metadata)
       VALUES (?, ?, ?, ?, ?, ?, ?)`,
@@ -248,9 +259,9 @@ export async function handleSplitNew(request: CFRequest, env: Env): Promise<Resp
         createdAt,
         metadata
       ]
-    }, ...userBatchStatements]);
+    }, ...userBatchStatements, ...balanceStatements]);
 
-    const response: { message: string; transactionId: string } = {
+    const response: TransactionCreateResponse = {
       message: 'Transaction created successfully',
       transactionId: transactionId
     };
@@ -276,6 +287,15 @@ export async function handleSplitDelete(request: CFRequest, env: Env): Promise<R
 
     const body = await request.json() as SplitDeleteRequest;
 
+    // Get existing transaction amounts before deletion for balance update
+    const existingAmountsStmt = env.DB.prepare(`
+      SELECT user_id, amount, owed_to_user_id, currency
+      FROM transaction_users 
+      WHERE transaction_id = ? AND group_id = ? AND deleted IS NULL
+    `);
+
+    const existingAmountsResult = await existingAmountsStmt.bind(body.id, session.group.groupid).all();
+    const existingAmounts = existingAmountsResult.results as SplitAmount[];
 
     // Soft delete transaction
     const deletedTime = formatSQLiteTime();
@@ -291,7 +311,13 @@ export async function handleSplitDelete(request: CFRequest, env: Env): Promise<R
       }
     ];
 
-    await executeBatch(env, batchStatements);
+    // Generate balance update statements to remove deleted transaction amounts
+    const balanceStatements = existingAmounts.length > 0
+      ? generateBalanceUpdateStatements(existingAmounts, session.group.groupid.toString(), 'remove')
+      : [];
+
+    // Execute all statements in a single batch
+    await executeBatch(env, [...batchStatements, ...balanceStatements]);
 
     return createJsonResponse({ message: 'Transaction deleted successfully' }, 200, {}, request, env);
 

@@ -12,6 +12,17 @@ export async function setupDatabase(env: Env): Promise<void> {
   await env.DB.exec('CREATE TABLE IF NOT EXISTS transaction_users (transaction_id VARCHAR(100) NOT NULL, user_id INTEGER NOT NULL, amount DECIMAL(10,2) NOT NULL, owed_to_user_id INTEGER NOT NULL, group_id INTEGER NOT NULL, currency VARCHAR(10) NOT NULL, deleted DATETIME, PRIMARY KEY (transaction_id, user_id, owed_to_user_id))');
   await env.DB.exec('CREATE TABLE IF NOT EXISTS transactions (id INTEGER PRIMARY KEY AUTOINCREMENT, description VARCHAR(255) NOT NULL, amount DECIMAL(10,2) NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, metadata TEXT, currency VARCHAR(10) NOT NULL, transaction_id VARCHAR(100), group_id INTEGER NOT NULL, deleted DATETIME)');
   await env.DB.exec('CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username VARCHAR(50) NOT NULL, password VARCHAR(255) NOT NULL, first_name VARCHAR(50), last_name VARCHAR(50), groupid INTEGER NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)');
+
+  // Create balances table for optimized balance calculations
+  await env.DB.exec('CREATE TABLE IF NOT EXISTS user_balances (group_id INTEGER NOT NULL, user_id INTEGER NOT NULL, owed_to_user_id INTEGER NOT NULL, currency VARCHAR(10) NOT NULL, balance REAL NOT NULL DEFAULT 0, updated_at DATETIME NOT NULL, PRIMARY KEY (group_id, user_id, owed_to_user_id, currency))');
+
+  // Create budget totals table for optimized budget aggregations
+  await env.DB.exec('CREATE TABLE IF NOT EXISTS budget_totals (group_id INTEGER NOT NULL, name VARCHAR(100) NOT NULL, currency VARCHAR(10) NOT NULL, total_amount REAL NOT NULL DEFAULT 0, updated_at DATETIME NOT NULL, PRIMARY KEY (group_id, name, currency))');
+
+  // Create indexes for performance
+  await env.DB.exec('CREATE INDEX IF NOT EXISTS user_balances_group_user_idx ON user_balances (group_id, user_id, currency)');
+  await env.DB.exec('CREATE INDEX IF NOT EXISTS transaction_users_balances_idx ON transaction_users (group_id, deleted, user_id, owed_to_user_id, currency)');
+  await env.DB.exec('CREATE INDEX IF NOT EXISTS budget_totals_group_name_idx ON budget_totals (group_id, name)');
 }
 
 /**
@@ -65,4 +76,16 @@ export async function createTestUserData(env: Env): Promise<void> {
  */
 export async function createTestSession(env: Env, sessionId: string = 'test-session-id', username: string = 'testuser'): Promise<void> {
   await env.DB.exec(`INSERT INTO sessions (sessionid, username, expiry_time) VALUES ('${sessionId}', '${username}', '2099-01-01 00:00:00')`);
+}
+
+/**
+ * Helper function to populate materialized tables from existing test data
+ * This should be called after inserting test data to ensure the optimized tables are populated
+ */
+export async function populateMaterializedTables(env: Env): Promise<void> {
+  // Populate user_balances table from transaction_users
+  await env.DB.exec('INSERT OR REPLACE INTO user_balances (group_id, user_id, owed_to_user_id, currency, balance, updated_at) SELECT group_id, user_id, owed_to_user_id, currency, sum(amount) as balance, datetime(\'now\') as updated_at FROM transaction_users WHERE deleted IS NULL GROUP BY group_id, user_id, owed_to_user_id, currency');
+
+  // Populate budget_totals table from budget
+  await env.DB.exec('INSERT OR REPLACE INTO budget_totals (group_id, name, currency, total_amount, updated_at) SELECT groupid as group_id, name, currency, sum(amount) as total_amount, datetime(\'now\') as updated_at FROM budget WHERE deleted IS NULL GROUP BY groupid, name, currency');
 }
