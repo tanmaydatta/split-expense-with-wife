@@ -9,7 +9,7 @@ import { AmountGrid } from "@/components/AmountGrid";
 import BudgetTable from "./BudgetTable";
 import { SelectBudget } from "@/SelectBudget";
 import { entry } from "@/model";
-import { typedApi } from "@/utils/api";
+import { ApiError, typedApi } from "@/utils/api";
 import { BudgetListRequest, BudgetTotalRequest, BudgetDeleteRequest, BudgetEntry, BudgetTotal } from '@shared-types';
 import "./index.css";
 
@@ -100,8 +100,15 @@ export const Budget: React.FC = () => {
       fetchTotal();
       fetchHistory(0, []);
     } catch (e: any) {
-      setError(e.response?.data || "An error occurred while deleting the budget entry");
-      if (e.response?.status === 401) {
+      let statusCode = 500;
+      if (e instanceof ApiError) {
+        setError(e.errorMessage);
+        statusCode = e.statusCode;
+      } else {
+        setError(e.response?.data || "An error occurred while deleting the budget entry");
+        statusCode = e.response?.status || 500;
+      }
+      if (statusCode === 401) {
         navigate("/login");
       }
     } finally {

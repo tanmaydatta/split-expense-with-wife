@@ -15,7 +15,7 @@ import {
   XLg,
 } from "@/components/Icons";
 import { dateToFullStr } from "@/utils/date";
-import { typedApi } from "@/utils/api";
+import { ApiError, typedApi } from "@/utils/api";
 import type { FrontendTransaction, TransactionsListRequest, TransactionsListResponse, SplitDeleteRequest, TransactionMetadata, TransactionUser } from '@shared-types';
 import "./index.css";
 
@@ -272,9 +272,15 @@ const Transactions: React.FC = () => {
       setSuccess(response.message);
       fetchTransactions(0, []);
     } catch (e: any) {
-      console.log(e);
-      setError(e.response?.data || "An error occurred while deleting the transaction");
-      if (e.response?.status === 401) {
+      let statusCode = 500;
+      if (e instanceof ApiError) {
+        setError(e.errorMessage);
+        statusCode = e.statusCode;
+      } else {
+        setError(e.response?.data || "An error occurred while deleting the budget entry");
+        statusCode = e.response?.status || 500;
+      }
+      if (statusCode === 401) {
         navigate("/login");
       }
     } finally {
