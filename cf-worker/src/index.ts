@@ -4,6 +4,8 @@ import { handleLogin, handleLogout } from './handlers/auth';
 import {
   handleBalances,
   handleBudget,
+  handleCreateBudget,
+  handleDeleteBudget,
   handleBudgetDelete,
   handleBudgetList,
   handleBudgetMonthly,
@@ -51,6 +53,10 @@ export default {
       return await handleBalances(request, env);
     } else if (path === '/.netlify/functions/budget') {
       return await handleBudget(request, env);
+    } else if (path === '/.netlify/functions/budget/create') {
+      return await handleCreateBudget(request, env);
+    } else if (path === '/.netlify/functions/budget/delete') {
+      return await handleDeleteBudget(request, env);
     } else if (path === '/.netlify/functions/budget_delete') {
       return await handleBudgetDelete(request, env);
     } else if (path === '/.netlify/functions/budget_list') {

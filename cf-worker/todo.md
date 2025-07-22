@@ -8,8 +8,8 @@
 - safari dropdown ✅
 - very big check boxes ✅
 - avg line not on the right ✅
-- remove all alerts
-- add/remove budgets
+- remove all alerts ✅
+- add/remove budgets ✅ 
 - change defaults feat
 - retire netlify functions
 - remove pin

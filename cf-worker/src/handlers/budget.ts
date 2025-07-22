@@ -2,13 +2,17 @@ import {
   CFRequest,
   Env,
   BudgetRequest,
+  CreateBudgetRequest,
+  DeleteBudgetRequest,
   BudgetListRequest,
   BudgetTotalRequest,
   BudgetDeleteRequest,
   BudgetMonthlyRequest,
   AverageSpendData,
   AverageSpendPeriod,
-  BudgetMonthlyResponse
+  BudgetMonthlyResponse,
+  CreateBudgetResponse,
+  DeleteBudgetResponse
 } from '../types';
 import {
   authenticate,
@@ -144,6 +148,153 @@ export async function handleBudget(request: CFRequest, env: Env): Promise<Respon
 
   } catch (error) {
     console.error('Budget error:', error);
+    return createErrorResponse('Internal server error', 500, request, env);
+  }
+}
+
+// Handle budget creation
+export async function handleCreateBudget(request: CFRequest, env: Env): Promise<Response> {
+  if (request.method !== 'POST') {
+    return createErrorResponse('Method not allowed', 405, request, env);
+  }
+
+  try {
+    const session = await authenticate(request, env);
+    if (!session) {
+      return createErrorResponse('Unauthorized', 401, request, env);
+    }
+
+    const body = await request.json() as CreateBudgetRequest;
+
+    // Validate request
+    if (session.group.groupid !== body.groupid) {
+      return createErrorResponse('Unauthorized', 401, request, env);
+    }
+
+    // Validate budget name format (basic validation)
+    if (!body.name || body.name.trim().length === 0) {
+      return createErrorResponse('Budget name cannot be empty', 400, request, env);
+    }
+
+    const budgetName = body.name.trim();
+
+    // Check if budget name contains invalid characters
+    if (!/^[a-z0-9_-]+$/.test(budgetName)) {
+      return createErrorResponse('Budget name can only contain letters, numbers, hyphens, and underscores', 400, request, env);
+    }
+
+    // Check if budget already exists (atomic read)
+    const checkExistsStmt = env.DB.prepare(`
+      SELECT EXISTS (
+        SELECT 1 FROM json_each(COALESCE(budgets, '[]')) 
+        WHERE value = ?
+      ) as budget_exists
+      FROM groups 
+      WHERE groupid = ?
+    `);
+
+    const existsResult = await checkExistsStmt.bind(budgetName, session.group.groupid).first() as { budget_exists: number };
+
+    if (existsResult.budget_exists === 1) {
+      return createErrorResponse('Budget category already exists', 400, request, env);
+    }
+
+    // Atomically add budget to the list using JSON functions
+    const updateGroupStmt = env.DB.prepare(`
+      UPDATE groups 
+      SET budgets = json_insert(COALESCE(budgets, '[]'), '$[#]', ?),
+          metadata = json_set(COALESCE(metadata, '{}'), '$.last_updated', ?)
+      WHERE groupid = ?
+    `);
+
+    await updateGroupStmt.bind(
+      budgetName,
+      formatSQLiteTime(),
+      session.group.groupid
+    ).run();
+
+    const response: CreateBudgetResponse = {
+      message: 'Budget category created successfully',
+      budgetName: budgetName
+    };
+
+    return createJsonResponse(response, 200, {}, request, env);
+
+  } catch (error) {
+    console.error('Budget create error:', error);
+    return createErrorResponse('Internal server error', 500, request, env);
+  }
+}
+
+// Handle budget category deletion
+export async function handleDeleteBudget(request: CFRequest, env: Env): Promise<Response> {
+  if (request.method !== 'POST') {
+    return createErrorResponse('Method not allowed', 405, request, env);
+  }
+
+  try {
+    const session = await authenticate(request, env);
+    if (!session) {
+      return createErrorResponse('Unauthorized', 401, request, env);
+    }
+
+    const body = await request.json() as DeleteBudgetRequest;
+
+    // Validate request
+    if (session.group.groupid !== body.groupid) {
+      return createErrorResponse('Unauthorized', 401, request, env);
+    }
+
+    // Validate budget name format
+    if (!body.name || body.name.trim().length === 0) {
+      return createErrorResponse('Budget name cannot be empty', 400, request, env);
+    }
+
+    const budgetName = body.name.trim().toLowerCase();
+
+    // Check if budget exists (atomic read)
+    const checkExistsStmt = env.DB.prepare(`
+      SELECT EXISTS (
+        SELECT 1 FROM json_each(COALESCE(budgets, '[]')) 
+        WHERE value = ?
+      ) as budget_exists
+      FROM groups 
+      WHERE groupid = ?
+    `);
+
+    const existsResult = await checkExistsStmt.bind(budgetName, session.group.groupid).first() as { budget_exists: number };
+
+    if (existsResult.budget_exists === 0) {
+      return createErrorResponse('Budget category does not exist', 404, request, env);
+    }
+
+    // Atomically remove budget from the list using JSON functions
+    const updateGroupStmt = env.DB.prepare(`
+      UPDATE groups 
+      SET budgets = (
+        SELECT json_group_array(value) 
+        FROM json_each(COALESCE(budgets, '[]')) 
+        WHERE value != ?
+      ),
+      metadata = json_set(COALESCE(metadata, '{}'), '$.last_updated', ?)
+      WHERE groupid = ?
+    `);
+
+    await updateGroupStmt.bind(
+      budgetName,
+      formatSQLiteTime(),
+      session.group.groupid
+    ).run();
+
+    const response: DeleteBudgetResponse = {
+      message: 'Budget category deleted successfully',
+      budgetName: budgetName
+    };
+
+    return createJsonResponse(response, 200, {}, request, env);
+
+  } catch (error) {
+    console.error('Budget delete error:', error);
     return createErrorResponse('Internal server error', 500, request, env);
   }
 }

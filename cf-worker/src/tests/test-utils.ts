@@ -37,6 +37,8 @@ export async function cleanupDatabase(env: Env): Promise<void> {
   await env.DB.exec('DELETE FROM sessions');
   await env.DB.exec('DELETE FROM users');
   await env.DB.exec('DELETE FROM groups');
+  await env.DB.exec('DELETE FROM user_balances');
+  await env.DB.exec('DELETE FROM budget_totals');
 }
 
 /**
