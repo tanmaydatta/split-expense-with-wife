@@ -169,18 +169,19 @@ class BudgetTestHelper {
       }
 
       if (deleteButton && await deleteButton.isVisible({ timeout: 2000 })) {
-        // Set up alert handler to capture the success message
-        this.authenticatedPage.page.once('dialog', async (dialog: any) => {
-          console.log(`Alert message: ${dialog.message()}`);
-          await dialog.accept();
-        });
-
         await deleteButton.click();
         console.log("deleteButton clicked");
         
-        // Wait for deletion to complete and any alerts to be handled
+        // Wait for deletion to complete and verify success message appears
         await this.authenticatedPage.waitForLoading();
-        await this.authenticatedPage.page.waitForTimeout(1000); // Allow time for alert and page refresh
+        
+        // Check for success container instead of alert
+        await this.authenticatedPage.page.waitForSelector('[data-test-id="success-container"]', { timeout: 10000 });
+        const successMessage = await this.authenticatedPage.page.locator('[data-test-id="success-message"]').textContent();
+        console.log(`Success message: ${successMessage}`);
+        
+        // Allow time for page refresh after deletion
+        await this.authenticatedPage.page.waitForTimeout(1000);
 
         return true; // Deletion successful
       } else {

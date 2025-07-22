@@ -20,6 +20,8 @@ export const Budget: React.FC = () => {
     { currency: string; amount: number }[]
   >([]);
   const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string>("");
+  const [success, setSuccess] = useState<string>("");
 
   const [pin, setPin] = useState("");
   const handleChangeBudget = (val: string) => setBudget(val);
@@ -81,6 +83,11 @@ export const Budget: React.FC = () => {
   );
   const deleteBudgetEntry = async (id: number) => {
     setLoading(true);
+    
+    // Clear any previous messages
+    setError("");
+    setSuccess("");
+    
     try {
       const request: BudgetDeleteRequest = {
         id: id,
@@ -88,11 +95,12 @@ export const Budget: React.FC = () => {
       };
       
       const response: { message: string } = await typedApi.post("/budget_delete", request);
-      alert(response.message);
+      setSuccess(response.message);
+      setPin(""); // Clear PIN after successful deletion
       fetchTotal();
       fetchHistory(0, []);
     } catch (e: any) {
-      alert(e.response?.data);
+      setError(e.response?.data || "An error occurred while deleting the budget entry");
       if (e.response?.status === 401) {
         navigate("/login");
       }
@@ -106,6 +114,40 @@ export const Budget: React.FC = () => {
   }, [fetchTotal, fetchHistory]);
   return (
     <div className="budget-container" data-test-id="budget-container">
+      {/* Error Container */}
+      {error && (
+        <div className="error-container">
+          <div className="error-message">
+            {error}
+          </div>
+          <button 
+            type="button" 
+            className="error-close"
+            onClick={() => setError("")}
+            aria-label="Close error message"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
+      {/* Success Container */}
+      {success && (
+        <div className="success-container" data-test-id="success-container">
+          <div className="success-message" data-test-id="success-message">
+            {success}
+          </div>
+          <button 
+            type="button" 
+            className="success-close"
+            onClick={() => setSuccess("")}
+            aria-label="Close success message"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
       {loading && <Loader />}
       {!loading && (
         <>

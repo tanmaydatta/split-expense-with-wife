@@ -195,6 +195,8 @@ const Transactions: React.FC = () => {
 
   const data = useSelector((state: any) => state.value);
   const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string>("");
+  const [success, setSuccess] = useState<string>("");
   const fetchTransactions = useCallback(
     async (offset: number, transactions: FrontendTransaction[]) => {
       setLoading(true);
@@ -255,6 +257,11 @@ const Transactions: React.FC = () => {
 
   const deleteTransaction = async (id: string) => {
     setLoading(true);
+    
+    // Clear any previous messages
+    setError("");
+    setSuccess("");
+    
     try {
       const request: SplitDeleteRequest = {
         id: id.toString(),
@@ -262,11 +269,11 @@ const Transactions: React.FC = () => {
       };
 
       const response: { message: string } = await typedApi.post("/split_delete", request);
-      alert(response.message);
+      setSuccess(response.message);
       fetchTransactions(0, []);
     } catch (e: any) {
       console.log(e);
-      alert(e.response?.data);
+      setError(e.response?.data || "An error occurred while deleting the transaction");
       if (e.response?.status === 401) {
         navigate("/login");
       }
@@ -277,6 +284,40 @@ const Transactions: React.FC = () => {
 
   return (
     <div className="transactions-container" data-test-id="expenses-container">
+      {/* Error Container */}
+      {error && (
+        <div className="error-container">
+          <div className="error-message">
+            {error}
+          </div>
+          <button 
+            type="button" 
+            className="error-close"
+            onClick={() => setError("")}
+            aria-label="Close error message"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
+      {/* Success Container */}
+      {success && (
+        <div className="success-container" data-test-id="success-container">
+          <div className="success-message" data-test-id="success-message">
+            {success}
+          </div>
+          <button 
+            type="button" 
+            className="success-close"
+            onClick={() => setSuccess("")}
+            aria-label="Close success message"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
       {loading && <Loader />}
       {!loading && (
         <>
