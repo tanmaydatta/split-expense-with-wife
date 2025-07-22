@@ -154,8 +154,8 @@
 
 .checkbox-label input[type="checkbox"] {
   margin: 0;
-  width: 18px;
-  height: 18px;
+  width: 12px;
+  height: 12px;
   cursor: pointer;
   accent-color: var(--color-primary);
 }
@@ -309,8 +309,8 @@
   }
   
   .checkbox-label input[type="checkbox"] {
-    min-width: 20px;
-    min-height: 20px;
+    min-width: 16px;
+    min-height: 16px;
   }
   
   .submit-button {

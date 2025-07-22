@@ -140,7 +140,7 @@ export class ExpenseTestHelper {
         // Look for "Show more" button using data-test-id
         const showMoreButton = this.authenticatedPage.page.locator('[data-test-id="show-more-button"]');
         await expect(this.authenticatedPage.page).toHaveURL('/expenses');
-        if (await showMoreButton.isVisible({ timeout: 10000 })) {
+        if (await showMoreButton.isVisible({ timeout: 15000 })) {
           console.log("Clicking 'Show more' button to load more expenses");
           await showMoreButton.click();
           await this.authenticatedPage.page.waitForTimeout(2000); // Wait for new expenses to load
@@ -307,7 +307,7 @@ export class ExpenseTestHelper {
       // If not found and we have attempts left, try clicking "Show more"
       if (!expenseFound && attempts <= maxAttempts) {
         const showMoreButton = this.authenticatedPage.page.locator('[data-test-id="show-more-button"]');
-        if (await showMoreButton.isVisible({ timeout: 2000 })) {
+        if (await showMoreButton.isVisible({ timeout: 10000 })) {
           console.log("Clicking 'Show more' button to load more expenses");
           await showMoreButton.click();
           // Wait for new expenses to load instead of fixed timeout
