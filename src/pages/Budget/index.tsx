@@ -6,10 +6,11 @@ import { Card } from "@/components/Card";
 import { Input } from "@/components/Form/Input";
 import { Loader } from "@/components/Loader";
 import { AmountGrid } from "@/components/AmountGrid";
+import { ErrorContainer, SuccessContainer } from "@/components/MessageContainer";
 import BudgetTable from "./BudgetTable";
 import { SelectBudget } from "@/SelectBudget";
 import { entry } from "@/model";
-import { typedApi } from "@/utils/api";
+import { ApiError, typedApi } from "@/utils/api";
 import { BudgetListRequest, BudgetTotalRequest, BudgetDeleteRequest, BudgetEntry, BudgetTotal } from '@shared-types';
 import "./index.css";
 
@@ -20,6 +21,8 @@ export const Budget: React.FC = () => {
     { currency: string; amount: number }[]
   >([]);
   const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string>("");
+  const [success, setSuccess] = useState<string>("");
 
   const [pin, setPin] = useState("");
   const handleChangeBudget = (val: string) => setBudget(val);
@@ -30,7 +33,7 @@ export const Budget: React.FC = () => {
         pin: "", // Will be updated when we implement PIN properly
         name: budget,
       };
-      
+
       const response: BudgetTotal[] = await typedApi.post("/budget_total", request);
       setBudgetsLeft(response);
     } catch (e: any) {
@@ -50,7 +53,7 @@ export const Budget: React.FC = () => {
           offset: offset,
           pin: "", // Will be updated when we implement PIN properly
         };
-        
+
         const response: BudgetEntry[] = await typedApi.post("/budget_list", request);
         console.log(response);
         var entries: entry[] = [];
@@ -81,19 +84,32 @@ export const Budget: React.FC = () => {
   );
   const deleteBudgetEntry = async (id: number) => {
     setLoading(true);
+
+    // Clear any previous messages
+    setError("");
+    setSuccess("");
+
     try {
       const request: BudgetDeleteRequest = {
         id: id,
         pin: sha256(pin).toString(),
       };
-      
+
       const response: { message: string } = await typedApi.post("/budget_delete", request);
-      alert(response.message);
+      setSuccess(response.message);
+      setPin(""); // Clear PIN after successful deletion
       fetchTotal();
       fetchHistory(0, []);
     } catch (e: any) {
-      alert(e.response?.data);
-      if (e.response?.status === 401) {
+      let statusCode = 500;
+      if (e instanceof ApiError) {
+        setError(e.errorMessage);
+        statusCode = e.statusCode;
+      } else {
+        setError(e.response?.data || "An error occurred while deleting the budget entry");
+        statusCode = e.response?.status || 500;
+      }
+      if (statusCode === 401) {
         navigate("/login");
       }
     } finally {
@@ -106,6 +122,23 @@ export const Budget: React.FC = () => {
   }, [fetchTotal, fetchHistory]);
   return (
     <div className="budget-container" data-test-id="budget-container">
+      {/* Error Container */}
+      {error && (
+        <ErrorContainer
+          message={error}
+          onClose={() => setError("")}
+        />
+      )}
+
+      {/* Success Container */}
+      {success && (
+        <SuccessContainer
+          message={success}
+          onClose={() => setSuccess("")}
+          data-test-id="success-container"
+        />
+      )}
+
       {loading && <Loader />}
       {!loading && (
         <>

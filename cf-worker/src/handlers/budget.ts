@@ -200,7 +200,7 @@ export async function handleBudgetDelete(request: CFRequest, env: Env): Promise<
     // Execute both deletion and total update in a single batch
     await executeBatch(env, [deleteStatement, ...budgetTotalStatements]);
 
-    return createJsonResponse({ message: '200' }, 200, {}, request, env);
+    return createJsonResponse({ message: 'Successfully deleted budget entry' }, 200, {}, request, env);
 
   } catch (error) {
     console.error('Budget delete error:', error);

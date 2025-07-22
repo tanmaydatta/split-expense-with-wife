@@ -4,6 +4,7 @@ import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/Button";
 import { Loader } from "@/components/Loader";
+import { ErrorContainer, SuccessContainer } from "@/components/MessageContainer";
 import { Table, TableWrapper } from "@/components/Table";
 import { TransactionCard } from "@/components/TransactionCard";
 import {
@@ -15,7 +16,7 @@ import {
   XLg,
 } from "@/components/Icons";
 import { dateToFullStr } from "@/utils/date";
-import { typedApi } from "@/utils/api";
+import { ApiError, typedApi } from "@/utils/api";
 import type { FrontendTransaction, TransactionsListRequest, TransactionsListResponse, SplitDeleteRequest, TransactionMetadata, TransactionUser } from '@shared-types';
 import "./index.css";
 
@@ -96,7 +97,7 @@ const TransactionList: React.FC<{
                           }}
                           aria-label="Delete transaction"
                         >
-                                                      <XLg />
+                          <XLg />
                         </button>
                       </td>
                     </tr>
@@ -195,6 +196,8 @@ const Transactions: React.FC = () => {
 
   const data = useSelector((state: any) => state.value);
   const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string>("");
+  const [success, setSuccess] = useState<string>("");
   const fetchTransactions = useCallback(
     async (offset: number, transactions: FrontendTransaction[]) => {
       setLoading(true);
@@ -255,6 +258,11 @@ const Transactions: React.FC = () => {
 
   const deleteTransaction = async (id: string) => {
     setLoading(true);
+
+    // Clear any previous messages
+    setError("");
+    setSuccess("");
+
     try {
       const request: SplitDeleteRequest = {
         id: id.toString(),
@@ -262,12 +270,18 @@ const Transactions: React.FC = () => {
       };
 
       const response: { message: string } = await typedApi.post("/split_delete", request);
-      alert(response.message);
+      setSuccess(response.message);
       fetchTransactions(0, []);
     } catch (e: any) {
-      console.log(e);
-      alert(e.response?.data);
-      if (e.response?.status === 401) {
+      let statusCode = 500;
+      if (e instanceof ApiError) {
+        setError(e.errorMessage);
+        statusCode = e.statusCode;
+      } else {
+        setError(e.response?.data || "An error occurred while deleting the budget entry");
+        statusCode = e.response?.status || 500;
+      }
+      if (statusCode === 401) {
         navigate("/login");
       }
     } finally {
@@ -277,6 +291,23 @@ const Transactions: React.FC = () => {
 
   return (
     <div className="transactions-container" data-test-id="expenses-container">
+      {/* Error Container */}
+      {error && (
+        <ErrorContainer
+          message={error}
+          onClose={() => setError("")}
+        />
+      )}
+
+      {/* Success Container */}
+      {success && (
+        <SuccessContainer
+          message={success}
+          onClose={() => setSuccess("")}
+          data-test-id="success-container"
+        />
+      )}
+
       {loading && <Loader />}
       {!loading && (
         <>

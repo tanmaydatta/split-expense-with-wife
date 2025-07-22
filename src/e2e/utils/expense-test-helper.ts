@@ -328,19 +328,19 @@ export class ExpenseTestHelper {
 
     // Note: PIN is not yet implemented for expense deletion in the UI
 
-    // Set up alert handler to capture any confirmation dialogs
-    this.authenticatedPage.page.once('dialog', async (dialog: any) => {
-      console.log(`Dialog message: ${dialog.message()}`);
-      await dialog.accept();
-    });
-
     // Click delete button and expect it to be clickable
     await expect(deleteButton!).toBeEnabled();
     await deleteButton!.click();
     console.log("Delete button clicked");
     
-    // Wait for deletion to complete
+    // Wait for deletion to complete and verify success message appears
     await this.authenticatedPage.waitForLoading();
+    
+    // Check for success container instead of alert dialog
+    await this.authenticatedPage.page.waitForSelector('[data-test-id="success-container"]', { timeout: 10000 });
+    const successMessage = await this.authenticatedPage.page.locator('[data-test-id="success-message"]').textContent();
+    console.log(`Success message: ${successMessage}`);
+    
     await this.verifyExpensesPageComponents();
     
     console.log(`Successfully deleted expense: ${description}`);

@@ -11,6 +11,8 @@
   box-sizing: border-box;
 }
 
+
+
 /* Responsive layout - show table on desktop, cards on mobile */
 .desktop-table {
   display: block;
