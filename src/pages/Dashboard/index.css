@@ -172,6 +172,41 @@
   min-height: 44px;
   cursor: pointer;
   transition: border-color 0.2s ease;
+  width: 100%;
+  
+  /* Safari-specific fixes */
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  
+  /* Custom dropdown arrow for Safari and other browsers */
+  background-image: url('data:image/svg+xml;charset=US-ASCII,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 4 5"><path fill="%23666" d="M2 0L0 2h4zm0 5L0 3h4z"/></svg>');
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 12px;
+  padding-right: 36px; /* Make room for custom arrow */
+}
+
+/* Safari-specific targeting for additional fixes */
+@supports (-webkit-appearance: none) {
+  .currency-select,
+  .paid-by-select {
+    /* Ensure proper styling in Safari */
+    background-color: var(--color-white);
+    border: 1px solid var(--color-secondary);
+    padding-right: 40px; /* Extra space for arrow in Safari */
+  }
+}
+
+/* Webkit-specific (Safari/Chrome) dropdown arrow styling */
+.currency-select::-webkit-appearance,
+.paid-by-select::-webkit-appearance {
+  -webkit-appearance: none;
+}
+
+.currency-select::-ms-expand,
+.paid-by-select::-ms-expand {
+  display: none; /* Hide default arrow in IE/Edge */
 }
 
 .currency-select:focus,
@@ -247,6 +282,12 @@
     padding: var(--spacing-medium);
   }
   
+  .currency-select,
+  .paid-by-select {
+    padding: var(--spacing-medium) 40px var(--spacing-medium) var(--spacing-medium); /* Maintain right padding for arrow */
+    min-height: 44px;
+  }
+  
   .button-container {
     flex-direction: column;
     margin-top: var(--spacing-large);
@@ -298,6 +339,12 @@
   .form-container input,
   .form-container select {
     font-size: 16px; /* Prevent zoom on iOS */
+  }
+  
+  .currency-select,
+  .paid-by-select {
+    font-size: 16px; /* Prevent zoom on iOS Safari */
+    padding: 12px 40px 12px 12px; /* Maintain right padding for arrow */
   }
   
   .split-percentage-container {

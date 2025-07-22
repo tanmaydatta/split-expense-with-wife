@@ -5,6 +5,8 @@
     - check 60-40 split in expense management test ✅
     - check expense details when we tap on expense item ✅
 - very big check boxes 
+- aggregate total tables ✅
+- safari dropdown ✅
 - avg line not on the right
 - remove all alerts
 - add/remove budgets
