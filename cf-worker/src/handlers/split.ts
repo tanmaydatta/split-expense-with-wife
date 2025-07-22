@@ -359,7 +359,6 @@ export async function handleTransactionsList(request: CFRequest, env: Env): Prom
     const transactionIds = (transactionsResult.results as TransactionRow[]).map((t) => t.transaction_id);
 
     const transactionDetails: Record<string, TransactionDetailRow[]> = {};
-    console.log(transactionIds);
     if (transactionIds.length > 0) {
       const placeholders = transactionIds.map(() => '?').join(',');
       const detailsStmt = env.DB.prepare(`

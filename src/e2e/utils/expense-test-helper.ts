@@ -140,6 +140,8 @@ export class ExpenseTestHelper {
         // Look for "Show more" button using data-test-id
         const showMoreButton = this.authenticatedPage.page.locator('[data-test-id="show-more-button"]');
         await expect(this.authenticatedPage.page).toHaveURL('/expenses');
+        // 15 second timeout for CI environments where loading can be slower
+        // Note: actionTimeout in playwright.config.ts must be >= 20s for this to work
         if (await showMoreButton.isVisible({ timeout: 15000 })) {
           console.log("Clicking 'Show more' button to load more expenses");
           await showMoreButton.click();
