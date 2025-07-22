@@ -665,7 +665,7 @@ describe('Budget Handlers', () => {
 
       expect(response.status).toBe(200);
       const json = await response.json() as UserBalancesByUser;
-      expect(json.message).toBe('200');
+      expect(json.message).toBe('Successfully deleted budget entry');
     });
   });
 

@@ -4,6 +4,7 @@ import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/Button";
 import { Loader } from "@/components/Loader";
+import { ErrorContainer, SuccessContainer } from "@/components/MessageContainer";
 import { Table, TableWrapper } from "@/components/Table";
 import { TransactionCard } from "@/components/TransactionCard";
 import {
@@ -96,7 +97,7 @@ const TransactionList: React.FC<{
                           }}
                           aria-label="Delete transaction"
                         >
-                                                      <XLg />
+                          <XLg />
                         </button>
                       </td>
                     </tr>
@@ -257,11 +258,11 @@ const Transactions: React.FC = () => {
 
   const deleteTransaction = async (id: string) => {
     setLoading(true);
-    
+
     // Clear any previous messages
     setError("");
     setSuccess("");
-    
+
     try {
       const request: SplitDeleteRequest = {
         id: id.toString(),
@@ -292,36 +293,19 @@ const Transactions: React.FC = () => {
     <div className="transactions-container" data-test-id="expenses-container">
       {/* Error Container */}
       {error && (
-        <div className="error-container">
-          <div className="error-message">
-            {error}
-          </div>
-          <button 
-            type="button" 
-            className="error-close"
-            onClick={() => setError("")}
-            aria-label="Close error message"
-          >
-            ×
-          </button>
-        </div>
+        <ErrorContainer
+          message={error}
+          onClose={() => setError("")}
+        />
       )}
 
       {/* Success Container */}
       {success && (
-        <div className="success-container" data-test-id="success-container">
-          <div className="success-message" data-test-id="success-message">
-            {success}
-          </div>
-          <button 
-            type="button" 
-            className="success-close"
-            onClick={() => setSuccess("")}
-            aria-label="Close success message"
-          >
-            ×
-          </button>
-        </div>
+        <SuccessContainer
+          message={success}
+          onClose={() => setSuccess("")}
+          data-test-id="success-container"
+        />
       )}
 
       {loading && <Loader />}

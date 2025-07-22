@@ -4,7 +4,7 @@ import sha256 from "crypto-js/sha256";
 import { useSelector } from "react-redux";
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Form/Input";
-
+import { ErrorContainer, SuccessContainer } from "@/components/MessageContainer";
 import { Loader } from "@/components/Loader";
 import { CreditDebit } from "./CreditDebit";
 import { SelectBudget } from "@/SelectBudget";
@@ -260,36 +260,19 @@ function Dashboard(): JSX.Element {
       <form className="form-container" data-test-id="expense-form">
         {/* Error Container */}
         {error && (
-          <div className="error-container">
-            <div className="error-message">
-              {error}
-            </div>
-            <button 
-              type="button" 
-              className="error-close"
-              onClick={() => setError("")}
-              aria-label="Close error message"
-            >
-              ×
-            </button>
-          </div>
+          <ErrorContainer 
+            message={error} 
+            onClose={() => setError("")}
+          />
         )}
 
         {/* Success Container */}
         {success && (
-          <div className="success-container" data-test-id="success-container">
-            <div className="success-message" data-test-id="success-message">
-              {success}
-            </div>
-            <button 
-              type="button" 
-              className="success-close"
-              onClick={() => setSuccess("")}
-              aria-label="Close success message"
-            >
-              ×
-            </button>
-          </div>
+          <SuccessContainer 
+            message={success} 
+            onClose={() => setSuccess("")}
+            data-test-id="success-container"
+          />
         )}
 
         {/* Description and Amount first */}

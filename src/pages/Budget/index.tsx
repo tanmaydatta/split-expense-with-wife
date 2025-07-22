@@ -6,6 +6,7 @@ import { Card } from "@/components/Card";
 import { Input } from "@/components/Form/Input";
 import { Loader } from "@/components/Loader";
 import { AmountGrid } from "@/components/AmountGrid";
+import { ErrorContainer, SuccessContainer } from "@/components/MessageContainer";
 import BudgetTable from "./BudgetTable";
 import { SelectBudget } from "@/SelectBudget";
 import { entry } from "@/model";
@@ -32,7 +33,7 @@ export const Budget: React.FC = () => {
         pin: "", // Will be updated when we implement PIN properly
         name: budget,
       };
-      
+
       const response: BudgetTotal[] = await typedApi.post("/budget_total", request);
       setBudgetsLeft(response);
     } catch (e: any) {
@@ -52,7 +53,7 @@ export const Budget: React.FC = () => {
           offset: offset,
           pin: "", // Will be updated when we implement PIN properly
         };
-        
+
         const response: BudgetEntry[] = await typedApi.post("/budget_list", request);
         console.log(response);
         var entries: entry[] = [];
@@ -83,17 +84,17 @@ export const Budget: React.FC = () => {
   );
   const deleteBudgetEntry = async (id: number) => {
     setLoading(true);
-    
+
     // Clear any previous messages
     setError("");
     setSuccess("");
-    
+
     try {
       const request: BudgetDeleteRequest = {
         id: id,
         pin: sha256(pin).toString(),
       };
-      
+
       const response: { message: string } = await typedApi.post("/budget_delete", request);
       setSuccess(response.message);
       setPin(""); // Clear PIN after successful deletion
@@ -123,36 +124,19 @@ export const Budget: React.FC = () => {
     <div className="budget-container" data-test-id="budget-container">
       {/* Error Container */}
       {error && (
-        <div className="error-container">
-          <div className="error-message">
-            {error}
-          </div>
-          <button 
-            type="button" 
-            className="error-close"
-            onClick={() => setError("")}
-            aria-label="Close error message"
-          >
-            ×
-          </button>
-        </div>
+        <ErrorContainer
+          message={error}
+          onClose={() => setError("")}
+        />
       )}
 
       {/* Success Container */}
       {success && (
-        <div className="success-container" data-test-id="success-container">
-          <div className="success-message" data-test-id="success-message">
-            {success}
-          </div>
-          <button 
-            type="button" 
-            className="success-close"
-            onClick={() => setSuccess("")}
-            aria-label="Close success message"
-          >
-            ×
-          </button>
-        </div>
+        <SuccessContainer
+          message={success}
+          onClose={() => setSuccess("")}
+          data-test-id="success-container"
+        />
       )}
 
       {loading && <Loader />}
