@@ -75,11 +75,6 @@ export default {
   },
 
   async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
-    console.log('ScheduledController details:', {
-      cron: controller.cron,
-      scheduledTime: controller.scheduledTime,
-      toString: controller.toString ? controller.toString() : undefined
-    });
     ctx.waitUntil(handleCron(env, controller.cron));
   }
 };

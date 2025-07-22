@@ -31,7 +31,6 @@ export function formatSQLiteTime(date: Date = new Date()): string {
 
 // Validate session and return current session data
 export async function validateSession(sessionId: string, env: Env): Promise<CurrentSession | null> {
-  console.log('authenticate');
   if (!sessionId) {
     return null;
   }
@@ -240,9 +239,7 @@ export function isValidPin(pin: string, env: Env): boolean {
 
 // Helper function to validate split percentages
 export function validateSplitPercentages(splitPctShares: Record<string, number>): boolean {
-  console.log('validateSplitPercentages', splitPctShares);
   const totalPct = Object.values(splitPctShares).reduce((sum, pct) => sum + pct, 0);
-  console.log('totalPct', totalPct);
   return Math.abs(totalPct - 100) < 0.01; // Allow small floating point errors
 }
 
@@ -279,7 +276,7 @@ export function calculateSplitAmounts(
       totalOwed += netAmount;
     }
   }
-  console.log('owed', owed);
+
   // Calculate who owes whom
   for (const [userIdStr, netAmount] of Object.entries(owed)) {
     const userId = parseInt(userIdStr);
