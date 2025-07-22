@@ -65,6 +65,8 @@ export const MonthlyBudgetPage: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [timeRange, setTimeRange] = useState<TimeRange>('6M');
   const navigate = useNavigate();
+  // Using JavaScript-based responsive design instead of CSS media queries
+  // because Recharts component props (margin, height, etc.) need JS values
   const { width } = useWindowSize();
 
   const handleChangeBudget = useCallback(
@@ -284,11 +286,15 @@ export const MonthlyBudgetPage: React.FC = () => {
             >
               <BarChart
                 data={chartData}
+                // Note: Cannot use CSS media queries for Recharts margin prop
+                // because Recharts components expect JavaScript values for layout props
+                // like margin, width, height. CSS media queries only affect DOM styling,
+                // not React component props passed to third-party libraries.
                 margin={
                   width <= 480 
-                    ? { top: 20, right: 10, left: 10, bottom: 5 }
+                    ? { top: 20, right: 60, left: 10, bottom: 5 }
                     : width <= 768
-                    ? { top: 25, right: 20, left: 15, bottom: 5 }
+                    ? { top: 25, right: 70, left: 15, bottom: 5 }
                     : { top: 30, right: 80, left: 20, bottom: 5 }
                 }
               >
@@ -341,7 +347,7 @@ export const MonthlyBudgetPage: React.FC = () => {
                       value: width <= 480 
                         ? `Avg: ${getSymbolFromCurrency(currency)}${Math.round(averageExpense) >= 1000 ? `${(Math.round(averageExpense)/1000).toFixed(0)}k` : Math.round(averageExpense)}`
                         : `Avg: ${getSymbolFromCurrency(currency)}${Math.round(averageExpense).toLocaleString()}`, 
-                      position: width <= 768 ? "top" : "right",
+                      position: "right",
                       style: { fontSize: width <= 480 ? "10px" : "12px", fontWeight: "600", fill: "#ff7300" }
                     }}
                   />

@@ -7,7 +7,7 @@
 - aggregate total tables ✅
 - safari dropdown ✅
 - very big check boxes ✅
-- avg line not on the right
+- avg line not on the right ✅
 - remove all alerts
 - add/remove budgets
 - change defaults feat
