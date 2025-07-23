@@ -96,6 +96,13 @@ function Sidebar({ onNavigate }: SidebarProps): JSX.Element {
       >
         Monthly Budget
       </SidebarItem>
+      <SidebarItem 
+        $active={isActive("/camera")} 
+        onClick={() => handleNavigate("/camera")}
+        data-test-id="camera-nav-item"
+      >
+        Camera Test
+      </SidebarItem>
       <LogoutButton onClick={() => handleNavigate("/logout")}>
         <div>Logout</div>
       </LogoutButton>

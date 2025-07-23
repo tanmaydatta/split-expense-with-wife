@@ -14,6 +14,7 @@ import Logout  from "@/Logout";
 import { MonthlyBudgetPage } from "@/pages/MonthlyBudgetPage";
 import Sidebar from "@/components/Sidebar";
 import Transactions from "@/pages/Transactions";
+import Camera from "@/pages/Camera";
 
 const AppContainer = styled.div`
   display: flex;
@@ -138,6 +139,7 @@ const AuthenticatedBalances = withAuthCheck(Balances);
 const AuthenticatedBudget = withAuthCheck(Budget);
 const AuthenticatedMonthlyBudgetPage = withAuthCheck(MonthlyBudgetPage);
 const AuthenticatedTransactions = withAuthCheck(Transactions);
+const AuthenticatedCamera = withAuthCheck(Camera);
 
 function AppWrapper() {
   const data = useSelector((state: any) => state.value);
@@ -169,6 +171,7 @@ function AppWrapper() {
     if (path === '/balances') return 'Balances';
     if (path === '/budget') return 'Budget';
     if (path.startsWith('/monthly-budget')) return 'Monthly Budget';
+    if (path === '/camera') return 'Camera Test';
     return 'Split Expense';
   };
 
@@ -207,6 +210,7 @@ function AppWrapper() {
                   element={<AuthenticatedMonthlyBudgetPage />}
                 />
                 <Route path="/expenses" element={<AuthenticatedTransactions />} />
+                <Route path="/camera" element={<AuthenticatedCamera />} />
                 <Route path="/logout" element={<Logout />} />
               </Routes>
             </PageContent>
