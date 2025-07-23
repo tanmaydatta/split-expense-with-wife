@@ -82,10 +82,13 @@ export class TestHelper {
     if (isMobile) {
       // On mobile, first open the sidebar using the hamburger button
       const hamburger = this.page.locator('button:has(span)').first();
-      if (await hamburger.isVisible()) {
+      try {
+        await hamburger.waitFor({ state: 'visible', timeout: 2000 });
         await hamburger.click();
         // Wait for sidebar to animate in
         await this.page.waitForTimeout(500);
+      } catch (e) {
+        // Hamburger button not visible, continue without opening sidebar
       }
     }
     

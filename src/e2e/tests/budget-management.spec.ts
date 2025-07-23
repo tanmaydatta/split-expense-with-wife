@@ -139,11 +139,14 @@ class BudgetTestHelper {
 
       // Enter PIN first before clicking delete
       const pinField = this.authenticatedPage.page.locator('[data-test-id="pin-input"]').first();
-      if (await pinField.isVisible({ timeout: 2000 })) {
+      try {
+        await pinField.waitFor({ state: 'visible', timeout: 2000 });
         await pinField.fill(testPin);
         console.log("PIN entered for deletion");
         // Wait for PIN to be processed
         await this.authenticatedPage.page.waitForTimeout(500);
+      } catch (e) {
+        // PIN field not visible, continue without entering PIN
       }
 
       let deleteButton;
@@ -151,26 +154,34 @@ class BudgetTestHelper {
       if (isMobile) {
         // On mobile, look for the card with the description and find its delete button
         const entryCard = this.authenticatedPage.page.locator('[data-test-id="budget-entry-card"]').filter({ hasText: description });
-        if (await entryCard.isVisible({ timeout: 2000 })) {
+        try {
+          await entryCard.waitFor({ state: 'visible', timeout: 2000 });
           deleteButton = entryCard.locator('[data-test-id="delete-button"]');
-        } else {
+        } catch (e) {
           console.log('No budget entry card found with description:', description);
           return false;
         }
       } else {
         // On desktop, look for the table row with the description and find its delete button
         const entryRow = this.authenticatedPage.page.locator('tbody tr').filter({ hasText: description });
-        if (await entryRow.isVisible({ timeout: 2000 })) {
+        try {
+          await entryRow.waitFor({ state: 'visible', timeout: 2000 });
           deleteButton = entryRow.locator('[data-test-id="delete-button"]');
-        } else {
+        } catch (e) {
           console.log('No budget entry row found with description:', description);
           return false;
         }
       }
 
-      if (deleteButton && await deleteButton.isVisible({ timeout: 2000 })) {
-        await deleteButton.click();
-        console.log("deleteButton clicked");
+      if (deleteButton) {
+        try {
+          await deleteButton.waitFor({ state: 'visible', timeout: 2000 });
+          await deleteButton.click();
+          console.log("deleteButton clicked");
+        } catch (e) {
+          console.log("Delete button not visible, deletion failed");
+          return false;
+        }
         
         // Wait for deletion to complete and verify success message appears
         await this.authenticatedPage.waitForLoading();
