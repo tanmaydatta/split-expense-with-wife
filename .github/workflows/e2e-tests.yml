@@ -28,7 +28,7 @@ jobs:
       run: yarn install --immutable
     
     - name: Install Playwright Browsers and System Dependencies
-      run: yarn playwright test --project=chromium --workers=1 --reporter=list,html --trace=on:install
+      run: yarn test:e2e:install
     
     - name: Build the application
       run: yarn build
