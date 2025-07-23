@@ -1,7 +1,7 @@
 import { env, createExecutionContext, waitOnExecutionContext } from 'cloudflare:test';
 import { describe, it, expect, beforeEach } from 'vitest';
 import worker from '../index';
-import { setupAndCleanDatabase, createTestUserData, createTestSession } from './test-utils';
+import { setupAndCleanDatabase, createTestUserData, createTestSession, createTestRequest } from './test-utils';
 import { LoginResponse } from '../types';
 import { TestSuccessResponse } from './types';
 
@@ -15,15 +15,9 @@ describe('Auth handlers', () => {
       // Set up test data
       await createTestUserData(env);
 
-      const request = new Request('http://example.com/.netlify/functions/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          username: 'testuser',
-          password: 'password123'
-        })
+      const request = createTestRequest('login', 'POST', {
+        username: 'testuser',
+        password: 'password123'
       });
 
       const ctx = createExecutionContext();
@@ -49,15 +43,9 @@ describe('Auth handlers', () => {
     });
 
     it('should return 401 for invalid credentials', async () => {
-      const request = new Request('http://example.com/.netlify/functions/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          username: 'nonexistent',
-          password: 'wrongpassword'
-        })
+      const request = createTestRequest('login', 'POST', {
+        username: 'nonexistent',
+        password: 'wrongpassword'
       });
 
       const ctx = createExecutionContext();
@@ -72,15 +60,9 @@ describe('Auth handlers', () => {
       await env.DB.exec("INSERT INTO groups (groupid, group_name, budgets, userids, metadata) VALUES (1, 'Test Group', '[\"house\"]', '[1]', '{}')");
       await env.DB.exec("INSERT INTO users (id, username, first_name, groupid, password) VALUES (1, 'testuser', 'Test', 1, 'correctpassword')");
 
-      const request = new Request('http://example.com/.netlify/functions/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          username: 'testuser',
-          password: 'wrongpassword'
-        })
+      const request = createTestRequest('login', 'POST', {
+        username: 'testuser',
+        password: 'wrongpassword'
       });
 
       const ctx = createExecutionContext();
@@ -91,9 +73,7 @@ describe('Auth handlers', () => {
     });
 
     it('should return 405 for non-POST methods', async () => {
-      const request = new Request('http://example.com/.netlify/functions/login', {
-        method: 'GET'
-      });
+      const request = createTestRequest('login', 'GET');
 
       const ctx = createExecutionContext();
       const response = await worker.fetch(request, env, ctx);
@@ -109,14 +89,7 @@ describe('Auth handlers', () => {
       await createTestUserData(env);
       await createTestSession(env);
 
-      const request = new Request('http://example.com/.netlify/functions/logout', {
-        method: 'POST',
-        headers: {
-          'Authorization': 'Bearer test-session-id',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({})
-      });
+      const request = createTestRequest('logout', 'POST', {}, 'test-session-id');
 
       const ctx = createExecutionContext();
       const response = await worker.fetch(request, env, ctx);
@@ -135,13 +108,7 @@ describe('Auth handlers', () => {
     });
 
     it('should return success even without valid session', async () => {
-      const request = new Request('http://example.com/.netlify/functions/logout', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({})
-      });
+      const request = createTestRequest('logout', 'POST', {});
 
       const ctx = createExecutionContext();
       const response = await worker.fetch(request, env, ctx);
@@ -154,9 +121,7 @@ describe('Auth handlers', () => {
     });
 
     it('should return 405 for non-POST methods', async () => {
-      const request = new Request('http://example.com/.netlify/functions/logout', {
-        method: 'GET'
-      });
+      const request = createTestRequest('logout', 'GET');
 
       const ctx = createExecutionContext();
       const response = await worker.fetch(request, env, ctx);

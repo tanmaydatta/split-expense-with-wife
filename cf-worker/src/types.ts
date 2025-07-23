@@ -1,6 +1,6 @@
 // Import all shared types
 export * from '../../shared-types';
-import type { User, Session, Group } from '../../shared-types';
+import type { User, Session, Group, GroupMetadata } from '../../shared-types';
 
 // Cloudflare Workers specific types
 export interface CFHeaders {
@@ -174,4 +174,16 @@ export interface SplitwiseResponse {
 export interface TransactionCreateResponse {
   message: string;
   transactionId: string;
+}
+
+// Group metadata update types
+export interface UpdateGroupMetadataRequest {
+  groupid: number;
+  defaultShare?: Record<string, number>;
+  defaultCurrency?: string;
+}
+
+export interface UpdateGroupMetadataResponse {
+  message: string;
+  metadata: GroupMetadata;
 }

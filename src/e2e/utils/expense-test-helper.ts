@@ -50,9 +50,10 @@ export class ExpenseTestHelper {
     
     // Verify expenses page elements are present using only data-test-id
     const expensesContainer = this.authenticatedPage.page.locator('[data-test-id="expenses-container"]');
-    if (await expensesContainer.isVisible({ timeout: 5000 })) {
+    try {
+      await expensesContainer.waitFor({ state: 'visible', timeout: 5000 });
       console.log("Expenses container found");
-    } else {
+    } catch (e) {
       console.log("No specific expenses container found, checking for general content");
     }
   }
@@ -117,7 +118,8 @@ export class ExpenseTestHelper {
       if (!expenseFound) {
         console.log("Trying broader search for expense in expenses container");
         const expensesContainer = this.authenticatedPage.page.locator('[data-test-id="expenses-container"]');
-        if (await expensesContainer.isVisible({ timeout: 2000 })) {
+        try {
+          await expensesContainer.waitFor({ state: 'visible', timeout: 2000 });
           const containerText = await expensesContainer.textContent();
           const hasDescription = containerText && containerText.includes(description);
           const hasAmount = containerText && containerText.includes(amount);
@@ -131,6 +133,8 @@ export class ExpenseTestHelper {
             }
             expenseFound = true;
           }
+        } catch (e) {
+          console.log("Expenses container not visible, continuing search");
         }
       }
 
@@ -141,14 +145,14 @@ export class ExpenseTestHelper {
         // Look for "Show more" button using data-test-id
         const showMoreButton = this.authenticatedPage.page.locator('[data-test-id="show-more-button"]');
         await expect(this.authenticatedPage.page).toHaveURL('/expenses');
-        // 15 second timeout for CI environments where loading can be slower
-        // Note: actionTimeout in playwright.config.ts must be >= 20s for this to work
-        if (await showMoreButton.isVisible({ timeout: 15000 })) {
+        try {
+          // Wait up to 15 s for the button to appear (covers slow CI environments)
+          await showMoreButton.waitFor({ state: 'visible', timeout: 15000 });
           console.log("Clicking 'Show more' button to load more expenses");
           await showMoreButton.click();
           await this.authenticatedPage.page.waitForTimeout(2000); // Wait for new expenses to load
-        } else {
-          console.log("No 'Show more' button found, stopping pagination attempts");
+        } catch (e) {
+          console.log("No 'Show more' button found after waiting, stopping pagination attempts");
           break;
         }
       }
@@ -205,17 +209,19 @@ export class ExpenseTestHelper {
     const user1Input = this.authenticatedPage.page.locator('[data-test-id="percentage-input-1"]');
     const user2Input = this.authenticatedPage.page.locator('[data-test-id="percentage-input-2"]');
     
-    if (await user1Input.isVisible({ timeout: 5000 })) {
+    try {
+      await user1Input.waitFor({ state: 'visible', timeout: 5000 });
       percentages['1'] = await user1Input.inputValue();
       console.log('User 1 percentage:', percentages['1']);
-    } else {
+    } catch (e) {
       console.log('User 1 percentage input not found');
     }
     
-    if (await user2Input.isVisible({ timeout: 5000 })) {
+    try {
+      await user2Input.waitFor({ state: 'visible', timeout: 5000 });
       percentages['2'] = await user2Input.inputValue();
       console.log('User 2 percentage:', percentages['2']);
-    } else {
+    } catch (e) {
       console.log('User 2 percentage input not found');
     }
 
@@ -275,10 +281,13 @@ export class ExpenseTestHelper {
           if (text && text.includes(description)) {
             // Mobile uses button with data-test-id="delete-button"
             deleteButton = card.locator('[data-test-id="delete-button"]');
-            if (await deleteButton.isVisible({ timeout: 2000 })) {
+            try {
+              await deleteButton.waitFor({ state: 'visible', timeout: 2000 });
               expenseFound = true;
               console.log(`Found expense for deletion on mobile: ${description}`);
               break;
+            } catch (e) {
+              // Delete button not visible, continue searching
             }
           }
         }
@@ -293,10 +302,13 @@ export class ExpenseTestHelper {
           if (text && text.includes(description)) {
             // Desktop uses delete button with data-test-id="delete-button"
             deleteButton = row.locator('[data-test-id="delete-button"]');
-            if (await deleteButton.isVisible({ timeout: 2000 })) {
+            try {
+              await deleteButton.waitFor({ state: 'visible', timeout: 2000 });
               expenseFound = true;
               console.log(`Found expense for deletion on desktop: ${description}`);
               break;
+            } catch (e) {
+              // Delete button not visible, continue searching
             }
           }
         }
@@ -310,13 +322,14 @@ export class ExpenseTestHelper {
       // If not found and we have attempts left, try clicking "Show more"
       if (!expenseFound && attempts <= maxAttempts) {
         const showMoreButton = this.authenticatedPage.page.locator('[data-test-id="show-more-button"]');
-        if (await showMoreButton.isVisible({ timeout: 10000 })) {
+        try {
+          await showMoreButton.waitFor({ state: 'visible', timeout: 10000 });
           console.log("Clicking 'Show more' button to load more expenses");
           await showMoreButton.click();
           // Wait for new expenses to load instead of fixed timeout
           await this.verifyExpensesPageComponents();
-        } else {
-          console.log("No 'Show more' button found, stopping pagination attempts");
+        } catch (e) {
+          console.log("No 'Show more' button found after waiting, stopping pagination attempts");
           break;
         }
       }

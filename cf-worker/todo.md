@@ -10,12 +10,12 @@
 - avg line not on the right ✅
 - remove all alerts ✅
 - add/remove budgets ✅ 
-- change defaults feat
+- change default split api
+- change defaults feature
 - retire netlify functions
 - remove pin
 - use jwt so that verification is done with making db call
 - drizzle
-- change defaults feat
 - sessions api
 - schedule actions
 - scan receipt
