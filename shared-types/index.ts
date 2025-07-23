@@ -267,11 +267,11 @@ export interface ApiEndpoints {
     request: BudgetRequest;
     response: { message: string };
   };
-  '/budget_create': {
+  '/budget/create': {
     request: CreateBudgetRequest;
     response: CreateBudgetResponse;
   };
-  '/budget_delete_category': {
+  '/budget/delete': {
     request: DeleteBudgetRequest;
     response: DeleteBudgetResponse;
   };
