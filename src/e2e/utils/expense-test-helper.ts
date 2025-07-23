@@ -1,4 +1,5 @@
 import { expect } from '@playwright/test';
+import { getCITimeout } from './test-utils';
 import { testData } from '../fixtures/test-data';
 import { TestHelper } from './test-utils';
 
@@ -36,7 +37,7 @@ export class ExpenseTestHelper {
     await this.authenticatedPage.waitForLoading();
 
     // Wait for and verify success message appears
-    await this.authenticatedPage.page.waitForSelector('[data-test-id="success-container"]', { timeout: 10000 });
+    await this.authenticatedPage.page.waitForSelector('[data-test-id="success-container"]', { timeout: getCITimeout(10000) });
     const successMessage = await this.authenticatedPage.page.locator('[data-test-id="success-message"]').textContent();
     console.log("Success message received:", successMessage);
 
@@ -187,7 +188,7 @@ export class ExpenseTestHelper {
 
   async getCurrentFormValues() {
     // Wait for form to be fully loaded
-    await this.authenticatedPage.page.waitForSelector('[data-test-id="currency-select"]', { timeout: 10000 });
+    await this.authenticatedPage.page.waitForSelector('[data-test-id="currency-select"]', { timeout: getCITimeout(10000) });
     
     const currency = await this.authenticatedPage.page.locator('[data-test-id="currency-select"]').inputValue();
     const description = await this.authenticatedPage.page.locator('[data-test-id="description-input"]').inputValue();
@@ -337,7 +338,7 @@ export class ExpenseTestHelper {
     await this.authenticatedPage.waitForLoading();
     
     // Check for success container instead of alert dialog
-    await this.authenticatedPage.page.waitForSelector('[data-test-id="success-container"]', { timeout: 10000 });
+    await this.authenticatedPage.page.waitForSelector('[data-test-id="success-container"]', { timeout: getCITimeout(10000) });
     const successMessage = await this.authenticatedPage.page.locator('[data-test-id="success-message"]').textContent();
     console.log(`Success message: ${successMessage}`);
     

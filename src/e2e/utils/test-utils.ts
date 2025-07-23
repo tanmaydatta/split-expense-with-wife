@@ -1,5 +1,12 @@
 import { Page, expect } from '@playwright/test';
 
+/**
+ * Get CI-aware timeout for selectors (50% longer on CI)
+ */
+export function getCITimeout(defaultTimeout: number = 10000): number {
+  return process.env.CI ? Math.round(defaultTimeout * 1.5) : defaultTimeout;
+}
+
 export interface TestUser {
   username: string;
   password: string;
@@ -50,7 +57,7 @@ export class TestHelper {
     console.log('Redirected to home page');
     
     // Wait for dashboard elements to load
-    await this.page.waitForSelector('[data-test-id="dashboard-container"]', { timeout: 10000 });
+    await this.page.waitForSelector('[data-test-id="dashboard-container"]', { timeout: getCITimeout(10000) });
     console.log('Dashboard loaded successfully');
     await this.page.waitForTimeout(1000);
   }
@@ -165,7 +172,8 @@ export class TestHelper {
    * Wait for loading to complete
    */
   async waitForLoading(): Promise<void> {
-    await this.page.waitForFunction(() => !document.querySelector('.loader'));
+    // Use CI-aware timeout for loading states
+    await this.page.waitForFunction(() => !document.querySelector('.loader'), { timeout: getCITimeout(10000) });
   }
 
   /**
@@ -247,7 +255,8 @@ export class TestHelper {
   async isAuthenticated(): Promise<boolean> {
     try {
       await this.page.goto('/');
-      await this.page.waitForSelector('.SidebarHeader', { timeout: 5000 });
+      // Use CI-aware timeout for sidebar
+    await this.page.waitForSelector('.SidebarHeader', { timeout: getCITimeout(5000) });
       return true;
     } catch {
       return false;

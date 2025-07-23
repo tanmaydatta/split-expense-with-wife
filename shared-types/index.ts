@@ -108,6 +108,11 @@ export interface BudgetMonthlyRequest {
   currency?: string;
 }
 
+export interface CreateBudgetRequest {
+  name: string;
+  groupid: number;
+}
+
 export interface SplitRequest {
   amount: number;
   description: string;
@@ -179,6 +184,21 @@ export interface BudgetMonthlyResponse {
   };
 }
 
+export interface CreateBudgetResponse {
+  message: string;
+  budgetName: string;
+}
+
+export interface DeleteBudgetRequest {
+  name: string;
+  groupid: number;
+}
+
+export interface DeleteBudgetResponse {
+  message: string;
+  budgetName: string;
+}
+
 export interface TransactionsListResponse {
   transactions: Transaction[];
   transactionDetails: Record<string, TransactionUser[]>;
@@ -246,6 +266,14 @@ export interface ApiEndpoints {
   '/budget': {
     request: BudgetRequest;
     response: { message: string };
+  };
+  '/budget/create': {
+    request: CreateBudgetRequest;
+    response: CreateBudgetResponse;
+  };
+  '/budget/delete': {
+    request: DeleteBudgetRequest;
+    response: DeleteBudgetResponse;
   };
   '/budget_list': {
     request: BudgetListRequest;
