@@ -3,8 +3,7 @@ import {
   createJsonResponse,
   createErrorResponse,
   authenticate,
-  isValidCurrency,
-  formatSQLiteTime
+  isValidCurrency
 } from '../utils';
 import { GroupMetadata, User, GroupDetailsResponse } from '../../../shared-types';
 
@@ -151,14 +150,14 @@ export async function handleUpdateGroupMetadata(request: CFRequest, env: Env): P
       if (!Array.isArray(body.budgets)) {
         return createErrorResponse('Budgets must be an array', 400, request, env);
       }
-      
+
       // Validate budget names
-      const invalidBudgets = body.budgets.filter(budget => 
-        typeof budget !== 'string' || 
-        budget.trim().length === 0 || 
+      const invalidBudgets = body.budgets.filter(budget =>
+        typeof budget !== 'string' ||
+        budget.trim().length === 0 ||
         !/^[a-z0-9_-]+$/.test(budget.trim())
       );
-      
+
       if (invalidBudgets.length > 0) {
         return createErrorResponse('Budget names can only contain letters, numbers, hyphens, and underscores', 400, request, env);
       }

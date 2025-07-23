@@ -4,7 +4,8 @@ import {
   createErrorResponse,
   generateRandomId,
   formatSQLiteTime,
-  authenticate
+  authenticate,
+  SUPPORTED_CURRENCIES
 } from '../utils';
 
 // Handle login
@@ -101,7 +102,7 @@ export async function handleLogin(request: CFRequest, env: Env): Promise<Respons
       metadata,
       userId: user.Id,
       token: sessionId,
-      currencies: ['USD', 'EUR', 'GBP', 'INR'] // This could be fetched from config or env in the future
+      currencies: SUPPORTED_CURRENCIES
     };
 
     return createJsonResponse(response, 200, {}, request, env);
