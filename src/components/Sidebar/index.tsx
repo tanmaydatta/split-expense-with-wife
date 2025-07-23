@@ -96,6 +96,12 @@ function Sidebar({ onNavigate }: SidebarProps): JSX.Element {
       >
         Monthly Budget
       </SidebarItem>
+      <SidebarItem 
+        $active={isActive("/settings")} 
+        onClick={() => handleNavigate("/settings")}
+      >
+        Settings
+      </SidebarItem>
       <LogoutButton onClick={() => handleNavigate("/logout")}>
         <div>Logout</div>
       </LogoutButton>

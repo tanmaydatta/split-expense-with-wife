@@ -181,6 +181,8 @@ export interface UpdateGroupMetadataRequest {
   groupid: number;
   defaultShare?: Record<string, number>;
   defaultCurrency?: string;
+  groupName?: string;
+  budgets?: string[];
 }
 
 export interface UpdateGroupMetadataResponse {

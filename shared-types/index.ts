@@ -6,6 +6,7 @@ export interface User {
   Id: number;
   username: string;
   FirstName: string;
+  LastName?: string;
   groupid: number;
   password?: string; // Only used in login
 }
@@ -108,11 +109,6 @@ export interface BudgetMonthlyRequest {
   currency?: string;
 }
 
-export interface CreateBudgetRequest {
-  name: string;
-  groupid: number;
-}
-
 export interface SplitRequest {
   amount: number;
   description: string;
@@ -150,6 +146,7 @@ export interface LoginResponse {
   metadata: GroupMetadata;
   userId: number;
   token: string;
+  currencies: string[];
 }
 
 export interface MonthlyAmount {
@@ -184,20 +181,7 @@ export interface BudgetMonthlyResponse {
   };
 }
 
-export interface CreateBudgetResponse {
-  message: string;
-  budgetName: string;
-}
 
-export interface DeleteBudgetRequest {
-  name: string;
-  groupid: number;
-}
-
-export interface DeleteBudgetResponse {
-  message: string;
-  budgetName: string;
-}
 
 export interface TransactionsListResponse {
   transactions: Transaction[];
@@ -257,6 +241,28 @@ export interface BudgetTotal {
   amount: number;
 }
 
+// Settings/Group management types
+export interface GroupDetailsResponse {
+  groupid: number;
+  groupName: string;
+  budgets: string[];
+  metadata: GroupMetadata;
+  users: User[];
+}
+
+export interface UpdateGroupMetadataRequest {
+  groupid: number;
+  defaultShare?: Record<string, number>;
+  defaultCurrency?: string;
+  groupName?: string;
+  budgets?: string[];
+}
+
+export interface UpdateGroupMetadataResponse {
+  message: string;
+  metadata: GroupMetadata;
+}
+
 // API endpoint types for type-safe API calls
 export interface ApiEndpoints {
   '/login': {
@@ -267,14 +273,7 @@ export interface ApiEndpoints {
     request: BudgetRequest;
     response: { message: string };
   };
-  '/budget/create': {
-    request: CreateBudgetRequest;
-    response: CreateBudgetResponse;
-  };
-  '/budget/delete': {
-    request: DeleteBudgetRequest;
-    response: DeleteBudgetResponse;
-  };
+
   '/budget_list': {
     request: BudgetListRequest;
     response: BudgetEntry[];
@@ -311,6 +310,14 @@ export interface ApiEndpoints {
     request: {};
     response: { message: string };
   };
+  '/group/details': {
+    request: {};
+    response: GroupDetailsResponse;
+  };
+  '/group/metadata': {
+    request: UpdateGroupMetadataRequest;
+    response: UpdateGroupMetadataResponse;
+  };
 }
 
 // Type-safe API client interface
@@ -319,8 +326,13 @@ export interface TypedApiClient {
     endpoint: K,
     data: ApiEndpoints[K]['request']
   ): Promise<ApiEndpoints[K]['response']>;
+  get<K extends keyof ApiEndpoints>(
+    endpoint: K
+  ): Promise<ApiEndpoints[K]['response']>;
 }
 
+// Types
+export type Currency = 'USD' | 'EUR' | 'GBP' | 'INR';
+
 // Constants
-export const CURRENCIES = ['USD', 'EUR', 'GBP', 'INR'] as const;
-export type Currency = typeof CURRENCIES[number]; 
+export const CURRENCIES = ['USD', 'EUR', 'GBP', 'INR'] as const; 

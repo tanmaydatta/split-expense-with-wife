@@ -9,6 +9,7 @@ import { Loader } from "@/components/Loader";
 import { CreditDebit } from "./CreditDebit";
 import { SelectBudget } from "@/SelectBudget";
 import { typedApi, ApiError } from "@/utils/api";
+import { scrollToTop } from "@/utils/scroll";
 import type { BudgetRequest, SplitNewRequest } from '@shared-types';
 import "./index.css";
 
@@ -229,27 +230,7 @@ function Dashboard(): JSX.Element {
     );
   };
 
-  const scrollToTop = () => {
-    // Find the scrollable container by traversing up the DOM
-    const findScrollableParent = (element: Element | null): Element | null => {
-      if (!element) return null;
-      const style = window.getComputedStyle(element);
-      if (style.overflow === 'auto' || style.overflowY === 'auto' || style.overflow === 'scroll' || style.overflowY === 'scroll') {
-        return element;
-      }
-      return findScrollableParent(element.parentElement);
-    };
-    
-    const dashboardElement = document.querySelector('[data-test-id="dashboard-container"]');
-    const scrollableContainer = findScrollableParent(dashboardElement);
-    
-    if (scrollableContainer) {
-      scrollableContainer.scrollTo({ top: 0, behavior: 'smooth' });
-    } else {
-      // Fallback to window scroll
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-  };
+
 
   if (!isAuthenticated) {
     return <Loader />; // Show loading while redirecting to login

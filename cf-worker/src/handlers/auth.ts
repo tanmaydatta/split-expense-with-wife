@@ -100,7 +100,8 @@ export async function handleLogin(request: CFRequest, env: Env): Promise<Respons
       userids: userIds,
       metadata,
       userId: user.Id,
-      token: sessionId
+      token: sessionId,
+      currencies: ['USD', 'EUR', 'GBP', 'INR'] // This could be fetched from config or env in the future
     };
 
     return createJsonResponse(response, 200, {}, request, env);

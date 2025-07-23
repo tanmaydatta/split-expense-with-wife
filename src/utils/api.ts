@@ -71,32 +71,49 @@ class TypeSafeApiClient implements TypedApiClient {
       );
       return response.data;
     } catch (error) {
-      // Handle axios errors and convert to our typed ApiError
-      if (axios.isAxiosError(error)) {
-        const axiosError = error as AxiosError<ErrorResponse>;
-        
-        // If the server returned an ErrorResponse, use it
-        if (axiosError.response?.data && 
-            typeof axiosError.response.data === 'object' && 
-            'error' in axiosError.response.data) {
-          throw new ApiError(axiosError.response.data);
-        }
-        
-        // Otherwise, create an ErrorResponse from the axios error
-        const errorResponse: ErrorResponse = {
-          error: axiosError.message || 'Network error occurred',
-          statusCode: axiosError.response?.status || 500
-        };
-        throw new ApiError(errorResponse);
+      return this.handleError(error);
+    }
+  }
+
+  async get<K extends keyof ApiEndpoints>(
+    endpoint: K
+  ): Promise<ApiEndpoints[K]['response']> {
+    try {
+      const response: AxiosResponse<ApiEndpoints[K]['response']> = await apiInstance.get(
+        endpoint as string
+      );
+      return response.data;
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  private handleError(error: unknown): never {
+    // Handle axios errors and convert to our typed ApiError
+    if (axios.isAxiosError(error)) {
+      const axiosError = error as AxiosError<ErrorResponse>;
+      
+      // If the server returned an ErrorResponse, use it
+      if (axiosError.response?.data && 
+          typeof axiosError.response.data === 'object' && 
+          'error' in axiosError.response.data) {
+        throw new ApiError(axiosError.response.data);
       }
       
-      // For non-axios errors, create a generic error response
+      // Otherwise, create an ErrorResponse from the axios error
       const errorResponse: ErrorResponse = {
-        error: error instanceof Error ? error.message : 'Unknown error occurred',
-        statusCode: 500
+        error: axiosError.message || 'Network error occurred',
+        statusCode: axiosError.response?.status || 500
       };
       throw new ApiError(errorResponse);
     }
+    
+    // For non-axios errors, create a generic error response
+    const errorResponse: ErrorResponse = {
+      error: error instanceof Error ? error.message : 'Unknown error occurred',
+      statusCode: 500
+    };
+    throw new ApiError(errorResponse);
   }
 }
 

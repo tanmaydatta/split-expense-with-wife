@@ -46,7 +46,7 @@ function LoginPage() {
       // Store token in local storage
       localStorage.setItem('sessionToken', token);
 
-      // Dispatch user data to Redux store
+      // Dispatch user data to Redux store (including currencies)
       dispatch(setData(userData));
 
       // Redirect to home page
