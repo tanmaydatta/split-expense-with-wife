@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 
 echo "🔍 Running linting for React app..."
-npm run lint
+yarn lint
 
 if [ $? -ne 0 ]; then
   echo "❌ React linting failed! Commit aborted."
@@ -21,11 +21,13 @@ fi
 echo "✅ CF Worker linting passed!"
 
 echo "🧪 Running tests in cf-worker directory..."
-npm test
+yarn test
 
 if [ $? -ne 0 ]; then
   echo "❌ Tests failed! Commit aborted."
   exit 1
 fi
+
+cd .. && yarn playwright test --project=chromium --workers=1 --reporter=list,html --trace=on -- src/e2e/tests/budget-management.spec.ts && yarn playwright test --project=chromium --workers=1 --reporter=list,html --trace=on -- src/e2e/tests/transactions-balances.spec.ts && yarn playwright test --project=chromium --workers=1 --reporter=list,html --trace=on -- src/e2e/tests/expense-management.spec.ts && yarn playwright test --project=chromium --workers=1 --reporter=list,html --trace=on -- src/e2e/tests/auth.spec.ts
 
 echo "✅ All tests passed! Proceeding with commit."
