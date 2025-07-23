@@ -1,7 +1,7 @@
 import { env, createExecutionContext, waitOnExecutionContext } from 'cloudflare:test';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import worker from '../index';
-import { setupAndCleanDatabase, createTestUserData, createTestSession } from './test-utils';
+import { setupAndCleanDatabase, createTestUserData, createTestSession, createTestRequest } from './test-utils';
 import { TestSuccessResponse, TestTransactionCreateResponse, TestTransactionsListResponse, TestErrorResponse, TestTransactionDbResult, TestTransactionUserDbResult } from './types';
 
 describe('Split Handlers', () => {
@@ -24,21 +24,14 @@ describe('Split Handlers', () => {
       await createTestUserData(env);
       await createTestSession(env);
 
-      const request = new Request('http://example.com/.netlify/functions/split', {
-        method: 'POST',
-        headers: {
-          'Authorization': 'Bearer test-session-id',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          amount: 100,
-          currency: 'USD',
-          description: 'Dinner',
-          splitPctShares: { '1': 50, '2': 50 },
-          paidByShares: { '1': 100, '2': 0 },
-          pin: '1234'
-        })
-      });
+      const request = createTestRequest('split', 'POST', {
+        amount: 100,
+        currency: 'USD',
+        description: 'Dinner',
+        splitPctShares: { '1': 50, '2': 50 },
+        paidByShares: { '1': 100, '2': 0 },
+        pin: '1234'
+      }, 'test-session-id');
 
       const ctx = createExecutionContext();
       const response = await worker.fetch(request, env, ctx);
@@ -78,21 +71,14 @@ describe('Split Handlers', () => {
       await createTestUserData(env);
       await createTestSession(env);
 
-      const request = new Request('http://example.com/.netlify/functions/split', {
-        method: 'POST',
-        headers: {
-          'Authorization': 'Bearer test-session-id',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          amount: 200,
-          currency: 'USD',
-          description: 'Groceries',
-          splitPctShares: { '1': 60, '2': 40 },
-          paidByShares: { '1': 200, '2': 0 },
-          pin: '1234'
-        })
-      });
+      const request = createTestRequest('split', 'POST', {
+        amount: 200,
+        currency: 'USD',
+        description: 'Groceries',
+        splitPctShares: { '1': 60, '2': 40 },
+        paidByShares: { '1': 200, '2': 0 },
+        pin: '1234'
+      }, 'test-session-id');
 
       const ctx = createExecutionContext();
       const response = await worker.fetch(request, env, ctx);
@@ -126,21 +112,14 @@ describe('Split Handlers', () => {
       await createTestUserData(env);
       await createTestSession(env);
 
-      const request = new Request('http://example.com/.netlify/functions/split', {
-        method: 'POST',
-        headers: {
-          'Authorization': 'Bearer test-session-id',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          amount: 300,
-          currency: 'USD',
-          description: 'Pizza for three',
-          splitPctShares: { '1': 40, '2': 30, '3': 30 },
-          paidByShares: { '1': 300, '2': 0, '3': 0 },
-          pin: '1234'
-        })
-      });
+      const request = createTestRequest('split', 'POST', {
+        amount: 300,
+        currency: 'USD',
+        description: 'Pizza for three',
+        splitPctShares: { '1': 40, '2': 30, '3': 30 },
+        paidByShares: { '1': 300, '2': 0, '3': 0 },
+        pin: '1234'
+      }, 'test-session-id');
 
       const ctx = createExecutionContext();
       const response = await worker.fetch(request, env, ctx);
@@ -173,21 +152,14 @@ describe('Split Handlers', () => {
       await createTestUserData(env);
       await createTestSession(env);
 
-      const request = new Request('http://example.com/.netlify/functions/split', {
-        method: 'POST',
-        headers: {
-          'Authorization': 'Bearer test-session-id',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          amount: 400,
-          currency: 'USD',
-          description: 'Group dinner',
-          splitPctShares: { '1': 25, '2': 25, '3': 25, '4': 25 },
-          paidByShares: { '1': 150, '2': 100, '3': 150, '4': 0 },
-          pin: '1234'
-        })
-      });
+      const request = createTestRequest('split', 'POST', {
+        amount: 400,
+        currency: 'USD',
+        description: 'Group dinner',
+        splitPctShares: { '1': 25, '2': 25, '3': 25, '4': 25 },
+        paidByShares: { '1': 150, '2': 100, '3': 150, '4': 0 },
+        pin: '1234'
+      }, 'test-session-id');
 
       const ctx = createExecutionContext();
       const response = await worker.fetch(request, env, ctx);
@@ -281,17 +253,10 @@ describe('Split Handlers', () => {
       await env.DB.exec("INSERT INTO transactions (transaction_id, description, amount, currency, group_id, created_at) VALUES ('123', 'Test split', 100, 'USD', 1, '2024-01-01 00:00:00')");
       await env.DB.exec("INSERT INTO transaction_users (transaction_id, user_id, amount, owed_to_user_id, currency, group_id) VALUES ('123', 1, 50, 2, 'USD', 1)");
 
-      const request = new Request('http://example.com/.netlify/functions/split_delete', {
-        method: 'POST',
-        headers: {
-          'Authorization': 'Bearer test-session-id',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          id: '123',
-          pin: '1234'
-        })
-      });
+      const request = createTestRequest('split_delete', 'POST', {
+        id: '123',
+        pin: '1234'
+      }, 'test-session-id');
 
       const ctx = createExecutionContext();
       const response = await worker.fetch(request, env, ctx);
@@ -309,21 +274,14 @@ describe('Split Handlers', () => {
       await createTestUserData(env);
       await createTestSession(env);
 
-      const request = new Request('http://example.com/.netlify/functions/split_new', {
-        method: 'POST',
-        headers: {
-          'Authorization': 'Bearer test-session-id',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          amount: 100,
-          currency: 'USD',
-          description: 'Dinner',
-          splitPctShares: { '1': 50, '2': 50 },
-          paidByShares: { '1': 100, '2': 0 },
-          pin: '1234'
-        })
-      });
+      const request = createTestRequest('split_new', 'POST', {
+        amount: 100,
+        currency: 'USD',
+        description: 'Dinner',
+        splitPctShares: { '1': 50, '2': 50 },
+        paidByShares: { '1': 100, '2': 0 },
+        pin: '1234'
+      }, 'test-session-id');
 
       const ctx = createExecutionContext();
       const response = await worker.fetch(request, env, ctx);
@@ -555,16 +513,9 @@ describe('Split Handlers', () => {
       // Create some transactions using correct schema
       await env.DB.exec("INSERT INTO transactions (transaction_id, description, amount, currency, group_id, created_at) VALUES ('1', 'Transaction 1', 100, 'USD', 1, '2024-01-01 00:00:00')");
 
-      const request = new Request('http://example.com/.netlify/functions/transactions_list', {
-        method: 'POST',
-        headers: {
-          'Authorization': 'Bearer test-session-id',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          offset: 0
-        })
-      });
+      const request = createTestRequest('transactions_list', 'POST', {
+        offset: 0
+      }, 'test-session-id');
 
       const ctx = createExecutionContext();
       const response = await worker.fetch(request, env, ctx);

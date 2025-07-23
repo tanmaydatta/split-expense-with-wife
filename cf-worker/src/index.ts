@@ -19,6 +19,7 @@ import {
 } from './handlers/split';
 import { handleHelloWorld } from './handlers/hello';
 import { handleCron } from './handlers/cron';
+import { handleUpdateGroupMetadata } from './handlers/group';
 
 // Global types for Cloudflare Workers
 declare global {
@@ -65,6 +66,8 @@ export default {
       return await handleBudgetMonthly(request, env);
     } else if (path === '/.netlify/functions/budget_total') {
       return await handleBudgetTotal(request, env);
+    } else if (path === '/.netlify/functions/group/metadata') {
+      return await handleUpdateGroupMetadata(request, env);
     } else if (path === '/.netlify/functions/split') {
       return await handleSplit(request, env);
     } else if (path === '/.netlify/functions/split_new') {

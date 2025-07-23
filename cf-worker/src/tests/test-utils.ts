@@ -1,4 +1,61 @@
-import { Env } from '../types';
+import { Env, CFRequest } from '../types';
+
+// Mock request helper function for testing API handlers directly (unit tests)
+export function createMockRequest(method: string, body?: unknown, token?: string): CFRequest {
+  const headers = new Map<string, string>();
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+  if (body) {
+    headers.set('Content-Type', 'application/json');
+  }
+
+  return {
+    method,
+    url: 'http://localhost/.netlify/functions/test',
+    headers: {
+      get: (name: string) => headers.get(name) || null,
+      set: (name: string, value: string) => headers.set(name, value),
+      append: (name: string, value: string) => headers.set(name, (headers.get(name) || '') + value),
+      delete: (name: string) => headers.delete(name),
+      has: (name: string) => headers.has(name)
+    },
+    json: async () => body || {},
+    text: async () => JSON.stringify(body || {})
+  } as CFRequest;
+}
+
+// Integration test helper function for creating Request objects
+export function createTestRequest(endpoint: string, method: string = 'POST', body?: unknown, token?: string, isNetlifyFunction: boolean = true): Request {
+  const headers: Record<string, string> = {};
+
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  if (body) {
+    headers['Content-Type'] = 'application/json';
+  }
+
+  const url = isNetlifyFunction
+    ? `http://example.com/.netlify/functions/${endpoint}`
+    : `http://example.com${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
+
+  const requestInit: {
+    method: string;
+    headers: Record<string, string>;
+    body?: string;
+  } = {
+    method,
+    headers
+  };
+
+  if (body) {
+    requestInit.body = JSON.stringify(body);
+  }
+
+  return new Request(url, requestInit);
+}
 
 /**
  * Setup database tables for testing

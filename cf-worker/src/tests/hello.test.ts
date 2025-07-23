@@ -2,12 +2,11 @@ import { env, createExecutionContext, waitOnExecutionContext } from 'cloudflare:
 import { describe, it, expect } from 'vitest';
 import worker from '../index';
 import { TestHelloResponse } from './types';
+import { createTestRequest } from './test-utils';
 
 describe('Hello World handler', () => {
   it("should return a 'Hello World!' message", async () => {
-    const request = new Request('http://example.com/hello', {
-      method: 'GET'
-    });
+    const request = createTestRequest('hello', 'GET', undefined, undefined, false);
     const ctx = createExecutionContext();
     const response = await worker.fetch(request, env, ctx);
     await waitOnExecutionContext(ctx);
@@ -21,9 +20,7 @@ describe('Hello World handler', () => {
   });
 
   it('should work on root path', async () => {
-    const request = new Request('http://example.com/', {
-      method: 'GET'
-    });
+    const request = createTestRequest('/', 'GET', undefined, undefined, false);
     const ctx = createExecutionContext();
     const response = await worker.fetch(request, env, ctx);
     await waitOnExecutionContext(ctx);
@@ -35,9 +32,7 @@ describe('Hello World handler', () => {
   });
 
   it('should handle OPTIONS request', async () => {
-    const request = new Request('http://example.com/hello', {
-      method: 'OPTIONS'
-    });
+    const request = createTestRequest('hello', 'OPTIONS', undefined, undefined, false);
     const ctx = createExecutionContext();
     const response = await worker.fetch(request, env, ctx);
     await waitOnExecutionContext(ctx);

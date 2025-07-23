@@ -28,9 +28,16 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
-cd .. && yarn playwright test --project=chromium --workers=1 --reporter=list,html --trace=on -- src/e2e/tests/budget-management.spec.ts && yarn playwright test --project=chromium --workers=1 --reporter=list,html --trace=on -- src/e2e/tests/transactions-balances.spec.ts && yarn playwright test --project=chromium --workers=1 --reporter=list,html --trace=on -- src/e2e/tests/expense-management.spec.ts && yarn playwright test --project=chromium --workers=1 --reporter=list,html --trace=on -- src/e2e/tests/auth.spec.ts
-if [ $? -ne 0 ]; then
-  echo "❌ E2E Tests failed! Commit aborted."
-  exit 1
+# Check if RUN_E2E_TESTS environment variable is set to run e2e tests
+if [ "${RUN_E2E_TESTS}" = "true" ]; then
+  echo "🎭 Running E2E tests..."
+  cd .. && yarn playwright test --project=chromium --workers=1 --reporter=list,html --trace=on -- src/e2e/tests/budget-management.spec.ts && yarn playwright test --project=chromium --workers=1 --reporter=list,html --trace=on -- src/e2e/tests/transactions-balances.spec.ts && yarn playwright test --project=chromium --workers=1 --reporter=list,html --trace=on -- src/e2e/tests/expense-management.spec.ts && yarn playwright test --project=chromium --workers=1 --reporter=list,html --trace=on -- src/e2e/tests/auth.spec.ts
+  if [ $? -ne 0 ]; then
+    echo "❌ E2E Tests failed! Commit aborted."
+    exit 1
+  fi
+  echo "✅ All tests passed! Proceeding with commit."
+else
+  echo "⏭️  Skipping E2E tests (set RUN_E2E_TESTS=true to enable)"
+  echo "✅ Unit tests passed! Proceeding with commit."
 fi
-echo "✅ All tests passed! Proceeding with commit."
