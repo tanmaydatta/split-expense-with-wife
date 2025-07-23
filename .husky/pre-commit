@@ -29,5 +29,8 @@ if [ $? -ne 0 ]; then
 fi
 
 cd .. && yarn playwright test --project=chromium --workers=1 --reporter=list,html --trace=on -- src/e2e/tests/budget-management.spec.ts && yarn playwright test --project=chromium --workers=1 --reporter=list,html --trace=on -- src/e2e/tests/transactions-balances.spec.ts && yarn playwright test --project=chromium --workers=1 --reporter=list,html --trace=on -- src/e2e/tests/expense-management.spec.ts && yarn playwright test --project=chromium --workers=1 --reporter=list,html --trace=on -- src/e2e/tests/auth.spec.ts
-
+if [ $? -ne 0 ]; then
+  echo "❌ E2E Tests failed! Commit aborted."
+  exit 1
+fi
 echo "✅ All tests passed! Proceeding with commit."

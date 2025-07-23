@@ -56,7 +56,7 @@ export default defineConfig({
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },
-    ...(process.env.CI ? []: [
+    ...(process.env.CI ? [] : [
       {
         name: 'firefox',
         use: { ...devices['Desktop Firefox'] },
@@ -75,7 +75,7 @@ export default defineConfig({
       {
         name: 'Mobile Safari',
         use: { ...devices['iPhone 12'] },
-      },] ),
+      },]),
 
     /* Test against branded browsers. */
     // {
@@ -90,7 +90,7 @@ export default defineConfig({
 
   /* Run your local dev server before starting the tests */
   webServer: {
-    command: 'npm start',
+    command: 'yarn start',
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000,
