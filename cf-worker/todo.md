@@ -10,9 +10,10 @@
 - avg line not on the right ✅
 - remove all alerts ✅
 - add/remove budgets ✅ 
-- change default split api
-- change defaults feature
-- retire netlify functions
+- change default split api ✅
+- change defaults feature ✅
+- settings page ✅
+- retire netlify functions ✅
 - remove pin
 - use jwt so that verification is done with making db call
 - drizzle
@@ -22,4 +23,5 @@
 - full text search
 - transaction/add
 - budget/add
-- group context
+- group context - idk??
+- add new users
