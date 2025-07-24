@@ -29,8 +29,7 @@ describe('Split Handlers', () => {
         currency: 'USD',
         description: 'Dinner',
         splitPctShares: { '1': 50, '2': 50 },
-        paidByShares: { '1': 100, '2': 0 },
-        pin: '1234'
+        paidByShares: { '1': 100, '2': 0 }
       }, 'test-session-id');
 
       const ctx = createExecutionContext();
@@ -76,8 +75,7 @@ describe('Split Handlers', () => {
         currency: 'USD',
         description: 'Groceries',
         splitPctShares: { '1': 60, '2': 40 },
-        paidByShares: { '1': 200, '2': 0 },
-        pin: '1234'
+        paidByShares: { '1': 200, '2': 0 }
       }, 'test-session-id');
 
       const ctx = createExecutionContext();
@@ -117,8 +115,7 @@ describe('Split Handlers', () => {
         currency: 'USD',
         description: 'Pizza for three',
         splitPctShares: { '1': 40, '2': 30, '3': 30 },
-        paidByShares: { '1': 300, '2': 0, '3': 0 },
-        pin: '1234'
+        paidByShares: { '1': 300, '2': 0, '3': 0 }
       }, 'test-session-id');
 
       const ctx = createExecutionContext();
@@ -157,8 +154,7 @@ describe('Split Handlers', () => {
         currency: 'USD',
         description: 'Group dinner',
         splitPctShares: { '1': 25, '2': 25, '3': 25, '4': 25 },
-        paidByShares: { '1': 150, '2': 100, '3': 150, '4': 0 },
-        pin: '1234'
+        paidByShares: { '1': 150, '2': 100, '3': 150, '4': 0 }
       }, 'test-session-id');
 
       const ctx = createExecutionContext();
@@ -198,8 +194,7 @@ describe('Split Handlers', () => {
           currency: 'USD',
           description: 'Invalid split',
           splitPctShares: { '1': 60, '2': 30 }, // Only adds up to 90%
-          paidByShares: { '1': 100, '2': 0 },
-          pin: '1234'
+          paidByShares: { '1': 100, '2': 0 }
         })
       });
 
@@ -228,8 +223,7 @@ describe('Split Handlers', () => {
           currency: 'USD',
           description: 'Invalid payment',
           splitPctShares: { '1': 50, '2': 50 },
-          paidByShares: { '1': 80, '2': 0 }, // Only adds up to 80, not 100
-          pin: '1234'
+          paidByShares: { '1': 80, '2': 0 } // Only adds up to 80, not 100
         })
       });
 
@@ -254,8 +248,7 @@ describe('Split Handlers', () => {
       await env.DB.exec("INSERT INTO transaction_users (transaction_id, user_id, amount, owed_to_user_id, currency, group_id) VALUES ('123', 1, 50, 2, 'USD', 1)");
 
       const request = createTestRequest('split_delete', 'POST', {
-        id: '123',
-        pin: '1234'
+        id: '123'
       }, 'test-session-id');
 
       const ctx = createExecutionContext();
@@ -279,8 +272,7 @@ describe('Split Handlers', () => {
         currency: 'USD',
         description: 'Dinner',
         splitPctShares: { '1': 50, '2': 50 },
-        paidByShares: { '1': 100, '2': 0 },
-        pin: '1234'
+        paidByShares: { '1': 100, '2': 0 }
       }, 'test-session-id');
 
       const ctx = createExecutionContext();
@@ -308,8 +300,7 @@ describe('Split Handlers', () => {
           currency: 'USD',
           description: 'Coffee and pastries',
           splitPctShares: { '1': 70, '2': 30 },
-          paidByShares: { '1': 150, '2': 0 },
-          pin: '1234'
+          paidByShares: { '1': 150, '2': 0 }
         })
       });
 
@@ -344,8 +335,7 @@ describe('Split Handlers', () => {
           currency: 'USD',
           description: 'Taxi ride for three',
           splitPctShares: { '1': 33.33, '2': 33.33, '3': 33.34 },
-          paidByShares: { '1': 300, '2': 0, '3': 0 },
-          pin: '1234'
+          paidByShares: { '1': 300, '2': 0, '3': 0 }
         })
       });
 
@@ -381,8 +371,7 @@ describe('Split Handlers', () => {
           currency: 'USD',
           description: 'Hotel room split',
           splitPctShares: { '1': 40, '2': 30, '3': 20, '4': 10 },
-          paidByShares: { '1': 0, '2': 500, '3': 0, '4': 0 },
-          pin: '1234'
+          paidByShares: { '1': 0, '2': 500, '3': 0, '4': 0 }
         })
       });
 
@@ -423,8 +412,7 @@ describe('Split Handlers', () => {
           currency: 'USD',
           description: 'Concert tickets',
           splitPctShares: { '1': 25, '2': 25, '3': 25, '4': 25 },
-          paidByShares: { '1': 120, '2': 120, '3': 0, '4': 0 },
-          pin: '1234'
+          paidByShares: { '1': 120, '2': 120, '3': 0, '4': 0 }
         })
       });
 
@@ -459,8 +447,7 @@ describe('Split Handlers', () => {
           currency: 'USD',
           description: 'Invalid split',
           splitPctShares: { '1': 45, '2': 45 }, // Only adds up to 90%
-          paidByShares: { '1': 100, '2': 0 },
-          pin: '1234'
+          paidByShares: { '1': 100, '2': 0 }
         })
       });
 
@@ -489,8 +476,7 @@ describe('Split Handlers', () => {
           currency: 'USD',
           description: 'Invalid payment',
           splitPctShares: { '1': 50, '2': 50 },
-          paidByShares: { '1': 120, '2': 0 }, // Paid amount exceeds total
-          pin: '1234'
+          paidByShares: { '1': 120, '2': 0 } // Paid amount exceeds total
         })
       });
 

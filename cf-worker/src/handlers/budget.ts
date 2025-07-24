@@ -15,7 +15,6 @@ import {
   createJsonResponse,
   createErrorResponse,
   formatSQLiteTime,
-  isValidPin,
   isValidCurrency,
   isAuthorizedForBudget,
   getUserBalances,
@@ -106,10 +105,6 @@ export async function handleBudget(request: CFRequest, env: Env): Promise<Respon
       return createErrorResponse('Invalid currency', 400, request, env);
     }
 
-    if (!isValidPin(body.pin, env)) {
-      return createErrorResponse('Invalid pin', 400, request, env);
-    }
-
     // Create budget entry
     const sign = body.amount < 0 ? '-' : '+';
     const name = body.name || 'house';
@@ -163,11 +158,6 @@ export async function handleBudgetDelete(request: CFRequest, env: Env): Promise<
     }
 
     const body = await request.json() as BudgetDeleteRequest;
-
-    // Validate PIN
-    if (!isValidPin(body.pin, env)) {
-      return createErrorResponse('Invalid pin', 400, request, env);
-    }
 
     // Get the budget entry details before deletion for updating totals
     const budgetEntryStmt = env.DB.prepare(`

@@ -63,7 +63,6 @@ test.describe('Expense Management', () => {
     const afterSubmitValues = await expenseHelper.getCurrentFormValues();
     expect(afterSubmitValues.description).toBe('');
     expect(afterSubmitValues.amount).toBe('');
-    expect(afterSubmitValues.pin).toBe('');
     expect(afterSubmitValues.percentages['1']).toBe('70'); // Preserved within session
     expect(afterSubmitValues.percentages['2']).toBe('30'); // Preserved within session
     
@@ -153,7 +152,6 @@ test.describe('Expense Management', () => {
     const formValues = await expenseHelper.getCurrentFormValues();
     expect(formValues.description).toBe('');
     expect(formValues.amount).toBe('');
-    expect(formValues.pin).toBe('');
     
     // Verify percentages reset to defaults from user metadata after navigation
     expect(formValues.percentages['1']).toBe(currentPercentages['1']);
@@ -288,7 +286,7 @@ test.describe('Expense Management', () => {
     await expenseHelper.verifyExpenseNotPresent(result2.description);
   });
 
-  test('should handle deletion with PIN requirement', async ({ authenticatedPage }) => {
+  test('should handle expense deletion', async ({ authenticatedPage }) => {
     const expenseHelper = new ExpenseTestHelper(authenticatedPage);
     
     await expect(authenticatedPage.page).toHaveURL('/');
@@ -303,7 +301,7 @@ test.describe('Expense Management', () => {
     await expenseHelper.verifyExpensesPageComponents();
     await expenseHelper.verifySpecificExpenseEntry(result.description, '200', 'GBP', '+£100.00');
     
-    // Delete the expense (PIN is handled automatically in the deleteExpenseEntry method)
+    // Delete the expense
     await expenseHelper.deleteExpenseEntry(result.description);
     
     // Reload the page to ensure fresh data

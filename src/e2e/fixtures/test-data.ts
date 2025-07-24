@@ -94,8 +94,7 @@ export const testBudgets: Record<string, TestBudget> = {
   }
 };
 
-// Test PIN for authentication
-export const testPin = '7689';
+// PIN authentication has been removed
 
 // Mock API responses
 export const mockApiResponses = {
@@ -207,6 +206,5 @@ export const testData = {
   users: testUsers,
   expenses: testExpenses,
   budgets: testBudgets,
-  pin: testPin,
   mockResponses: mockApiResponses
 }; 

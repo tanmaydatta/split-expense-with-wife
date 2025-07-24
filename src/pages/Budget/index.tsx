@@ -1,9 +1,7 @@
-import sha256 from "crypto-js/sha256";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
-import { Input } from "@/components/Form/Input";
 import { Loader } from "@/components/Loader";
 import { AmountGrid } from "@/components/AmountGrid";
 import { ErrorContainer, SuccessContainer } from "@/components/MessageContainer";
@@ -24,13 +22,11 @@ export const Budget: React.FC = () => {
   const [error, setError] = useState<string>("");
   const [success, setSuccess] = useState<string>("");
 
-  const [pin, setPin] = useState("");
   const handleChangeBudget = (val: string) => setBudget(val);
   const navigate = useNavigate();
   const fetchTotal = useCallback(async () => {
     try {
       const request: BudgetTotalRequest = {
-        pin: "", // Will be updated when we implement PIN properly
         name: budget,
       };
 
@@ -51,7 +47,6 @@ export const Budget: React.FC = () => {
         const request: BudgetListRequest = {
           name: budget,
           offset: offset,
-          pin: "", // Will be updated when we implement PIN properly
         };
 
         const response: BudgetEntry[] = await typedApi.post("/budget_list", request);
@@ -92,12 +87,10 @@ export const Budget: React.FC = () => {
     try {
       const request: BudgetDeleteRequest = {
         id: id,
-        pin: sha256(pin).toString(),
       };
 
       const response: { message: string } = await typedApi.post("/budget_delete", request);
       setSuccess(response.message);
-      setPin(""); // Clear PIN after successful deletion
       fetchTotal();
       fetchHistory(0, []);
     } catch (e: any) {
@@ -142,14 +135,7 @@ export const Budget: React.FC = () => {
       {loading && <Loader />}
       {!loading && (
         <>
-          <Input
-            type="password"
-            placeholder="PIN"
-            name="pin"
-            data-test-id="pin-input"
-            value={pin}
-            onChange={(e) => setPin(e.target.value)}
-          />
+
           <Card className="budget-card">
             <h3>Budget left</h3>
             <AmountGrid amounts={budgetsLeft} />

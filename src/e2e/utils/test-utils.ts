@@ -110,7 +110,7 @@ export class TestHelper {
   /**
    * Add a new expense
    */
-  async addExpense(expense: TestExpense, pin: string): Promise<void> {
+  async addExpense(expense: TestExpense): Promise<void> {
     await this.navigateToPage('Add');
     
     // Fill expense form
@@ -129,9 +129,6 @@ export class TestHelper {
       await splitInput.fill(percentage.toString());
     }
     
-    // Enter PIN
-    await this.page.fill('input[placeholder="PIN"]', pin);
-    
     // Submit form
     await this.page.click('button[type="submit"]');
     
@@ -142,7 +139,7 @@ export class TestHelper {
   /**
    * Add a budget entry
    */
-  async addBudget(budget: TestBudget, pin: string): Promise<void> {
+  async addBudget(budget: TestBudget): Promise<void> {
     await this.navigateToPage('Add');
     
     // Fill budget form (second form on the page)
@@ -160,9 +157,6 @@ export class TestHelper {
     
     // Set currency
     await this.page.selectOption('select[name="currency"]', budget.currency);
-    
-    // Enter PIN
-    await this.page.fill('input[placeholder="PIN"]', pin);
     
     // Submit budget form
     await budgetForm.locator('button[type="submit"]').click();
