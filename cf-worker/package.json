@@ -6,12 +6,12 @@
   "scripts": {
     "dev": "wrangler dev",
     "build:ui": "cd .. && yarn build",
-    "build:ui:if-missing": "[ ! -d ../build ] && yarn build:ui || echo 'Build directory exists, skipping UI build'",
+    "ensure:build": "[ -d ../build ] || (echo 'Build directory missing, building UI...' && cd .. && yarn build)",
     "clean:redirects": "> ../build/_redirects",
     "deploy:dev": "yarn build:ui && yarn clean:redirects && vitest run && wrangler deploy -e dev",
     "deploy:prod": "yarn build:ui && yarn clean:redirects && vitest run && wrangler deploy -e prod",
     "build": "wrangler publish --dry-run",
-    "test": "yarn build:ui:if-missing && vitest run",
+    "test": "yarn ensure:build && vitest run",
     "lint": "tsc --noEmit && eslint src --max-warnings 0",
     "lint:fix": "eslint src --fix"
   },
