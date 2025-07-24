@@ -21,11 +21,13 @@ declare module 'styled-components' {
       small: string;
       medium: string;
       large: string;
+      xlarge: string;
     };
     spacing: {
       small: string;
       medium: string;
       large: string;
+      xlarge: string;
     };
     borderRadius: string;
     shadows: {

@@ -20,11 +20,13 @@ export const theme: DefaultTheme = {
     small: '0.8rem',
     medium: '1rem',
     large: '1.2rem',
+    xlarge: '3rem',
   },
   spacing: {
     small: '0.5rem',
     medium: '1rem',
     large: '2rem',
+    xlarge: '3rem',
   },
   borderRadius: '0.25rem',
   shadows: {
