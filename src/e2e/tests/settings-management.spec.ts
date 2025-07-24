@@ -417,8 +417,6 @@ test.describe('Settings Management', () => {
         });
 
         test('should handle empty budget categories', async ({ authenticatedPage }) => {
-            const settingsHelper = new SettingsTestHelper(authenticatedPage);
-            
             // Verify add button is disabled when input is empty
             await authenticatedPage.page.fill('[data-test-id="new-budget-input"]', '');
             const isDisabledEmpty = await authenticatedPage.page.isDisabled('[data-test-id="add-budget-button"]');
