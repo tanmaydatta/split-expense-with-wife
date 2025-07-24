@@ -5,8 +5,10 @@
   "main": "src/index.ts",
   "scripts": {
     "dev": "wrangler dev",
-    "deploy:dev": "vitest run && wrangler deploy -e dev",
-    "deploy:prod": "vitest run && wrangler deploy -e prod",
+    "build:ui": "cd .. && yarn build",
+    "clean:redirects": "> ../build/_redirects",
+    "deploy:dev": "yarn build:ui && yarn clean:redirects && vitest run && wrangler deploy -e dev",
+    "deploy:prod": "yarn build:ui && yarn clean:redirects && vitest run && wrangler deploy -e prod",
     "build": "wrangler publish --dry-run",
     "test": "vitest run",
     "lint": "tsc --noEmit && eslint src --max-warnings 0",
