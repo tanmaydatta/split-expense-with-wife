@@ -120,13 +120,13 @@ export async function setupAndCleanDatabase(env: Env): Promise<void> {
  */
 export async function createTestUserData(env: Env): Promise<void> {
   // Create a test group with multiple users
-  await env.DB.exec("INSERT INTO groups (groupid, group_name, budgets, userids, metadata) VALUES (1, 'Test Group', '[\"house\", \"food\"]', '[1, 2, 3, 4]', '{}')");
+  await env.DB.exec("INSERT INTO groups (groupid, group_name, budgets, userids, metadata) VALUES (1, 'Test Group', '[\"house\", \"food\"]', '[1, 2, 3, 4]', '{\"defaultCurrency\": \"USD\", \"defaultShare\": {\"1\": 25, \"2\": 25, \"3\": 25, \"4\": 25}}')");
 
-  // Create test users
-  await env.DB.exec("INSERT INTO users (id, username, first_name, groupid, password) VALUES (1, 'testuser', 'Test', 1, 'password123')");
-  await env.DB.exec("INSERT INTO users (id, username, first_name, groupid, password) VALUES (2, 'otheruser', 'Other', 1, 'pass456')");
-  await env.DB.exec("INSERT INTO users (id, username, first_name, groupid, password) VALUES (3, 'thirduser', 'Third', 1, 'pass789')");
-  await env.DB.exec("INSERT INTO users (id, username, first_name, groupid, password) VALUES (4, 'fourthuser', 'Fourth', 1, 'pass101')");
+  // Create test users with last names
+  await env.DB.exec("INSERT INTO users (id, username, first_name, last_name, groupid, password) VALUES (1, 'testuser', 'Test', 'User', 1, 'password123')");
+  await env.DB.exec("INSERT INTO users (id, username, first_name, last_name, groupid, password) VALUES (2, 'otheruser', 'Other', 'Person', 1, 'pass456')");
+  await env.DB.exec("INSERT INTO users (id, username, first_name, last_name, groupid, password) VALUES (3, 'thirduser', 'Third', 'Member', 1, 'pass789')");
+  await env.DB.exec("INSERT INTO users (id, username, first_name, last_name, groupid, password) VALUES (4, 'fourthuser', 'Fourth', 'Teammate', 1, 'pass101')");
 }
 
 /**

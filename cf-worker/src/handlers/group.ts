@@ -121,7 +121,7 @@ export async function handleUpdateGroupMetadata(request: CFRequest, env: Env): P
 
       // Check that percentages add up to 100
       const totalPercentage = Object.values(body.defaultShare).reduce((sum, pct) => sum + pct, 0);
-      if (Math.abs(totalPercentage - 100) > 0.01) { // Allow for small floating point errors
+      if (Math.abs(totalPercentage - 100) > 0.001) { // Allow for small floating point errors with 0.001 precision
         return createErrorResponse('Default share percentages must add up to 100%', 400, request, env);
       }
 
@@ -155,7 +155,7 @@ export async function handleUpdateGroupMetadata(request: CFRequest, env: Env): P
       const invalidBudgets = body.budgets.filter(budget =>
         typeof budget !== 'string' ||
         budget.trim().length === 0 ||
-        !/^[a-z0-9_-]+$/.test(budget.trim())
+        !/^[a-zA-Z0-9_-]+$/.test(budget.trim())
       );
 
       if (invalidBudgets.length > 0) {

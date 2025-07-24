@@ -221,7 +221,7 @@ const Settings: React.FC = () => {
   }
 
   return (
-    <div className="settings-container">
+    <div className="settings-container" data-test-id="settings-container">
       {state.error && (
         <ErrorContainer message={state.error} onClose={clearMessages} />
       )}
@@ -231,7 +231,7 @@ const Settings: React.FC = () => {
       )}
 
       {/* Group Info Card */}
-      <Card className="settings-card">
+      <Card className="settings-card" data-test-id="group-info-section">
         <h3>Group Information</h3>
         <div className="form-group">
           <label htmlFor="groupName">Group Name</label>
@@ -245,12 +245,13 @@ const Settings: React.FC = () => {
               groupNameDirty: e.target.value.trim() !== state.groupDetails?.groupName 
             }))}
             placeholder="Enter group name"
+            data-test-id="group-name-input"
           />
         </div>
       </Card>
 
       {/* Default Currency Card */}
-      <Card className="settings-card">
+      <Card className="settings-card" data-test-id="currency-section">
         <h3>Default Currency</h3>
         <div className="form-group">
           <label htmlFor="defaultCurrency">Currency</label>
@@ -262,6 +263,7 @@ const Settings: React.FC = () => {
               defaultCurrency: e.target.value,
               currencyDirty: e.target.value !== state.groupDetails?.metadata.defaultCurrency 
             }))}
+            data-test-id="currency-select"
           >
             {(data.currencies || ['USD']).map((currency: string) => (
               <option key={currency} value={currency}>
@@ -273,7 +275,7 @@ const Settings: React.FC = () => {
       </Card>
 
       {/* Default Shares Card */}
-      <Card className="settings-card">
+      <Card className="settings-card" data-test-id="shares-section">
         <h3>Default Share Percentages</h3>
         <div className="shares-form">
           {state.groupDetails?.users.map((user: User) => (
@@ -281,7 +283,7 @@ const Settings: React.FC = () => {
               <label htmlFor={`user-${user.Id}`}>
                 {user.FirstName}{user.LastName ? ` ${user.LastName}` : ''}
               </label>
-              <div className="percentage-input-wrapper">
+              <div className="percentage-input-wrapper" data-test-id={`percentage-wrapper-${user.Id}`}>
                 <Input
                   id={`user-${user.Id}`}
                   type="number"
@@ -294,28 +296,30 @@ const Settings: React.FC = () => {
                     parseFloat(e.target.value) || 0
                   )}
                   className="percentage-input"
+                  data-test-id={`user-${user.Id}-percentage`}
                 />
-                <span className="percentage-symbol">%</span>
+                <span className="percentage-symbol" data-test-id="percentage-symbol">%</span>
               </div>
             </div>
           ))}
-          <div className={`total-percentage ${Math.abs(totalPercentage - 100) > 0.001 ? 'invalid' : 'valid'}`}>
+          <div className={`total-percentage ${Math.abs(totalPercentage - 100) > 0.001 ? 'invalid' : 'valid'}`} data-test-id="total-percentage">
             Total: {totalPercentage.toFixed(2)}%
           </div>
         </div>
       </Card>
 
       {/* Budget Categories Card */}
-      <Card className="settings-card">
+      <Card className="settings-card" data-test-id="budgets-section">
         <h3>Budget Categories</h3>
         <div className="budget-manager">
           <div className="budget-list">
-            {state.budgets.map((budget) => (
+            {state.budgets.map((budget, index) => (
               <div key={budget} className="budget-item">
                 <span>{budget}</span>
                 <Button 
                   onClick={() => removeBudget(budget)}
                   className="remove-button"
+                  data-test-id={`remove-budget-${index}`}
                 >
                   Remove
                 </Button>
@@ -331,9 +335,10 @@ const Settings: React.FC = () => {
                 onChange={(e) => setState(prev => ({ ...prev, newBudgetName: e.target.value }))}
                 placeholder="Enter new budget category"
                 onKeyPress={(e) => e.key === 'Enter' && addBudget()}
+                data-test-id="new-budget-input"
               />
             </div>
-            <Button onClick={addBudget} disabled={!state.newBudgetName.trim()}>
+            <Button onClick={addBudget} disabled={!state.newBudgetName.trim()} data-test-id="add-budget-button">
               Add Budget
             </Button>
           </div>
@@ -341,19 +346,20 @@ const Settings: React.FC = () => {
       </Card>
 
       {/* Single Submit Button */}
-      <div className="settings-actions">
+      <div className="settings-actions" data-test-id="settings-actions">
         <Button 
           onClick={saveAllChanges}
           disabled={!canSave}
           className="save-all-button"
+          data-test-id="save-all-button"
         >
-          {state.loading ? <Loader /> : 'Save All Changes'}
+          {state.loading ? <Loader data-test-id="loading-indicator" /> : 'Save All Changes'}
         </Button>
         {!hasChanges && (
-          <p className="no-changes">No changes to save</p>
+          <p className="no-changes" data-test-id="no-changes-message">No changes to save</p>
         )}
         {hasChanges && Math.abs(totalPercentage - 100) > 0.001 && (
-          <p className="validation-error">Percentages must total 100%</p>
+          <p className="validation-error" data-test-id="validation-error">Percentages must total 100%</p>
         )}
       </div>
     </div>
