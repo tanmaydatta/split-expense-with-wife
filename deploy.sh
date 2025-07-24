@@ -1,6 +1,4 @@
 #!/bin/bash
-
-# Deploy script for split-expense-with-wife
 # Usage: ./deploy.sh [dev|prod]
 
 set -e  # Exit on any error
