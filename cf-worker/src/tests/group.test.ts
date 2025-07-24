@@ -599,6 +599,41 @@ describe('Extended Group Metadata Handler', () => {
       expect(budgets).toContain('food');
       expect(budgets).toContain('utilities');
     });
+
+    it('should allow budget names with spaces and hyphens', async () => {
+      const requestBody: UpdateGroupMetadataRequest = {
+        groupid: 1,
+        budgets: ['house rent', 'food-delivery', 'car_maintenance']
+      };
+
+      const request = createMockRequest('POST', requestBody, 'test-session-id');
+      const response = await handleUpdateGroupMetadata(request, env);
+
+      expect(response.status).toBe(200);
+
+      // Verify budgets in database
+      const groupStmt = env.DB.prepare('SELECT budgets FROM groups WHERE groupid = ?');
+      const groupResult = await groupStmt.bind(1).first() as { budgets: string };
+      const budgets = JSON.parse(groupResult.budgets);
+
+      expect(budgets).toContain('house rent');
+      expect(budgets).toContain('food-delivery');
+      expect(budgets).toContain('car_maintenance');
+    });
+
+    it('should reject budget names with invalid characters', async () => {
+      const requestBody: UpdateGroupMetadataRequest = {
+        groupid: 1,
+        budgets: ['valid-budget', 'invalid!@#']
+      };
+
+      const request = createMockRequest('POST', requestBody, 'test-session-id');
+      const response = await handleUpdateGroupMetadata(request, env);
+
+      expect(response.status).toBe(400);
+      const responseData = await response.json() as { error: string };
+      expect(responseData.error).toContain('Budget names can only contain letters, numbers, spaces, hyphens, and underscores');
+    });
   });
 
   describe('Combined Updates', () => {
