@@ -360,3 +360,34 @@ export class ExpenseTestHelper {
     console.log(`Successfully deleted expense: ${description}`);
   }
 } 
+
+
+export async function getCurrentUserPercentages(authenticatedPage: TestHelper): Promise<Record<string, string>> {
+  // Navigate to Settings page to get current percentages
+  const currentUrl = authenticatedPage.page.url();
+  
+  await authenticatedPage.page.click('[data-test-id="sidebar-settings"]');
+  await authenticatedPage.waitForLoading();
+  await authenticatedPage.page.waitForTimeout(2000); // Wait for data to load
+  
+  // Get current percentages
+  const user1Percentage = await authenticatedPage.page.inputValue('[data-test-id="user-1-percentage"]');
+  const user2Percentage = await authenticatedPage.page.inputValue('[data-test-id="user-2-percentage"]');
+  
+  // Navigate back to original page
+  await authenticatedPage.page.goto(currentUrl);
+  await authenticatedPage.waitForLoading();
+  
+  return {
+    '1': user1Percentage,
+    '2': user2Percentage
+  };
+}
+
+export async function getNewUserPercentage(authenticatedPage: TestHelper) {
+  const user1Percentage = Number(await authenticatedPage.page.inputValue('[data-test-id="user-1-percentage"]'));
+
+  const newUser1Percentage = user1Percentage < 100 ? user1Percentage + 1 : 100 - user1Percentage;
+  console.log('newUser1Percentage', newUser1Percentage);
+  return newUser1Percentage;
+}

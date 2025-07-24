@@ -1,4 +1,5 @@
 import { test, expect } from '../fixtures/setup';
+import { getNewUserPercentage } from '../utils/expense-test-helper';
 
 // Helper class for Settings page operations
 class SettingsTestHelper {
@@ -329,10 +330,7 @@ test.describe('Settings Management', () => {
             await authenticatedPage.page.waitForTimeout(2000);
 
 
-            const user1Percentage = Number(await authenticatedPage.page.inputValue('[data-test-id="user-1-percentage"]'));
-
-            const newUser1Percentage = user1Percentage < 100 ? user1Percentage + 1 : 100 - user1Percentage;
-            console.log('newUser1Percentage', newUser1Percentage);
+            const newUser1Percentage = await getNewUserPercentage(authenticatedPage);
             // Set valid percentages for 2 users
             await settingsHelper.setUserPercentage('1', newUser1Percentage.toString());
             await settingsHelper.setUserPercentage('2', (100 - newUser1Percentage).toString());
@@ -420,19 +418,21 @@ test.describe('Settings Management', () => {
 
         test('should handle empty budget categories', async ({ authenticatedPage }) => {
             const settingsHelper = new SettingsTestHelper(authenticatedPage);
-
-            let budgetCategoryAdded = false;
-            try {
-                // Add empty category
-                await settingsHelper.addBudgetCategory('');
-                budgetCategoryAdded = true;
-            } catch (error) {
-                console.log('successfully handled empty budget categories', error);
-            }
-
-            // Should not affect save button (empty categories are filtered out)
-            expect(budgetCategoryAdded).toBe(false);
-            expect(await settingsHelper.isSaveButtonEnabled()).toBe(false);
+            
+            // Verify add button is disabled when input is empty
+            await authenticatedPage.page.fill('[data-test-id="new-budget-input"]', '');
+            const isDisabledEmpty = await authenticatedPage.page.isDisabled('[data-test-id="add-budget-button"]');
+            expect(isDisabledEmpty).toBe(true);
+            
+            // Verify add button is disabled when input has only whitespace
+            await authenticatedPage.page.fill('[data-test-id="new-budget-input"]', '   ');
+            const isDisabledWhitespace = await authenticatedPage.page.isDisabled('[data-test-id="add-budget-button"]');
+            expect(isDisabledWhitespace).toBe(true);
+            
+            // Verify add button is enabled when input has valid content
+            await authenticatedPage.page.fill('[data-test-id="new-budget-input"]', 'ValidCategory');
+            const isEnabledValid = await authenticatedPage.page.isDisabled('[data-test-id="add-budget-button"]');
+            expect(isEnabledValid).toBe(false);
         });
 
         test('should validate budget names and show error for invalid characters', async ({ authenticatedPage }) => {
