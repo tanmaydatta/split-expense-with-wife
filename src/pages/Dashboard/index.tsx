@@ -1,6 +1,5 @@
 
 import  { useState, useEffect, useCallback } from "react";
-import sha256 from "crypto-js/sha256";
 import { useSelector } from "react-redux";
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Form/Input";
@@ -23,7 +22,6 @@ function Dashboard(): JSX.Element {
   const [description, setDescription] = useState<string>();
   const [budget, setBudget] = useState<string>("");
   const [currency, setCurrency] = useState<string>("USD");
-  const [pin, setPin] = useState<string>("");
   const [paidBy, setPaidBy] = useState<number>();
   const [usersState, setUsersState] = useState<
     { FirstName: string; Id: number }[]
@@ -129,7 +127,6 @@ function Dashboard(): JSX.Element {
       amount: amount!,
       description: description!,
       paidByShares: { [paidBy!]: amount! },
-      pin: sha256(pin).toString(),
       splitPctShares: Object.fromEntries(
         splits.map(s => [s.ShareUserId.toString(), s.SharePercentage])
       ),
@@ -148,7 +145,6 @@ function Dashboard(): JSX.Element {
     const budgetPayload: BudgetRequest = {
       amount: creditDebit === "Debit" ? -amount! : amount!,
       description: description!,
-      pin: sha256(pin).toString(),
       name: budget,
       groupid: data.groupId || 0,
       currency: currency,
@@ -165,7 +161,7 @@ function Dashboard(): JSX.Element {
     setError("");
     setSuccess("");
 
-    // HTML5 validation will handle: amount, description, pin, paidBy, currency
+    // HTML5 validation will handle: amount, description, paidBy, currency
     
     if (!addExpense && !updateBudget) {
       setError("Please select at least one action to perform");
@@ -186,7 +182,6 @@ function Dashboard(): JSX.Element {
       // Reset form (but preserve user's percentage splits)
       setAmount(undefined);
       setDescription("");
-      setPin("");
 
       // Create success message from API responses
       const messages = [];
@@ -334,21 +329,7 @@ function Dashboard(): JSX.Element {
           <option value="CAD">CAD</option>
         </select>
 
-        {/* PIN */}
-        <label>PIN</label>
-        <Input
-          type="password"
-          placeholder="Enter PIN"
-          name="pin"
-          data-test-id="pin-input"
-          value={pin}
-          onChange={(e) => setPin(e.target.value)}
-          disabled={loading}
-          required
-          minLength={1}
-          maxLength={10}
-          title="Please enter your PIN"
-        />
+
 
         {/* Paid By - only show if Add Expense is selected */}
         {addExpense && (

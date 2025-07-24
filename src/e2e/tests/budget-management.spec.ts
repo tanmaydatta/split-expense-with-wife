@@ -1,5 +1,5 @@
 import { test, expect } from '../fixtures/setup';
-import { testData, testPin } from '../fixtures/test-data';
+import { testData } from '../fixtures/test-data';
 
 // Helper functions for budget operations
 class BudgetTestHelper {
@@ -21,7 +21,6 @@ class BudgetTestHelper {
     await this.authenticatedPage.page.fill('[data-test-id="description-input"]', description);
     await this.authenticatedPage.page.fill('[data-test-id="amount-input"]', budget.amount.toString());
     await this.authenticatedPage.page.selectOption('[data-test-id="currency-select"]', budget.currency);
-    await this.authenticatedPage.page.fill('[data-test-id="pin-input"]', testData.pin);
 
     // Submit and wait for response
     await budgetForm.locator('[data-test-id="submit-button"]').click();
@@ -137,17 +136,7 @@ class BudgetTestHelper {
       // Check viewport to determine if we're on mobile or desktop
       const isMobile = await this.authenticatedPage.isMobile();
 
-      // Enter PIN first before clicking delete
-      const pinField = this.authenticatedPage.page.locator('[data-test-id="pin-input"]').first();
-      try {
-        await pinField.waitFor({ state: 'visible', timeout: 2000 });
-        await pinField.fill(testPin);
-        console.log("PIN entered for deletion");
-        // Wait for PIN to be processed
-        await this.authenticatedPage.page.waitForTimeout(500);
-      } catch (e) {
-        // PIN field not visible, continue without entering PIN
-      }
+      // PIN authentication has been removed
 
       let deleteButton;
 
@@ -382,7 +371,6 @@ test.describe('Budget Management', () => {
     await authenticatedPage.page.fill('[data-test-id="description-input"]', description);
     await authenticatedPage.page.fill('[data-test-id="amount-input"]', budget.amount.toString());
     await authenticatedPage.page.selectOption('[data-test-id="currency-select"]', budget.currency);
-    await authenticatedPage.page.fill('[data-test-id="pin-input"]', testData.pin);
 
     // Verify initial button state
     const submitButton = budgetForm.locator('[data-test-id="submit-button"]');

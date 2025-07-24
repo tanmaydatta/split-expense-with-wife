@@ -234,10 +234,7 @@ export function isValidCurrency(currency: string): boolean {
   return SUPPORTED_CURRENCIES.includes(currency);
 }
 
-// Helper function to validate PIN
-export function isValidPin(pin: string, env: Env): boolean {
-  return pin === env.AUTH_PIN;
-}
+
 
 // Helper function to validate split percentages
 export function validateSplitPercentages(splitPctShares: Record<string, number>): boolean {

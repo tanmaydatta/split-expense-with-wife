@@ -15,7 +15,6 @@ import {
   createErrorResponse,
   formatSQLiteTime,
   executeBatch,
-  isValidPin,
   isValidCurrency,
   validateSplitPercentages,
   validatePaidAmounts,
@@ -42,10 +41,6 @@ export async function handleSplit(request: CFRequest, env: Env): Promise<Respons
     // Validate request
     if (!isValidCurrency(body.currency)) {
       return createErrorResponse('Invalid currency', 400, request, env);
-    }
-
-    if (!isValidPin(body.pin, env)) {
-      return createErrorResponse('Invalid pin', 400, request, env);
     }
 
     if (!validateSplitPercentages(body.splitPctShares)) {
@@ -159,10 +154,6 @@ export async function handleSplitNew(request: CFRequest, env: Env): Promise<Resp
     // Validate request
     if (!isValidCurrency(body.currency)) {
       return createErrorResponse('Invalid currency', 400, request, env);
-    }
-
-    if (!isValidPin(body.pin, env)) {
-      return createErrorResponse('Invalid pin', 400, request, env);
     }
 
     if (!validateSplitPercentages(body.splitPctShares)) {

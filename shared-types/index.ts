@@ -81,7 +81,6 @@ export interface LoginRequest {
 export interface BudgetRequest {
   amount: number;
   description: string;
-  pin: string;
   name: string;
   groupid: number;
   currency: string;
@@ -89,17 +88,14 @@ export interface BudgetRequest {
 
 export interface BudgetListRequest {
   offset: number;
-  pin: string;
   name: string;
 }
 
 export interface BudgetTotalRequest {
-  pin: string;
   name: string;
 }
 
 export interface BudgetDeleteRequest {
-  pin: string;
   id: number;
 }
 
@@ -113,7 +109,6 @@ export interface SplitRequest {
   amount: number;
   description: string;
   paidByShares: Record<string, number>;
-  pin: string;
   splitPctShares: Record<string, number>;
   currency: string;
 }
@@ -122,14 +117,12 @@ export interface SplitNewRequest {
   amount: number;
   description: string;
   paidByShares: Record<string, number>;
-  pin: string;
   splitPctShares: Record<string, number>;
   currency: string;
 }
 
 export interface SplitDeleteRequest {
   id: string;
-  pin: string;
 }
 
 export interface TransactionsListRequest {

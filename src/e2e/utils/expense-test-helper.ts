@@ -1,6 +1,5 @@
 import { expect } from '@playwright/test';
 import { getCITimeout } from './test-utils';
-import { testData } from '../fixtures/test-data';
 import { TestHelper } from './test-utils';
 
 // Shared helper class for expense operations
@@ -30,7 +29,7 @@ export class ExpenseTestHelper {
       }
     }
 
-    await this.authenticatedPage.page.fill('[data-test-id="pin-input"]', testData.pin);
+
 
     // Submit and wait for response
     await expenseForm.locator('[data-test-id="submit-button"]').click();
@@ -197,7 +196,6 @@ export class ExpenseTestHelper {
     const currency = await this.authenticatedPage.page.locator('[data-test-id="currency-select"]').inputValue();
     const description = await this.authenticatedPage.page.locator('[data-test-id="description-input"]').inputValue();
     const amount = await this.authenticatedPage.page.locator('[data-test-id="amount-input"]').inputValue();
-    const pin = await this.authenticatedPage.page.locator('[data-test-id="pin-input"]').inputValue();
 
     // Get percentage values for each user with more robust selection
     const percentages: Record<string, string> = {};
@@ -225,8 +223,8 @@ export class ExpenseTestHelper {
       console.log('User 2 percentage input not found');
     }
 
-    console.log('Current form values:', { currency, description, amount, pin, percentages });
-    return { currency, description, amount, pin, percentages };
+    console.log('Current form values:', { currency, description, amount, percentages });
+    return { currency, description, amount, percentages };
   }
 
   async setCustomSplitPercentages(percentages: Record<string, number>) {
@@ -244,7 +242,6 @@ export class ExpenseTestHelper {
     await expect(this.authenticatedPage.page.locator('[data-test-id="description-input"]')).toBeVisible();
     await expect(this.authenticatedPage.page.locator('[data-test-id="amount-input"]')).toBeVisible();
     await expect(this.authenticatedPage.page.locator('[data-test-id="currency-select"]')).toBeVisible();
-    await expect(this.authenticatedPage.page.locator('[data-test-id="pin-input"]')).toBeVisible();
     await expect(this.authenticatedPage.page.locator('[data-test-id="submit-button"]')).toBeVisible();
   }
 
@@ -340,7 +337,7 @@ export class ExpenseTestHelper {
     expect(deleteButton).not.toBeNull();
     await expect(deleteButton!).toBeVisible();
 
-    // Note: PIN is not yet implemented for expense deletion in the UI
+    // PIN authentication has been removed
 
     // Click delete button and expect it to be clickable
     await expect(deleteButton!).toBeEnabled();

@@ -107,7 +107,6 @@ export async function setupAndCleanDatabase(env: Env): Promise<void> {
   await cleanupDatabase(env);
 
   // Set up required environment variables for testing
-  env.AUTH_PIN = '1234';
   env.SPLITWISE_API_KEY = 'test-key';
   env.SPLITWISE_GROUP_ID = 'test-group';
   env.ALLOWED_ORIGINS = 'http://localhost:3000,http://localhost:3001';

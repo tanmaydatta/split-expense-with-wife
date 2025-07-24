@@ -72,7 +72,6 @@ export interface D1ExecResult {
 // Environment variables
 export interface Env {
   DB: D1Database;
-  AUTH_PIN: string;
   SPLITWISE_API_KEY: string;
   SPLITWISE_GROUP_ID: string;
   ALLOWED_ORIGINS: string; // Comma-separated list of allowed origins

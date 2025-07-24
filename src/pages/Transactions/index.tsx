@@ -266,7 +266,6 @@ const Transactions: React.FC = () => {
     try {
       const request: SplitDeleteRequest = {
         id: id.toString(),
-        pin: "", // Will be updated when we implement PIN properly
       };
 
       const response: { message: string } = await typedApi.post("/split_delete", request);

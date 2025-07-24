@@ -593,7 +593,6 @@ describe('Budget Handlers', () => {
         body: JSON.stringify({
           amount: 100,
           description: 'Groceries',
-          pin: '1234',
           name: 'house',
           groupid: 1,
           currency: 'USD'
@@ -623,7 +622,6 @@ describe('Budget Handlers', () => {
         body: JSON.stringify({
           amount: 100,
           description: 'Groceries',
-          pin: '1234',
           name: 'unauthorized_budget',
           groupid: 1,
           currency: 'USD'
@@ -654,8 +652,7 @@ describe('Budget Handlers', () => {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          id: 1,
-          pin: '1234'
+          id: 1
         })
       });
 
@@ -686,8 +683,7 @@ describe('Budget Handlers', () => {
         },
         body: JSON.stringify({
           name: 'house',
-          offset: 0,
-          pin: '1234'
+          offset: 0
         })
       });
 
@@ -955,8 +951,7 @@ describe('Budget Handlers', () => {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          name: 'house',
-          pin: '1234'
+          name: 'house'
         })
       });
 
