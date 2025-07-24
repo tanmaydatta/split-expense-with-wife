@@ -69,6 +69,11 @@ export interface D1ExecResult {
   error?: string;
 }
 
+// Cloudflare Workers Fetcher interface for static assets
+export interface Fetcher {
+  fetch(request: Request): Promise<Response>;
+}
+
 // Environment variables
 export interface Env {
   DB: D1Database;
@@ -76,6 +81,7 @@ export interface Env {
   SPLITWISE_GROUP_ID: string;
   ALLOWED_ORIGINS: string; // Comma-separated list of allowed origins
   GROUP_IDS: string; // Comma-separated list of group IDs
+  ASSETS: Fetcher; // Static assets from the site bucket
 }
 
 // Session context (CF Worker specific)

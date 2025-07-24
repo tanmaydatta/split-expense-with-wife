@@ -22,16 +22,16 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "@cloudflare/vitest-pool-workers": "^0.2.0",
+    "@cloudflare/vitest-pool-workers": "^0.8.57",
     "@cloudflare/workers-types": "^4.20240403.0",
     "@eslint/js": "^9.31.0",
     "@typescript-eslint/eslint-plugin": "^8.37.0",
     "@typescript-eslint/parser": "^8.37.0",
-    "@vitest/runner": "1.5.3",
-    "@vitest/snapshot": "1.5.3",
+    "@vitest/runner": "^3.2.4",
+    "@vitest/snapshot": "^3.2.4",
     "typescript": "^5.3.3",
-    "vitest": "1.5.3",
-    "wrangler": "^4.24.3"
+    "vitest": "^3.2.4",
+    "wrangler": "^4.26.0"
   },
   "dependencies": {
     "@types/node": "^22.9.0",

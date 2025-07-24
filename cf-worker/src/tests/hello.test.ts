@@ -19,18 +19,6 @@ describe('Hello World handler', () => {
     expect(json).toHaveProperty('worker', 'split-expense-worker');
   });
 
-  it('should work on root path', async () => {
-    const request = createTestRequest('/', 'GET', undefined, undefined, false);
-    const ctx = createExecutionContext();
-    const response = await worker.fetch(request, env, ctx);
-    await waitOnExecutionContext(ctx);
-
-    expect(response.status).toBe(200);
-
-    const json = await response.json() as TestHelloResponse;
-    expect(json).toHaveProperty('message', 'Hello World!');
-  });
-
   it('should handle OPTIONS request', async () => {
     const request = createTestRequest('hello', 'OPTIONS', undefined, undefined, false);
     const ctx = createExecutionContext();
