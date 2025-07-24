@@ -14,8 +14,8 @@ export const ErrorContainer: React.FC<MessageContainerProps> = ({
   'data-test-id': dataTestId,
   children 
 }) => (
-  <div className="error-container">
-    <div className="error-message">
+  <div className="error-container" data-test-id={dataTestId || "error-container"}>
+    <div className="error-message" data-test-id="error-message">
       {message}
       {children}
     </div>

@@ -4,8 +4,6 @@ import { handleLogin, handleLogout } from './handlers/auth';
 import {
   handleBalances,
   handleBudget,
-  handleCreateBudget,
-  handleDeleteBudget,
   handleBudgetDelete,
   handleBudgetList,
   handleBudgetMonthly,
@@ -19,7 +17,7 @@ import {
 } from './handlers/split';
 import { handleHelloWorld } from './handlers/hello';
 import { handleCron } from './handlers/cron';
-import { handleUpdateGroupMetadata } from './handlers/group';
+import { handleUpdateGroupMetadata, handleGroupDetails } from './handlers/group';
 
 // Global types for Cloudflare Workers
 declare global {
@@ -54,10 +52,6 @@ export default {
       return await handleBalances(request, env);
     } else if (path === '/.netlify/functions/budget') {
       return await handleBudget(request, env);
-    } else if (path === '/.netlify/functions/budget/create') {
-      return await handleCreateBudget(request, env);
-    } else if (path === '/.netlify/functions/budget/delete') {
-      return await handleDeleteBudget(request, env);
     } else if (path === '/.netlify/functions/budget_delete') {
       return await handleBudgetDelete(request, env);
     } else if (path === '/.netlify/functions/budget_list') {
@@ -66,6 +60,8 @@ export default {
       return await handleBudgetMonthly(request, env);
     } else if (path === '/.netlify/functions/budget_total') {
       return await handleBudgetTotal(request, env);
+    } else if (path === '/.netlify/functions/group/details') {
+      return await handleGroupDetails(request, env);
     } else if (path === '/.netlify/functions/group/metadata') {
       return await handleUpdateGroupMetadata(request, env);
     } else if (path === '/.netlify/functions/split') {

@@ -69,32 +69,44 @@ function Sidebar({ onNavigate }: SidebarProps): JSX.Element {
       <SidebarItem 
         $active={isActive("/")} 
         onClick={() => handleNavigate("/")}
+        data-test-id="sidebar-dashboard"
       >
         Add
       </SidebarItem>
       <SidebarItem 
         $active={isActive("/expenses")} 
         onClick={() => handleNavigate("/expenses")}
+        data-test-id="sidebar-expenses"
       >
         Expenses
       </SidebarItem>
       <SidebarItem 
         $active={isActive("/balances")} 
         onClick={() => handleNavigate("/balances")}
+        data-test-id="sidebar-balances"
       >
         Balances
       </SidebarItem>
       <SidebarItem 
         $active={isActive("/budget")} 
         onClick={() => handleNavigate("/budget")}
+        data-test-id="sidebar-budget"
       >
         Budget
       </SidebarItem>
       <SidebarItem 
         $active={isActive("/monthly-budget")} 
         onClick={() => handleNavigate("/monthly-budget")}
+        data-test-id="sidebar-monthly-budget"
       >
         Monthly Budget
+      </SidebarItem>
+      <SidebarItem 
+        $active={isActive("/settings")} 
+        onClick={() => handleNavigate("/settings")}
+        data-test-id="sidebar-settings"
+      >
+        Settings
       </SidebarItem>
       <LogoutButton onClick={() => handleNavigate("/logout")}>
         <div>Logout</div>

@@ -1,6 +1,6 @@
 import { test, expect } from '../fixtures/setup';
 import { testData } from '../fixtures/test-data';
-import { ExpenseTestHelper } from '../utils/expense-test-helper';
+import { ExpenseTestHelper, getCurrentUserPercentages } from '../utils/expense-test-helper';
 
 test.describe('Expense Management', () => {
   test.beforeEach(async ({ page }) => {
@@ -32,9 +32,11 @@ test.describe('Expense Management', () => {
     
     await expect(authenticatedPage.page).toHaveURL('/');
     
+    // Get current default percentages from Settings page
+    const currentPercentages = await getCurrentUserPercentages(authenticatedPage);
+    
     // Since authenticatedPage uses real login data, verify the defaults are set correctly
-    // The test data should have metadata with default values
-    await expenseHelper.verifyFormDefaults('USD', { '1': '50', '2': '50' });
+    await expenseHelper.verifyFormDefaults('USD', currentPercentages);
   });
 
   test('should preserve user-modified percentages within dashboard session but reset after navigation', async ({ authenticatedPage }) => {
@@ -42,10 +44,13 @@ test.describe('Expense Management', () => {
     
     await expect(authenticatedPage.page).toHaveURL('/');
     
+    // Get current default percentages from Settings page
+    const currentPercentages = await getCurrentUserPercentages(authenticatedPage);
+    
     // Verify initial default percentages (from user metadata)
     const initialFormValues = await expenseHelper.getCurrentFormValues();
-    expect(initialFormValues.percentages['1']).toBe('50');
-    expect(initialFormValues.percentages['2']).toBe('50');
+    expect(initialFormValues.percentages['1']).toBe(currentPercentages['1']);
+    expect(initialFormValues.percentages['2']).toBe(currentPercentages['2']);
     
     // Set custom split percentages (70/30 instead of default 50/50)
     await expenseHelper.setCustomSplitPercentages({ '1': 70, '2': 30 });
@@ -74,10 +79,10 @@ test.describe('Expense Management', () => {
     await authenticatedPage.navigateToPage('Add');
     await authenticatedPage.page.waitForTimeout(2000); // Give time for form to load
     
-    // Verify percentages reset to defaults (50/50 from user metadata) after navigation
+    // Verify percentages reset to defaults from user metadata after navigation
     const afterNavigationValues = await expenseHelper.getCurrentFormValues();
-    expect(afterNavigationValues.percentages['1']).toBe('50');
-    expect(afterNavigationValues.percentages['2']).toBe('50');
+    expect(afterNavigationValues.percentages['1']).toBe(currentPercentages['1']);
+    expect(afterNavigationValues.percentages['2']).toBe(currentPercentages['2']);
   });
 
   test('should reset custom currency selection to default after navigation', async ({ authenticatedPage }) => {
@@ -85,9 +90,8 @@ test.describe('Expense Management', () => {
     
     await expect(authenticatedPage.page).toHaveURL('/');
     
-    // Verify initial default currency (from user metadata)
-    const initialFormValues = await expenseHelper.getCurrentFormValues();
-    expect(initialFormValues.currency).toBe('USD'); // This is the default from user metadata
+    // Get current default percentages from Settings page
+    const currentPercentages = await getCurrentUserPercentages(authenticatedPage);
     
     // Change currency to EUR for this expense
     await authenticatedPage.page.selectOption('[data-test-id="currency-select"]', 'EUR');
@@ -101,8 +105,14 @@ test.describe('Expense Management', () => {
     await authenticatedPage.page.waitForTimeout(2000);
     await expenseHelper.verifyExpensesPageComponents();
     
-    // Verify the specific expense we added is visible with EUR currency (50/50 split: User 1 paid €100, owes €50, share = +€50.00)
-    await expenseHelper.verifySpecificExpenseEntry(result.description, '100', 'EUR', '+€50.00');
+    // Calculate expected share based on current percentages
+    // User 1 paid €100, owes based on their percentage, share = amount - what they owe
+    const user1Percentage = parseFloat(currentPercentages['1']);
+    const user1Owes = (expense.amount * user1Percentage) / 100;
+    const user1Share = expense.amount - user1Owes;
+    
+    // Verify the specific expense we added is visible with EUR currency
+    await expenseHelper.verifySpecificExpenseEntry(result.description, '100', 'EUR', `+€${user1Share.toFixed(2)}`);
     
     // Navigate back to Add page to check currency resets to default
     await authenticatedPage.navigateToPage('Add');
@@ -116,6 +126,9 @@ test.describe('Expense Management', () => {
     const expenseHelper = new ExpenseTestHelper(authenticatedPage);
     
     await expect(authenticatedPage.page).toHaveURL('/');
+    
+    // Get current default percentages from Settings page
+    const currentPercentages = await getCurrentUserPercentages(authenticatedPage);
     
     // Add expense with custom 60/40 split
     const expense = testData.expenses.groceries;
@@ -142,9 +155,9 @@ test.describe('Expense Management', () => {
     expect(formValues.amount).toBe('');
     expect(formValues.pin).toBe('');
     
-    // Verify percentages reset to defaults (50/50 from user metadata) after navigation
-    expect(formValues.percentages['1']).toBe('50');
-    expect(formValues.percentages['2']).toBe('50');
+    // Verify percentages reset to defaults from user metadata after navigation
+    expect(formValues.percentages['1']).toBe(currentPercentages['1']);
+    expect(formValues.percentages['2']).toBe(currentPercentages['2']);
   });
 
   test('should handle form validation for missing required fields', async ({ authenticatedPage }) => {
@@ -165,7 +178,7 @@ test.describe('Expense Management', () => {
     
     // Add first expense in USD
     const usdExpense = { ...testData.expenses.groceries, amount: 150, currency: 'USD' };
-    const usdResult = await expenseHelper.addExpenseEntry(usdExpense);
+    const usdResult = await expenseHelper.addExpenseEntry(usdExpense, { '1': 50, '2': 50 } );
     
     // Verify first expense immediately after adding
     await authenticatedPage.navigateToPage('Expenses');
@@ -180,7 +193,7 @@ test.describe('Expense Management', () => {
     // Add second expense in EUR
     await authenticatedPage.page.selectOption('[data-test-id="currency-select"]', 'EUR');
     const eurExpense = { ...testData.expenses.restaurant, amount: 85, currency: 'EUR' };
-    const eurResult = await expenseHelper.addExpenseEntry(eurExpense);
+    const eurResult = await expenseHelper.addExpenseEntry(eurExpense, { '1': 50, '2': 50 } );
     
     // Navigate to expenses page to verify both expenses were added
     await authenticatedPage.navigateToPage('Expenses');
@@ -225,10 +238,10 @@ test.describe('Expense Management', () => {
     
     // Create multiple test expenses to delete
     const expense1 = { ...testData.expenses.groceries, amount: 50, currency: 'USD' };
-    const result1 = await expenseHelper.addExpenseEntry(expense1);
+    const result1 = await expenseHelper.addExpenseEntry(expense1, { '1': 50, '2': 50 } );
     
     const expense2 = { ...testData.expenses.restaurant, amount: 75, currency: 'EUR' };
-    const result2 = await expenseHelper.addExpenseEntry(expense2);
+    const result2 = await expenseHelper.addExpenseEntry(expense2, { '1': 50, '2': 50 } );
     
     const expense3 = { ...testData.expenses.utilities, amount: 120, currency: 'USD' };
     const result3 = await expenseHelper.addExpenseEntry(expense3, { '1': 70, '2': 30 });
@@ -282,7 +295,7 @@ test.describe('Expense Management', () => {
     
     // Create a test expense to delete
     const expense = { ...testData.expenses.groceries, amount: 200, currency: 'GBP' };
-    const result = await expenseHelper.addExpenseEntry(expense);
+    const result = await expenseHelper.addExpenseEntry(expense, { '1': 50, '2': 50 } );
     
     // Navigate to expenses page and verify the expense exists
     await authenticatedPage.navigateToPage('Expenses');
@@ -308,10 +321,10 @@ test.describe('Expense Management', () => {
     
     // Create test expenses to delete from different views
     const expense1 = { ...testData.expenses.groceries, amount: 150, currency: 'USD' };
-    const result1 = await expenseHelper.addExpenseEntry(expense1);
+    const result1 = await expenseHelper.addExpenseEntry(expense1, { '1': 50, '2': 50 } );
     
     const expense2 = { ...testData.expenses.restaurant, amount: 90, currency: 'EUR' };
-    const result2 = await expenseHelper.addExpenseEntry(expense2);
+    const result2 = await expenseHelper.addExpenseEntry(expense2, { '1': 50, '2': 50 } );
     
     // Test deletion in current viewport
     await authenticatedPage.navigateToPage('Expenses');

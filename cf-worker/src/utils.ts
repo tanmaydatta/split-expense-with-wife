@@ -226,10 +226,12 @@ export function isAuthorizedForBudget(session: CurrentSession, budgetName: strin
   }
 }
 
+// Supported currencies list
+export const SUPPORTED_CURRENCIES = ['USD', 'EUR', 'GBP', 'INR', 'CAD', 'AUD', 'JPY', 'CHF', 'CNY', 'SGD'];
+
 // Helper function to validate currency
 export function isValidCurrency(currency: string): boolean {
-  const currencies = ['USD', 'EUR', 'GBP', 'INR', 'CAD', 'AUD', 'JPY', 'CHF', 'CNY', 'SGD'];
-  return currencies.includes(currency);
+  return SUPPORTED_CURRENCIES.includes(currency);
 }
 
 // Helper function to validate PIN

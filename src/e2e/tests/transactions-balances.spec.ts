@@ -1,5 +1,5 @@
 import { test, expect } from '../fixtures/setup';
-import { ExpenseTestHelper } from '../utils/expense-test-helper';
+import { ExpenseTestHelper, getNewUserPercentage } from '../utils/expense-test-helper';
 import { TestHelper } from '../utils/test-utils';
 
 // Helper class for transaction and balance operations using composition
@@ -425,7 +425,7 @@ test.describe('Transactions and Balances', () => {
 
     // Create a test expense first (default 50/50 split)
     // 50/50 split on $75: User 1 pays $75, owes $37.50, share = +$37.50
-    const expense = await helper.createTestExpense('Grocery shopping for test', 75, 'USD');
+    const expense = await helper.createTestExpense('Grocery shopping for test', 75, 'USD', { '1': 50, '2': 50 });
 
     // Navigate to transactions page
     await authenticatedPage.navigateToPage('Expenses');
@@ -442,9 +442,9 @@ test.describe('Transactions and Balances', () => {
 
     // Create expenses with different amounts and currencies (default 50/50 split)
     // 50/50 split on $5.50: User 1 pays $5.50, owes $2.75, share = +$2.75
-    const expense1 = await helper.createTestExpense('Small purchase', 5.50, 'USD');
+    const expense1 = await helper.createTestExpense('Small purchase', 5.50, 'USD', { '1': 50, '2': 50 });
     // 50/50 split on €1234.99: User 1 pays €1234.99, owes €617.50 (rounded), share = +€617.50
-    const expense2 = await helper.createTestExpense('Large purchase', 1234.99, 'EUR');
+    const expense2 = await helper.createTestExpense('Large purchase', 1234.99, 'EUR', { '1': 50, '2': 50 }  );
 
     // Navigate to transactions page
     await authenticatedPage.navigateToPage('Expenses');
@@ -471,16 +471,25 @@ test.describe('Transactions and Balances', () => {
 
   test('should handle transaction details expansion', async ({ authenticatedPage }) => {
     const helper = new TransactionBalanceTestHelper(authenticatedPage);
+    // Reset percentages to 50/50 for consistent test results
+    await authenticatedPage.page.click('[data-test-id="sidebar-settings"]');
+    await authenticatedPage.waitForLoading();
+    await authenticatedPage.page.waitForTimeout(2000); // Wait for data to load
+    const newUser1Percentage = await getNewUserPercentage(authenticatedPage);
+    await authenticatedPage.page.fill('[data-test-id="user-1-percentage"]', newUser1Percentage.toString());
+    await authenticatedPage.page.fill('[data-test-id="user-2-percentage"]', (100 - newUser1Percentage).toString());
+    await authenticatedPage.page.click('[data-test-id="save-all-button"]');
+    await authenticatedPage.page.waitForSelector('[data-test-id="success-container"]', { timeout: 10000 });
 
-    // Create a test expense with specific split (default 50/50)
     const expense = await helper.createTestExpense('Detailed expense', 150, 'USD');
 
     // Navigate to transactions page
     await authenticatedPage.navigateToPage('Expenses');
     await helper.verifyTransactionsPageComponents();
-
+    const user1Share = (expense.amount * newUser1Percentage) / 100;
+    const user2Share = expense.amount - user1Share;
     // First verify the transaction appears in the list
-    await helper.verifyTransactionInList(expense.description, expense.amount, expense.currency, '+$75.00');
+    await helper.verifyTransactionInList(expense.description, expense.amount, expense.currency, `+$${user2Share.toFixed(2)}`);
 
     // Then verify transaction details can be expanded and show correct content
     // For 50/50 split on $150: User 1 (John) pays $150, owes $75, share = +$75.00
@@ -491,9 +500,9 @@ test.describe('Transactions and Balances', () => {
     await helper.verifyTransactionDetails(
       expense.description,
       expense.amount, // expectedTotalAmount: 150
-      { "John": '$75.00', "Jane": '$75.00' }, // expectedAmountsOwed
-      { "John": '$150.00' }, // expectedPaidBy
-      '+$75.00' // expectedTotalOwed (positive, John gets money back)
+      { "John": `$${user1Share.toFixed(2)}`, "Jane": `$${user2Share.toFixed(2)}` }, // expectedAmountsOwed
+      { "John": `$${expense.amount.toFixed(2)}` }, // expectedPaidBy
+      `+$${user2Share.toFixed(2)}` // expectedTotalOwed (positive, John gets money back)
     );
   });
 

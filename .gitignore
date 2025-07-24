@@ -72,3 +72,6 @@ pr-description.md
 **/.yarn/unplugged
 **/.yarn/build-state.yml
 **/.yarn/install-state.yml
+
+# Development documentation
+plan.md
