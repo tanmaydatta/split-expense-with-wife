@@ -63,7 +63,9 @@ jobs:
       with:
         node-version: '22'
         cache: 'yarn'
-        cache-dependency-path: 'cf-worker/yarn.lock'
+    
+    - name: Install main app dependencies
+      run: yarn install --immutable
     
     - name: Install CF Worker dependencies
       run: |
