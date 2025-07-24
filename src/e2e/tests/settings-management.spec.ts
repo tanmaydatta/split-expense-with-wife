@@ -435,20 +435,20 @@ test.describe('Settings Management', () => {
 
         test('should validate budget names and show error for invalid characters', async ({ authenticatedPage }) => {
             const settingsHelper = new SettingsTestHelper(authenticatedPage);
-
-            // Try to add budget category with invalid characters (spaces and special chars)
-            const invalidCategory = 'Invalid Budget Name!@#';
+        
+            // Try to add budget category with invalid characters (special chars)
+            const invalidCategory = 'Invalid Budget!@#';
             await settingsHelper.addBudgetCategory(invalidCategory);
-
+        
             // Try to save
             await settingsHelper.saveAllChanges();
-
+        
             // Should show validation error
             const errorMessage = await settingsHelper.waitForErrorMessage();
-            expect(errorMessage).toContain('Budget names can only contain letters, numbers, hyphens, and underscores');
+            expect(errorMessage).toContain('Budget names can only contain letters, numbers, spaces, hyphens, and underscores');
         });
 
-        test('should accept valid budget names with allowed characters', async ({ authenticatedPage }) => {
+        test('should accept valid budget names with allowed characters (including spaces)', async ({ authenticatedPage }) => {
             const settingsHelper = new SettingsTestHelper(authenticatedPage);
 
             // Add budget categories with valid characters (uppercase, lowercase, numbers, underscores, hyphens)
@@ -457,7 +457,8 @@ test.describe('Settings Management', () => {
                 'valid-category',
                 'category123',
                 'Category_With_123',
-                'UPPERCASE_BUDGET'
+                'UPPERCASE_BUDGET',
+                'budget with spaces'
             ];
 
             for (const category of validCategories) {

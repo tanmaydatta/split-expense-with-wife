@@ -155,11 +155,11 @@ export async function handleUpdateGroupMetadata(request: CFRequest, env: Env): P
       const invalidBudgets = body.budgets.filter(budget =>
         typeof budget !== 'string' ||
         budget.trim().length === 0 ||
-        !/^[a-zA-Z0-9_-]+$/.test(budget.trim())
+        !/^[a-zA-Z0-9\s_-]+$/.test(budget.trim())
       );
 
       if (invalidBudgets.length > 0) {
-        return createErrorResponse('Budget names can only contain letters, numbers, hyphens, and underscores', 400, request, env);
+        return createErrorResponse('Budget names can only contain letters, numbers, spaces, hyphens, and underscores', 400, request, env);
       }
 
       // Remove duplicates and trim
