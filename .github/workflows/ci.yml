@@ -21,7 +21,7 @@ jobs:
         cache: 'yarn'
     
     - name: Install dependencies
-      run: yarn install
+      run: yarn install --immutable
     
     - name: Run React linting
       run: yarn lint
@@ -43,7 +43,7 @@ jobs:
     - name: Install CF Worker dependencies
       run: |
         cd cf-worker
-        yarn install
+        yarn install --immutable
     
     - name: Run CF Worker linting
       run: |
@@ -65,7 +65,7 @@ jobs:
         cache: 'yarn'
     
     - name: Install main app dependencies
-      run: yarn install
+      run: yarn install --immutable
     
     - name: Build UI for CF Worker tests
       run: yarn build
@@ -73,7 +73,7 @@ jobs:
     - name: Install CF Worker dependencies
       run: |
         cd cf-worker
-        yarn install
+        yarn install --immutable
     
     - name: Run CF Worker tests
       run: |
