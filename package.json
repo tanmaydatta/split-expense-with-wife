@@ -90,5 +90,6 @@
     "react-app-rewired": "^2.2.1",
     "workbox-webpack-plugin": "^7.3.0",
     "wrangler": "^4.26.0"
-  }
+  },
+  "packageManager": "yarn@4.5.0"
 }
