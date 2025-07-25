@@ -51,7 +51,7 @@ function LoginPage() {
 
       // Redirect to home page
       navigate('/');
-    } catch (err) {
+    } catch (_err) {
       console.log('Invalid username or password');
     } finally {
       setLoading(false);

@@ -287,7 +287,7 @@ function Dashboard(): JSX.Element {
         {addExpense && (
           <div className="split-percentage-container">
             {users.map(
-              (u: { FirstName: string; Id: number; percentage?: number }, i: Number) => (
+              (u: { FirstName: string; Id: number; percentage?: number }, _i: Number) => (
                 <div key={u.Id} className="split-percentage-input-container">
                   <label>{u.FirstName}</label>
                   <Input

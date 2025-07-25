@@ -146,7 +146,7 @@ class BudgetTestHelper {
         try {
           await entryCard.waitFor({ state: 'visible', timeout: 2000 });
           deleteButton = entryCard.locator('[data-test-id="delete-button"]');
-        } catch (e) {
+        } catch (_e) {
           console.log('No budget entry card found with description:', description);
           return false;
         }
@@ -156,7 +156,7 @@ class BudgetTestHelper {
         try {
           await entryRow.waitFor({ state: 'visible', timeout: 2000 });
           deleteButton = entryRow.locator('[data-test-id="delete-button"]');
-        } catch (e) {
+        } catch (_e) {
           console.log('No budget entry row found with description:', description);
           return false;
         }
@@ -167,7 +167,7 @@ class BudgetTestHelper {
           await deleteButton.waitFor({ state: 'visible', timeout: 2000 });
           await deleteButton.click();
           console.log("deleteButton clicked");
-        } catch (e) {
+        } catch (_e) {
           console.log("Delete button not visible, deletion failed");
           return false;
         }
@@ -204,7 +204,7 @@ test.describe('Budget Management', () => {
       try {
         localStorage.clear();
         sessionStorage.clear();
-      } catch (e) {
+      } catch (_e) {
         // Ignore security errors in restrictive environments
         console.log('Storage clear failed:', e);
       }

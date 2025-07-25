@@ -1,7 +1,12 @@
 {
   "name": "web",
   "version": "0.1.0",
+  "type": "module",
   "private": true,
+  "workspaces": [
+    "shared-types",
+    "cf-worker"
+  ],
   "engines": {
     "node": ">=22.0.0"
   },
@@ -34,7 +39,7 @@
     "recharts": "^2.15.1",
     "redux": "^5.0.1",
     "redux-persist": "^6.0.0",
-    "split-expense-shared-types": "file:./shared-types",
+    "split-expense-shared-types": "workspace:*",
     "styled-components": "^6.1.19",
     "typescript": "^5.1.6",
     "web-vitals": "^2.1.4",
@@ -67,12 +72,6 @@
     "prepare": "husky",
     "lint": "eslint 'src/**/*.{ts,tsx}' --max-warnings 0"
   },
-  "eslintConfig": {
-    "extends": [
-      "react-app",
-      "react-app/jest"
-    ]
-  },
   "browserslist": {
     "production": [
       ">0.2%",
@@ -87,8 +86,13 @@
   },
   "devDependencies": {
     "@craco/craco": "^7.1.0",
+    "@eslint/js": "^9.31.0",
     "@playwright/test": "^1.54.1",
+    "@typescript-eslint/eslint-plugin": "^8.37.0",
+    "@typescript-eslint/parser": "^8.37.0",
     "customize-cra": "^1.0.0",
+    "eslint": "^9.31.0",
+    "globals": "^15.13.0",
     "husky": "^9.1.7",
     "playwright": "^1.54.1",
     "react-app-rewired": "^2.2.1",

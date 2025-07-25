@@ -64,12 +64,12 @@ export const ToggleButton: React.FC<ToggleButtonProps> = ({
   value,
   children,
   onChange,
-  name,
+  name: _name,
   isSelected = false,
   id,
-  type = 'radio',
+  type: _type = 'radio',
   variant = 'outline-primary',
-  checked,
+  checked: _checked,
   disabled = false,
   'data-test-id': dataTestId
 }) => {

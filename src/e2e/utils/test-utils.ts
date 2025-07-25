@@ -87,7 +87,7 @@ export class TestHelper {
         await hamburger.click();
         // Wait for sidebar to animate in
         await this.page.waitForTimeout(500);
-      } catch (e) {
+      } catch (_e) {
         // Hamburger button not visible, continue without opening sidebar
       }
     }

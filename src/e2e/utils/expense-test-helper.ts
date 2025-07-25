@@ -52,7 +52,7 @@ export class ExpenseTestHelper {
     try {
       await expensesContainer.waitFor({ state: 'visible', timeout: 5000 });
       console.log("Expenses container found");
-    } catch (e) {
+    } catch (_e) {
       console.log("No specific expenses container found, checking for general content");
     }
   }
@@ -132,7 +132,7 @@ export class ExpenseTestHelper {
             }
             expenseFound = true;
           }
-        } catch (e) {
+        } catch (_e) {
           console.log("Expenses container not visible, continuing search");
         }
       }
@@ -150,7 +150,7 @@ export class ExpenseTestHelper {
           console.log("Clicking 'Show more' button to load more expenses");
           await showMoreButton.click();
           await this.authenticatedPage.page.waitForTimeout(2000); // Wait for new expenses to load
-        } catch (e) {
+        } catch (_e) {
           console.log("No 'Show more' button found after waiting, stopping pagination attempts");
           break;
         }
@@ -211,7 +211,7 @@ export class ExpenseTestHelper {
       await user1Input.waitFor({ state: 'visible', timeout: 5000 });
       percentages['1'] = await user1Input.inputValue();
       console.log('User 1 percentage:', percentages['1']);
-    } catch (e) {
+    } catch (_e) {
       console.log('User 1 percentage input not found');
     }
     
@@ -219,7 +219,7 @@ export class ExpenseTestHelper {
       await user2Input.waitFor({ state: 'visible', timeout: 5000 });
       percentages['2'] = await user2Input.inputValue();
       console.log('User 2 percentage:', percentages['2']);
-    } catch (e) {
+    } catch (_e) {
       console.log('User 2 percentage input not found');
     }
 
@@ -283,7 +283,7 @@ export class ExpenseTestHelper {
               expenseFound = true;
               console.log(`Found expense for deletion on mobile: ${description}`);
               break;
-            } catch (e) {
+            } catch (_e) {
               // Delete button not visible, continue searching
             }
           }
@@ -304,7 +304,7 @@ export class ExpenseTestHelper {
               expenseFound = true;
               console.log(`Found expense for deletion on desktop: ${description}`);
               break;
-            } catch (e) {
+            } catch (_e) {
               // Delete button not visible, continue searching
             }
           }
@@ -325,7 +325,7 @@ export class ExpenseTestHelper {
           await showMoreButton.click();
           // Wait for new expenses to load instead of fixed timeout
           await this.verifyExpensesPageComponents();
-        } catch (e) {
+        } catch (_e) {
           console.log("No 'Show more' button found after waiting, stopping pagination attempts");
           break;
         }

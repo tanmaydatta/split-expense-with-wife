@@ -71,7 +71,7 @@ class TransactionBalanceTestHelper {
     try {
       await emptyBalances.waitFor({ state: 'visible', timeout: 500 });
       hasEmptyState = true;
-    } catch (e) {
+    } catch (_e) {
       hasEmptyState = false;
     }
 
@@ -193,7 +193,7 @@ class TransactionBalanceTestHelper {
     try {
       await emptyBalances.waitFor({ state: 'visible', timeout: 1000 });
       isEmpty = true;
-    } catch (e) {
+    } catch (_e) {
       isEmpty = false;
     }
 
@@ -246,7 +246,7 @@ class TransactionBalanceTestHelper {
     try {
       await desktopTable.waitFor({ state: 'visible', timeout: 1000 });
       isDesktopView = true;
-    } catch (e) {
+    } catch (_e) {
       isDesktopView = false;
     }
 
@@ -268,7 +268,7 @@ class TransactionBalanceTestHelper {
       try {
         await mobileCards.waitFor({ state: 'visible', timeout: 1000 });
         isMobileView = true;
-      } catch (e) {
+      } catch (_e) {
         isMobileView = false;
       }
 
@@ -315,7 +315,7 @@ class TransactionBalanceTestHelper {
         detailsContainer = dc;
         console.log(`Found visible transaction details container for ${transactionId}`);
         break;
-      } catch (e) {
+      } catch (_e) {
         // Container not visible, continue searching
       }
     }
@@ -414,7 +414,7 @@ test.describe('Transactions and Balances', () => {
       try {
         localStorage.clear();
         sessionStorage.clear();
-      } catch (e) {
+      } catch (_e) {
         console.log('Storage clear failed:', e);
       }
     });
@@ -550,7 +550,7 @@ test.describe('Transactions and Balances', () => {
 
       // Verify more transactions are now visible
       await helper.verifyTransactionInList(expenses[expenses.length - 1].description, expenses[expenses.length - 1].amount, expenses[expenses.length - 1].currency);
-    } catch (e) {
+    } catch (_e) {
       // Show more button not available, skip this part of the test
       console.log("Show more button not available, skipping pagination test");
     }

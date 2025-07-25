@@ -11,7 +11,7 @@ test.describe('Expense Management', () => {
       try {
         localStorage.clear();
         sessionStorage.clear();
-      } catch (e) {
+      } catch (_e) {
         // Ignore security errors in restrictive environments
         console.log('Storage clear failed:', e);
       }
