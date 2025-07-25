@@ -414,7 +414,7 @@ test.describe('Transactions and Balances', () => {
       try {
         localStorage.clear();
         sessionStorage.clear();
-      } catch (_e) {
+      } catch (e) {
         console.log('Storage clear failed:', e);
       }
     });

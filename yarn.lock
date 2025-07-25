@@ -8223,7 +8223,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"eslint@npm:^8.3.0":
+"eslint@npm:^8.3.0, eslint@npm:^8.57.0":
   version: 8.57.1
   resolution: "eslint@npm:8.57.1"
   dependencies:
@@ -9197,13 +9197,6 @@ __metadata:
   version: 14.0.0
   resolution: "globals@npm:14.0.0"
   checksum: 10c0/b96ff42620c9231ad468d4c58ff42afee7777ee1c963013ff8aabe095a451d0ceeb8dcd8ef4cbd64d2538cef45f787a78ba3a9574f4a634438963e334471302d
-  languageName: node
-  linkType: hard
-
-"globals@npm:^15.13.0":
-  version: 15.15.0
-  resolution: "globals@npm:15.15.0"
-  checksum: 10c0/f9ae80996392ca71316495a39bec88ac43ae3525a438b5626cd9d5ce9d5500d0a98a266409605f8cd7241c7acf57c354a48111ea02a767ba4f374b806d6861fe
   languageName: node
   linkType: hard
 
@@ -16578,7 +16571,6 @@ __metadata:
   resolution: "web@workspace:."
   dependencies:
     "@craco/craco": "npm:^7.1.0"
-    "@eslint/js": "npm:^9.31.0"
     "@netlify/planetscale": "npm:^1.1.0"
     "@planetscale/database": "npm:^1.11.0"
     "@playwright/test": "npm:^1.54.1"
@@ -16601,8 +16593,8 @@ __metadata:
     crypto-js: "npm:^4.1.1"
     currency-symbol-map: "npm:^5.1.0"
     customize-cra: "npm:^1.0.0"
-    eslint: "npm:^9.31.0"
-    globals: "npm:^15.13.0"
+    eslint: "npm:^8.57.0"
+    eslint-config-react-app: "npm:^7.0.1"
     husky: "npm:^9.1.7"
     install: "npm:^0.13.0"
     playwright: "npm:^1.54.1"

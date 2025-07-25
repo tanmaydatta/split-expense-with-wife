@@ -204,7 +204,7 @@ test.describe('Budget Management', () => {
       try {
         localStorage.clear();
         sessionStorage.clear();
-      } catch (_e) {
+      } catch (e) {
         // Ignore security errors in restrictive environments
         console.log('Storage clear failed:', e);
       }
