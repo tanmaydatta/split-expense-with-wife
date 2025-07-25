@@ -15,6 +15,7 @@ import { MonthlyBudgetPage } from "@/pages/MonthlyBudgetPage";
 import Sidebar from "@/components/Sidebar";
 import Transactions from "@/pages/Transactions";
 import Settings from "@/pages/Settings";
+import NotFound from "@/pages/NotFound";
 
 const AppContainer = styled.div`
   display: flex;
@@ -172,7 +173,8 @@ function AppWrapper() {
     if (path === '/budget') return 'Budget';
     if (path.startsWith('/monthly-budget')) return 'Monthly Budget';
     if (path === '/settings') return 'Settings';
-    return 'Split Expense';
+    if (path === '/logout') return 'Logout';
+    return 'Page Not Found'; // For 404 and unknown routes
   };
 
   return (
@@ -212,13 +214,23 @@ function AppWrapper() {
                 <Route path="/expenses" element={<AuthenticatedTransactions />} />
                 <Route path="/settings" element={<AuthenticatedSettings />} />
                 <Route path="/logout" element={<Logout />} />
+                <Route path="*" element={<NotFound />} />
               </Routes>
             </PageContent>
           </MainContent>
         </AppContainer>
       ) : (
         <Routes>
-          <Route path="*" element={<LoginPage />} />
+          <Route path="/" element={<LoginPage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/balances" element={<LoginPage />} />
+          <Route path="/budget" element={<LoginPage />} />
+          <Route path="/monthly-budget" element={<LoginPage />} />
+          <Route path="/monthly-budget/:budgetName" element={<LoginPage />} />
+          <Route path="/expenses" element={<LoginPage />} />
+          <Route path="/settings" element={<LoginPage />} />
+          <Route path="/logout" element={<LoginPage />} />
+          <Route path="*" element={<NotFound />} />
         </Routes>
       )}
     </ThemeProvider>

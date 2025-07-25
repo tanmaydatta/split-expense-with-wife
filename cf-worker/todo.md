@@ -1,4 +1,4 @@
-9
+10
 - finish e2e tests ✅
     - mobile version as well ✅
     - data-test-id ✅
@@ -14,10 +14,10 @@
 - change defaults feature ✅
 - settings page ✅
 - retire netlify functions ✅
-- remove pin
+- remove pin ✅
 - use jwt so that verification is done with making db call
 - drizzle
-- sessions api
+- sessions api - d1
 - schedule actions
 - scan receipt
 - full text search

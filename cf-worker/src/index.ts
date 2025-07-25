@@ -1,5 +1,5 @@
 import { CFRequest, Env, CFContext } from './types';
-import { createErrorResponse, createOptionsResponse } from './utils';
+import { createOptionsResponse } from './utils';
 import { handleLogin, handleLogout } from './handlers/auth';
 import {
   handleBalances,
@@ -43,7 +43,7 @@ export default {
     const url = new URL(request.url);
     const path = url.pathname;
 
-    // Route to the appropriate handler
+    // Handle API routes
     if (path === '/.netlify/functions/login') {
       return await handleLogin(request, env);
     } else if (path === '/.netlify/functions/logout') {
@@ -72,10 +72,15 @@ export default {
       return await handleSplitDelete(request, env);
     } else if (path === '/.netlify/functions/transactions_list') {
       return await handleTransactionsList(request, env);
-    } else if (path === '/hello' || path === '/') {
+    } else if (path === '/hello') {
       return await handleHelloWorld(request, env);
     } else {
-      return createErrorResponse('Not found', 404, request, env);
+      // For all other routes, defer to static assets
+      // The [assets] configuration will handle serving the React SPA
+      const assetRequest = new Request(request.url, {
+        method: request.method
+      });
+      return await env.ASSETS.fetch(assetRequest);
     }
   },
 
