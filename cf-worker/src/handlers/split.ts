@@ -1,30 +1,27 @@
+import { CFRequest, Env } from '../types';
 import {
-  CFRequest,
-  Env,
-  SplitRequest,
-  SplitNewRequest,
-  SplitDeleteRequest,
-  TransactionsListRequest,
-  TransactionsListResponse,
-  TransactionRow,
-  TransactionDetailRow
-} from '../types';
-import {
-  authenticate,
   createJsonResponse,
   createErrorResponse,
+  authenticate,
   formatSQLiteTime,
-  executeBatch,
-  isValidCurrency,
+  calculateSplitAmounts,
   validateSplitPercentages,
   validatePaidAmounts,
-  calculateSplitAmounts,
-  generateRandomId,
-  generateBalanceUpdateStatements
+  isValidCurrency,
+  generateDrizzleBalanceUpdates,
+  generateRandomId
 } from '../utils';
-import { SplitwiseResponse, TransactionCreateResponse, SplitAmount } from '../types';
+import {
+  SplitRequest,
+  SplitDeleteRequest,
+  TransactionsListRequest
+} from '../../../shared-types';
+import { getDb } from '../db';
+import { transactions, transactionUsers } from '../db/schema';
+import { eq, and, desc, isNull, inArray } from 'drizzle-orm';
+import { users } from '../db/schema';
 
-// Handle split with Splitwise API
+// Handle expense split creation
 export async function handleSplit(request: CFRequest, env: Env): Promise<Response> {
   if (request.method !== 'POST') {
     return createErrorResponse('Method not allowed', 405, request, env);
@@ -38,22 +35,24 @@ export async function handleSplit(request: CFRequest, env: Env): Promise<Respons
 
     const body = await request.json() as SplitRequest;
 
-    // Validate request
+    // Validate currency
     if (!isValidCurrency(body.currency)) {
       return createErrorResponse('Invalid currency', 400, request, env);
     }
 
+    // Validate split percentages
     if (!validateSplitPercentages(body.splitPctShares)) {
-      return createErrorResponse('Split percentages must total 100%', 400, request, env);
+      return createErrorResponse('Split percentages must add up to 100%', 400, request, env);
     }
 
+    // Validate paid amounts
     if (!validatePaidAmounts(body.paidByShares, body.amount)) {
-      return createErrorResponse('Paid amounts must equal total amount', 400, request, env);
+      return createErrorResponse('Paid amounts must add up to total amount', 400, request, env);
     }
 
-    // Call Splitwise API
-    const groupId = env.SPLITWISE_GROUP_ID;
+    // Create expense in Splitwise
     const apiKey = env.SPLITWISE_API_KEY;
+    const groupId = env.SPLITWISE_GROUP_ID;
 
     const splitwiseResponse = await fetch('https://secure.splitwise.com/api/v3.0/create_expense', {
       method: 'POST',
@@ -77,26 +76,9 @@ export async function handleSplit(request: CFRequest, env: Env): Promise<Respons
       return createErrorResponse('Error creating expense in Splitwise', 500, request, env);
     }
 
-    const splitwiseData = await splitwiseResponse.json() as SplitwiseResponse;
-
-    // Store in database
+    const splitwiseData = await splitwiseResponse.json() as { id: number };
     const transactionId = splitwiseData.id;
     const createdAt = formatSQLiteTime();
-
-    // Create transaction record
-    const transactionStmt = env.DB.prepare(`
-      INSERT INTO transactions (transaction_id, description, amount, currency, group_id, created_at)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `);
-
-    await transactionStmt.bind(
-      transactionId,
-      body.description,
-      body.amount,
-      body.currency,
-      session.group.groupid,
-      createdAt
-    ).run();
 
     // Calculate split amounts
     const splitAmounts = calculateSplitAmounts(
@@ -106,30 +88,43 @@ export async function handleSplit(request: CFRequest, env: Env): Promise<Respons
       body.currency
     );
 
-    // Store split amounts in database
-    const userBatchStatements = splitAmounts.map(split => ({
-      sql: `INSERT INTO transaction_users (transaction_id, user_id, amount, owed_to_user_id, currency, group_id)
-            VALUES (?, ?, ?, ?, ?, ?)`,
-      params: [
-        transactionId,
-        split.user_id,
-        split.amount,
-        split.owed_to_user_id,
-        split.currency,
-        session.group.groupid
-      ]
-    }));
+    const db = getDb(env);
 
-    // Generate balance update statements
-    const balanceStatements = generateBalanceUpdateStatements(splitAmounts, session.group.groupid.toString(), 'add');
+    // Prepare all statements for single batch operation
+    const transactionInsert = db
+      .insert(transactions)
+      .values({
+        transactionId: transactionId.toString(),
+        description: body.description,
+        amount: body.amount,
+        currency: body.currency,
+        groupId: session.group.groupid,
+        createdAt: createdAt
+      });
+
+    const userInserts = splitAmounts.map(split =>
+      db.insert(transactionUsers).values({
+        transactionId: transactionId.toString(),
+        userId: split.user_id,
+        amount: split.amount,
+        owedToUserId: split.owed_to_user_id,
+        currency: split.currency,
+        groupId: session.group.groupid
+      })
+    );
+
+    // Generate balance updates using Drizzle
+    const balanceUpdates = generateDrizzleBalanceUpdates(env, splitAmounts, session.group.groupid, 'add');
 
     // Execute all statements in a single batch
-    await executeBatch(env, [...userBatchStatements, ...balanceStatements]);
+    await db.batch([transactionInsert, ...userInserts, ...balanceUpdates]);
 
-    return createJsonResponse({
-      message: 'Split created successfully',
-      transactionId: transactionId
-    }, 200, {}, request, env);
+    const response = {
+      message: 'Transaction created successfully',
+      transactionId: transactionId.toString()
+    };
+
+    return createJsonResponse(response, 200, {}, request, env);
 
   } catch (error) {
     console.error('Split error:', error);
@@ -137,7 +132,7 @@ export async function handleSplit(request: CFRequest, env: Env): Promise<Respons
   }
 }
 
-// Handle split new (database-only)
+// Handle new split (direct database creation without Splitwise)
 export async function handleSplitNew(request: CFRequest, env: Env): Promise<Response> {
   if (request.method !== 'POST') {
     return createErrorResponse('Method not allowed', 405, request, env);
@@ -149,27 +144,26 @@ export async function handleSplitNew(request: CFRequest, env: Env): Promise<Resp
       return createErrorResponse('Unauthorized', 401, request, env);
     }
 
-    const body = await request.json() as SplitNewRequest;
+    const body = await request.json() as SplitRequest;
 
-    // Validate request
+    // Validate currency
     if (!isValidCurrency(body.currency)) {
       return createErrorResponse('Invalid currency', 400, request, env);
     }
 
+    // Validate split percentages
     if (!validateSplitPercentages(body.splitPctShares)) {
-      return createErrorResponse('Split percentages must total 100%', 400, request, env);
+      return createErrorResponse('Split percentages must add up to 100%', 400, request, env);
     }
 
+    // Validate paid amounts
     if (!validatePaidAmounts(body.paidByShares, body.amount)) {
-      return createErrorResponse('Paid amounts must equal total amount', 400, request, env);
+      return createErrorResponse('Paid amounts must add up to total amount', 400, request, env);
     }
 
-    // Generate transaction ID using robust random ID with timestamp prefix
-    const timestamp = Date.now().toString();
-    const randomPart = generateRandomId(8);
-    const transactionId = `${timestamp}_${randomPart}`;
+    // Generate unique transaction ID
+    const transactionId = generateRandomId(16);
     const createdAt = formatSQLiteTime();
-
 
     // Calculate split amounts
     const splitAmounts = calculateSplitAmounts(
@@ -179,83 +173,42 @@ export async function handleSplitNew(request: CFRequest, env: Env): Promise<Resp
       body.currency
     );
 
-    // Store split amounts in database
-    const userBatchStatements = splitAmounts.map(split => ({
-      sql: `INSERT INTO transaction_users (transaction_id, user_id, amount, owed_to_user_id, currency, group_id)
-            VALUES (?, ?, ?, ?, ?, ?)`,
-      params: [
-        transactionId,
-        split.user_id,
-        split.amount,
-        split.owed_to_user_id,
-        split.currency,
-        session.group.groupid
-      ]
-    }));
-    const paidByShares: Record<string, number> = {};
-    const owedAmounts: Record<string, number> = {};
-    const owedToAmounts: Record<string, number> = {};
+    const db = getDb(env);
 
-    // Build userId -> userName map from session
-    const usersById = session.usersById;
+    // Prepare all statements for single batch operation
+    const transactionInsert = db
+      .insert(transactions)
+      .values({
+        transactionId: transactionId,
+        description: body.description,
+        amount: body.amount,
+        currency: body.currency,
+        groupId: session.group.groupid,
+        createdAt: createdAt
+      });
 
-    // paidByShares: user name -> paid amount
-    for (const [userIdStr, amount] of Object.entries(body.paidByShares)) {
-      const userId = parseInt(userIdStr, 10);
-      const user = usersById[userId];
-      if (user) {
-        paidByShares[user.FirstName] = amount;
-      }
-    }
+    const userInserts = splitAmounts.map(split =>
+      db.insert(transactionUsers).values({
+        transactionId: transactionId,
+        userId: split.user_id,
+        amount: split.amount,
+        owedToUserId: split.owed_to_user_id,
+        currency: split.currency,
+        groupId: session.group.groupid
+      })
+    );
 
-    // owedAmounts: user name -> amount owed (split % * total)
-    for (const [userIdStr, pct] of Object.entries(body.splitPctShares)) {
-      const userId = parseInt(userIdStr, 10);
-      const user = usersById[userId];
-      if (user) {
-        owedAmounts[user.FirstName] = body.amount * pct / 100;
-      }
-    }
-
-    // owedToAmounts: user name -> sum of amounts owed to them
-    for (const split of splitAmounts) {
-      const owedToUser = usersById[split.owed_to_user_id];
-      if (owedToUser) {
-        if (!owedToAmounts[owedToUser.FirstName]) {
-          owedToAmounts[owedToUser.FirstName] = 0;
-        }
-        owedToAmounts[owedToUser.FirstName] += split.amount;
-      }
-    }
-
-    const metadata = JSON.stringify({
-      paidByShares,
-      owedAmounts,
-      owedToAmounts
-    });
-
-    // Generate balance update statements
-    const balanceStatements = generateBalanceUpdateStatements(splitAmounts, session.group.groupid.toString(), 'add');
+    // Generate balance updates using Drizzle
+    const balanceUpdates = generateDrizzleBalanceUpdates(env, splitAmounts, session.group.groupid, 'add');
 
     // Execute all statements in a single batch
-    await executeBatch(env, [{
-      sql: `INSERT INTO transactions (transaction_id, description, amount, currency, group_id, created_at, metadata)
-      VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      params: [
-        transactionId,
-        body.description,
-        body.amount,
-        body.currency,
-        session.group.groupid,
-        createdAt,
-        metadata
-      ]
-    }, ...userBatchStatements, ...balanceStatements]);
+    await db.batch([transactionInsert, ...userInserts, ...balanceUpdates]);
 
-    const response: TransactionCreateResponse = {
+    const response = {
       message: 'Transaction created successfully',
       transactionId: transactionId
     };
+
     return createJsonResponse(response, 200, {}, request, env);
 
   } catch (error) {
@@ -264,7 +217,7 @@ export async function handleSplitNew(request: CFRequest, env: Env): Promise<Resp
   }
 }
 
-// Handle split delete
+// Handle split deletion
 export async function handleSplitDelete(request: CFRequest, env: Env): Promise<Response> {
   if (request.method !== 'POST') {
     return createErrorResponse('Method not allowed', 405, request, env);
@@ -277,40 +230,63 @@ export async function handleSplitDelete(request: CFRequest, env: Env): Promise<R
     }
 
     const body = await request.json() as SplitDeleteRequest;
+    const db = getDb(env);
 
-    // Get existing transaction amounts before deletion for balance update
-    const existingAmountsStmt = env.DB.prepare(`
-      SELECT user_id, amount, owed_to_user_id, currency
-      FROM transaction_users 
-      WHERE transaction_id = ? AND group_id = ? AND deleted IS NULL
-    `);
+    // Get transaction details for balance updates using Drizzle
+    const transactionDetails = await db
+      .select()
+      .from(transactionUsers)
+      .where(
+        and(
+          eq(transactionUsers.transactionId, body.id),
+          eq(transactionUsers.groupId, session.group.groupid),
+          isNull(transactionUsers.deleted)
+        )
+      );
 
-    const existingAmountsResult = await existingAmountsStmt.bind(body.id, session.group.groupid).all();
-    const existingAmounts = existingAmountsResult.results as SplitAmount[];
+    if (transactionDetails.length === 0) {
+      return createErrorResponse('Transaction not found', 404, request, env);
+    }
 
-    // Soft delete transaction
     const deletedTime = formatSQLiteTime();
 
-    const batchStatements = [
-      {
-        sql: 'UPDATE transactions SET deleted = ? WHERE transaction_id = ? AND group_id = ?',
-        params: [deletedTime, body.id, session.group.groupid]
-      },
-      {
-        sql: 'UPDATE transaction_users SET deleted = ? WHERE transaction_id = ? AND group_id = ?',
-        params: [deletedTime, body.id, session.group.groupid]
-      }
-    ];
+    // Prepare all statements for single batch operation
+    const deleteTransaction = db
+      .update(transactions)
+      .set({ deleted: deletedTime })
+      .where(
+        and(
+          eq(transactions.transactionId, body.id),
+          eq(transactions.groupId, session.group.groupid)
+        )
+      );
 
-    // Generate balance update statements to remove deleted transaction amounts
-    const balanceStatements = existingAmounts.length > 0
-      ? generateBalanceUpdateStatements(existingAmounts, session.group.groupid.toString(), 'remove')
-      : [];
+    const deleteTransactionUsers = db
+      .update(transactionUsers)
+      .set({ deleted: deletedTime })
+      .where(
+        and(
+          eq(transactionUsers.transactionId, body.id),
+          eq(transactionUsers.groupId, session.group.groupid)
+        )
+      );
+
+    // Generate balance updates using Drizzle (remove the amounts)
+    const splitAmounts = transactionDetails.map(detail => ({
+      user_id: detail.userId,
+      amount: detail.amount,
+      owed_to_user_id: detail.owedToUserId,
+      currency: detail.currency
+    }));
+
+    const balanceUpdates = generateDrizzleBalanceUpdates(env, splitAmounts, session.group.groupid, 'remove');
 
     // Execute all statements in a single batch
-    await executeBatch(env, [...batchStatements, ...balanceStatements]);
+    await db.batch([deleteTransaction, deleteTransactionUsers, ...balanceUpdates]);
 
-    return createJsonResponse({ message: 'Transaction deleted successfully' }, 200, {}, request, env);
+    return createJsonResponse({
+      message: 'Transaction deleted successfully'
+    }, 200, {}, request, env);
 
   } catch (error) {
     console.error('Split delete error:', error);
@@ -331,66 +307,71 @@ export async function handleTransactionsList(request: CFRequest, env: Env): Prom
     }
 
     const body = await request.json() as TransactionsListRequest;
+    const db = getDb(env);
 
-    // Get transactions list
-    const transactionsStmt = env.DB.prepare(`
-      SELECT t.transaction_id, t.description, t.amount, t.currency, t.created_at, t.group_id as group_id, t.deleted, t.metadata
-      FROM transactions t
-      WHERE t.group_id = ? AND t.deleted IS NULL
-      ORDER BY t.created_at DESC
-      LIMIT 10 OFFSET ?
-    `);
-
-    const transactionsResult = await transactionsStmt.bind(
-      session.group.groupid,
-      body.offset
-    ).all();
+    // Get transactions list using Drizzle
+    const transactionsList = await db
+      .select()
+      .from(transactions)
+      .where(
+        and(
+          eq(transactions.groupId, session.group.groupid),
+          isNull(transactions.deleted)
+        )
+      )
+      .orderBy(desc(transactions.createdAt))
+      .limit(10)
+      .offset(body.offset);
 
     // Get transaction details for all transactions
-    const transactionIds = (transactionsResult.results as TransactionRow[]).map((t) => t.transaction_id);
+    const transactionIds = transactionsList.map(t => t.transactionId).filter((id): id is string => id !== null);
+    const transactionDetails: Record<string, typeof transactionUsers.$inferSelect[]> = {};
 
-    const transactionDetails: Record<string, TransactionDetailRow[]> = {};
     if (transactionIds.length > 0) {
-      const placeholders = transactionIds.map(() => '?').join(',');
-      const detailsStmt = env.DB.prepare(`
-        SELECT tu.transaction_id, tu.user_id, tu.amount, tu.owed_to_user_id, tu.group_id, tu.currency, tu.deleted, u.first_name
-        FROM transaction_users tu
-        LEFT JOIN users u ON tu.user_id = u.id
-        WHERE tu.transaction_id IN (${placeholders}) AND tu.deleted IS NULL
-      `);
+      // Get all transaction details using Drizzle
+      const allDetails = await db
+        .select({
+          transactionId: transactionUsers.transactionId,
+          userId: transactionUsers.userId,
+          amount: transactionUsers.amount,
+          owedToUserId: transactionUsers.owedToUserId,
+          groupId: transactionUsers.groupId,
+          currency: transactionUsers.currency,
+          deleted: transactionUsers.deleted,
+          firstName: users.firstName
+        })
+        .from(transactionUsers)
+        .innerJoin(users, eq(users.id, transactionUsers.userId))
+        .where(
+          and(
+            inArray(transactionUsers.transactionId, transactionIds),
+            eq(transactionUsers.groupId, session.group.groupid),
+            isNull(transactionUsers.deleted)
+          )
+        );
 
-      const detailsResult = await detailsStmt.bind(...transactionIds).all();
-
-      // Group details by transaction_id
-      for (const detail of detailsResult.results) {
-        const detailRecord = detail as TransactionDetailRow;
-        const transactionId = detailRecord.transaction_id;
-        if (!transactionDetails[transactionId]) {
-          transactionDetails[transactionId] = [];
+      // Group details by transaction ID
+      for (const detail of allDetails) {
+        if (!transactionDetails[detail.transactionId]) {
+          transactionDetails[detail.transactionId] = [];
         }
-        transactionDetails[transactionId].push(detailRecord);
+        transactionDetails[detail.transactionId].push({
+          transactionId: detail.transactionId,
+          userId: detail.userId,
+          amount: detail.amount,
+          owedToUserId: detail.owedToUserId,
+          groupId: detail.groupId,
+          currency: detail.currency,
+          deleted: detail.deleted
+        });
       }
     }
-    const formattedTransactions = (transactionsResult.results as TransactionRow[]).map((transaction) => {
-      const metadata = JSON.parse(transaction.metadata);
 
-      return {
-        id: transaction.id,
-        description: transaction.description,
-        amount: transaction.amount,
-        created_at: transaction.created_at,
-        metadata: JSON.stringify(metadata),
-        currency: transaction.currency,
-        transaction_id: transaction.transaction_id,
-        group_id: transaction.group_id,
-        deleted: transaction.deleted
-      };
-    });
-
-    const response: TransactionsListResponse = {
-      transactions: formattedTransactions,
-      transactionDetails: transactionDetails
+    const response = {
+      transactions: transactionsList,
+      transactionDetails
     };
+
     return createJsonResponse(response, 200, {}, request, env);
 
   } catch (error) {

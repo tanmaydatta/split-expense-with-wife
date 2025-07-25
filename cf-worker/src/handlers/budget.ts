@@ -1,28 +1,22 @@
+import { CFRequest, Env } from '../types';
 import {
-  CFRequest,
-  Env,
-  BudgetRequest,
-  BudgetListRequest,
-  BudgetTotalRequest,
-  BudgetDeleteRequest,
-  BudgetMonthlyRequest,
-  AverageSpendData,
-  AverageSpendPeriod,
-  BudgetMonthlyResponse
-} from '../types';
-import {
-  authenticate,
   createJsonResponse,
   createErrorResponse,
+  authenticate,
   formatSQLiteTime,
-  isValidCurrency,
   isAuthorizedForBudget,
-  getUserBalances,
-  generateBudgetTotalUpdateStatements,
-  getBudgetTotals,
-  executeBatch
+  getBudgetTotals
 } from '../utils';
-import { BudgetEntry, UserBalancesByUser } from '../types';
+import {
+  BudgetRequest,
+  BudgetListRequest,
+  BudgetDeleteRequest,
+  BudgetMonthlyRequest,
+  BudgetTotalRequest
+} from '../../../shared-types';
+import { getDb } from '../db';
+import { budget, userBalances, budgetTotals, users } from '../db/schema';
+import { eq, and, desc, lt, isNull, lte, gte, sql } from 'drizzle-orm';
 
 // Handle balances
 export async function handleBalances(request: CFRequest, env: Env): Promise<Response> {
@@ -36,41 +30,73 @@ export async function handleBalances(request: CFRequest, env: Env): Promise<Resp
       return createErrorResponse('Unauthorized', 401, request, env);
     }
 
-    // Get balances from materialized table (much faster than aggregating transaction_users)
-    const balances = await getUserBalances(env, session.group.groupid.toString());
+    const db = getDb(env);
 
-    // Process balances for current user
-    const balancesByUser: UserBalancesByUser = {};
+    // Get user balances and user information using Drizzle
+    const balances = await db
+      .select({
+        userId: userBalances.userId,
+        owedToUserId: userBalances.owedToUserId,
+        currency: userBalances.currency,
+        balance: userBalances.balance
+      })
+      .from(userBalances)
+      .where(
+        and(
+          eq(userBalances.groupId, session.group.groupid),
+          sql`${userBalances.balance} != 0`
+        )
+      );
+
+    // Get all users in the group
+    const groupUsers = await db
+      .select({
+        id: users.id,
+        firstName: users.firstName
+      })
+      .from(users)
+      .where(eq(users.groupid, session.group.groupid));
+
+    // Create user ID to name mapping
+    const userIdToName = new Map<number, string>();
+    groupUsers.forEach(user => {
+      userIdToName.set(user.id, user.firstName || 'Unknown');
+    });
+
+    // Transform balances into UserBalancesByUser format
+    const result: Record<string, Record<string, number>> = {};
 
     for (const balance of balances) {
-      if (balance.user_id === balance.owed_to_user_id) {
-        continue; // Skip self-owed amounts
-      }
+      const { userId, owedToUserId, currency, balance: amount } = balance;
 
-      if (balance.user_id === session.user.Id) {
-        // This user owes money
-        const otherUser = session.usersById[balance.owed_to_user_id];
-        if (otherUser) {
-          if (!balancesByUser[otherUser.FirstName]) {
-            balancesByUser[otherUser.FirstName] = {};
+      // From current user's perspective
+      if (userId === session.user.Id) {
+        // Current user owes someone else (negative for that person)
+        const otherUserName = userIdToName.get(owedToUserId);
+        if (otherUserName && otherUserName !== session.user.FirstName) {
+          if (!result[otherUserName]) {
+            result[otherUserName] = {};
           }
-          balancesByUser[otherUser.FirstName][balance.currency] =
-            (balancesByUser[otherUser.FirstName][balance.currency] || 0) - balance.amount;
+          result[otherUserName][currency] = (result[otherUserName][currency] || 0) - amount;
         }
-      } else if (balance.owed_to_user_id === session.user.Id) {
-        // This user is owed money
-        const otherUser = session.usersById[balance.user_id];
-        if (otherUser) {
-          if (!balancesByUser[otherUser.FirstName]) {
-            balancesByUser[otherUser.FirstName] = {};
+      } else if (owedToUserId === session.user.Id) {
+        // Someone else owes current user (positive for that person)
+        const otherUserName = userIdToName.get(userId);
+        if (otherUserName && otherUserName !== session.user.FirstName) {
+          if (!result[otherUserName]) {
+            result[otherUserName] = {};
           }
-          balancesByUser[otherUser.FirstName][balance.currency] =
-            (balancesByUser[otherUser.FirstName][balance.currency] || 0) + balance.amount;
+          result[otherUserName][currency] = (result[otherUserName][currency] || 0) + amount;
         }
       }
     }
 
-    return createJsonResponse(balancesByUser, 200, {}, request, env);
+    // Return empty object if no balances exist
+    if (Object.keys(result).length === 0) {
+      return createJsonResponse({}, 200, {}, request, env);
+    }
+
+    return createJsonResponse(result, 200, {}, request, env);
 
   } catch (error) {
     console.error('Balances error:', error);
@@ -92,58 +118,56 @@ export async function handleBudget(request: CFRequest, env: Env): Promise<Respon
 
     const body = await request.json() as BudgetRequest;
 
-    // Validate request
-    if (session.group.groupid !== body.groupid) {
-      return createErrorResponse('Unauthorized', 401, request, env);
-    }
-
+    // Validate budget name
     if (!isAuthorizedForBudget(session, body.name)) {
       return createErrorResponse('Unauthorized', 401, request, env);
     }
 
-    if (!isValidCurrency(body.currency)) {
-      return createErrorResponse('Invalid currency', 400, request, env);
-    }
+    const db = getDb(env);
+    const currentTime = formatSQLiteTime();
+    const currency = body.currency || 'GBP';
 
-    // Create budget entry
-    const sign = body.amount < 0 ? '-' : '+';
-    const name = body.name || 'house';
+    // Prepare Drizzle statements for batch operation
+    const budgetInsert = db
+      .insert(budget)
+      .values({
+        description: body.description,
+        amount: body.amount,
+        name: body.name,
+        currency: currency,
+        groupid: session.group.groupid,
+        addedTime: currentTime
+      });
 
-    const budgetStatement = {
-      sql: `INSERT INTO budget (description, price, added_time, amount, name, groupid, currency)
-            VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      params: [
-        body.description,
-        `${sign}${Math.abs(body.amount).toFixed(2)}`,
-        formatSQLiteTime(),
-        body.amount,
-        name,
-        body.groupid,
-        body.currency
-      ]
-    };
+    const budgetTotalUpsert = db
+      .insert(budgetTotals)
+      .values({
+        groupId: session.group.groupid,
+        name: body.name,
+        currency: currency,
+        totalAmount: body.amount,
+        updatedAt: currentTime
+      })
+      .onConflictDoUpdate({
+        target: [budgetTotals.groupId, budgetTotals.name, budgetTotals.currency],
+        set: {
+          totalAmount: sql`${budgetTotals.totalAmount} + ${body.amount}`,
+          updatedAt: currentTime
+        }
+      });
 
-    // Generate budget total update statements
-    const budgetTotalStatements = generateBudgetTotalUpdateStatements(
-      body.groupid,
-      name,
-      body.currency,
-      body.amount,
-      'add'
-    );
+    // Execute both statements using Drizzle batch
+    await db.batch([budgetInsert, budgetTotalUpsert]);
 
-    // Execute both budget creation and total update in a single batch
-    await executeBatch(env, [budgetStatement, ...budgetTotalStatements]);
-
-    return createJsonResponse({ message: '200' }, 200, {}, request, env);
+    return createJsonResponse({
+      message: '200'
+    }, 200, {}, request, env);
 
   } catch (error) {
-    console.error('Budget error:', error);
+    console.error('Budget creation error:', error);
     return createErrorResponse('Internal server error', 500, request, env);
   }
 }
-
-
 
 // Handle budget deletion
 export async function handleBudgetDelete(request: CFRequest, env: Env): Promise<Response> {
@@ -158,44 +182,63 @@ export async function handleBudgetDelete(request: CFRequest, env: Env): Promise<
     }
 
     const body = await request.json() as BudgetDeleteRequest;
+    const db = getDb(env);
 
-    // Get the budget entry details before deletion for updating totals
-    const budgetEntryStmt = env.DB.prepare(`
-      SELECT name, currency, amount 
-      FROM budget 
-      WHERE groupid = ? AND id = ? AND deleted IS NULL
-    `);
+    // Get budget entry to verify ownership and get details for total update
+    const budgetEntry = await db
+      .select()
+      .from(budget)
+      .where(
+        and(
+          eq(budget.id, body.id),
+          eq(budget.groupid, session.group.groupid),
+          isNull(budget.deleted)
+        )
+      )
+      .limit(1);
 
-    const budgetEntryResult = await budgetEntryStmt.bind(session.group.groupid, body.id).first();
-
-    if (!budgetEntryResult) {
-      return createErrorResponse('Budget entry not found or already deleted', 404, request, env);
+    if (budgetEntry.length === 0) {
+      return createErrorResponse('Budget entry not found', 404, request, env);
     }
 
-    const budgetEntry = budgetEntryResult as BudgetEntry;
+    const entry = budgetEntry[0];
 
-    // Soft delete budget entry
-    const deleteStatement = {
-      sql: 'UPDATE budget SET deleted = ? WHERE groupid = ? AND id = ?',
-      params: [formatSQLiteTime(), session.group.groupid, body.id]
-    };
+    // Check authorization
+    if (!isAuthorizedForBudget(session, entry.name)) {
+      return createErrorResponse('Unauthorized', 401, request, env);
+    }
 
-    // Generate budget total update statements to remove the deleted amount
-    const budgetTotalStatements = generateBudgetTotalUpdateStatements(
-      session.group.groupid,
-      budgetEntry.name,
-      budgetEntry.currency,
-      budgetEntry.amount,
-      'remove'
-    );
+    const deletedTime = formatSQLiteTime();
 
-    // Execute both deletion and total update in a single batch
-    await executeBatch(env, [deleteStatement, ...budgetTotalStatements]);
+    // Prepare Drizzle statements for batch operation
+    const deleteBudget = db
+      .update(budget)
+      .set({ deleted: deletedTime })
+      .where(eq(budget.id, body.id));
 
-    return createJsonResponse({ message: 'Successfully deleted budget entry' }, 200, {}, request, env);
+    const updateBudgetTotal = db
+      .update(budgetTotals)
+      .set({
+        totalAmount: sql`${budgetTotals.totalAmount} - ${entry.amount}`,
+        updatedAt: deletedTime
+      })
+      .where(
+        and(
+          eq(budgetTotals.groupId, session.group.groupid),
+          eq(budgetTotals.name, entry.name),
+          eq(budgetTotals.currency, entry.currency)
+        )
+      );
+
+    // Execute both statements using Drizzle batch
+    await db.batch([deleteBudget, updateBudgetTotal]);
+
+    return createJsonResponse({
+      message: 'Successfully deleted budget entry'
+    }, 200, {}, request, env);
 
   } catch (error) {
-    console.error('Budget delete error:', error);
+    console.error('Budget deletion error:', error);
     return createErrorResponse('Internal server error', 500, request, env);
   }
 }
@@ -221,24 +264,25 @@ export async function handleBudgetList(request: CFRequest, env: Env): Promise<Re
 
     const name = body.name || 'house';
     const currentTime = formatSQLiteTime();
+    const db = getDb(env);
 
-    // Get budget entries
-    const budgetStmt = env.DB.prepare(`
-      SELECT id, description, added_time, price, amount, name, deleted, groupid, currency
-      FROM budget 
-      WHERE added_time < ? AND name = ? AND groupid = ? AND deleted IS NULL
-      ORDER BY added_time DESC
-      LIMIT 5 OFFSET ?
-    `);
+    // Get budget entries using Drizzle
+    const budgetEntries = await db
+      .select()
+      .from(budget)
+      .where(
+        and(
+          lt(budget.addedTime, currentTime),
+          eq(budget.name, name),
+          eq(budget.groupid, session.group.groupid),
+          isNull(budget.deleted)
+        )
+      )
+      .orderBy(desc(budget.addedTime))
+      .limit(5)
+      .offset(body.offset);
 
-    const budgetResult = await budgetStmt.bind(
-      currentTime,
-      name,
-      session.group.groupid,
-      body.offset
-    ).all();
-
-    return createJsonResponse(budgetResult.results, 200, {}, request, env);
+    return createJsonResponse(budgetEntries, 200, {}, request, env);
 
   } catch (error) {
     console.error('Budget list error:', error);
@@ -246,7 +290,7 @@ export async function handleBudgetList(request: CFRequest, env: Env): Promise<Re
   }
 }
 
-// Handle budget monthly
+// Handle budget monthly aggregations
 export async function handleBudgetMonthly(request: CFRequest, env: Env): Promise<Response> {
   if (request.method !== 'POST') {
     return createErrorResponse('Method not allowed', 405, request, env);
@@ -266,180 +310,188 @@ export async function handleBudgetMonthly(request: CFRequest, env: Env): Promise
     }
 
     const name = body.name || 'house';
-    const oldestData = new Date();
-    oldestData.setFullYear(oldestData.getFullYear() - 2);
+    const db = getDb(env);
 
-    // Get monthly budget data
-    const monthlyStmt = env.DB.prepare(`
-      SELECT
-        CAST(strftime('%m', added_time) AS INTEGER) as month,
-        CAST(strftime('%Y', added_time) AS INTEGER) as year,
+    // First, find the earliest budget data to determine our range
+    const earliestData = await db
+      .select({
+        earliestDate: sql<string>`MIN(added_time)`.as('earliestDate')
+      })
+      .from(budget)
+      .where(
+        and(
+          eq(budget.name, name),
+          eq(budget.groupid, session.group.groupid),
+          isNull(budget.deleted)
+        )
+      );
+
+    const currentDate = new Date();
+    let startDate: Date;
+    let endDate: Date;
+    let currencies: string[];
+
+    // If no data exists, use default 2-year range
+    if (!earliestData[0]?.earliestDate) {
+      // Create 2-year default range
+      const twoYearsAgo = new Date();
+      twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
+      startDate = new Date(twoYearsAgo.getFullYear(), twoYearsAgo.getMonth(), 1);
+      endDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1); // Start of current month
+      currencies = ['USD']; // Default currency for empty data
+    } else {
+      // Parse the earliest date and set our range
+      const earliestDate = new Date(earliestData[0].earliestDate);
+
+      // Calculate date range - from earliest data to current month
+      startDate = new Date(earliestDate.getFullYear(), earliestDate.getMonth(), 1);
+      endDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1); // Start of current month
+
+      // Get all currencies used in this budget
+      const allCurrencies = await db
+        .select({
+          currency: budget.currency
+        })
+        .from(budget)
+        .where(
+          and(
+            eq(budget.name, name),
+            eq(budget.groupid, session.group.groupid),
+            isNull(budget.deleted)
+          )
+        )
+        .groupBy(budget.currency);
+
+      currencies = allCurrencies.map(c => c.currency);
+    }
+
+    const startDateStr = formatSQLiteTime(startDate);
+    const endDateStr = formatSQLiteTime(endDate);
+
+    // Get actual budget data grouped by month and currency (only if we have data)
+    const dataMap = new Map<string, Map<string, number>>();
+
+    if (earliestData[0]?.earliestDate) {
+      const monthlyBudgets = await db
+        .select({
+          month: sql<string>`strftime('%m', added_time)`.as('month'),
+          year: sql<number>`CAST(strftime('%Y', added_time) AS INTEGER)`.as('year'),
+          currency: budget.currency,
+          amount: sql<number>`SUM(amount)`.as('amount')
+        })
+        .from(budget)
+        .where(
+          and(
+            eq(budget.name, name),
+            eq(budget.groupid, session.group.groupid),
+            isNull(budget.deleted),
+            gte(budget.addedTime, startDateStr),
+            lte(budget.addedTime, endDateStr)
+          )
+        )
+        .groupBy(
+          sql`strftime('%Y-%m', added_time)`,
+          budget.currency
+        )
+        .orderBy(
+          sql`strftime('%Y-%m', added_time) DESC`,
+          budget.currency
+        );
+
+      // Create a map of actual data
+      for (const row of monthlyBudgets) {
+        const monthKey = `${row.year}-${row.month.padStart(2, '0')}`;
+        if (!dataMap.has(monthKey)) {
+          dataMap.set(monthKey, new Map());
+        }
+        const monthMap = dataMap.get(monthKey);
+        if (monthMap) {
+          monthMap.set(row.currency, row.amount);
+        }
+      }
+    }
+
+    // Generate all months in the range with all currencies
+    const monthlyBudgetResults = [];
+    const tempDate = new Date(endDate); // Start from current month
+
+    while (tempDate >= startDate) {
+      const year = tempDate.getFullYear();
+      const month = (tempDate.getMonth() + 1).toString().padStart(2, '0');
+      const monthName = tempDate.toLocaleString('default', { month: 'long' });
+      const monthKey = `${year}-${month}`;
+
+      const amounts = currencies.map(currency => ({
         currency,
-        SUM(amount) as amount
-      FROM budget
-      WHERE 
-        name = ? AND 
-        groupid = ? AND 
-        deleted IS NULL AND
-        added_time >= ? AND
-        amount < 0
-      GROUP BY 
-        1, 2, 3
-      ORDER BY 
-        2 DESC, 
-        1 DESC
-    `);
+        amount: dataMap.get(monthKey)?.get(currency) || 0
+      }));
 
-    const monthlyResult = await monthlyStmt.bind(
-      name,
-      session.group.groupid,
-      formatSQLiteTime(oldestData)
-    ).all();
-
-    const monthlyData = monthlyResult.results as Array<{
-      month: number;
-      year: number;
-      currency: string;
-      amount: number;
-    }>;
-
-    // Process data into monthly format
-    const monthToName = [
-      '', 'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December'
-    ];
-
-    // First, collect all unique currencies and find date range
-    const allCurrencies = new Set<string>();
-    let oldestDate = new Date();
-    const today = new Date();
-
-    monthlyData.forEach(data => {
-      allCurrencies.add(data.currency);
-      const dataDate = new Date(data.year, data.month - 1);
-      if (dataDate < oldestDate) {
-        oldestDate = dataDate;
-      }
-    });
-
-    // If no data, use a reasonable default (2 years back)
-    if (monthlyData.length === 0) {
-      oldestDate = new Date();
-      oldestDate.setFullYear(oldestDate.getFullYear() - 2);
-      allCurrencies.add('USD'); // Default currency if no data
-    }
-
-    // Create map from actual data
-    const dataMap: Record<string, Record<string, number>> = {};
-    for (const data of monthlyData) {
-      const key = `${data.year}-${data.month}`;
-      if (!dataMap[key]) {
-        dataMap[key] = {};
-      }
-      dataMap[key][data.currency] = data.amount;
-    }
-
-    // Generate all months from today back to oldest date
-    const monthlyBudgets: Array<{
-      month: string;
-      year: number;
-      amounts: Array<{ currency: string; amount: number }>;
-    }> = [];
-
-    const currentDate = new Date(today.getFullYear(), today.getMonth()); // Start of current month
-    const endDate = new Date(oldestDate.getFullYear(), oldestDate.getMonth()); // Start of oldest month
-
-    while (currentDate >= endDate) {
-      const year = currentDate.getFullYear();
-      const month = currentDate.getMonth() + 1; // JS months are 0-indexed, but our data is 1-indexed
-      const key = `${year}-${month}`;
-
-      const amounts: Array<{ currency: string; amount: number }> = [];
-
-      // For each currency, add either real data or 0
-      for (const currency of allCurrencies) {
-        const amount = dataMap[key]?.[currency] || 0;
-        amounts.push({ currency, amount });
-      }
-
-      monthlyBudgets.push({
-        month: monthToName[month],
+      monthlyBudgetResults.push({
+        month: monthName,
         year: year,
         amounts: amounts
       });
 
-      // Move to previous month
-      currentDate.setMonth(currentDate.getMonth() - 1);
+      tempDate.setMonth(tempDate.getMonth() - 1);
     }
 
-    // Calculate rolling averages for different time periods
-    const rollingAverages: AverageSpendPeriod[] = [];
+    // Calculate rolling averages for all periods
+    const totalMonths = monthlyBudgetResults.length;
+    const averageSpendResults = [];
 
-    // Calculate max periods based on how many months we generated (from today to oldest)
-    const maxMonthsBack = monthlyBudgets.length;
+    // For each period from 1 to total months
+    for (let periodMonths = 1; periodMonths <= totalMonths; periodMonths++) {
+      const periodData: Array<{
+        currency: string;
+        averageMonthlySpend: number;
+        totalSpend: number;
+        monthsAnalyzed: number;
+      }> = [];
 
-    // Calculate averages for 1, 2, 3, ... up to maxMonthsBack months
-    const periodsToCalculate = Array.from({length: maxMonthsBack}, (_, i) => i + 1);
+      // Calculate for each currency that has data anywhere in the time range
+      for (const currency of currencies) {
+        let totalSpend = 0;
+        let monthsWithData = 0;
 
-    for (const monthsBack of periodsToCalculate) {
-      // Take the first N months from our generated monthlyBudgets (which starts from today)
-      const periodBudgets = monthlyBudgets.slice(0, monthsBack);
+        // Sum up the last N months for this currency
+        for (let i = 0; i < periodMonths && i < monthlyBudgetResults.length; i++) {
+          const monthData = monthlyBudgetResults[i];
+          const currencyAmount = monthData.amounts.find(a => a.currency === currency)?.amount || 0;
+          if (currencyAmount !== 0) {
+            totalSpend += Math.abs(currencyAmount); // Convert to positive for spend calculation
+            monthsWithData++;
+          }
+        }
 
-      // Calculate totals by currency for this period (including months with 0 spend)
-      const currencyTotals: Record<string, number> = {};
-
-      // Initialize all currencies to 0
-      for (const currency of allCurrencies) {
-        currencyTotals[currency] = 0;
+        // Always include the currency in the period analysis
+        // This matches the production behavior where all periods are included
+        periodData.push({
+          currency,
+          averageMonthlySpend: monthsWithData > 0 ? totalSpend / monthsWithData : 0,
+          totalSpend,
+          monthsAnalyzed: monthsWithData > 0 ? monthsWithData : periodMonths
+        });
       }
 
-      // Sum up actual spending for each currency across all months in the period
-      periodBudgets.forEach(monthData => {
-        monthData.amounts.forEach(amount => {
-          currencyTotals[amount.currency] += Math.abs(amount.amount);
+      // Always add all periods (matching production behavior)
+      if (periodData.length > 0) {
+        averageSpendResults.push({
+          periodMonths,
+          averages: periodData
         });
-      });
-
-      // Create average entries for each currency
-      const currencyAverages: AverageSpendData[] = Array.from(allCurrencies).map(currency => ({
-        currency,
-        averageMonthlySpend: monthsBack > 0 ? currencyTotals[currency] / monthsBack : 0,
-        totalSpend: currencyTotals[currency],
-        monthsAnalyzed: monthsBack
-      }));
-
-      // Filter out currencies with 0 total spend unless there's no data at all
-      const filteredAverages = currencyAverages.filter(avg => avg.totalSpend > 0);
-
-      // If no spending data for this period, add a default entry
-      const finalAverages = filteredAverages.length > 0 ? filteredAverages : [{
-        currency: Array.from(allCurrencies)[0] || 'USD',
-        averageMonthlySpend: 0,
-        totalSpend: 0,
-        monthsAnalyzed: monthsBack
-      }];
-
-      const averageSpendPeriod: AverageSpendPeriod = {
-        periodMonths: monthsBack,
-        averages: finalAverages
-      };
-
-      rollingAverages.push(averageSpendPeriod);
+      }
     }
 
-    const averages = rollingAverages;
-
-    // Return combined response
-    const result: BudgetMonthlyResponse = {
-      monthlyBudgets,
-      averageMonthlySpend: averages,
+    const response = {
+      monthlyBudgets: monthlyBudgetResults,
+      averageMonthlySpend: averageSpendResults,
       periodAnalyzed: {
-        startDate: formatSQLiteTime(oldestDate),
-        endDate: formatSQLiteTime(today)
+        startDate: startDateStr,
+        endDate: endDateStr
       }
     };
 
-    return createJsonResponse(result, 200, {}, request, env);
+    return createJsonResponse(response, 200, {}, request, env);
 
   } catch (error) {
     console.error('Budget monthly error:', error);
@@ -466,10 +518,8 @@ export async function handleBudgetTotal(request: CFRequest, env: Env): Promise<R
       return createErrorResponse('Unauthorized', 401, request, env);
     }
 
-    const name = body.name || 'house';
-
-    // Get budget totals from materialized table (much faster than aggregating budget entries)
-    const totals = await getBudgetTotals(env, session.group.groupid.toString(), name);
+    // Use existing utility function for now (could be migrated to Drizzle later)
+    const totals = await getBudgetTotals(env, session.group.groupid.toString(), body.name);
 
     return createJsonResponse(totals, 200, {}, request, env);
 

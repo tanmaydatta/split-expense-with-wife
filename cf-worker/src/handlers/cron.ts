@@ -1,5 +1,8 @@
-import { Env, Group } from '../types';
+import { Env } from '../types';
 import { formatSQLiteTime } from '../utils';
+import { getDb } from '../db';
+import { groups, budget } from '../db/schema';
+import { eq } from 'drizzle-orm';
 
 const MONTHLY_CREDITS: { [key: string]: number } = {
   'house': 800,
@@ -16,43 +19,45 @@ export async function handleCron(env: Env, cron: string) {
   const month = new Date().toLocaleString('default', { month: 'long' });
   const year = new Date().getFullYear();
   const description = `${month} ${year}`;
+  const db = getDb(env);
 
   for (const groupId of groupIds) {
     try {
-      const groupStmt = env.DB.prepare('SELECT * FROM groups WHERE groupid = ?');
-      const groupResult = await groupStmt.bind(groupId).first() as Group;
+      // Get group data using Drizzle
+      const groupResult = await db
+        .select()
+        .from(groups)
+        .where(eq(groups.groupid, parseInt(groupId)))
+        .limit(1);
 
-      if (!groupResult) {
+      if (groupResult.length === 0) {
         console.error(`Group with id ${groupId} not found`);
         continue;
       }
 
-      const budgets: string[] = JSON.parse(groupResult.budgets || '[]');
+      const group = groupResult[0];
+      const budgets: string[] = JSON.parse(group.budgets || '[]');
       if (!Array.isArray(budgets)) {
         console.error(`Budgets for group ${groupId} is not an array`);
         continue;
       }
 
-      for (const budget of budgets) {
-        const amount = MONTHLY_CREDITS[budget] || MONTHLY_CREDITS['default'];
+      // Insert budget entries one by one using Drizzle
+      for (const budgetName of budgets) {
+        const amount = MONTHLY_CREDITS[budgetName] || MONTHLY_CREDITS['default'];
         if (amount <= 0) {
           continue;
         }
 
-        const budgetStmt = env.DB.prepare(`
-          INSERT INTO budget (description, price, added_time, amount, name, groupid, currency)
-          VALUES (?, ?, ?, ?, ?, ?, ?)
-        `);
-
-        await budgetStmt.bind(
-          description,
-          `+${amount.toFixed(2)}`,
-          formatSQLiteTime(),
-          amount,
-          budget,
-          groupId,
-          'GBP'
-        ).run();
+        await db.insert(budget).values({
+          description: description,
+          price: `+${amount.toFixed(2)}`,
+          addedTime: formatSQLiteTime(),
+          amount: amount,
+          name: budgetName,
+          groupid: parseInt(groupId),
+          currency: 'GBP'
+        });
       }
     } catch (error) {
       console.error(`Error processing group ${groupId}:`, error);

@@ -3,8 +3,11 @@ import { env } from 'cloudflare:test';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { handleUpdateGroupMetadata, handleGroupDetails } from '../handlers/group';
 import { setupAndCleanDatabase, createTestUserData, createTestSession, createMockRequest } from './test-utils';
-import { UpdateGroupMetadataRequest, UpdateGroupMetadataResponse } from '../types';
-import { GroupDetailsResponse } from '../../../shared-types';
+import {
+  UpdateGroupMetadataRequest,
+  UpdateGroupMetadataResponse,
+  GroupDetailsResponse
+} from '../../../shared-types';
 
 describe('Group Metadata Handler', () => {
   beforeEach(async () => {
@@ -44,8 +47,8 @@ describe('Group Metadata Handler', () => {
   it('should successfully update only defaultShare', async () => {
     // First set some initial metadata
     await env.DB.prepare(`
-      UPDATE groups 
-      SET metadata = '{"defaultCurrency": "GBP", "other_field": "preserved"}' 
+      UPDATE groups
+      SET metadata = '{"defaultCurrency": "GBP", "other_field": "preserved"}'
       WHERE groupid = 1
     `).run();
 
@@ -76,8 +79,8 @@ describe('Group Metadata Handler', () => {
   it('should successfully update only defaultCurrency', async () => {
     // First set some initial metadata
     await env.DB.prepare(`
-      UPDATE groups 
-      SET metadata = '{"defaultShare": {"1": 50, "2": 50}, "other_field": "preserved"}' 
+      UPDATE groups
+      SET metadata = '{"defaultShare": {"1": 50, "2": 50}, "other_field": "preserved"}'
       WHERE groupid = 1
     `).run();
 
@@ -260,8 +263,8 @@ describe('Group Metadata Handler', () => {
 
     // First add user 3 to the group for this test
     await env.DB.prepare(`
-      UPDATE groups 
-      SET userids = '[1, 2, 3, 4]' 
+      UPDATE groups
+      SET userids = '[1, 2, 3, 4]'
       WHERE groupid = 1
     `).run();
 
@@ -384,7 +387,7 @@ describe('Group Details Handler', () => {
     });
 
     it('should return 401 for invalid session token', async () => {
-      const request = createMockRequest('GET', null, 'invalid-token');
+      const request = createMockRequest('GET', undefined, 'invalid-token');
       const response = await handleGroupDetails(request, env);
 
       expect(response.status).toBe(401);

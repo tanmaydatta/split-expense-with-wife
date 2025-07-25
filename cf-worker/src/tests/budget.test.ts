@@ -2,8 +2,11 @@ import { env as testEnv, createExecutionContext, waitOnExecutionContext } from '
 import { describe, it, expect, beforeEach } from 'vitest';
 import worker from '../index';
 import { setupAndCleanDatabase, createTestUserData, createTestSession, populateMaterializedTables } from './test-utils';
-import { TestBudgetMonthlyResponse, TestBudgetTotalResponse, TestMonthlyBudgetItem, TestAverageSpendItem } from './types';
+import { BudgetMonthlyResponse, MonthlyBudget, AverageSpendPeriod } from '../../../shared-types';
 import { UserBalancesByUser, Env } from '../types';
+
+// Type aliases for API responses
+type BudgetTotalResponse = Array<{ currency: string; amount: number }>;
 
 const env = testEnv as unknown as Env;
 
@@ -268,7 +271,7 @@ describe('Budget Handlers', () => {
     it('should handle balances for different session users', async () => {
       // Set up test data
       await createTestUserData(env);
-      await createTestSession(env, 'other-session', 'otheruser'); // Session for user 2 (Other)
+      await createTestSession(env, 'other-session', 'testuser2'); // Session for user 2 (Other)
 
       // User 1 owes 50 to user 2, user 2 owes 30 to user 3
       await env.DB.exec("INSERT INTO transaction_users (transaction_id, user_id, amount, owed_to_user_id, currency, group_id) VALUES ('tx-8a', 1, 50, 2, 'USD', 1), ('tx-8b', 2, 30, 3, 'USD', 1)");
@@ -724,7 +727,7 @@ describe('Budget Handlers', () => {
       await waitOnExecutionContext(ctx);
 
       expect(response.status).toBe(200);
-      const json = await response.json() as TestBudgetMonthlyResponse;
+      const json = await response.json() as BudgetMonthlyResponse;
 
       // Check that the response has the new structure
       expect(json).toHaveProperty('monthlyBudgets');
@@ -750,16 +753,16 @@ describe('Budget Handlers', () => {
       expect(json.monthlyBudgets.length).toBe(monthCount);
 
       // Check that the months with data show correct amounts
-      const julyBudget = json.monthlyBudgets.find((b: TestMonthlyBudgetItem) => b.month === 'July' && b.year === 2024);
-      const augustBudget = json.monthlyBudgets.find((b: TestMonthlyBudgetItem) => b.month === 'August' && b.year === 2024);
-      const septemberBudget = json.monthlyBudgets.find((b: TestMonthlyBudgetItem) => b.month === 'September' && b.year === 2024);
+      const julyBudget = json.monthlyBudgets.find((b: MonthlyBudget) => b.month === 'July' && b.year === 2024);
+      const augustBudget = json.monthlyBudgets.find((b: MonthlyBudget) => b.month === 'August' && b.year === 2024);
+      const septemberBudget = json.monthlyBudgets.find((b: MonthlyBudget) => b.month === 'September' && b.year === 2024);
 
       expect(julyBudget).toBeTruthy();
-      expect((julyBudget as TestMonthlyBudgetItem).amounts[0].amount).toBe(-500);
+      expect((julyBudget as MonthlyBudget).amounts[0].amount).toBe(-500);
       expect(augustBudget).toBeTruthy();
-      expect((augustBudget as TestMonthlyBudgetItem).amounts[0].amount).toBe(-600);
+      expect((augustBudget as MonthlyBudget).amounts[0].amount).toBe(-600);
       expect(septemberBudget).toBeTruthy();
-      expect((septemberBudget as TestMonthlyBudgetItem).amounts[0].amount).toBe(-400);
+      expect((septemberBudget as MonthlyBudget).amounts[0].amount).toBe(-400);
 
       // Check rolling average monthly spend calculations
       expect(Array.isArray(json.averageMonthlySpend)).toBe(true);
@@ -769,22 +772,22 @@ describe('Budget Handlers', () => {
       expect(json.averageMonthlySpend.length).toBeGreaterThan(0);
 
       // Check 1-month average (should exist)
-      const oneMonthAverage = json.averageMonthlySpend.find((avg: TestAverageSpendItem) => avg.periodMonths === 1);
+      const oneMonthAverage = json.averageMonthlySpend.find((avg: AverageSpendPeriod) => avg.periodMonths === 1);
       expect(oneMonthAverage).toBeTruthy();
-      expect((oneMonthAverage as TestAverageSpendItem).averages.length).toBe(1);
-      expect((oneMonthAverage as TestAverageSpendItem).averages[0].currency).toBe('USD');
+      expect((oneMonthAverage as AverageSpendPeriod).averages.length).toBe(1);
+      expect((oneMonthAverage as AverageSpendPeriod).averages[0].currency).toBe('USD');
 
       // Check 2-month average (should exist)
-      const twoMonthAverage = json.averageMonthlySpend.find((avg: TestAverageSpendItem) => avg.periodMonths === 2);
+      const twoMonthAverage = json.averageMonthlySpend.find((avg: AverageSpendPeriod) => avg.periodMonths === 2);
       expect(twoMonthAverage).toBeTruthy();
-      expect((twoMonthAverage as TestAverageSpendItem).averages.length).toBe(1);
-      expect((twoMonthAverage as TestAverageSpendItem).averages[0].currency).toBe('USD');
+      expect((twoMonthAverage as AverageSpendPeriod).averages.length).toBe(1);
+      expect((twoMonthAverage as AverageSpendPeriod).averages[0].currency).toBe('USD');
 
       // Check 3-month average (should exist)
-      const threeMonthAverage = json.averageMonthlySpend.find((avg: TestAverageSpendItem) => avg.periodMonths === 3);
+      const threeMonthAverage = json.averageMonthlySpend.find((avg: AverageSpendPeriod) => avg.periodMonths === 3);
       expect(threeMonthAverage).toBeTruthy();
-      expect((threeMonthAverage as TestAverageSpendItem).averages.length).toBe(1);
-      expect((threeMonthAverage as TestAverageSpendItem).averages[0].currency).toBe('USD');
+      expect((threeMonthAverage as AverageSpendPeriod).averages.length).toBe(1);
+      expect((threeMonthAverage as AverageSpendPeriod).averages[0].currency).toBe('USD');
 
       // Check period analyzed
       expect(json.periodAnalyzed).toHaveProperty('startDate');
@@ -814,7 +817,7 @@ describe('Budget Handlers', () => {
       await waitOnExecutionContext(ctx);
 
       expect(response.status).toBe(200);
-      const json = await response.json() as TestBudgetMonthlyResponse;
+      const json = await response.json() as BudgetMonthlyResponse;
 
       // Check that the response has the new structure
       expect(json).toHaveProperty('monthlyBudgets');
@@ -842,7 +845,7 @@ describe('Budget Handlers', () => {
       expect(json.monthlyBudgets.length).toBe(monthCount);
 
       // All months should have 0 amounts since no budget data exists
-      json.monthlyBudgets.forEach((budget: TestMonthlyBudgetItem) => {
+      json.monthlyBudgets.forEach((budget: MonthlyBudget) => {
         expect(budget.amounts[0].amount).toBe(0);
         expect(budget.amounts[0].currency).toBe('USD');
       });
@@ -852,13 +855,13 @@ describe('Budget Handlers', () => {
       expect(json.averageMonthlySpend.length).toBeGreaterThan(0);
 
       // Check the first period (1-month average)
-      const oneMonthPeriod = json.averageMonthlySpend.find((avg: TestAverageSpendItem) => avg.periodMonths === 1);
+      const oneMonthPeriod = json.averageMonthlySpend.find((avg: AverageSpendPeriod) => avg.periodMonths === 1);
       expect(oneMonthPeriod).toBeTruthy();
-      expect((oneMonthPeriod as TestAverageSpendItem).averages.length).toBe(1);
-      expect((oneMonthPeriod as TestAverageSpendItem).averages[0].currency).toBe('USD');
-      expect((oneMonthPeriod as TestAverageSpendItem).averages[0].totalSpend).toBe(0);
-      expect((oneMonthPeriod as TestAverageSpendItem).averages[0].averageMonthlySpend).toBe(0);
-      expect((oneMonthPeriod as TestAverageSpendItem).averages[0].monthsAnalyzed).toBe(1);
+      expect((oneMonthPeriod as AverageSpendPeriod).averages.length).toBe(1);
+      expect((oneMonthPeriod as AverageSpendPeriod).averages[0].currency).toBe('USD');
+      expect((oneMonthPeriod as AverageSpendPeriod).averages[0].totalSpend).toBe(0);
+      expect((oneMonthPeriod as AverageSpendPeriod).averages[0].averageMonthlySpend).toBe(0);
+      expect((oneMonthPeriod as AverageSpendPeriod).averages[0].monthsAnalyzed).toBe(1);
     });
 
     it('should calculate rolling averages correctly for different time periods', async () => {
@@ -897,29 +900,29 @@ describe('Budget Handlers', () => {
       await waitOnExecutionContext(ctx);
 
       expect(response.status).toBe(200);
-      const json = await response.json() as TestBudgetMonthlyResponse;
+      const json = await response.json() as BudgetMonthlyResponse;
 
       // Check that we have rolling averages for different periods
       // Since we have 6 months of recent data, we should get periods based on current date
       expect(json.averageMonthlySpend.length).toBeGreaterThan(0);
 
       // Find and check 1-month average
-      const oneMonthAverage = json.averageMonthlySpend.find((avg: TestAverageSpendItem) => avg.periodMonths === 1);
+      const oneMonthAverage = json.averageMonthlySpend.find((avg: AverageSpendPeriod) => avg.periodMonths === 1);
       expect(oneMonthAverage).toBeTruthy();
-      expect((oneMonthAverage as TestAverageSpendItem).averages[0].currency).toBe('USD');
+      expect((oneMonthAverage as AverageSpendPeriod).averages[0].currency).toBe('USD');
 
       // Find and check 2-month average
-      const twoMonthAverage = json.averageMonthlySpend.find((avg: TestAverageSpendItem) => avg.periodMonths === 2);
+      const twoMonthAverage = json.averageMonthlySpend.find((avg: AverageSpendPeriod) => avg.periodMonths === 2);
       expect(twoMonthAverage).toBeTruthy();
-      expect((twoMonthAverage as TestAverageSpendItem).averages[0].currency).toBe('USD');
+      expect((twoMonthAverage as AverageSpendPeriod).averages[0].currency).toBe('USD');
 
       // Find and check 3-month average
-      const threeMonthAverage = json.averageMonthlySpend.find((avg: TestAverageSpendItem) => avg.periodMonths === 3);
+      const threeMonthAverage = json.averageMonthlySpend.find((avg: AverageSpendPeriod) => avg.periodMonths === 3);
       expect(threeMonthAverage).toBeTruthy();
-      expect((threeMonthAverage as TestAverageSpendItem).averages[0].currency).toBe('USD');
+      expect((threeMonthAverage as AverageSpendPeriod).averages[0].currency).toBe('USD');
 
       // Find and check 6-month average (should include months within the 6-month window)
-      const sixMonthAverage = json.averageMonthlySpend.find((avg: TestAverageSpendItem) => avg.periodMonths === 6);
+      const sixMonthAverage = json.averageMonthlySpend.find((avg: AverageSpendPeriod) => avg.periodMonths === 6);
       if (sixMonthAverage) {
         expect(sixMonthAverage.averages[0].currency).toBe('USD');
         expect(sixMonthAverage.averages[0].totalSpend).toBeGreaterThan(0);
@@ -960,7 +963,7 @@ describe('Budget Handlers', () => {
       await waitOnExecutionContext(ctx);
 
       expect(response.status).toBe(200);
-      const json = await response.json() as TestBudgetTotalResponse[];
+      const json = await response.json() as BudgetTotalResponse;
       expect(json[0].amount).toBe(1500);
     });
   });

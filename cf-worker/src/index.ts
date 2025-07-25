@@ -74,6 +74,8 @@ export default {
       return await handleTransactionsList(request, env);
     } else if (path === '/hello') {
       return await handleHelloWorld(request, env);
+    } else if (path === '/.netlify/functions/hello') {
+      return await handleHelloWorld(request, env);
     } else {
       // For all other routes, defer to static assets
       // The [assets] configuration will handle serving the React SPA

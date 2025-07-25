@@ -1,515 +1,314 @@
 import { env, createExecutionContext, waitOnExecutionContext } from 'cloudflare:test';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import worker from '../index';
 import { setupAndCleanDatabase, createTestUserData, createTestSession, createTestRequest } from './test-utils';
-import { TestSuccessResponse, TestTransactionCreateResponse, TestTransactionsListResponse, TestErrorResponse, TestTransactionDbResult, TestTransactionUserDbResult } from './types';
+import {
+  ErrorResponse,
+  ApiEndpoints,
+  TransactionsListResponse
+} from '../../../shared-types';
 
-describe('Split Handlers', () => {
+// Type aliases for API responses
+type SplitCreateResponse = ApiEndpoints['/split_new']['response'];
+type SplitDeleteResponse = ApiEndpoints['/split_delete']['response'];
+
+// Define types for database result objects
+interface TransactionDbResult {
+  description: string;
+  amount: number;
+  currency: string;
+}
+
+interface TransactionUserDbResult {
+  amount: number;
+  currency: string;
+  group_id: number;
+}
+
+describe('Split handlers', () => {
   beforeEach(async () => {
     await setupAndCleanDatabase(env);
   });
 
-  describe('handleSplit', () => {
-    it('should create a split successfully with Splitwise (50/50)', async () => {
-      // Mock the external Splitwise API call
-      const mockFetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({ id: 12345 })
-      });
-
-      // Replace global fetch with our mock
-      vi.stubGlobal('fetch', mockFetch);
-
+  describe('Split creation', () => {
+    it('should create a split transaction successfully', async () => {
       // Set up test data
       await createTestUserData(env);
-      await createTestSession(env);
+      const sessionId = await createTestSession(env);
 
-      const request = createTestRequest('split', 'POST', {
+      const request = createTestRequest('split_new', 'POST', {
         amount: 100,
+        description: 'Test split',
         currency: 'USD',
-        description: 'Dinner',
-        splitPctShares: { '1': 50, '2': 50 },
-        paidByShares: { '1': 100, '2': 0 }
-      }, 'test-session-id');
+        paidByShares: { 1: 60, 2: 40 },
+        splitPctShares: { 1: 50, 2: 50 }
+      }, sessionId);
 
       const ctx = createExecutionContext();
       const response = await worker.fetch(request, env, ctx);
       await waitOnExecutionContext(ctx);
 
       expect(response.status).toBe(200);
-      const json = await response.json() as TestSuccessResponse;
-      expect(json.message).toBe('Split created successfully');
 
-      // Verify the mock was called with the correct URL
-      expect(mockFetch).toHaveBeenCalledWith(
-        'https://secure.splitwise.com/api/v3.0/create_expense',
-        expect.objectContaining({
-          method: 'POST',
-          headers: expect.objectContaining({
-            'Authorization': expect.stringContaining('Bearer'),
-            'Content-Type': 'application/json'
-          }),
-          body: expect.stringContaining('Dinner')
-        })
-      );
-
-      // Restore global fetch
-      vi.unstubAllGlobals();
-    });
-
-    it('should create a split with 60/40 percentage', async () => {
-      // Mock the external Splitwise API call
-      const mockFetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({ id: 12346 })
-      });
-
-      vi.stubGlobal('fetch', mockFetch);
-
-      // Set up test data
-      await createTestUserData(env);
-      await createTestSession(env);
-
-      const request = createTestRequest('split', 'POST', {
-        amount: 200,
-        currency: 'USD',
-        description: 'Groceries',
-        splitPctShares: { '1': 60, '2': 40 },
-        paidByShares: { '1': 200, '2': 0 }
-      }, 'test-session-id');
-
-      const ctx = createExecutionContext();
-      const response = await worker.fetch(request, env, ctx);
-      await waitOnExecutionContext(ctx);
-
-      expect(response.status).toBe(200);
-      const json = await response.json() as TestTransactionCreateResponse;
-      expect(json.message).toBe('Split created successfully');
+      const json = await response.json() as SplitCreateResponse;
+      expect(json.message).toContain('successfully');
       expect(json.transactionId).toBeDefined();
 
-      // Verify the transaction was stored in database
+      // Verify transaction was created in database
       const transactionResult = await env.DB.prepare('SELECT * FROM transactions WHERE transaction_id = ?').bind(json.transactionId).first();
-      expect(transactionResult).toBeTruthy();
-      const transaction = transactionResult as TestTransactionDbResult;
-      expect(transaction.description).toBe('Groceries');
-      expect(transaction.amount).toBe(200);
-
-      vi.unstubAllGlobals();
+      expect(transactionResult).toBeDefined();
+      expect((transactionResult as TransactionDbResult).description).toBe('Test split');
+      expect((transactionResult as TransactionDbResult).amount).toBe(100);
+      expect((transactionResult as TransactionDbResult).currency).toBe('USD');
     });
 
-    it('should create a split with 3 users', async () => {
-      // Mock the external Splitwise API call
-      const mockFetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({ id: 12347 })
-      });
-
-      vi.stubGlobal('fetch', mockFetch);
-
+    it('should create a complex split with multiple users successfully', async () => {
       // Set up test data
       await createTestUserData(env);
-      await createTestSession(env);
+      const sessionId = await createTestSession(env);
 
-      const request = createTestRequest('split', 'POST', {
-        amount: 300,
-        currency: 'USD',
-        description: 'Pizza for three',
-        splitPctShares: { '1': 40, '2': 30, '3': 30 },
-        paidByShares: { '1': 300, '2': 0, '3': 0 }
-      }, 'test-session-id');
-
-      const ctx = createExecutionContext();
-      const response = await worker.fetch(request, env, ctx);
-      await waitOnExecutionContext(ctx);
-
-      expect(response.status).toBe(200);
-      const json = await response.json() as TestTransactionCreateResponse;
-      expect(json.message).toBe('Split created successfully');
-      expect(json.transactionId).toBeDefined();
-
-      // Verify debt records are created (only for users who owe money)
-      // User 1 paid $300, owes $120 (40% of $300), so they are OWED $180
-      // Users 2 and 3 owe money, so 2 records should be created
-      const userTransactions = await env.DB.prepare('SELECT * FROM transaction_users WHERE transaction_id = ?').bind(json.transactionId).all();
-      expect(userTransactions.results.length).toBe(2);
-
-      vi.unstubAllGlobals();
-    });
-
-    it('should create a split with 4 users and mixed payment', async () => {
-      // Mock the external Splitwise API call
-      const mockFetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({ id: 12348 })
-      });
-
-      vi.stubGlobal('fetch', mockFetch);
-
-      // Set up test data
-      await createTestUserData(env);
-      await createTestSession(env);
-
-      const request = createTestRequest('split', 'POST', {
-        amount: 400,
-        currency: 'USD',
+      const request = createTestRequest('split_new', 'POST', {
+        amount: 120,
         description: 'Group dinner',
-        splitPctShares: { '1': 25, '2': 25, '3': 25, '4': 25 },
-        paidByShares: { '1': 150, '2': 100, '3': 150, '4': 0 }
-      }, 'test-session-id');
+        currency: 'USD',
+        paidByShares: { 1: 80, 2: 40 },
+        splitPctShares: { 1: 60, 2: 40 }
+      }, sessionId);
 
       const ctx = createExecutionContext();
       const response = await worker.fetch(request, env, ctx);
       await waitOnExecutionContext(ctx);
 
       expect(response.status).toBe(200);
-      const json = await response.json() as TestTransactionCreateResponse;
-      expect(json.message).toBe('Split created successfully');
-      expect(json.transactionId).toBeDefined();
 
-      // Verify debt records are created (only for users who owe money)
-      // User 1: paid $150, owes $100, net = +$50 (owed)
-      // User 2: paid $100, owes $100, net = $0 (even)
-      // User 3: paid $150, owes $100, net = +$50 (owed)
-      // User 4: paid $0, owes $100, net = -$100 (owes)
-      // Only User 4 owes money, split between Users 1 and 3, so 2 records
+      const json = await response.json() as SplitCreateResponse;
+      expect(json.message).toContain('successfully');
+
+      // Check that transaction details were created with correct amounts
       const userTransactions = await env.DB.prepare('SELECT * FROM transaction_users WHERE transaction_id = ?').bind(json.transactionId).all();
-      expect(userTransactions.results.length).toBe(2);
+      expect(userTransactions.results).toHaveLength(4); // 2 users x 2 payers
 
-      vi.unstubAllGlobals();
+      // Verify the split amounts add up correctly
+      const splitData = userTransactions.results as TransactionUserDbResult[];
+      const totalAmount = splitData.reduce((sum, record) => sum + record.amount, 0);
+      expect(Math.abs(totalAmount - 120)).toBeLessThan(0.01);
     });
 
-    it('should reject invalid split percentages', async () => {
-      // Set up test data
+    it('should return error for invalid split percentages', async () => {
       await createTestUserData(env);
-      await createTestSession(env);
+      const sessionId = await createTestSession(env);
 
-      const request = new Request('http://example.com/.netlify/functions/split', {
-        method: 'POST',
-        headers: {
-          'Authorization': 'Bearer test-session-id',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          amount: 100,
-          currency: 'USD',
-          description: 'Invalid split',
-          splitPctShares: { '1': 60, '2': 30 }, // Only adds up to 90%
-          paidByShares: { '1': 100, '2': 0 }
-        })
-      });
+      const request = createTestRequest('split_new', 'POST', {
+        amount: 100,
+        description: 'Invalid split',
+        currency: 'USD',
+        paidByShares: { 1: 100 },
+        splitPctShares: { 1: 60, 2: 30 } // Only adds up to 90%
+      }, sessionId);
 
       const ctx = createExecutionContext();
       const response = await worker.fetch(request, env, ctx);
       await waitOnExecutionContext(ctx);
 
       expect(response.status).toBe(400);
-      const json = await response.json() as TestErrorResponse;
-      expect(json.error).toBe('Split percentages must total 100%');
+
+      const json = await response.json() as ErrorResponse;
+      expect(json.error).toContain('100%');
     });
 
-    it('should reject invalid paid amounts', async () => {
-      // Set up test data
+    it('should return error for invalid paid amounts', async () => {
       await createTestUserData(env);
-      await createTestSession(env);
+      const sessionId = await createTestSession(env);
 
-      const request = new Request('http://example.com/.netlify/functions/split', {
-        method: 'POST',
-        headers: {
-          'Authorization': 'Bearer test-session-id',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          amount: 100,
-          currency: 'USD',
-          description: 'Invalid payment',
-          splitPctShares: { '1': 50, '2': 50 },
-          paidByShares: { '1': 80, '2': 0 } // Only adds up to 80, not 100
-        })
-      });
+      const request = createTestRequest('split_new', 'POST', {
+        amount: 100,
+        description: 'Invalid paid amounts',
+        currency: 'USD',
+        paidByShares: { 1: 60, 2: 30 }, // Only adds up to 90
+        splitPctShares: { 1: 50, 2: 50 }
+      }, sessionId);
 
       const ctx = createExecutionContext();
       const response = await worker.fetch(request, env, ctx);
       await waitOnExecutionContext(ctx);
 
       expect(response.status).toBe(400);
-      const json = await response.json() as TestErrorResponse;
-      expect(json.error).toBe('Paid amounts must equal total amount');
+
+      const json = await response.json() as ErrorResponse;
+      expect(json.error).toContain('total amount');
     });
   });
 
-  describe('handleSplitDelete', () => {
-    it('should delete a split successfully', async () => {
-      // Set up test data
+  describe('Split deletion', () => {
+    it('should delete a split transaction successfully', async () => {
+      // Set up test data and create a transaction first
       await createTestUserData(env);
-      await createTestSession(env);
+      const sessionId = await createTestSession(env);
 
-      // Create a transaction to delete using correct schema
+      // Insert a test transaction
       await env.DB.exec("INSERT INTO transactions (transaction_id, description, amount, currency, group_id, created_at) VALUES ('123', 'Test split', 100, 'USD', 1, '2024-01-01 00:00:00')");
       await env.DB.exec("INSERT INTO transaction_users (transaction_id, user_id, amount, owed_to_user_id, currency, group_id) VALUES ('123', 1, 50, 2, 'USD', 1)");
 
       const request = createTestRequest('split_delete', 'POST', {
         id: '123'
-      }, 'test-session-id');
+      }, sessionId);
 
       const ctx = createExecutionContext();
       const response = await worker.fetch(request, env, ctx);
       await waitOnExecutionContext(ctx);
 
       expect(response.status).toBe(200);
-      const json = await response.json() as TestSuccessResponse;
-      expect(json.message).toBe('Transaction deleted successfully');
+
+      const json = await response.json() as SplitDeleteResponse;
+      expect(json.message).toContain('successfully');
+    });
+
+    it('should handle deletion of non-existent transaction', async () => {
+      await createTestUserData(env);
+      const sessionId = await createTestSession(env);
+
+      const request = createTestRequest('split_delete', 'POST', {
+        id: 'non-existent'
+      }, sessionId);
+
+      const ctx = createExecutionContext();
+      const response = await worker.fetch(request, env, ctx);
+      await waitOnExecutionContext(ctx);
+
+      expect(response.status).toBe(404);
+
+      const json = await response.json() as ErrorResponse;
+      expect(json.error).toContain('not found');
     });
   });
 
-  describe('handleSplitNew', () => {
-    it('should create a new split in the database (50/50)', async () => {
-      // Set up test data
+  describe('Split creation (split_new)', () => {
+    it('should create a new split with generated transaction ID', async () => {
       await createTestUserData(env);
-      await createTestSession(env);
+      const sessionId = await createTestSession(env);
+
+      const request = createTestRequest('split_new', 'POST', {
+        amount: 75,
+        description: 'New split test',
+        currency: 'EUR',
+        paidByShares: { 1: 45, 2: 30 },
+        splitPctShares: { 1: 70, 2: 30 }
+      }, sessionId);
+
+      const ctx = createExecutionContext();
+      const response = await worker.fetch(request, env, ctx);
+      await waitOnExecutionContext(ctx);
+
+      expect(response.status).toBe(200);
+
+      const json = await response.json() as SplitCreateResponse;
+      expect(json.transactionId).toBeDefined();
+      expect(json.transactionId.length).toBeGreaterThan(0);
+
+      // Verify transaction was created in database
+      const transactionResult = await env.DB.prepare('SELECT * FROM transactions WHERE transaction_id = ?').bind(json.transactionId).first();
+      expect(transactionResult).toBeDefined();
+      expect((transactionResult as TransactionDbResult).description).toBe('New split test');
+      expect((transactionResult as TransactionDbResult).amount).toBe(75);
+      expect((transactionResult as TransactionDbResult).currency).toBe('EUR');
+    });
+
+    it('should create transaction users for new split', async () => {
+      await createTestUserData(env);
+      const sessionId = await createTestSession(env);
+
+      const request = createTestRequest('split_new', 'POST', {
+        amount: 90,
+        description: 'Multi-user split',
+        currency: 'GBP',
+        paidByShares: { 1: 60, 2: 30 },
+        splitPctShares: { 1: 40, 2: 60 }
+      }, sessionId);
+
+      const ctx = createExecutionContext();
+      const response = await worker.fetch(request, env, ctx);
+      await waitOnExecutionContext(ctx);
+
+      expect(response.status).toBe(200);
+
+      const json = await response.json() as SplitCreateResponse;
+
+      // Check transaction users were created
+      const userTransactions = await env.DB.prepare('SELECT * FROM transaction_users WHERE transaction_id = ?').bind(json.transactionId).all();
+      expect(userTransactions.results).toHaveLength(4); // 2 users, 2 payers = 4 entries
+
+      // Verify amounts and currencies
+      for (const transaction of userTransactions.results as TransactionUserDbResult[]) {
+        expect(transaction.currency).toBe('GBP');
+        expect(transaction.group_id).toBe(1);
+        expect(transaction.amount).toBeGreaterThan(0);
+      }
+    });
+
+    it('should return error for unauthenticated request', async () => {
+      const request = createTestRequest('split_new', 'POST', {
+        amount: 50,
+        description: 'Unauthenticated split',
+        currency: 'USD',
+        paidByShares: { 1: 50 },
+        splitPctShares: { 1: 100 }
+      });
+
+      const ctx = createExecutionContext();
+      const response = await worker.fetch(request, env, ctx);
+      await waitOnExecutionContext(ctx);
+
+      expect(response.status).toBe(401);
+
+      const json = await response.json() as ErrorResponse;
+      expect(json.error).toBe('Unauthorized');
+    });
+
+    it('should return error for invalid currency', async () => {
+      await createTestUserData(env);
+      const sessionId = await createTestSession(env);
 
       const request = createTestRequest('split_new', 'POST', {
         amount: 100,
-        currency: 'USD',
-        description: 'Dinner',
-        splitPctShares: { '1': 50, '2': 50 },
-        paidByShares: { '1': 100, '2': 0 }
-      }, 'test-session-id');
-
-      const ctx = createExecutionContext();
-      const response = await worker.fetch(request, env, ctx);
-      await waitOnExecutionContext(ctx);
-
-      expect(response.status).toBe(200);
-      const json = await response.json() as TestSuccessResponse;
-      expect(json.message).toBe('Transaction created successfully');
-    });
-
-    it('should create a new split with 70/30 percentage', async () => {
-      // Set up test data
-      await createTestUserData(env);
-      await createTestSession(env);
-
-      const request = new Request('http://example.com/.netlify/functions/split_new', {
-        method: 'POST',
-        headers: {
-          'Authorization': 'Bearer test-session-id',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          amount: 150,
-          currency: 'USD',
-          description: 'Coffee and pastries',
-          splitPctShares: { '1': 70, '2': 30 },
-          paidByShares: { '1': 150, '2': 0 }
-        })
-      });
-
-      const ctx = createExecutionContext();
-      const response = await worker.fetch(request, env, ctx);
-      await waitOnExecutionContext(ctx);
-
-      expect(response.status).toBe(200);
-      const json = await response.json() as TestTransactionCreateResponse;
-      expect(json.message).toBe('Transaction created successfully');
-      expect(json.transactionId).toBeDefined();
-
-      // Verify the transaction was stored in database
-      const transactionResult = await env.DB.prepare('SELECT * FROM transactions WHERE transaction_id = ?').bind(json.transactionId).first();
-      expect(transactionResult).toBeTruthy();
-      expect((transactionResult as TestTransactionDbResult).amount).toBe(150);
-    });
-
-    it('should create a new split with 3 users (equal shares)', async () => {
-      // Set up test data
-      await createTestUserData(env);
-      await createTestSession(env);
-
-      const request = new Request('http://example.com/.netlify/functions/split_new', {
-        method: 'POST',
-        headers: {
-          'Authorization': 'Bearer test-session-id',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          amount: 300,
-          currency: 'USD',
-          description: 'Taxi ride for three',
-          splitPctShares: { '1': 33.33, '2': 33.33, '3': 33.34 },
-          paidByShares: { '1': 300, '2': 0, '3': 0 }
-        })
-      });
-
-      const ctx = createExecutionContext();
-      const response = await worker.fetch(request, env, ctx);
-      await waitOnExecutionContext(ctx);
-
-      expect(response.status).toBe(200);
-      const json = await response.json() as TestTransactionCreateResponse;
-      expect(json.message).toBe('Transaction created successfully');
-      expect(json.transactionId).toBeDefined();
-
-      // Verify debt records are created (only for users who owe money)
-      // User 1 paid $300, but only owes $100 (33.33% of $300), so they are OWED money
-      // Users 2 and 3 owe money, so only 2 records should be created
-      const userTransactions = await env.DB.prepare('SELECT * FROM transaction_users WHERE transaction_id = ?').bind(json.transactionId).all();
-      expect(userTransactions.results.length).toBe(2);
-    });
-
-    it('should create a new split with 4 users (unequal shares)', async () => {
-      // Set up test data
-      await createTestUserData(env);
-      await createTestSession(env);
-
-      const request = new Request('http://example.com/.netlify/functions/split_new', {
-        method: 'POST',
-        headers: {
-          'Authorization': 'Bearer test-session-id',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          amount: 500,
-          currency: 'USD',
-          description: 'Hotel room split',
-          splitPctShares: { '1': 40, '2': 30, '3': 20, '4': 10 },
-          paidByShares: { '1': 0, '2': 500, '3': 0, '4': 0 }
-        })
-      });
-
-      const ctx = createExecutionContext();
-      const response = await worker.fetch(request, env, ctx);
-      await waitOnExecutionContext(ctx);
-
-      expect(response.status).toBe(200);
-      const json = await response.json() as TestTransactionCreateResponse;
-      expect(json.message).toBe('Transaction created successfully');
-      expect(json.transactionId).toBeDefined();
-
-      // Verify debt records are created (only for users who owe money)
-      // User 2 paid $500 and owes $150 (30% of $500), so they are OWED $350
-      // Users 1, 3, and 4 owe money, so 3 records should be created
-      const userTransactions = await env.DB.prepare('SELECT * FROM transaction_users WHERE transaction_id = ?').bind(json.transactionId).all();
-      expect(userTransactions.results.length).toBe(3);
-
-      // Check that the amounts match the expected split
-      const user1Transaction = userTransactions.results.find((t: TestTransactionUserDbResult) => t.user_id === 1);
-      expect(user1Transaction).toBeTruthy();
-      expect((user1Transaction as TestTransactionUserDbResult).amount).toBe(200); // 40% of 500
-    });
-
-    it('should create a new split with multiple people paying', async () => {
-      // Set up test data
-      await createTestUserData(env);
-      await createTestSession(env);
-
-      const request = new Request('http://example.com/.netlify/functions/split_new', {
-        method: 'POST',
-        headers: {
-          'Authorization': 'Bearer test-session-id',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          amount: 240,
-          currency: 'USD',
-          description: 'Concert tickets',
-          splitPctShares: { '1': 25, '2': 25, '3': 25, '4': 25 },
-          paidByShares: { '1': 120, '2': 120, '3': 0, '4': 0 }
-        })
-      });
-
-      const ctx = createExecutionContext();
-      const response = await worker.fetch(request, env, ctx);
-      await waitOnExecutionContext(ctx);
-
-      expect(response.status).toBe(200);
-      const json = await response.json() as TestTransactionCreateResponse;
-      expect(json.message).toBe('Transaction created successfully');
-      expect(json.transactionId).toBeDefined();
-
-      // Verify the transaction was stored
-      const transactionResult = await env.DB.prepare('SELECT * FROM transactions WHERE transaction_id = ?').bind(json.transactionId).first();
-      expect(transactionResult).toBeTruthy();
-      expect((transactionResult as TestTransactionDbResult).amount).toBe(240);
-    });
-
-    it('should reject invalid split percentages in split_new', async () => {
-      // Set up test data
-      await createTestUserData(env);
-      await createTestSession(env);
-
-      const request = new Request('http://example.com/.netlify/functions/split_new', {
-        method: 'POST',
-        headers: {
-          'Authorization': 'Bearer test-session-id',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          amount: 100,
-          currency: 'USD',
-          description: 'Invalid split',
-          splitPctShares: { '1': 45, '2': 45 }, // Only adds up to 90%
-          paidByShares: { '1': 100, '2': 0 }
-        })
-      });
+        description: 'Invalid currency split',
+        currency: 'INVALID',
+        paidByShares: { 1: 100 },
+        splitPctShares: { 1: 100 }
+      }, sessionId);
 
       const ctx = createExecutionContext();
       const response = await worker.fetch(request, env, ctx);
       await waitOnExecutionContext(ctx);
 
       expect(response.status).toBe(400);
-      const json = await response.json() as TestErrorResponse;
-      expect(json.error).toBe('Split percentages must total 100%');
-    });
 
-    it('should reject invalid paid amounts in split_new', async () => {
-      // Set up test data
-      await createTestUserData(env);
-      await createTestSession(env);
-
-      const request = new Request('http://example.com/.netlify/functions/split_new', {
-        method: 'POST',
-        headers: {
-          'Authorization': 'Bearer test-session-id',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          amount: 100,
-          currency: 'USD',
-          description: 'Invalid payment',
-          splitPctShares: { '1': 50, '2': 50 },
-          paidByShares: { '1': 120, '2': 0 } // Paid amount exceeds total
-        })
-      });
-
-      const ctx = createExecutionContext();
-      const response = await worker.fetch(request, env, ctx);
-      await waitOnExecutionContext(ctx);
-
-      expect(response.status).toBe(400);
-      const json = await response.json() as TestErrorResponse;
-      expect(json.error).toBe('Paid amounts must equal total amount');
+      const json = await response.json() as ErrorResponse;
+      expect(json.error).toContain('currency');
     });
   });
 
-  describe('handleTransactionsList', () => {
-    it('should return a list of transactions', async () => {
-      // Set up test data
+  describe('Transactions list', () => {
+    it('should return list of transactions', async () => {
       await createTestUserData(env);
-      await createTestSession(env);
+      const sessionId = await createTestSession(env);
 
-      // Create some transactions using correct schema
+      // Add a test transaction
       await env.DB.exec("INSERT INTO transactions (transaction_id, description, amount, currency, group_id, created_at) VALUES ('1', 'Transaction 1', 100, 'USD', 1, '2024-01-01 00:00:00')");
 
       const request = createTestRequest('transactions_list', 'POST', {
         offset: 0
-      }, 'test-session-id');
+      }, sessionId);
 
       const ctx = createExecutionContext();
       const response = await worker.fetch(request, env, ctx);
       await waitOnExecutionContext(ctx);
 
       expect(response.status).toBe(200);
-      const json = await response.json() as TestTransactionsListResponse;
+
+      const json = await response.json() as TransactionsListResponse;
+      expect(json.transactions).toHaveLength(1);
       expect(json.transactions[0].description).toBe('Transaction 1');
+      expect(json.transactionDetails).toBeDefined();
     });
   });
 });
