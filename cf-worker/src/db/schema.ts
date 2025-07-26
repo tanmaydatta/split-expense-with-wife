@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, real, primaryKey } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, real, primaryKey, index, uniqueIndex } from 'drizzle-orm/sqlite-core';
 import { TransactionMetadata } from '../../../shared-types';
 
 export const users = sqliteTable('users', {
@@ -9,7 +9,9 @@ export const users = sqliteTable('users', {
   lastName: text('last_name', { length: 50 }),
   groupid: integer('groupid').notNull(),
   createdAt: text('created_at').notNull().default('CURRENT_TIMESTAMP')
-});
+}, (table) => [
+  index('users_username_idx').on(table.username)
+]);
 
 export const groups = sqliteTable('groups', {
   groupid: integer('groupid').primaryKey({ autoIncrement: true }),
@@ -24,7 +26,9 @@ export const sessions = sqliteTable('sessions', {
   username: text('username', { length: 255 }).notNull(),
   sessionid: text('sessionid', { length: 255 }).notNull(),
   expiryTime: text('expiry_time').notNull()
-});
+}, (table) => [
+  index('sessions_sessionid_idx').on(table.sessionid)
+]);
 
 export const transactions = sqliteTable('transactions', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -36,7 +40,12 @@ export const transactions = sqliteTable('transactions', {
   transactionId: text('transaction_id', { length: 100 }),
   groupId: integer('group_id').notNull(),
   deleted: text('deleted')
-});
+}, (table) => [
+  index('transactions_group_id_deleted_created_at_idx').on(table.groupId, table.deleted, table.createdAt),
+  index('transactions_created_at_idx').on(table.createdAt),
+  uniqueIndex('transactions_transaction_id_idx').on(table.transactionId),
+  index('transactions_group_id_idx').on(table.groupId)
+]);
 
 export const transactionUsers = sqliteTable('transaction_users', {
   transactionId: text('transaction_id', { length: 100 }).notNull(),
@@ -46,9 +55,18 @@ export const transactionUsers = sqliteTable('transaction_users', {
   groupId: integer('group_id').notNull(),
   currency: text('currency', { length: 10 }).notNull(),
   deleted: text('deleted')
-}, (table) => ({
-  pk: primaryKey({ columns: [table.transactionId, table.userId, table.owedToUserId] })
-}));
+}, (table) => [
+  primaryKey({ columns: [table.transactionId, table.userId, table.owedToUserId] }),
+  index('transaction_users_transaction_group_idx').on(table.transactionId, table.groupId, table.deleted),
+  index('transaction_users_transaction_idx').on(table.transactionId, table.deleted),
+  index('transaction_users_group_owed_idx').on(table.groupId, table.owedToUserId, table.deleted),
+  index('transaction_users_group_user_idx').on(table.groupId, table.userId, table.deleted),
+  index('transaction_users_balances_idx').on(table.groupId, table.deleted, table.userId, table.owedToUserId, table.currency),
+  index('transaction_users_group_id_deleted_idx').on(table.groupId, table.deleted),
+  index('transaction_users_user_id_idx').on(table.userId),
+  index('transaction_users_owed_to_user_id_idx').on(table.owedToUserId),
+  index('transaction_users_group_id_idx').on(table.groupId)
+]);
 
 export const budget = sqliteTable('budget', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -59,8 +77,17 @@ export const budget = sqliteTable('budget', {
   name: text('name', { length: 100 }).notNull(),
   deleted: text('deleted'),
   groupid: integer('groupid').notNull(),
-  currency: text('currency', { length: 10 }).notNull()
-});
+  currency: text('currency', { length: 10 }).notNull().default('GBP')
+}, (table) => [
+  index('budget_monthly_query_idx').on(table.name, table.groupid, table.deleted, table.addedTime),
+  index('budget_name_groupid_deleted_added_time_amount_idx').on(table.name, table.groupid, table.deleted, table.addedTime, table.amount),
+  index('budget_name_groupid_deleted_idx').on(table.name, table.groupid, table.deleted),
+  index('budget_name_price_idx').on(table.name, table.price),
+  index('budget_name_idx').on(table.name),
+  index('budget_amount_idx').on(table.amount),
+  index('budget_name_added_time_idx').on(table.name, table.addedTime),
+  index('budget_added_time_idx').on(table.addedTime)
+]);
 
 export const userBalances = sqliteTable('user_balances', {
   groupId: integer('group_id').notNull(),
@@ -69,9 +96,11 @@ export const userBalances = sqliteTable('user_balances', {
   currency: text('currency', { length: 10 }).notNull(),
   balance: real('balance').notNull().default(0),
   updatedAt: text('updated_at').notNull()
-}, (table) => ({
-  pk: primaryKey({ columns: [table.groupId, table.userId, table.owedToUserId, table.currency] })
-}));
+}, (table) => [
+  primaryKey({ columns: [table.groupId, table.userId, table.owedToUserId, table.currency] }),
+  index('user_balances_group_owed_idx').on(table.groupId, table.owedToUserId, table.currency),
+  index('user_balances_group_user_idx').on(table.groupId, table.userId, table.currency)
+]);
 
 export const budgetTotals = sqliteTable('budget_totals', {
   groupId: integer('group_id').notNull(),
@@ -79,9 +108,10 @@ export const budgetTotals = sqliteTable('budget_totals', {
   currency: text('currency', { length: 10 }).notNull(),
   totalAmount: real('total_amount').notNull().default(0),
   updatedAt: text('updated_at').notNull()
-}, (table) => ({
-  pk: primaryKey({ columns: [table.groupId, table.name, table.currency] })
-}));
+}, (table) => [
+  primaryKey({ columns: [table.groupId, table.name, table.currency] }),
+  index('budget_totals_group_name_idx').on(table.groupId, table.name)
+]);
 
 // Create schema object for Drizzle
 export const schema = {
