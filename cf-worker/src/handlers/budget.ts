@@ -12,11 +12,14 @@ import {
   BudgetListRequest,
   BudgetDeleteRequest,
   BudgetMonthlyRequest,
-  BudgetTotalRequest
+  BudgetTotalRequest,
+  BudgetMonthlyResponse,
+  AverageSpendPeriod,
+  AverageSpendData
 } from '../../../shared-types';
 import { getDb } from '../db';
 import { budget, userBalances, budgetTotals, users } from '../db/schema';
-import { eq, and, desc, lt, isNull, lte, gte, sql } from 'drizzle-orm';
+import { eq, and, desc, lt, isNull, gte, sql } from 'drizzle-orm';
 
 // Handle balances
 export async function handleBalances(request: CFRequest, env: Env): Promise<Response> {
@@ -316,194 +319,176 @@ export async function handleBudgetMonthly(request: CFRequest, env: Env): Promise
     }
 
     const name = body.name || 'house';
+    const oldestData = new Date();
+    oldestData.setFullYear(oldestData.getFullYear() - 2);
+
     const db = getDb(env);
 
-    // First, find the earliest budget data to determine our range
-    const earliestData = await db
+    // Get monthly budget data (only expenses - negative amounts)
+    const monthlyData = await db
       .select({
-        earliestDate: sql<string>`MIN(added_time)`.as('earliestDate')
+        month: sql<number>`CAST(strftime('%m', added_time) AS INTEGER)`.as('month'),
+        year: sql<number>`CAST(strftime('%Y', added_time) AS INTEGER)`.as('year'),
+        currency: budget.currency,
+        amount: sql<number>`SUM(amount)`.as('amount')
       })
       .from(budget)
       .where(
         and(
           eq(budget.name, name),
           eq(budget.groupid, session.group.groupid),
-          isNull(budget.deleted)
+          isNull(budget.deleted),
+          gte(budget.addedTime, formatSQLiteTime(oldestData)),
+          lt(budget.amount, 0) // Only negative amounts (expenses)
         )
+      )
+      .groupBy(
+        sql`strftime('%Y', added_time)`,
+        sql`strftime('%m', added_time)`,
+        budget.currency
+      )
+      .orderBy(
+        sql`strftime('%Y', added_time) DESC`,
+        sql`strftime('%m', added_time) DESC`
       );
 
-    const currentDate = new Date();
-    let startDate: Date;
-    let endDate: Date;
-    let currencies: string[];
+    // Process data into monthly format
+    const monthToName = [
+      '', 'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
 
-    // If no data exists, use default 2-year range
-    if (!earliestData[0]?.earliestDate) {
-      // Create 2-year default range
-      const twoYearsAgo = new Date();
-      twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
-      startDate = new Date(twoYearsAgo.getFullYear(), twoYearsAgo.getMonth(), 1);
-      endDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1); // Start of current month
-      currencies = ['USD']; // Default currency for empty data
-    } else {
-      // Parse the earliest date and set our range
-      const earliestDate = new Date(earliestData[0].earliestDate);
+    // First, collect all unique currencies and find date range
+    const allCurrencies = new Set<string>();
+    let oldestDate = new Date();
+    const today = new Date();
 
-      // Calculate date range - from earliest data to current month
-      startDate = new Date(earliestDate.getFullYear(), earliestDate.getMonth(), 1);
-      endDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1); // Start of current month
-
-      // Get all currencies used in this budget
-      const allCurrencies = await db
-        .select({
-          currency: budget.currency
-        })
-        .from(budget)
-        .where(
-          and(
-            eq(budget.name, name),
-            eq(budget.groupid, session.group.groupid),
-            isNull(budget.deleted)
-          )
-        )
-        .groupBy(budget.currency);
-
-      currencies = allCurrencies.map(c => c.currency);
-    }
-
-    const startDateStr = formatSQLiteTime(startDate);
-    const endDateStr = formatSQLiteTime(endDate);
-
-    // Get actual budget data grouped by month and currency (only if we have data)
-    const dataMap = new Map<string, Map<string, number>>();
-
-    if (earliestData[0]?.earliestDate) {
-      const monthlyBudgets = await db
-        .select({
-          month: sql<string>`strftime('%m', added_time)`.as('month'),
-          year: sql<number>`CAST(strftime('%Y', added_time) AS INTEGER)`.as('year'),
-          currency: budget.currency,
-          amount: sql<number>`SUM(amount)`.as('amount')
-        })
-        .from(budget)
-        .where(
-          and(
-            eq(budget.name, name),
-            eq(budget.groupid, session.group.groupid),
-            isNull(budget.deleted),
-            gte(budget.addedTime, startDateStr),
-            lte(budget.addedTime, endDateStr)
-          )
-        )
-        .groupBy(
-          sql`strftime('%Y-%m', added_time)`,
-          budget.currency
-        )
-        .orderBy(
-          sql`strftime('%Y-%m', added_time) DESC`,
-          budget.currency
-        );
-
-      // Create a map of actual data
-      for (const row of monthlyBudgets) {
-        const monthKey = `${row.year}-${row.month.padStart(2, '0')}`;
-        if (!dataMap.has(monthKey)) {
-          dataMap.set(monthKey, new Map());
-        }
-        const monthMap = dataMap.get(monthKey);
-        if (monthMap) {
-          monthMap.set(row.currency, row.amount);
-        }
+    monthlyData.forEach(data => {
+      allCurrencies.add(data.currency);
+      const dataDate = new Date(data.year, data.month - 1);
+      if (dataDate < oldestDate) {
+        oldestDate = dataDate;
       }
+    });
+
+    // If no data, use a reasonable default (2 years back)
+    if (monthlyData.length === 0) {
+      oldestDate = new Date();
+      oldestDate.setFullYear(oldestDate.getFullYear() - 2);
+      allCurrencies.add('USD'); // Default currency if no data
     }
 
-    // Generate all months in the range with all currencies
-    const monthlyBudgetResults = [];
-    const tempDate = new Date(endDate); // Start from current month
+    // Create map from actual data
+    const dataMap: Record<string, Record<string, number>> = {};
+    for (const data of monthlyData) {
+      const key = `${data.year}-${data.month}`;
+      if (!dataMap[key]) {
+        dataMap[key] = {};
+      }
+      dataMap[key][data.currency] = data.amount;
+    }
 
-    while (tempDate >= startDate) {
-      const year = tempDate.getFullYear();
-      const month = (tempDate.getMonth() + 1).toString().padStart(2, '0');
-      const monthName = tempDate.toLocaleString('default', { month: 'long' });
-      const monthKey = `${year}-${month}`;
+    // Generate all months from today back to oldest date
+    const monthlyBudgets: Array<{
+      month: string;
+      year: number;
+      amounts: Array<{ currency: string; amount: number }>;
+    }> = [];
 
-      const amounts = currencies.map(currency => ({
+    const currentDate = new Date(today.getFullYear(), today.getMonth()); // Start of current month
+    const endDate = new Date(oldestDate.getFullYear(), oldestDate.getMonth()); // Start of oldest month
+
+    while (currentDate >= endDate) {
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth() + 1; // JS months are 0-indexed, but our data is 1-indexed
+      const key = `${year}-${month}`;
+
+      const amounts: Array<{ currency: string; amount: number }> = [];
+
+      // For each currency, add either real data or 0 (convert to absolute value for display)
+      for (const currency of allCurrencies) {
+        const amount = dataMap[key]?.[currency] || 0;
+        amounts.push({ currency, amount: Math.abs(amount) });
+      }
+
+      monthlyBudgets.push({
+        month: monthToName[month],
+        year: year,
+        amounts: amounts
+      });
+
+      // Move to previous month
+      currentDate.setMonth(currentDate.getMonth() - 1);
+    }
+
+    // Calculate rolling averages for different time periods
+    const rollingAverages: AverageSpendPeriod[] = [];
+
+    // Calculate max periods based on how many months we generated (from today to oldest)
+    const maxMonthsBack = monthlyBudgets.length;
+
+    // Calculate averages for 1, 2, 3, ... up to maxMonthsBack months
+    const periodsToCalculate = Array.from({length: maxMonthsBack}, (_, i) => i + 1);
+
+    for (const monthsBack of periodsToCalculate) {
+      // Take the first N months from our generated monthlyBudgets (which starts from today)
+      const periodBudgets = monthlyBudgets.slice(0, monthsBack);
+
+      // Calculate totals by currency for this period (including months with 0 spend)
+      const currencyTotals: Record<string, number> = {};
+
+      // Initialize all currencies to 0
+      for (const currency of allCurrencies) {
+        currencyTotals[currency] = 0;
+      }
+
+      // Sum up actual spending for each currency across all months in the period
+      periodBudgets.forEach(monthData => {
+        monthData.amounts.forEach(amount => {
+          currencyTotals[amount.currency] += Math.abs(amount.amount);
+        });
+      });
+
+      // Create average entries for each currency
+      const currencyAverages: AverageSpendData[] = Array.from(allCurrencies).map(currency => ({
         currency,
-        amount: dataMap.get(monthKey)?.get(currency) || 0
+        averageMonthlySpend: monthsBack > 0 ? currencyTotals[currency] / monthsBack : 0,
+        totalSpend: currencyTotals[currency],
+        monthsAnalyzed: monthsBack
       }));
 
-      if (amounts.length > 0) {
-        monthlyBudgetResults.push({
-          month: monthName,
-          year: year,
-          amounts: amounts
-        });
-      }
+      // Filter out currencies with 0 total spend unless there's no data at all
+      const filteredAverages = currencyAverages.filter(avg => avg.totalSpend > 0);
 
-      if (tempDate.getMonth() === 0) {
-        tempDate.setFullYear(tempDate.getFullYear() - 1, 11, 1);
-      } else {
-        tempDate.setMonth(tempDate.getMonth() - 1, 1);
-      }
+      // If no spending data for this period, add a default entry
+      const finalAverages = filteredAverages.length > 0 ? filteredAverages : [{
+        currency: Array.from(allCurrencies)[0] || 'USD',
+        averageMonthlySpend: 0,
+        totalSpend: 0,
+        monthsAnalyzed: monthsBack
+      }];
+
+      const averageSpendPeriod: AverageSpendPeriod = {
+        periodMonths: monthsBack,
+        averages: finalAverages
+      };
+
+      rollingAverages.push(averageSpendPeriod);
     }
 
-    // Calculate rolling averages for all periods
-    const totalMonths = monthlyBudgetResults.length;
-    const averageSpendResults = [];
+    const averages = rollingAverages;
 
-    // For each period from 1 to total months
-    for (let periodMonths = 1; periodMonths <= totalMonths; periodMonths++) {
-      const periodData: Array<{
-        currency: string;
-        averageMonthlySpend: number;
-        totalSpend: number;
-        monthsAnalyzed: number;
-      }> = [];
-
-      // Calculate for each currency that has data anywhere in the time range
-      for (const currency of currencies) {
-        let totalSpend = 0;
-        let monthsWithData = 0;
-
-        // Sum up the last N months for this currency
-        for (let i = 0; i < periodMonths && i < monthlyBudgetResults.length; i++) {
-          const monthData = monthlyBudgetResults[i];
-          const currencyAmount = monthData.amounts.find(a => a.currency === currency)?.amount || 0;
-          if (currencyAmount !== 0) {
-            totalSpend += Math.abs(currencyAmount); // Convert to positive for spend calculation
-            monthsWithData++;
-          }
-        }
-
-        // Always include the currency in the period analysis
-        // This matches the production behavior where all periods are included
-        periodData.push({
-          currency,
-          averageMonthlySpend: monthsWithData > 0 ? totalSpend / monthsWithData : 0,
-          totalSpend,
-          monthsAnalyzed: monthsWithData > 0 ? monthsWithData : periodMonths
-        });
-      }
-
-      // Always add all periods (matching production behavior)
-      if (periodData.length > 0) {
-        averageSpendResults.push({
-          periodMonths,
-          averages: periodData
-        });
-      }
-    }
-
-    const response = {
-      monthlyBudgets: monthlyBudgetResults,
-      averageMonthlySpend: averageSpendResults,
+    // Return combined response
+    const result: BudgetMonthlyResponse = {
+      monthlyBudgets,
+      averageMonthlySpend: averages,
       periodAnalyzed: {
-        startDate: startDateStr,
-        endDate: endDateStr
+        startDate: formatSQLiteTime(oldestDate),
+        endDate: formatSQLiteTime(today)
       }
     };
 
-    return createJsonResponse(response, 200, {}, request, env);
+    return createJsonResponse(result, 200, {}, request, env);
 
   } catch (error) {
     console.error('Budget monthly error:', error);
