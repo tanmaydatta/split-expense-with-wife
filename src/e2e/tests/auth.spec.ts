@@ -48,8 +48,8 @@ test.describe('Authentication Flow', () => {
     await testHelper.page.fill('[data-test-id="password-input"]', testData.users.invalidUser.password);
     await testHelper.page.click('[data-test-id="login-button"]');
 
-    // Should remain on root page with login form visible
-    await expect(testHelper.page).toHaveURL('/');
+    // Should redirect to login page with login form visible
+    await expect(testHelper.page).toHaveURL('/login');
     await expect(testHelper.page.locator('[data-test-id="login-form"]')).toBeVisible();
     const sessionToken = await testHelper.page.evaluate(() => localStorage.getItem('sessionToken'));
     expect(sessionToken).toBeNull();

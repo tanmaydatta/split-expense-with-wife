@@ -14,7 +14,8 @@ import {
 import {
   SplitRequest,
   SplitDeleteRequest,
-  TransactionsListRequest
+  TransactionsListRequest,
+  TransactionUser
 } from '../../../shared-types';
 import { getDb } from '../db';
 import { transactions, transactionUsers } from '../db/schema';
@@ -88,6 +89,40 @@ export async function handleSplit(request: CFRequest, env: Env): Promise<Respons
       body.currency
     );
 
+    // Create metadata object matching production format
+    const owedAmounts: Record<string, number> = {};
+    const owedToAmounts: Record<string, number> = {};
+    const paidByShares: Record<string, number> = {};
+
+    // Transform paidByShares to use first names instead of user IDs
+    for (const [userId, amount] of Object.entries(body.paidByShares)) {
+      const userName = session.usersById[parseInt(userId)]?.FirstName || `User${userId}`;
+      paidByShares[userName] = amount;
+    }
+
+    // Calculate owedAmounts based on split percentages (each person's total share)
+    for (const [userId, splitPct] of Object.entries(body.splitPctShares)) {
+      const userName = session.usersById[parseInt(userId)]?.FirstName || `User${userId}`;
+      owedAmounts[userName] = Math.round((body.amount * splitPct / 100) * 100) / 100;
+    }
+
+    // Calculate owedToAmounts (net amounts owed to each person)
+    for (const [userId, paidAmount] of Object.entries(body.paidByShares)) {
+      const userName = session.usersById[parseInt(userId)]?.FirstName || `User${userId}`;
+      const owedAmount = owedAmounts[userName] || 0;
+      const netOwed = paidAmount - owedAmount;
+
+      if (netOwed > 0.01) { // Only include if person is owed money (with small tolerance for rounding)
+        owedToAmounts[userName] = Math.round(netOwed * 100) / 100;
+      }
+    }
+
+    const metadata = {
+      paidByShares,
+      owedAmounts,
+      owedToAmounts
+    };
+
     const db = getDb(env);
 
     // Prepare all statements for single batch operation
@@ -99,7 +134,8 @@ export async function handleSplit(request: CFRequest, env: Env): Promise<Respons
         amount: body.amount,
         currency: body.currency,
         groupId: session.group.groupid,
-        createdAt: createdAt
+        createdAt: createdAt,
+        metadata: metadata
       });
 
     const userInserts = splitAmounts.map(split =>
@@ -173,6 +209,40 @@ export async function handleSplitNew(request: CFRequest, env: Env): Promise<Resp
       body.currency
     );
 
+    // Create metadata object matching production format
+    const owedAmounts: Record<string, number> = {};
+    const owedToAmounts: Record<string, number> = {};
+    const paidByShares: Record<string, number> = {};
+
+    // Transform paidByShares to use first names instead of user IDs
+    for (const [userId, amount] of Object.entries(body.paidByShares)) {
+      const userName = session.usersById[parseInt(userId)]?.FirstName || `User${userId}`;
+      paidByShares[userName] = amount;
+    }
+
+    // Calculate owedAmounts based on split percentages (each person's total share)
+    for (const [userId, splitPct] of Object.entries(body.splitPctShares)) {
+      const userName = session.usersById[parseInt(userId)]?.FirstName || `User${userId}`;
+      owedAmounts[userName] = Math.round((body.amount * splitPct / 100) * 100) / 100;
+    }
+
+    // Calculate owedToAmounts (net amounts owed to each person)
+    for (const [userId, paidAmount] of Object.entries(body.paidByShares)) {
+      const userName = session.usersById[parseInt(userId)]?.FirstName || `User${userId}`;
+      const owedAmount = owedAmounts[userName] || 0;
+      const netOwed = paidAmount - owedAmount;
+
+      if (netOwed > 0.001) { // Only include if person is owed money (with small tolerance for rounding)
+        owedToAmounts[userName] = Math.round(netOwed * 100) / 100;
+      }
+    }
+
+    const metadata = {
+      paidByShares,
+      owedAmounts,
+      owedToAmounts
+    };
+
     const db = getDb(env);
 
     // Prepare all statements for single batch operation
@@ -184,7 +254,8 @@ export async function handleSplitNew(request: CFRequest, env: Env): Promise<Resp
         amount: body.amount,
         currency: body.currency,
         groupId: session.group.groupid,
-        createdAt: createdAt
+        createdAt: createdAt,
+        metadata: metadata
       });
 
     const userInserts = splitAmounts.map(split =>
@@ -310,7 +381,7 @@ export async function handleTransactionsList(request: CFRequest, env: Env): Prom
     const db = getDb(env);
 
     // Get transactions list using Drizzle
-    const transactionsList = await db
+    const rawTransactionsList = await db
       .select()
       .from(transactions)
       .where(
@@ -323,9 +394,26 @@ export async function handleTransactionsList(request: CFRequest, env: Env): Prom
       .limit(10)
       .offset(body.offset);
 
+    // Transform to match production format (snake_case field names, no id field)
+    const transactionsList = rawTransactionsList.map(t => {
+      const defaultMetadata = { owedAmounts: {}, paidByShares: {}, owedToAmounts: {} };
+      const metadata = t.metadata || defaultMetadata;
+
+      return {
+        description: t.description,
+        amount: t.amount,
+        created_at: t.createdAt,
+        metadata: JSON.stringify(metadata), // Convert to JSON string as expected by frontend
+        currency: t.currency,
+        transaction_id: t.transactionId,
+        group_id: t.groupId,
+        deleted: t.deleted
+      };
+    });
+
     // Get transaction details for all transactions
-    const transactionIds = transactionsList.map(t => t.transactionId).filter((id): id is string => id !== null);
-    const transactionDetails: Record<string, typeof transactionUsers.$inferSelect[]> = {};
+    const transactionIds = rawTransactionsList.map(t => t.transactionId).filter((id): id is string => id !== null);
+    const transactionDetails: Record<string, TransactionUser[]> = {};
 
     if (transactionIds.length > 0) {
       // Get all transaction details using Drizzle
@@ -356,13 +444,14 @@ export async function handleTransactionsList(request: CFRequest, env: Env): Prom
           transactionDetails[detail.transactionId] = [];
         }
         transactionDetails[detail.transactionId].push({
-          transactionId: detail.transactionId,
-          userId: detail.userId,
+          transaction_id: detail.transactionId || '',
+          user_id: detail.userId,
           amount: detail.amount,
-          owedToUserId: detail.owedToUserId,
-          groupId: detail.groupId,
+          owed_to_user_id: detail.owedToUserId,
+          group_id: detail.groupId,
           currency: detail.currency,
-          deleted: detail.deleted
+          deleted: detail.deleted || undefined,
+          first_name: detail.firstName || undefined
         });
       }
     }

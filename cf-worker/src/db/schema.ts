@@ -1,4 +1,5 @@
 import { sqliteTable, text, integer, real, primaryKey } from 'drizzle-orm/sqlite-core';
+import { TransactionMetadata } from '../../../shared-types';
 
 export const users = sqliteTable('users', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -30,7 +31,7 @@ export const transactions = sqliteTable('transactions', {
   description: text('description', { length: 255 }).notNull(),
   amount: real('amount').notNull(),
   createdAt: text('created_at').notNull().default('CURRENT_TIMESTAMP'),
-  metadata: text('metadata', { length: 2000 }),
+  metadata: text('metadata', { mode: 'json' }).$type<TransactionMetadata>(),
   currency: text('currency', { length: 10 }).notNull(),
   transactionId: text('transaction_id', { length: 100 }),
   groupId: integer('group_id').notNull(),

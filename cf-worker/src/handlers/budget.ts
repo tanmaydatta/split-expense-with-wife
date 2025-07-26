@@ -282,7 +282,13 @@ export async function handleBudgetList(request: CFRequest, env: Env): Promise<Re
       .limit(5)
       .offset(body.offset);
 
-    return createJsonResponse(budgetEntries, 200, {}, request, env);
+    // Ensure price field is properly formatted as string
+    const formattedEntries = budgetEntries.map(entry => ({
+      ...entry,
+      price: entry.price || (entry.amount >= 0 ? `+${entry.amount.toFixed(2)}` : `-${entry.amount.toFixed(2)}`)
+    }));
+
+    return createJsonResponse(formattedEntries, 200, {}, request, env);
 
   } catch (error) {
     console.error('Budget list error:', error);
@@ -426,13 +432,19 @@ export async function handleBudgetMonthly(request: CFRequest, env: Env): Promise
         amount: dataMap.get(monthKey)?.get(currency) || 0
       }));
 
-      monthlyBudgetResults.push({
-        month: monthName,
-        year: year,
-        amounts: amounts
-      });
+      if (amounts.length > 0) {
+        monthlyBudgetResults.push({
+          month: monthName,
+          year: year,
+          amounts: amounts
+        });
+      }
 
-      tempDate.setMonth(tempDate.getMonth() - 1);
+      if (tempDate.getMonth() === 0) {
+        tempDate.setFullYear(tempDate.getFullYear() - 1, 11, 1);
+      } else {
+        tempDate.setMonth(tempDate.getMonth() - 1, 1);
+      }
     }
 
     // Calculate rolling averages for all periods

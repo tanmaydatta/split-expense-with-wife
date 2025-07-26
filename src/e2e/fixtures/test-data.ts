@@ -14,6 +14,13 @@ export const testUsers: Record<string, TestUser> = {
     firstName: 'Jane',
     userId: 2
   },
+  // Group 2 user for multi-person testing (3-person group)
+  user3: {
+    username: 'alice.wilson',
+    password: 'password789',
+    firstName: 'Alice',
+    userId: 3
+  },
   invalidUser: {
     username: 'invalid',
     password: 'wrongpass',

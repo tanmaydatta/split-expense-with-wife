@@ -15,8 +15,9 @@
 - settings page ✅
 - retire netlify functions ✅
 - remove pin ✅
+- drizzle ✅
+- multi person split
 - use jwt so that verification is done with making db call
-- drizzle
 - sessions api - d1
 - schedule actions
 - scan receipt

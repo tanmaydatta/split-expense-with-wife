@@ -211,7 +211,7 @@ export function validatePaidAmounts(paidByShares: Record<string, number>, totalA
   return Math.abs(totalPaid - totalAmount) < 0.01; // Allow small floating point errors
 }
 
-// Calculate split amounts for transactions
+// Calculate split amounts for transactions using net settlement logic
 export function calculateSplitAmounts(
   amount: number,
   paidByShares: Record<number, number>,
@@ -220,29 +220,51 @@ export function calculateSplitAmounts(
 ): Array<{ user_id: number; amount: number; owed_to_user_id: number; currency: string }> {
   const splitAmounts: Array<{ user_id: number; amount: number; owed_to_user_id: number; currency: string }> = [];
 
-  // For each user who owes money (based on split percentages)
+  // Calculate net position for each user (positive = owed money, negative = owes money)
+  const netPositions: Record<number, number> = {};
+
+  // Calculate what each user owes based on split percentages
   for (const [userIdStr, splitPct] of Object.entries(splitPctShares)) {
     const userId = parseInt(userIdStr, 10);
     const owedAmount = (amount * splitPct) / 100;
+    netPositions[userId] = (netPositions[userId] || 0) - owedAmount;
+  }
 
-    // For each user who paid money
-    for (const [paidByUserIdStr, paidAmount] of Object.entries(paidByShares)) {
-      const paidByUserId = parseInt(paidByUserIdStr, 10);
+  // Add what each user paid
+  for (const [userIdStr, paidAmount] of Object.entries(paidByShares)) {
+    const userId = parseInt(userIdStr, 10);
+    netPositions[userId] = (netPositions[userId] || 0) + paidAmount;
+  }
 
-      if (paidAmount > 0) {
-        // Calculate proportion of what this user owes to this payer
-        const totalPaid = Object.values(paidByShares).reduce((sum, amt) => sum + amt, 0);
-        const proportionPaidBy = paidAmount / totalPaid;
-        const amountOwedToPayer = owedAmount * proportionPaidBy;
+  // Separate creditors (net positive) and debtors (net negative)
+  const creditors: Array<{ userId: number; amount: number }> = [];
+  const debtors: Array<{ userId: number; amount: number }> = [];
 
-        if (amountOwedToPayer > 0.01) { // Only record significant amounts
-          splitAmounts.push({
-            user_id: userId,
-            amount: Math.round(amountOwedToPayer * 100) / 100, // Round to 2 decimal places
-            owed_to_user_id: paidByUserId,
-            currency: currency
-          });
-        }
+  for (const [userIdStr, netAmount] of Object.entries(netPositions)) {
+    const userId = parseInt(userIdStr, 10);
+    if (netAmount > 0.001) { // Creditor (owed money)
+      creditors.push({ userId, amount: netAmount });
+    } else if (netAmount < -0.01) { // Debtor (owes money)
+      debtors.push({ userId, amount: -netAmount });
+    }
+  }
+
+  // Create debt relationships: debtors owe proportionally to creditors
+  const totalCreditorAmount = creditors.reduce((sum, c) => sum + c.amount, 0);
+
+  for (const debtor of debtors) {
+    for (const creditor of creditors) {
+      // Calculate how much this debtor owes to this creditor proportionally
+      const proportionToCreditor = creditor.amount / totalCreditorAmount;
+      const amountOwedToCreditor = debtor.amount * proportionToCreditor;
+
+      if (amountOwedToCreditor > 0.001) { // Only record significant amounts
+        splitAmounts.push({
+          user_id: debtor.userId,
+          amount: Math.round(amountOwedToCreditor * 100) / 100,
+          owed_to_user_id: creditor.userId,
+          currency: currency
+        });
       }
     }
   }
