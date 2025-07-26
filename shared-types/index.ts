@@ -58,6 +58,7 @@ export interface TransactionUser {
   group_id: number;
   currency: string;
   deleted?: string; // ISO string format
+  first_name?: string; // User's first name for display
 }
 
 // Parsed metadata types

@@ -1,13 +1,21 @@
-import { CFRequest, Env, UpdateGroupMetadataRequest, UpdateGroupMetadataResponse, UserRow } from '../types';
+import { CFRequest, Env } from '../types';
 import {
   createJsonResponse,
   createErrorResponse,
-  authenticate,
-  isValidCurrency
+  authenticate
 } from '../utils';
-import { GroupMetadata, User, GroupDetailsResponse } from '../../../shared-types';
+import {
+  GroupDetailsResponse,
+  UpdateGroupMetadataRequest,
+  UpdateGroupMetadataResponse,
+  User,
+  GroupMetadata
+} from '../../../shared-types';
+import { getDb } from '../db';
+import { users, groups } from '../db/schema';
+import { eq, inArray } from 'drizzle-orm';
 
-// Handle group details retrieval
+// Handle getting group details
 export async function handleGroupDetails(request: CFRequest, env: Env): Promise<Response> {
   if (request.method !== 'GET') {
     return createErrorResponse('Method not allowed', 405, request, env);
@@ -19,54 +27,57 @@ export async function handleGroupDetails(request: CFRequest, env: Env): Promise<
       return createErrorResponse('Unauthorized', 401, request, env);
     }
 
-    // Get group data including group name
-    const groupStmt = env.DB.prepare(`
-      SELECT groupid, group_name, budgets, userids, metadata 
-      FROM groups 
-      WHERE groupid = ?
-    `);
+    const db = getDb(env);
 
-    const groupResult = await groupStmt.bind(session.group.groupid).first();
-    if (!groupResult) {
-      return createErrorResponse('Group not found', 500, request, env);
+    // Get group data using Drizzle
+    const groupResult = await db
+      .select({
+        groupid: groups.groupid,
+        groupName: groups.groupName,
+        budgets: groups.budgets,
+        userids: groups.userids,
+        metadata: groups.metadata
+      })
+      .from(groups)
+      .where(eq(groups.groupid, session.group.groupid))
+      .limit(1);
+
+    if (groupResult.length === 0) {
+      return createErrorResponse('Group not found', 404, request, env);
     }
 
-    const group = groupResult as {
-      groupid: number;
-      group_name: string;
-      budgets: string;
-      userids: string;
-      metadata: string;
-    };
+    const group = groupResult[0];
 
-    // Parse group data
-    const budgets = JSON.parse(group.budgets || '[]') as string[];
+    // Parse user IDs from group data
     const userIds = JSON.parse(group.userids || '[]') as number[];
-    const metadata = JSON.parse(group.metadata || '{}') as GroupMetadata;
 
-    // Get all users in group
-    const usersStmt = env.DB.prepare(`
-      SELECT id, first_name, last_name, groupid 
-      FROM users 
-      WHERE id IN (${userIds.map(() => '?').join(',')})
-    `);
+    // Get all users in the group using Drizzle
+    const usersResult = await db
+      .select({
+        id: users.id,
+        username: users.username,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        groupid: users.groupid
+      })
+      .from(users)
+      .where(inArray(users.id, userIds));
 
-    const usersResult = await usersStmt.bind(...userIds).all();
-    const users = (usersResult.results as UserRow[]).map((row) => ({
-      Id: row.id,
-      username: '', // Not needed for settings
-      FirstName: row.first_name,
-      LastName: row.last_name,
-      groupid: row.groupid
-    })) as User[];
+    // Convert to User type format
+    const groupUsers: User[] = usersResult.map(user => ({
+      Id: user.id,
+      username: user.username,
+      FirstName: user.firstName || '',
+      LastName: user.lastName || '',
+      groupid: user.groupid
+    }));
 
-    // Create response
     const response: GroupDetailsResponse = {
+      groupName: group.groupName,
       groupid: group.groupid,
-      groupName: group.group_name || 'Unnamed Group',
-      budgets,
-      metadata,
-      users
+      budgets: JSON.parse(group.budgets || '[]') as string[],
+      users: groupUsers,
+      metadata: JSON.parse(group.metadata || '{}') as GroupMetadata
     };
 
     return createJsonResponse(response, 200, {}, request, env);
@@ -77,7 +88,7 @@ export async function handleGroupDetails(request: CFRequest, env: Env): Promise<
   }
 }
 
-// Handle group metadata update
+// Handle updating group metadata
 export async function handleUpdateGroupMetadata(request: CFRequest, env: Env): Promise<Response> {
   if (request.method !== 'POST') {
     return createErrorResponse('Method not allowed', 405, request, env);
@@ -90,138 +101,140 @@ export async function handleUpdateGroupMetadata(request: CFRequest, env: Env): P
     }
 
     const body = await request.json() as UpdateGroupMetadataRequest;
+    const db = getDb(env);
 
-    // Validate request - user must belong to the group being modified
-    if (session.group.groupid !== body.groupid) {
+    // Check if user is authorized to modify this group
+    if (body.groupid && body.groupid !== session.group.groupid) {
       return createErrorResponse('Unauthorized', 401, request, env);
     }
 
-    // Validate currency if provided
-    if (body.defaultCurrency && !isValidCurrency(body.defaultCurrency)) {
-      return createErrorResponse('Invalid currency code', 400, request, env);
+    // Validation logic
+    if (body.defaultCurrency !== undefined) {
+      // Validate currency code (3-letter codes)
+      const validCurrencies = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'JPY', 'CHF', 'CNY', 'INR', 'SEK', 'NOK', 'DKK', 'PLN', 'CZK', 'HUF', 'BGN', 'RON', 'HRK', 'RUB', 'TRY', 'BRL', 'MXN', 'ZAR', 'KRW', 'SGD', 'HKD', 'NZD', 'THB', 'MYR', 'IDR', 'PHP', 'VND'];
+      if (!validCurrencies.includes(body.defaultCurrency)) {
+        return createErrorResponse('Invalid currency code', 400, request, env);
+      }
     }
 
-    // Validate defaultShare if provided
-    if (body.defaultShare) {
-      // Get all users in the group
-      const groupUserIds = JSON.parse(session.group.userids) as number[];
-
-      // Check that all users in the group have a percentage assigned
-      const shareUserIds = Object.keys(body.defaultShare).map(id => parseInt(id, 10));
-      const missingUsers = groupUserIds.filter(userId => !shareUserIds.includes(userId));
-      if (missingUsers.length > 0) {
+    if (body.defaultShare !== undefined) {
+      // Validate defaultShare is not empty
+      if (Object.keys(body.defaultShare).length === 0) {
         return createErrorResponse('All group members must have a default share percentage', 400, request, env);
       }
 
-      // Check that no extra users are included
-      const extraUsers = shareUserIds.filter(userId => !groupUserIds.includes(userId));
-      if (extraUsers.length > 0) {
-        return createErrorResponse('Invalid user IDs: users not in group', 400, request, env);
+      // Get all users in the group from session (no DB query needed)
+      const groupUserIds = new Set(Object.keys(session.usersById));
+      const shareUserIds = new Set(Object.keys(body.defaultShare));
+
+      // Check if all group members are included
+      for (const userId of groupUserIds) {
+        if (!shareUserIds.has(userId)) {
+          return createErrorResponse('All group members must have a default share percentage', 400, request, env);
+        }
       }
 
-      // Check that percentages add up to 100
-      const totalPercentage = Object.values(body.defaultShare).reduce((sum, pct) => sum + pct, 0);
-      if (Math.abs(totalPercentage - 100) > 0.001) { // Allow for small floating point errors with 0.001 precision
-        return createErrorResponse('Default share percentages must add up to 100%', 400, request, env);
+      // Check if any invalid user IDs are included
+      for (const userId of shareUserIds) {
+        if (!groupUserIds.has(userId)) {
+          return createErrorResponse('Invalid user IDs: users not in group', 400, request, env);
+        }
       }
 
-      // Check that all percentages are positive
-      const hasNegativePercentage = Object.values(body.defaultShare).some(pct => pct < 0);
-      if (hasNegativePercentage) {
+      // Validate percentages
+      const percentages = Object.values(body.defaultShare);
+
+      // Check for negative percentages
+      if (percentages.some(p => p < 0)) {
         return createErrorResponse('Default share percentages must be positive', 400, request, env);
       }
+
+      // Check percentages add up to 100 (with floating point tolerance)
+      const total = percentages.reduce((sum, p) => sum + p, 0);
+      if (Math.abs(total - 100) > 0.001) {
+        return createErrorResponse('Default share percentages must add up to 100%', 400, request, env);
+      }
     }
 
-    // Validate groupName if provided
     if (body.groupName !== undefined) {
-      if (typeof body.groupName !== 'string') {
-        return createErrorResponse('Group name must be a string', 400, request, env);
-      }
-      if (body.groupName.trim().length === 0) {
+      // Trim and validate group name
+      const trimmedName = body.groupName.trim();
+      if (trimmedName.length === 0) {
         return createErrorResponse('Group name cannot be empty', 400, request, env);
       }
-      if (body.groupName.length > 100) {
-        return createErrorResponse('Group name cannot exceed 100 characters', 400, request, env);
-      }
+      body.groupName = trimmedName;
     }
 
-    // Validate budgets if provided
     if (body.budgets !== undefined) {
-      if (!Array.isArray(body.budgets)) {
-        return createErrorResponse('Budgets must be an array', 400, request, env);
-      }
-
       // Validate budget names
-      const invalidBudgets = body.budgets.filter(budget =>
-        typeof budget !== 'string' ||
-        budget.trim().length === 0 ||
-        !/^[a-zA-Z0-9\s_-]+$/.test(budget.trim())
-      );
-
-      if (invalidBudgets.length > 0) {
-        return createErrorResponse('Budget names can only contain letters, numbers, spaces, hyphens, and underscores', 400, request, env);
+      for (const budgetName of body.budgets) {
+        if (!/^[a-zA-Z0-9\s\-_]+$/.test(budgetName)) {
+          return createErrorResponse('Budget names can only contain letters, numbers, spaces, hyphens, and underscores', 400, request, env);
+        }
       }
-
-      // Remove duplicates and trim
-      body.budgets = [...new Set(body.budgets.map(b => b.trim().toLowerCase()))];
+      // Remove duplicates
+      body.budgets = [...new Set(body.budgets)];
     }
 
-    // Get current metadata
-    const currentMetadata = JSON.parse(session.group.metadata || '{}') as GroupMetadata;
+    // Check if no changes were provided
+    if (body.defaultShare === undefined && body.defaultCurrency === undefined &&
+        body.groupName === undefined && body.budgets === undefined) {
+      return createErrorResponse('No changes provided', 400, request, env);
+    }
 
-    // Build updated metadata object
-    const updatedMetadata: GroupMetadata = {
-      defaultShare: body.defaultShare || currentMetadata.defaultShare || {},
-      defaultCurrency: body.defaultCurrency || currentMetadata.defaultCurrency || 'USD'
-    };
+    // Prepare update data
+    const updates: { metadata?: string; groupName?: string; budgets?: string } = {};
 
-    // Preserve any other metadata fields that might exist
-    const existingMetadata = JSON.parse(session.group.metadata || '{}');
-    const finalMetadata = {
-      ...existingMetadata,
-      ...updatedMetadata
-    };
+    // Update metadata if provided
+    if (body.defaultShare !== undefined || body.defaultCurrency !== undefined) {
+      const currentGroup = await db
+        .select({ metadata: groups.metadata })
+        .from(groups)
+        .where(eq(groups.groupid, session.group.groupid))
+        .limit(1);
 
-    // Build update query and parameters based on what fields were provided
-    const updateFields: string[] = [];
-    const updateParams: (string | number)[] = [];
+      const currentMetadata = JSON.parse(currentGroup[0]?.metadata || '{}') as GroupMetadata;
+      const newMetadata: GroupMetadata = {
+        ...currentMetadata,
+        ...(body.defaultShare !== undefined && { defaultShare: body.defaultShare }),
+        ...(body.defaultCurrency !== undefined && { defaultCurrency: body.defaultCurrency })
+      };
 
-    // Always update metadata if any metadata fields were provided
-    if (body.defaultShare || body.defaultCurrency) {
-      updateFields.push('metadata = ?');
-      updateParams.push(JSON.stringify(finalMetadata));
+      // Set default USD currency if no currency is provided and none exists
+      if (body.defaultCurrency === undefined && !currentMetadata.defaultCurrency) {
+        newMetadata.defaultCurrency = 'USD';
+      }
+
+      updates.metadata = JSON.stringify(newMetadata);
     }
 
     // Update group name if provided
     if (body.groupName !== undefined) {
-      updateFields.push('group_name = ?');
-      updateParams.push(body.groupName.trim());
+      updates.groupName = body.groupName;
     }
 
     // Update budgets if provided
     if (body.budgets !== undefined) {
-      updateFields.push('budgets = ?');
-      updateParams.push(JSON.stringify(body.budgets));
+      updates.budgets = JSON.stringify(body.budgets);
     }
 
-    // Only update if there are fields to update
-    if (updateFields.length === 0) {
-      return createErrorResponse('No fields provided to update', 400, request, env);
+    // Update group using Drizzle
+    if (Object.keys(updates).length > 0) {
+      await db
+        .update(groups)
+        .set(updates)
+        .where(eq(groups.groupid, session.group.groupid));
     }
 
-    // Add WHERE clause parameter
-    updateParams.push(session.group.groupid);
+    // Get updated metadata for response
+    const updatedGroup = await db
+      .select({ metadata: groups.metadata })
+      .from(groups)
+      .where(eq(groups.groupid, session.group.groupid))
+      .limit(1);
 
-    // Execute update
-    const updateStmt = env.DB.prepare(`
-      UPDATE groups 
-      SET ${updateFields.join(', ')}
-      WHERE groupid = ?
-    `);
+    const updatedMetadata = JSON.parse(updatedGroup[0]?.metadata || '{}') as GroupMetadata;
 
-    await updateStmt.bind(...updateParams).run();
-
-    // Create response
     const response: UpdateGroupMetadataResponse = {
       message: 'Group metadata updated successfully',
       metadata: updatedMetadata

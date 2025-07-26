@@ -6,6 +6,7 @@ import { testData } from './test-data';
 type TestFixtures = {
   testHelper: TestHelper;
   authenticatedPage: TestHelper;
+  authenticatedMultiPersonPage: TestHelper;
   mockHelper: TestHelper;
 };
 
@@ -25,6 +26,19 @@ export const test = base.extend<TestFixtures>({
     
     // Login with test user
     await helper.login(testData.users.user1);
+    
+    await use(helper);
+    
+    // Cleanup after test
+    await helper.clearStorage();
+  },
+
+  // Authenticated multi-person group page fixture - logs in user from 3-person group
+  authenticatedMultiPersonPage: async ({ page }, use) => {
+    const helper = new TestHelper(page);
+    
+    // Login with Group 2 user (alice.wilson) who is in a 3-person group
+    await helper.login(testData.users.user3);
     
     await use(helper);
     

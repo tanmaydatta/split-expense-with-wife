@@ -216,8 +216,11 @@ test.describe('Expense Management', () => {
     await authenticatedPage.navigateToPage('Expenses');
     await authenticatedPage.page.waitForTimeout(2000);
     await expenseHelper.verifyExpensesPageComponents();
-    await expenseHelper.verifySpecificExpenseEntry(result.description, '100', 'USD', '+$50.00');
-    
+    const currentPercentages = await getCurrentUserPercentages(authenticatedPage);
+    const user1Percentage = parseFloat(currentPercentages['1']);
+    const user1Owes = (expense.amount * user1Percentage) / 100;
+    const user1Share = expense.amount - user1Owes;
+    await expenseHelper.verifySpecificExpenseEntry(result.description, '100', 'USD', `+$${user1Share.toFixed(2)}`);
     // Delete the expense
     await expenseHelper.deleteExpenseEntry(result.description);
     

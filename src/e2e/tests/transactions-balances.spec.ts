@@ -10,7 +10,7 @@ class TransactionBalanceTestHelper {
     this.expenseHelper = new ExpenseTestHelper(authenticatedPage);
   }
 
-  async createTestExpense(description?: string, amount?: number, currency?: string, customSplits?: Record<string, number>) {
+  async createTestExpense(description?: string, amount?: number, currency?: string, customSplits?: Record<string, number>, paidBy?: string) {
     // Navigate to Add page to create an expense
     await this.authenticatedPage.navigateToPage('Add');
 
@@ -19,7 +19,7 @@ class TransactionBalanceTestHelper {
       description: description || 'Test expense',
       amount: amount || 100,
       currency: currency || 'USD',
-      paidBy: '1'
+      paidBy: paidBy || '1'
     };
 
     const result = await this.expenseHelper.addExpenseEntry(expense, customSplits);
@@ -771,5 +771,51 @@ test.describe('Transactions and Balances', () => {
     await helper.verifyBalances(initialBalances);
 
     console.log("✅ Balance deletion test completed successfully");
+  });
+
+  test('should handle transactions with more than 2 people in group', async ({ authenticatedMultiPersonPage }) => {
+    const helper = new TransactionBalanceTestHelper(authenticatedMultiPersonPage);
+
+    // Explicitly set split percentages for 3-person group test
+    // Group 2 users: Alice (user 3), Bob (user 4), Charlie (user 5)
+    // Split: Alice 40%, Bob 35%, Charlie 25%
+    // Total: €150, Alice pays: €150, Alice owes: €60 (40%), Alice share: +€90
+    const multiPersonExpense = await helper.createTestExpense(
+      'Multi-person group expense', 
+      150, 
+      'EUR',
+      { '3': 40, '4': 35, '5': 25 },  // Explicit split: Alice 40%, Bob 35%, Charlie 25%
+      '3'  // Alice (user 3) pays for the expense
+    );
+
+    // Navigate to transactions page to verify the expense appears
+    await authenticatedMultiPersonPage.navigateToPage('Expenses');
+    await helper.verifyTransactionsPageComponents();
+
+    // Verify the transaction appears with correct share calculation
+    // Alice paid €150, owes €60 (40% of €150), so share = €150 - €60 = +€90
+    await helper.verifyTransactionInList(
+      multiPersonExpense.description, 
+      multiPersonExpense.amount, 
+      multiPersonExpense.currency, 
+      '+€90.00'
+    );
+
+    // Verify transaction details expansion shows all 3 users
+    await helper.verifyTransactionDetails(
+      multiPersonExpense.description,
+      150, // total amount
+      {
+        'Alice': '€60.00',   // 40% of €150
+        'Bob': '€52.50',     // 35% of €150  
+        'Charlie': '€37.50'  // 25% of €150
+      },
+      {
+        'Alice': '€150.00'   // Alice paid the full amount
+      },
+      '+€90.00'
+    );
+
+    console.log("✅ Multi-person group transaction test completed successfully");
   });
 }); 

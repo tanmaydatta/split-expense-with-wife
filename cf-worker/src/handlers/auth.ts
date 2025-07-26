@@ -1,14 +1,17 @@
-import { CFRequest, Env, LoginRequest, LoginResponse, GroupMetadata, User, Group, UserRow } from '../types';
+import { CFRequest, Env } from '../types';
 import {
   createJsonResponse,
   createErrorResponse,
-  generateRandomId,
   formatSQLiteTime,
-  authenticate,
+  generateRandomId,
   SUPPORTED_CURRENCIES
 } from '../utils';
+import { LoginRequest, LoginResponse, User, GroupMetadata } from '../../../shared-types';
+import { getDb } from '../db';
+import { users, groups, sessions } from '../db/schema';
+import { eq } from 'drizzle-orm';
 
-// Handle login
+// Handle user login
 export async function handleLogin(request: CFRequest, env: Env): Promise<Response> {
   if (request.method !== 'POST') {
     return createErrorResponse('Method not allowed', 405, request, env);
@@ -16,91 +19,78 @@ export async function handleLogin(request: CFRequest, env: Env): Promise<Respons
 
   try {
     const body = await request.json() as LoginRequest;
-    // Get user from database
-    const userStmt = env.DB.prepare(`
-      SELECT id, username, first_name, groupid, password 
-      FROM users 
-      WHERE username = ?
-    `);
+    const db = getDb(env);
 
-    const userResult = await userStmt.bind(body.username).first();
+    // Get user from database using Drizzle
+    const userResult = await db
+      .select()
+      .from(users)
+      .where(eq(users.username, body.username))
+      .limit(1);
 
-    if (!userResult) {
+    if (userResult.length === 0) {
       return createErrorResponse('Invalid credentials', 401, request, env);
     }
-    const userRow = userResult as UserRow;
-    const user = {
-      Id: userRow.id,
-      username: userRow.username,
-      FirstName: userRow.first_name,
-      groupid: userRow.groupid,
-      password: userRow.password
-    } as User & { password: string };
 
-    // Check password
+    const user = userResult[0];
+
+    // Verify password (in production, this should be hashed)
     if (user.password !== body.password) {
       return createErrorResponse('Invalid credentials', 401, request, env);
     }
 
-    // Generate session ID
-    const sessionId = generateRandomId(16);
-    const expiration = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+    // Get group data using Drizzle
+    const groupResult = await db
+      .select()
+      .from(groups)
+      .where(eq(groups.groupid, user.groupid))
+      .limit(1);
 
-    // Get group data
-    const groupStmt = env.DB.prepare(`
-      SELECT groupid, budgets, userids, metadata 
-      FROM groups 
-      WHERE groupid = ?
-    `);
-
-    const groupResult = await groupStmt.bind(user.groupid).first();
-    if (!groupResult) {
+    if (groupResult.length === 0) {
       return createErrorResponse('Group not found', 500, request, env);
     }
 
-    const group = groupResult as Group;
+    const groupRow = groupResult[0];
 
-    // Parse group data
-    const budgets = JSON.parse(group.budgets) as string[];
-    const userIds = JSON.parse(group.userids) as number[];
-    const metadata = JSON.parse(group.metadata) as GroupMetadata;
+    // Parse group data - use the raw group data without unnecessary conversion
+    const budgets = JSON.parse(groupRow.budgets || '[]') as string[];
+    const userIds = JSON.parse(groupRow.userids || '[]') as number[];
+    const metadata = JSON.parse(groupRow.metadata || '{}') as GroupMetadata;
 
-    // Get all users in group
-    const usersStmt = env.DB.prepare(`
-      SELECT id, username, first_name, groupid 
-      FROM users 
-      WHERE id IN (${userIds.map(() => '?').join(',')})
-    `);
+    // Get all users in group using Drizzle
+    const usersResult = await db
+      .select()
+      .from(users)
+      .where(eq(users.groupid, user.groupid));
 
-    const usersResult = await usersStmt.bind(...userIds).all();
-    const users = (usersResult.results as UserRow[]).map((row) => ({
-      Id: row.id,
-      username: row.username,
-      FirstName: row.first_name,
-      groupid: row.groupid
-    })) as User[];
+    // Convert to expected User type
+    const groupUsers: User[] = usersResult.map((u) => ({
+      Id: u.id,
+      username: u.username,
+      FirstName: u.firstName || '',
+      groupid: u.groupid
+    }));
 
-    // Create session
-    const sessionStmt = env.DB.prepare(`
-      INSERT INTO sessions (username, sessionid, expiry_time) 
-      VALUES (?, ?, ?)
-    `);
+    // Generate session
+    const sessionId = generateRandomId(32);
+    const expiration = new Date();
+    expiration.setDate(expiration.getDate() + 7); // 7 days
 
-    await sessionStmt.bind(
-      body.username,
-      sessionId,
-      formatSQLiteTime(expiration)
-    ).run();
+    // Create session in database using Drizzle
+    await db.insert(sessions).values({
+      username: body.username,
+      sessionid: sessionId,
+      expiryTime: formatSQLiteTime(expiration)
+    });
 
-    // Create response
     const response: LoginResponse = {
       username: body.username,
       groupId: user.groupid,
       budgets,
-      users,
+      users: groupUsers,
       userids: userIds,
       metadata,
-      userId: user.Id,
+      userId: user.id,
       token: sessionId,
       currencies: SUPPORTED_CURRENCIES
     };
@@ -113,23 +103,24 @@ export async function handleLogin(request: CFRequest, env: Env): Promise<Respons
   }
 }
 
-// Handle logout
+// Handle user logout
 export async function handleLogout(request: CFRequest, env: Env): Promise<Response> {
   if (request.method !== 'POST') {
     return createErrorResponse('Method not allowed', 405, request, env);
   }
 
   try {
-    const session = await authenticate(request, env);
-    if (session) {
-      // Delete session from database
-      const deleteStmt = env.DB.prepare(`
-        DELETE FROM sessions WHERE sessionid = ?
-      `);
-      await deleteStmt.bind(session.session.sessionid).run();
-    }
+    const body = await request.json() as { sessionId: string };
+    const db = getDb(env);
 
-    return createJsonResponse({ message: 'Logged out successfully' }, 200, {}, request, env);
+    // Delete session from database using Drizzle
+    await db
+      .delete(sessions)
+      .where(eq(sessions.sessionid, body.sessionId));
+
+    return createJsonResponse({
+      message: 'Logout successful'
+    }, 200, {}, request, env);
 
   } catch (error) {
     console.error('Logout error:', error);
