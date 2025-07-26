@@ -7,13 +7,12 @@ import { AmountGrid } from "@/components/AmountGrid";
 import { ErrorContainer, SuccessContainer } from "@/components/MessageContainer";
 import BudgetTable from "./BudgetTable";
 import { SelectBudget } from "@/SelectBudget";
-import { entry } from "@/model";
 import { ApiError, typedApi } from "@/utils/api";
 import { BudgetListRequest, BudgetTotalRequest, BudgetDeleteRequest, BudgetEntry, BudgetTotal } from '@shared-types';
 import "./index.css";
 
 export const Budget: React.FC = () => {
-  const [budgetHistory, setBudgetHistory] = useState<entry[]>([]);
+  const [budgetHistory, setBudgetHistory] = useState<BudgetEntry[]>([]);
   const [budget, setBudget] = useState("house");
   const [budgetsLeft, setBudgetsLeft] = useState<
     { currency: string; amount: number }[]
@@ -41,7 +40,7 @@ export const Budget: React.FC = () => {
   }, [budget, navigate]);
 
   const fetchHistory = useCallback(
-    async (offset: number, history: entry[]) => {
+    async (offset: number, history: BudgetEntry[]) => {
       setLoading(true);
       try {
         const request: BudgetListRequest = {
@@ -51,21 +50,7 @@ export const Budget: React.FC = () => {
 
         const response: BudgetEntry[] = await typedApi.post("/budget_list", request);
         console.log(response);
-        var entries: entry[] = [];
-        response.map(
-          (e: BudgetEntry) =>
-            entries.push({
-              id: e.id,
-              date: e.added_time,
-              description: e.description as string,
-              amount: e.price,
-              deleted: e.deleted,
-              currency: e.currency as string,
-            })
-        );
-
-        console.log("budget list", [...history, ...entries]);
-        setBudgetHistory([...history, ...entries]);
+        setBudgetHistory([...history, ...response]);
       } catch (e: any) {
         console.log(e);
         if (e.response?.status === 401) {

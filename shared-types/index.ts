@@ -28,7 +28,7 @@ export interface Group {
 export interface BudgetEntry {
   id: number;
   description: string;
-  added_time: string; // ISO string format
+  addedTime: string; // ISO string format
   price: string;
   amount: number;
   name: string;

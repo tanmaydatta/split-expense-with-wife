@@ -88,8 +88,8 @@ class BudgetTestHelper {
     return budgetTotals;
   }
 
-  async verifySpecificBudgetEntry(description: string, amount: string, currency: string) {
-    console.log("verifySpecificBudgetEntry", "description", description, "amount", amount, "currency", currency);
+  async verifySpecificBudgetEntry(description: string, amount: string, currency: string, date: string) {
+    console.log("verifySpecificBudgetEntry", "description", description, "amount", amount, "currency", currency, "date", date);
     
     // Check viewport to determine if we're on mobile or desktop
     const isMobile = await this.authenticatedPage.isMobile();
@@ -101,13 +101,19 @@ class BudgetTestHelper {
       
       // Check that the card contains the amount
       await expect(entryCard).toContainText(amount.toString());
+      
+      // Check that the card contains the date
+      await expect(entryCard).toContainText(date);
     } else {
       // On desktop, search for the entry in any table row, not just the first
       const entryRow = this.authenticatedPage.page.locator('tbody tr').filter({ hasText: description });
       await expect(entryRow).toBeVisible();
       
-      // Check that the row contains the amount
+      // Check that the row contains the amount (3rd column, index 2)
       await expect(entryRow.locator('td').nth(2)).toContainText(amount.toString());
+      
+      // Check that the row contains the date (1st column, index 0)
+      await expect(entryRow.locator('td').nth(0)).toContainText(date);
     }
   }
 
@@ -292,7 +298,13 @@ test.describe('Budget Management', () => {
     await budgetHelper.verifyBudgetDataDisplay();
 
     // Verify the specific house credit entry we added is visible
-    await budgetHelper.verifySpecificBudgetEntry(creditResult.description, '500', '$');
+    const todayDate = new Date().toLocaleDateString("en-US", {
+      weekday: "short",
+      month: "short", 
+      day: "2-digit",
+      year: "numeric",
+    });
+    await budgetHelper.verifySpecificBudgetEntry(creditResult.description, '500', '$', todayDate);
 
     // Verify budget totals are shown
 
@@ -304,7 +316,7 @@ test.describe('Budget Management', () => {
     await budgetHelper.verifyBudgetDataDisplay();
 
     // Verify the specific food debit entry we added is visible
-    await budgetHelper.verifySpecificBudgetEntry(debitResult.description, '150', '$');
+    await budgetHelper.verifySpecificBudgetEntry(debitResult.description, '150', '$', todayDate);
     await budgetHelper.verifyBudgetTotals();
     // Verify we're still authenticated and on budget page
     await expect(authenticatedPage.page).toHaveURL('/budget');
@@ -461,7 +473,13 @@ test.describe('Budget Management', () => {
     await budgetHelper.verifyBudgetDataDisplay();
 
     // Verify our created entry is visible
-    await budgetHelper.verifySpecificBudgetEntry(budgetResult.description, '500', '$');
+    const todayDate2 = new Date().toLocaleDateString("en-US", {
+      weekday: "short",
+      month: "short", 
+      day: "2-digit",
+      year: "numeric",
+    });
+    await budgetHelper.verifySpecificBudgetEntry(budgetResult.description, '500', '$', todayDate2);
 
     // Attempt to delete the budget entry
     const deleteSuccess = await budgetHelper.deleteBudgetEntry(budgetResult.description);
