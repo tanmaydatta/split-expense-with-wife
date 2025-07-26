@@ -1054,7 +1054,7 @@ describe('Budget Handlers', () => {
       // Create dynamic dates - use recent months for reliable testing
       const now = new Date();
       const month1 = new Date(now.getFullYear(), now.getMonth() - 3, 15); // 3 months ago
-      const month2 = new Date(now.getFullYear(), now.getMonth() - 2, 15); // 2 months ago  
+      const month2 = new Date(now.getFullYear(), now.getMonth() - 2, 15); // 2 months ago
       const month3 = new Date(now.getFullYear(), now.getMonth() - 1, 15); // 1 month ago
       const month4 = new Date(now.getFullYear(), now.getMonth(), 15); // Current month
 
@@ -1372,10 +1372,10 @@ describe('Budget Handlers', () => {
       // Find test month data
       const testMonthBudget = json.monthlyBudgets.find((b: MonthlyBudget) => b.month === monthNames[testMonth.getMonth()] && b.year === testMonth.getFullYear());
       expect(testMonthBudget).toBeTruthy();
-      console.log("testMonthBudget", JSON.stringify(testMonthBudget, null, 2));
+      console.log('testMonthBudget', JSON.stringify(testMonthBudget, null, 2));
       const testUSD = (testMonthBudget as MonthlyBudget).amounts.find(a => a.currency === 'USD');
       const testGBP = (testMonthBudget as MonthlyBudget).amounts.find(a => a.currency === 'GBP');
-      console.log("testUSD", JSON.stringify(testUSD, null, 2));
+      console.log('testUSD', JSON.stringify(testUSD, null, 2));
       // USD should show 500 (expense shown as positive), GBP should not appear since it had no expenses
       expect(testUSD?.amount).toBe(500);
       expect(testGBP?.amount).toBeUndefined();
@@ -1395,7 +1395,7 @@ describe('Budget Handlers', () => {
       expect(avgGBP).toBeUndefined();
 
       // Check a longer period that would include January 2024 data
-      // Since test data is from Jan 2024 and we're likely running in 2025, 
+      // Since test data is from Jan 2024 and we're likely running in 2025,
       // we need to check a 24-month period to capture that data
       const maxPeriod = Math.max(...json.averageMonthlySpend.map(avg => avg.periodMonths));
       if (maxPeriod >= 12) {

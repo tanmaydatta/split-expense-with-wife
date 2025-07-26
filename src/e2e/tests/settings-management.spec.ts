@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import { test, expect } from '../fixtures/setup';
 import { getNewUserPercentage } from '../utils/expense-test-helper';
 
@@ -459,7 +460,7 @@ test.describe('Settings Management', () => {
                 'Category_With_123',
                 'UPPERCASE_BUDGET',
                 'budget with spaces'
-            ];
+            ].map(category => category + '_' + randomUUID());
 
             for (const category of validCategories) {
                 await settingsHelper.addBudgetCategory(category);
