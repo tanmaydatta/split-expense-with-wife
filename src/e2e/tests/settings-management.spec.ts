@@ -124,6 +124,23 @@ class SettingsTestHelper {
         return null;
     }
 
+    async deleteBudgetByCategory(category: string) {
+        // Find the budget category in the displayed list
+        const budgetItems = this.authenticatedPage.page.locator('.budget-item');
+        const count = await budgetItems.count();
+
+        for (let i = 0; i < count; i++) {
+            const budgetItem = budgetItems.nth(i);
+            const categoryText = await budgetItem.locator('span').textContent();
+            
+            if (categoryText && categoryText.trim() === category) {
+                // Click the remove button for this category
+                await budgetItem.locator(`[data-test-id="remove-budget-${i}"]`).click();
+                break;
+            }
+        }
+    }
+
     async verifyPercentageSymbolPosition(userId: string) {
         // Verify that % symbol is inside the input field
         const inputWrapper = this.authenticatedPage.page.locator(`[data-test-id="percentage-wrapper-${userId}"]`);
@@ -471,6 +488,10 @@ test.describe('Settings Management', () => {
 
             const successMessage = await settingsHelper.waitForSuccessMessage();
             expect(successMessage).toContain('successfully');
+            for (const category of validCategories) {
+                await settingsHelper.deleteBudgetByCategory(category);
+            }
+            await settingsHelper.saveAllChanges();
         });
     });
 
