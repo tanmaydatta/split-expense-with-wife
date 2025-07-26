@@ -2,11 +2,11 @@ import { getCurrencySymbol } from "@/utils/currency";
 import { Trash } from "@/components/Icons";
 import { Table, TableWrapper } from "@/components/Table";
 import { BudgetCard } from "@/components/BudgetCard";
-import { entry } from "@/model";
 import { dateToFullStr } from "@/utils/date";
+import { BudgetEntry } from "@shared-types";
 
 interface Props {
-  entries: entry[];
+  entries: BudgetEntry[]; // TODO: change to BudgetEntry[]
   onDelete(id: number): void;
 }
 
@@ -28,13 +28,13 @@ export default function BudgetTable(props: Props): JSX.Element {
             <tbody>
               {props.entries.map((e) => {
                 return (
-                  <tr key={e.date}>
-                    <td>{dateToFullStr(new Date(e.date))}</td>
+                  <tr key={e.addedTime}>
+                    <td>{dateToFullStr(new Date(e.addedTime))}</td>
                     <td className="description-cell">{e.description}</td>
-                    <td style={{ color: e.amount.startsWith("+") ? "green" : "red" }}>
-                      {e.amount[0]}
+                    <td style={{ color: e.price.startsWith("+") ? "green" : "red" }}>
+                      {e.price[0]}
                       {getCurrencySymbol(e.currency)}
-                      {e.amount.substring(1)}
+                      {e.price.substring(1)}
                     </td>
                     <td
                       style={{
@@ -76,7 +76,7 @@ export default function BudgetTable(props: Props): JSX.Element {
       <div className="mobile-cards" data-test-id="mobile-cards">
         {props.entries.map((e) => (
           <BudgetCard
-            key={e.date}
+            key={e.addedTime}
             entry={e}
             onDelete={props.onDelete}
           />

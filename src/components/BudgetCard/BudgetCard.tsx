@@ -3,11 +3,11 @@ import { getCurrencySymbol } from "@/utils/currency";
 import { Card } from "@/components/Card";
 import { Trash, Calendar, CardText } from "@/components/Icons";
 import { dateToFullStr } from "@/utils/date";
-import { entry } from "@/model";
+import { BudgetEntry } from "@shared-types";
 import "./BudgetCard.css";
 
 interface BudgetCardProps {
-  entry: entry;
+  entry: BudgetEntry;
   onDelete: (id: number) => void;
 }
 
@@ -20,7 +20,7 @@ export const BudgetCard: React.FC<BudgetCardProps> = ({
       <div className="budget-card-header">
         <div className="budget-date">
           <Calendar />
-          <span>{dateToFullStr(new Date(entry.date))}</span>
+          <span>{dateToFullStr(new Date(entry.addedTime))}</span>
         </div>
         {entry.deleted == null && (
           <button
@@ -42,11 +42,11 @@ export const BudgetCard: React.FC<BudgetCardProps> = ({
             <span>{entry.description}</span>
           </div>
           <div
-            className={`amount-value ${entry.amount.startsWith("+") ? "positive" : "negative"}`}
+            className={`amount-value ${entry.price.startsWith("+") ? "positive" : "negative"}`}
           >
-            {entry.amount[0]}
+            {entry.price[0]}
             {getCurrencySymbol(entry.currency)}
-            {entry.amount.substring(1)}
+            {entry.price.substring(1)}
           </div>
         </div>
 

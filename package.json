@@ -69,7 +69,7 @@
     "test:all": "yarn test && yarn test:e2e",
     "eject": "react-scripts eject",
     "prepare": "husky",
-    "lint": "eslint 'src/**/*.{ts,tsx}' --max-warnings 0"
+    "lint": "tsc --noEmit && eslint 'src/**/*.{ts,tsx}' --max-warnings 0"
   },
   "browserslist": {
     "production": [

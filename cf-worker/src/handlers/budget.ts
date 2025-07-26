@@ -288,7 +288,7 @@ export async function handleBudgetList(request: CFRequest, env: Env): Promise<Re
     // Ensure price field is properly formatted as string
     const formattedEntries = budgetEntries.map(entry => ({
       ...entry,
-      price: entry.price || (entry.amount >= 0 ? `+${entry.amount.toFixed(2)}` : `-${entry.amount.toFixed(2)}`)
+      price: entry.price || (entry.amount >= 0 ? `+${entry.amount.toFixed(2)}` : `${entry.amount.toFixed(2)}`)
     }));
 
     return createJsonResponse(formattedEntries, 200, {}, request, env);
