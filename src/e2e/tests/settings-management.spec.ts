@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import { test, expect } from '../fixtures/setup';
 import { getNewUserPercentage } from '../utils/expense-test-helper';
 
@@ -121,6 +122,23 @@ class SettingsTestHelper {
             return await element.textContent();
         }
         return null;
+    }
+
+    async deleteBudgetByCategory(category: string) {
+        // Find the budget category in the displayed list
+        const budgetItems = this.authenticatedPage.page.locator('.budget-item');
+        const count = await budgetItems.count();
+
+        for (let i = 0; i < count; i++) {
+            const budgetItem = budgetItems.nth(i);
+            const categoryText = await budgetItem.locator('span').textContent();
+            
+            if (categoryText && categoryText.trim() === category) {
+                // Click the remove button for this category
+                await budgetItem.locator(`[data-test-id="remove-budget-${i}"]`).click();
+                break;
+            }
+        }
     }
 
     async verifyPercentageSymbolPosition(userId: string) {
@@ -459,7 +477,7 @@ test.describe('Settings Management', () => {
                 'Category_With_123',
                 'UPPERCASE_BUDGET',
                 'budget with spaces'
-            ];
+            ].map(category => category + '_' + randomUUID());
 
             for (const category of validCategories) {
                 await settingsHelper.addBudgetCategory(category);
@@ -470,6 +488,10 @@ test.describe('Settings Management', () => {
 
             const successMessage = await settingsHelper.waitForSuccessMessage();
             expect(successMessage).toContain('successfully');
+            for (const category of validCategories) {
+                await settingsHelper.deleteBudgetByCategory(category);
+            }
+            await settingsHelper.saveAllChanges();
         });
     });
 

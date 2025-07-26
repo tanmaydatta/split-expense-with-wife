@@ -4,6 +4,8 @@ import worker from '../index';
 import { setupAndCleanDatabase, createTestUserData, createTestSession, populateMaterializedTables } from './test-utils';
 import { BudgetMonthlyResponse, MonthlyBudget, AverageSpendPeriod } from '../../../shared-types';
 import { UserBalancesByUser, Env } from '../types';
+import { getDb } from '../db';
+import { budget } from '../db/schema';
 
 // Type aliases for API responses
 type BudgetTotalResponse = Array<{ currency: string; amount: number }>;
@@ -644,9 +646,19 @@ describe('Budget Handlers', () => {
       // Set up test data
       await createTestUserData(env);
       await createTestSession(env);
+      const db = getDb(env);
 
       // Create a budget entry to delete with correct schema
-      await env.DB.exec("INSERT INTO budget (id, description, price, added_time, amount, name, groupid, currency) VALUES (1, 'Test entry', '+100.00', '2024-01-01 00:00:00', 100, 'house', 1, 'USD')");
+      await db.insert(budget).values({
+        id: 1,
+        description: 'Test entry',
+        price: '+100.00',
+        addedTime: '2024-01-01 00:00:00',
+        amount: 100,
+        name: 'house',
+        groupid: 1,
+        currency: 'USD'
+      });
 
       const request = new Request('http://example.com/.netlify/functions/budget_delete', {
         method: 'POST',
@@ -674,9 +686,19 @@ describe('Budget Handlers', () => {
       // Set up test data
       await createTestUserData(env);
       await createTestSession(env);
+      const db = getDb(env);
 
       // Create budget entries with correct schema
-      await env.DB.exec("INSERT INTO budget (id, description, price, added_time, amount, name, groupid, currency) VALUES (1, 'Groceries', '+100.00', '2024-01-01 00:00:00', 100, 'house', 1, 'USD')");
+      await db.insert(budget).values({
+        id: 1,
+        description: 'Groceries',
+        price: '+100.00',
+        addedTime: '2024-01-01 00:00:00',
+        amount: 100,
+        name: 'house',
+        groupid: 1,
+        currency: 'USD'
+      });
 
       const request = new Request('http://example.com/.netlify/functions/budget_list', {
         method: 'POST',
@@ -705,11 +727,50 @@ describe('Budget Handlers', () => {
       // Set up test data
       await createTestUserData(env);
       await createTestSession(env);
+      const db = getDb(env);
+
+      // Create dynamic dates - use recent months for reliable testing
+      const now = new Date();
+      const month1 = new Date(now.getFullYear(), now.getMonth() - 2, 15); // 2 months ago
+      const month2 = new Date(now.getFullYear(), now.getMonth() - 1, 15); // 1 month ago
+      const month3 = new Date(now.getFullYear(), now.getMonth(), 15); // Current month
+
+      const formatDate = (date: Date) => {
+        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} 00:00:00`;
+      };
+
+      const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
       // Create budget entries with negative amounts for monthly totals (different months)
-      await env.DB.exec("INSERT INTO budget (description, price, added_time, amount, name, groupid, currency) VALUES ('July expense', '-500.00', '2024-07-15 00:00:00', -500, 'house', 1, 'USD')");
-      await env.DB.exec("INSERT INTO budget (description, price, added_time, amount, name, groupid, currency) VALUES ('August expense', '-600.00', '2024-08-15 00:00:00', -600, 'house', 1, 'USD')");
-      await env.DB.exec("INSERT INTO budget (description, price, added_time, amount, name, groupid, currency) VALUES ('September expense', '-400.00', '2024-09-15 00:00:00', -400, 'house', 1, 'USD')");
+      await db.insert(budget).values([
+        {
+          description: 'Month1 expense',
+          price: '-500.00',
+          addedTime: formatDate(month1),
+          amount: -500,
+          name: 'house',
+          groupid: 1,
+          currency: 'USD'
+        },
+        {
+          description: 'Month2 expense',
+          price: '-600.00',
+          addedTime: formatDate(month2),
+          amount: -600,
+          name: 'house',
+          groupid: 1,
+          currency: 'USD'
+        },
+        {
+          description: 'Month3 expense',
+          price: '-400.00',
+          addedTime: formatDate(month3),
+          amount: -400,
+          name: 'house',
+          groupid: 1,
+          currency: 'USD'
+        }
+      ]);
 
       const request = new Request('http://example.com/.netlify/functions/budget_monthly', {
         method: 'POST',
@@ -737,10 +798,10 @@ describe('Budget Handlers', () => {
       // Check monthly budgets structure
       expect(Array.isArray(json.monthlyBudgets)).toBe(true);
       // Should include all months from today back to oldest data date
-      // The function generates from current month back to oldest month with actual data (July 2024)
+      // The function generates from current month back to oldest month with actual data
       const today = new Date();
       const currentDate = new Date(today.getFullYear(), today.getMonth()); // Start of current month
-      const oldestDataDate = new Date(2024, 6); // July 2024 (months are 0-indexed)
+      const oldestDataDate = new Date(month1.getFullYear(), month1.getMonth()); // Oldest test data month
 
       // Calculate months between start and end dates
       let monthCount = 0;
@@ -753,16 +814,16 @@ describe('Budget Handlers', () => {
       expect(json.monthlyBudgets.length).toBe(monthCount);
 
       // Check that the months with data show correct amounts
-      const julyBudget = json.monthlyBudgets.find((b: MonthlyBudget) => b.month === 'July' && b.year === 2024);
-      const augustBudget = json.monthlyBudgets.find((b: MonthlyBudget) => b.month === 'August' && b.year === 2024);
-      const septemberBudget = json.monthlyBudgets.find((b: MonthlyBudget) => b.month === 'September' && b.year === 2024);
+      const month1Budget = json.monthlyBudgets.find((b: MonthlyBudget) => b.month === monthNames[month1.getMonth()] && b.year === month1.getFullYear());
+      const month2Budget = json.monthlyBudgets.find((b: MonthlyBudget) => b.month === monthNames[month2.getMonth()] && b.year === month2.getFullYear());
+      const month3Budget = json.monthlyBudgets.find((b: MonthlyBudget) => b.month === monthNames[month3.getMonth()] && b.year === month3.getFullYear());
 
-      expect(julyBudget).toBeTruthy();
-      expect((julyBudget as MonthlyBudget).amounts[0].amount).toBe(-500);
-      expect(augustBudget).toBeTruthy();
-      expect((augustBudget as MonthlyBudget).amounts[0].amount).toBe(-600);
-      expect(septemberBudget).toBeTruthy();
-      expect((septemberBudget as MonthlyBudget).amounts[0].amount).toBe(-400);
+      expect(month1Budget).toBeTruthy();
+      expect((month1Budget as MonthlyBudget).amounts[0].amount).toBe(500);
+      expect(month2Budget).toBeTruthy();
+      expect((month2Budget as MonthlyBudget).amounts[0].amount).toBe(600);
+      expect(month3Budget).toBeTruthy();
+      expect((month3Budget as MonthlyBudget).amounts[0].amount).toBe(400);
 
       // Check rolling average monthly spend calculations
       expect(Array.isArray(json.averageMonthlySpend)).toBe(true);
@@ -868,6 +929,7 @@ describe('Budget Handlers', () => {
       // Set up test data
       await createTestUserData(env);
       await createTestSession(env);
+      const db = getDb(env);
 
       // Create budget entries across 6 recent months that would be within rolling window
       const currentDate = new Date();
@@ -877,12 +939,62 @@ describe('Budget Handlers', () => {
         return date.toISOString().replace('T', ' ').replace(/\.\d{3}Z$/, '');
       };
 
-      await env.DB.exec(`INSERT INTO budget (description, price, added_time, amount, name, groupid, currency) VALUES ('Month 1 expense', '-1000.00', '${getRecentDate(5)}', -1000, 'house', 1, 'USD')`);
-      await env.DB.exec(`INSERT INTO budget (description, price, added_time, amount, name, groupid, currency) VALUES ('Month 2 expense', '-1200.00', '${getRecentDate(4)}', -1200, 'house', 1, 'USD')`);
-      await env.DB.exec(`INSERT INTO budget (description, price, added_time, amount, name, groupid, currency) VALUES ('Month 3 expense', '-800.00', '${getRecentDate(3)}', -800, 'house', 1, 'USD')`);
-      await env.DB.exec(`INSERT INTO budget (description, price, added_time, amount, name, groupid, currency) VALUES ('Month 4 expense', '-1100.00', '${getRecentDate(2)}', -1100, 'house', 1, 'USD')`);
-      await env.DB.exec(`INSERT INTO budget (description, price, added_time, amount, name, groupid, currency) VALUES ('Month 5 expense', '-900.00', '${getRecentDate(1)}', -900, 'house', 1, 'USD')`);
-      await env.DB.exec(`INSERT INTO budget (description, price, added_time, amount, name, groupid, currency) VALUES ('Month 6 expense', '-1300.00', '${getRecentDate(0)}', -1300, 'house', 1, 'USD')`);
+      await db.insert(budget).values([
+        {
+          description: 'Month 1 expense',
+          price: '-1000.00',
+          addedTime: getRecentDate(5),
+          amount: -1000,
+          name: 'house',
+          groupid: 1,
+          currency: 'USD'
+        },
+        {
+          description: 'Month 2 expense',
+          price: '-1200.00',
+          addedTime: getRecentDate(4),
+          amount: -1200,
+          name: 'house',
+          groupid: 1,
+          currency: 'USD'
+        },
+        {
+          description: 'Month 3 expense',
+          price: '-800.00',
+          addedTime: getRecentDate(3),
+          amount: -800,
+          name: 'house',
+          groupid: 1,
+          currency: 'USD'
+        },
+        {
+          description: 'Month 4 expense',
+          price: '-1100.00',
+          addedTime: getRecentDate(2),
+          amount: -1100,
+          name: 'house',
+          groupid: 1,
+          currency: 'USD'
+        },
+        {
+          description: 'Month 5 expense',
+          price: '-900.00',
+          addedTime: getRecentDate(1),
+          amount: -900,
+          name: 'house',
+          groupid: 1,
+          currency: 'USD'
+        },
+        {
+          description: 'Month 6 expense',
+          price: '-1300.00',
+          addedTime: getRecentDate(0),
+          amount: -1300,
+          name: 'house',
+          groupid: 1,
+          currency: 'USD'
+        }
+      ]);
 
       const request = new Request('http://example.com/.netlify/functions/budget_monthly', {
         method: 'POST',
@@ -932,6 +1044,372 @@ describe('Budget Handlers', () => {
         );
       }
     });
+
+    it('should handle mixed positive and negative amounts correctly', async () => {
+      // Set up test data
+      await createTestUserData(env);
+      await createTestSession(env);
+      const db = getDb(env);
+
+      // Create dynamic dates - use recent months for reliable testing
+      const now = new Date();
+      const month1 = new Date(now.getFullYear(), now.getMonth() - 3, 15); // 3 months ago
+      const month2 = new Date(now.getFullYear(), now.getMonth() - 2, 15); // 2 months ago
+      const month3 = new Date(now.getFullYear(), now.getMonth() - 1, 15); // 1 month ago
+      const month4 = new Date(now.getFullYear(), now.getMonth(), 15); // Current month
+
+      const formatDate = (date: Date) => {
+        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} 00:00:00`;
+      };
+
+      const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+      // Create a comprehensive scenario with mixed amounts across multiple months and currencies
+      // Month 1: +800 USD budget allocation, -250 USD groceries, -150 USD utilities
+      await db.insert(budget).values([
+        {
+          description: 'Month1 Budget',
+          price: '+800.00',
+          addedTime: formatDate(month1),
+          amount: 800,
+          name: 'house',
+          groupid: 1,
+          currency: 'USD'
+        },
+        {
+          description: 'Groceries',
+          price: '-250.00',
+          addedTime: formatDate(new Date(month1.getTime() + 5 * 24 * 60 * 60 * 1000)), // 5 days later
+          amount: -250,
+          name: 'house',
+          groupid: 1,
+          currency: 'USD'
+        },
+        {
+          description: 'Utilities',
+          price: '-150.00',
+          addedTime: formatDate(new Date(month1.getTime() + 10 * 24 * 60 * 60 * 1000)), // 10 days later
+          amount: -150,
+          name: 'house',
+          groupid: 1,
+          currency: 'USD'
+        }
+      ]);
+
+      // Month 2: +800 USD budget, -300 USD groceries, -200 USD utilities, +50 GBP extra budget, -75 GBP transport
+      await db.insert(budget).values([
+        {
+          description: 'Month2 Budget',
+          price: '+800.00',
+          addedTime: formatDate(month2),
+          amount: 800,
+          name: 'house',
+          groupid: 1,
+          currency: 'USD'
+        },
+        {
+          description: 'Groceries Month2',
+          price: '-300.00',
+          addedTime: formatDate(new Date(month2.getTime() + 3 * 24 * 60 * 60 * 1000)), // 3 days later
+          amount: -300,
+          name: 'house',
+          groupid: 1,
+          currency: 'USD'
+        },
+        {
+          description: 'Utilities Month2',
+          price: '-200.00',
+          addedTime: formatDate(new Date(month2.getTime() + 7 * 24 * 60 * 60 * 1000)), // 7 days later
+          amount: -200,
+          name: 'house',
+          groupid: 1,
+          currency: 'USD'
+        },
+        {
+          description: 'Extra Budget GBP',
+          price: '+50.00',
+          addedTime: formatDate(new Date(month2.getTime() - 5 * 24 * 60 * 60 * 1000)), // 5 days before
+          amount: 50,
+          name: 'house',
+          groupid: 1,
+          currency: 'GBP'
+        },
+        {
+          description: 'Transport',
+          price: '-75.00',
+          addedTime: formatDate(new Date(month2.getTime() + 13 * 24 * 60 * 60 * 1000)), // 13 days later
+          amount: -75,
+          name: 'house',
+          groupid: 1,
+          currency: 'GBP'
+        }
+      ]);
+
+      // Month 3: Only positive amounts (budget allocations), no expenses
+      await db.insert(budget).values([
+        {
+          description: 'Month3 Budget',
+          price: '+900.00',
+          addedTime: formatDate(month3),
+          amount: 900,
+          name: 'house',
+          groupid: 1,
+          currency: 'USD'
+        },
+        {
+          description: 'Month3 Bonus',
+          price: '+100.00',
+          addedTime: formatDate(new Date(month3.getTime() + 5 * 24 * 60 * 60 * 1000)), // 5 days later
+          amount: 100,
+          name: 'house',
+          groupid: 1,
+          currency: 'GBP'
+        }
+      ]);
+
+      // Month 4: Only negative amounts (expenses), no budget allocations
+      await db.insert(budget).values([
+        {
+          description: 'Month4 Groceries',
+          price: '-400.00',
+          addedTime: formatDate(month4),
+          amount: -400,
+          name: 'house',
+          groupid: 1,
+          currency: 'USD'
+        },
+        {
+          description: 'Month4 Utilities',
+          price: '-180.00',
+          addedTime: formatDate(new Date(month4.getTime() + 5 * 24 * 60 * 60 * 1000)), // 5 days later
+          amount: -180,
+          name: 'house',
+          groupid: 1,
+          currency: 'USD'
+        },
+        {
+          description: 'Month4 Transport',
+          price: '-60.00',
+          addedTime: formatDate(new Date(month4.getTime() + 10 * 24 * 60 * 60 * 1000)), // 10 days later
+          amount: -60,
+          name: 'house',
+          groupid: 1,
+          currency: 'GBP'
+        }
+      ]);
+
+      const request = new Request('http://example.com/.netlify/functions/budget_monthly', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer test-session-id',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          name: 'house'
+        })
+      });
+
+      const ctx = createExecutionContext();
+      const response = await worker.fetch(request, env, ctx);
+      await waitOnExecutionContext(ctx);
+
+      expect(response.status).toBe(200);
+      const json = await response.json() as BudgetMonthlyResponse;
+
+      // Verify response structure
+      expect(json).toHaveProperty('monthlyBudgets');
+      expect(json).toHaveProperty('averageMonthlySpend');
+      expect(json).toHaveProperty('periodAnalyzed');
+
+      // Find specific months to verify net amounts are calculated correctly
+      // Note: monthlyBudgets should show only expenses (negative amounts)
+      const month1Budget = json.monthlyBudgets.find((b: MonthlyBudget) => b.month === monthNames[month1.getMonth()] && b.year === month1.getFullYear());
+      const month2Budget = json.monthlyBudgets.find((b: MonthlyBudget) => b.month === monthNames[month2.getMonth()] && b.year === month2.getFullYear());
+      const month3Budget = json.monthlyBudgets.find((b: MonthlyBudget) => b.month === monthNames[month3.getMonth()] && b.year === month3.getFullYear());
+      const month4Budget = json.monthlyBudgets.find((b: MonthlyBudget) => b.month === monthNames[month4.getMonth()] && b.year === month4.getFullYear());
+
+      // Month 1: -250 - 150 = 400 USD expenses (shown as positive)
+      expect(month1Budget).toBeTruthy();
+      const month1USD = (month1Budget as MonthlyBudget).amounts.find(a => a.currency === 'USD');
+      expect(month1USD?.amount).toBe(400);
+
+      // Month 2: -300 - 200 = 500 USD, 75 GBP expenses (shown as positive)
+      expect(month2Budget).toBeTruthy();
+      const month2USD = (month2Budget as MonthlyBudget).amounts.find(a => a.currency === 'USD');
+      const month2GBP = (month2Budget as MonthlyBudget).amounts.find(a => a.currency === 'GBP');
+      expect(month2USD?.amount).toBe(500);
+      expect(month2GBP?.amount).toBe(75);
+
+      // Month 3: No expenses, so no entries should exist
+      expect(month3Budget).toBeTruthy();
+      const month3USD = (month3Budget as MonthlyBudget).amounts.find(a => a.currency === 'USD');
+      const month3GBP = (month3Budget as MonthlyBudget).amounts.find(a => a.currency === 'GBP');
+      expect(month3USD?.amount).toBe(0); // No expenses = 0
+      expect(month3GBP?.amount).toBe(0); // No expenses = 0
+
+      // Month 4: -400 - 180 = 580 USD, 60 GBP expenses (shown as positive)
+      expect(month4Budget).toBeTruthy();
+      const month4USD = (month4Budget as MonthlyBudget).amounts.find(a => a.currency === 'USD');
+      const month4GBP = (month4Budget as MonthlyBudget).amounts.find(a => a.currency === 'GBP');
+      expect(month4USD?.amount).toBe(580);
+      expect(month4GBP?.amount).toBe(60);
+
+      // Verify average spending calculations (should ONLY count negative amounts)
+      expect(json.averageMonthlySpend.length).toBeGreaterThan(0);
+
+      // Check 1-month average (most recent month's expenses only)
+      const oneMonthAverage = json.averageMonthlySpend.find((avg: AverageSpendPeriod) => avg.periodMonths === 1);
+      expect(oneMonthAverage).toBeTruthy();
+
+      // The most recent month should be based on current date, but let's verify the logic
+      // April had 640 USD spending (400 + 180) and 60 GBP spending
+      const oneMonthUSD = (oneMonthAverage as AverageSpendPeriod).averages.find(a => a.currency === 'USD');
+      const oneMonthGBP = (oneMonthAverage as AverageSpendPeriod).averages.find(a => a.currency === 'GBP');
+
+      // Verify that spending calculations are correct
+      if (oneMonthUSD) {
+        expect(oneMonthUSD.averageMonthlySpend).toBeGreaterThan(0);
+        expect(oneMonthUSD.totalSpend).toBeGreaterThan(0);
+      }
+      if (oneMonthGBP) {
+        expect(oneMonthGBP.averageMonthlySpend).toBeGreaterThan(0);
+        expect(oneMonthGBP.totalSpend).toBeGreaterThan(0);
+      }
+
+      // Check 2-month average
+      const twoMonthAverage = json.averageMonthlySpend.find((avg: AverageSpendPeriod) => avg.periodMonths === 2);
+      expect(twoMonthAverage).toBeTruthy();
+
+      // Check 4-month average (should include all our test months)
+      const fourMonthAverage = json.averageMonthlySpend.find((avg: AverageSpendPeriod) => avg.periodMonths === 4);
+      if (fourMonthAverage) {
+        const fourMonthUSD = fourMonthAverage.averages.find(a => a.currency === 'USD');
+        const fourMonthGBP = fourMonthAverage.averages.find(a => a.currency === 'GBP');
+
+        if (fourMonthUSD) {
+          // Total USD expenses across all months:
+          // Jan: 250 + 150 = 400
+          // Feb: 300 + 200 = 500
+          // Mar: 0 (no expenses)
+          // Apr: 400 + 180 = 580
+          // Total: 400 + 500 + 0 + 580 = 1480
+          // Average: 1480 / 4 = 370
+          expect(fourMonthUSD.totalSpend).toBe(1480);
+          expect(fourMonthUSD.averageMonthlySpend).toBe(370);
+          expect(fourMonthUSD.monthsAnalyzed).toBe(4);
+        }
+
+        if (fourMonthGBP) {
+          // Total GBP expenses across all months:
+          // Jan: 0
+          // Feb: 75
+          // Mar: 0 (no expenses)
+          // Apr: 60
+          // Total: 0 + 75 + 0 + 60 = 135
+          // Average: 135 / 4 = 33.75
+          expect(fourMonthGBP.totalSpend).toBe(135);
+          expect(fourMonthGBP.averageMonthlySpend).toBe(33.75);
+          expect(fourMonthGBP.monthsAnalyzed).toBe(4);
+        }
+      }
+    });
+
+    it('should handle currencies with zero spending correctly', async () => {
+      // Set up test data
+      await createTestUserData(env);
+      await createTestSession(env);
+      const db = getDb(env);
+
+      // Create dynamic dates - use recent month for reliable testing
+      const now = new Date();
+      const testMonth = new Date(now.getFullYear(), now.getMonth() - 1, 15); // 1 month ago
+
+      const formatDate = (date: Date) => {
+        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} 00:00:00`;
+      };
+
+      const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+      // Create scenario where one currency has only positive amounts
+      await db.insert(budget).values([
+        {
+          description: 'USD Expense',
+          price: '-500.00',
+          addedTime: formatDate(testMonth),
+          amount: -500,
+          name: 'house',
+          groupid: 1,
+          currency: 'USD'
+        },
+        {
+          description: 'GBP Budget Only',
+          price: '+100.00',
+          addedTime: formatDate(new Date(testMonth.getTime() + 5 * 24 * 60 * 60 * 1000)), // 5 days later
+          amount: 100,
+          name: 'house',
+          groupid: 1,
+          currency: 'GBP'
+        }
+      ]);
+
+      const request = new Request('http://example.com/.netlify/functions/budget_monthly', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer test-session-id',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          name: 'house'
+        })
+      });
+
+      const ctx = createExecutionContext();
+      const response = await worker.fetch(request, env, ctx);
+      await waitOnExecutionContext(ctx);
+
+      expect(response.status).toBe(200);
+      const json = await response.json() as BudgetMonthlyResponse;
+      // Find test month data
+      const testMonthBudget = json.monthlyBudgets.find((b: MonthlyBudget) => b.month === monthNames[testMonth.getMonth()] && b.year === testMonth.getFullYear());
+      expect(testMonthBudget).toBeTruthy();
+      console.log('testMonthBudget', JSON.stringify(testMonthBudget, null, 2));
+      const testUSD = (testMonthBudget as MonthlyBudget).amounts.find(a => a.currency === 'USD');
+      const testGBP = (testMonthBudget as MonthlyBudget).amounts.find(a => a.currency === 'GBP');
+      console.log('testUSD', JSON.stringify(testUSD, null, 2));
+      // USD should show 500 (expense shown as positive), GBP should not appear since it had no expenses
+      expect(testUSD?.amount).toBe(500);
+      expect(testGBP?.amount).toBeUndefined();
+
+      // Check that average spending only counts USD (which had expenses)
+      const oneMonthAverage = json.averageMonthlySpend.find((avg: AverageSpendPeriod) => avg.periodMonths === 1);
+      expect(oneMonthAverage).toBeTruthy();
+
+      const avgUSD = (oneMonthAverage as AverageSpendPeriod).averages.find(a => a.currency === 'USD');
+      const avgGBP = (oneMonthAverage as AverageSpendPeriod).averages.find(a => a.currency === 'GBP');
+
+      // USD should have spending data, but 1-month average starts from current month (0 spending)
+      expect(avgUSD?.totalSpend).toBe(0);
+      expect(avgUSD?.averageMonthlySpend).toBe(0);
+
+      // GBP should not appear in averages since it had no expenses
+      expect(avgGBP).toBeUndefined();
+
+      // Check a longer period that would include January 2024 data
+      // Since test data is from Jan 2024 and we're likely running in 2025,
+      // we need to check a 24-month period to capture that data
+      const maxPeriod = Math.max(...json.averageMonthlySpend.map(avg => avg.periodMonths));
+      if (maxPeriod >= 12) {
+        // Find the longest period available (should be around 24 months)
+        const longPeriodAverage = json.averageMonthlySpend.find((avg: AverageSpendPeriod) => avg.periodMonths === maxPeriod);
+        if (longPeriodAverage) {
+          const longPeriodUSD = longPeriodAverage.averages.find(a => a.currency === 'USD');
+          if (longPeriodUSD) {
+            expect(longPeriodUSD.totalSpend).toBe(500);
+            expect(longPeriodUSD.averageMonthlySpend).toBe(500 / maxPeriod); // $500 spread across all months
+          }
+        }
+      }
+    });
   });
 
   describe('handleBudgetTotal', () => {
@@ -939,10 +1417,29 @@ describe('Budget Handlers', () => {
       // Set up test data
       await createTestUserData(env);
       await createTestSession(env);
+      const db = getDb(env);
 
       // Create budget entries with correct schema
-      await env.DB.exec("INSERT INTO budget (description, price, added_time, amount, name, groupid, currency) VALUES ('Entry 1', '+500.00', '2024-01-01 00:00:00', 500, 'house', 1, 'USD')");
-      await env.DB.exec("INSERT INTO budget (description, price, added_time, amount, name, groupid, currency) VALUES ('Entry 2', '+1000.00', '2024-02-01 00:00:00', 1000, 'house', 1, 'USD')");
+      await db.insert(budget).values([
+        {
+          description: 'Entry 1',
+          price: '+500.00',
+          addedTime: '2024-01-01 00:00:00',
+          amount: 500,
+          name: 'house',
+          groupid: 1,
+          currency: 'USD'
+        },
+        {
+          description: 'Entry 2',
+          price: '+1000.00',
+          addedTime: '2024-02-01 00:00:00',
+          amount: 1000,
+          name: 'house',
+          groupid: 1,
+          currency: 'USD'
+        }
+      ]);
 
       // Populate materialized tables for optimized queries
       await populateMaterializedTables(env);
