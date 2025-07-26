@@ -12,7 +12,14 @@
     "build": "wrangler publish --dry-run",
     "test": "yarn clean:redirects && vitest run",
     "lint": "tsc --noEmit && eslint src --max-warnings 0",
-    "lint:fix": "eslint src --fix"
+    "lint:fix": "eslint src --fix",
+    "db:studio": "drizzle-kit studio",
+    "db:studio:local": "drizzle-kit studio --config=drizzle.config.local.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate:dev": "wrangler d1 migrations apply splitexpense-dev --local",
+    "db:migrate:prod": "wrangler d1 migrations apply splitexpense --remote",
+    "db:push:dev": "drizzle-kit push --config=drizzle.config.local.ts",
+    "db:introspect": "drizzle-kit pull"
   },
   "keywords": [
     "cloudflare",
@@ -31,14 +38,15 @@
     "@typescript-eslint/parser": "^8.37.0",
     "@vitest/runner": "^3.2.4",
     "@vitest/snapshot": "^3.2.4",
-    "drizzle-kit": "^0.20.14",
+    "better-sqlite3": "^12.2.0",
+    "drizzle-kit": "^0.31.4",
     "typescript": "^5.3.3",
     "vitest": "^3.2.4",
     "wrangler": "^4.26.0"
   },
   "dependencies": {
     "@types/node": "^22.9.0",
-    "drizzle-orm": "^0.30.7",
+    "drizzle-orm": "^0.44.3",
     "eslint": "^9.31.0"
   },
   "packageManager": "yarn@4.5.0"
