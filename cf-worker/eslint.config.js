@@ -32,6 +32,8 @@ module.exports = [
         TransformStream: 'readonly',
         ExecutionContext: 'readonly',
         ScheduledController: 'readonly',
+        Env: 'readonly',
+        RequestInit: 'readonly',
         crypto: 'readonly',
         btoa: 'readonly',
         atob: 'readonly',
@@ -84,8 +86,27 @@ module.exports = [
   // Test files configuration
   {
     files: ['**/*.test.ts', '**/tests/**/*.ts'],
+    languageOptions: {
+      globals: {
+        // Vitest globals
+        describe: 'readonly',
+        it: 'readonly',
+        test: 'readonly',
+        expect: 'readonly',
+        beforeEach: 'readonly',
+        beforeAll: 'readonly',
+        afterEach: 'readonly',
+        afterAll: 'readonly',
+        vi: 'readonly'
+      }
+    },
     rules: {
-      // No special rules for test files - same strict typing applies
+      // Allow unused vars in test files that start with underscore
+      '@typescript-eslint/no-unused-vars': ['error', { 
+        argsIgnorePattern: '^_',
+        varsIgnorePattern: '^_',
+        ignoreRestSiblings: true
+      }]
     }
   },
   
@@ -95,8 +116,7 @@ module.exports = [
       'node_modules/**',
       'dist/**',
       '.wrangler/**',
-      '*.js',
-      '*.d.ts'
+      '*.js'
     ]
   }
 ]; 

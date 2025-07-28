@@ -1,4 +1,3 @@
-import { useSelector } from "react-redux";
 import { Route, Routes } from "react-router-dom";
 import { ThemeProvider } from "styled-components";
 import styled from "styled-components";
@@ -10,12 +9,14 @@ import { Budget } from "@/pages/Budget";
 import { GlobalStyles } from "@/components/theme/GlobalStyles";
 import { theme } from "@/components/theme";
 import LoginPage from "@/pages/Login";
+import SignUpPage from "@/pages/SignUp";
 import Logout  from "@/Logout";
 import { MonthlyBudgetPage } from "@/pages/MonthlyBudgetPage";
 import Sidebar from "@/components/Sidebar";
 import Transactions from "@/pages/Transactions";
 import Settings from "@/pages/Settings";
 import NotFound from "@/pages/NotFound";
+import { authClient } from "./utils/authClient";
 
 const AppContainer = styled.div`
   display: flex;
@@ -143,8 +144,8 @@ const AuthenticatedTransactions = withAuthCheck(Transactions);
 const AuthenticatedSettings = withAuthCheck(Settings);
 
 function AppWrapper() {
-  const data = useSelector((state: any) => state.value);
-  const isAuthenticated = Object.keys(data).length > 0;
+  const {data, error} =  authClient.useSession();
+  const isAuthenticated = data?.user !== null && error === null;
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
@@ -223,6 +224,7 @@ function AppWrapper() {
         <Routes>
           <Route path="/" element={<LoginPage />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/signup" element={<SignUpPage />} />
           <Route path="/balances" element={<LoginPage />} />
           <Route path="/budget" element={<LoginPage />} />
           <Route path="/monthly-budget" element={<LoginPage />} />

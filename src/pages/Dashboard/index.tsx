@@ -1,6 +1,5 @@
 
 import  { useState, useEffect, useCallback } from "react";
-import { useSelector } from "react-redux";
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Form/Input";
 import { ErrorContainer, SuccessContainer } from "@/components/MessageContainer";
@@ -11,6 +10,7 @@ import { typedApi, ApiError } from "@/utils/api";
 import { scrollToTop } from "@/utils/scroll";
 import type { BudgetRequest, SplitNewRequest } from '@shared-types';
 import "./index.css";
+import { authClient } from "@/utils/authClient";
 
 function Dashboard(): JSX.Element {
   const [loading, setLoading] = useState<boolean>(false);
@@ -36,10 +36,10 @@ function Dashboard(): JSX.Element {
   const [defaultsInitialized, setDefaultsInitialized] = useState<boolean>(false);
 
   // Get auth data from the data store (where login puts it)
-  const data = useSelector((state: any) => state.value);
+  const {data, error:authError} =  authClient.useSession();
   
   // Check if user is authenticated by checking if data exists
-  const isAuthenticated = data && Object.keys(data).length > 0;
+  const isAuthenticated = data?.user !== null && authError === null;
 
   // Helper function to calculate default user percentages from metadata
   const calculateDefaultUserPercentages = useCallback((usersFromAuth: { FirstName: string; Id: number }[]) => {

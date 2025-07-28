@@ -1,17 +1,6 @@
 import { sqliteTable, text, integer, real, primaryKey, index, uniqueIndex } from 'drizzle-orm/sqlite-core';
-import { TransactionMetadata } from '../../../shared-types';
-
-export const users = sqliteTable('users', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  username: text('username', { length: 50 }).notNull(),
-  password: text('password', { length: 255 }).notNull(),
-  firstName: text('first_name', { length: 50 }),
-  lastName: text('last_name', { length: 50 }),
-  groupid: integer('groupid').notNull(),
-  createdAt: text('created_at').notNull().default('CURRENT_TIMESTAMP')
-}, (table) => [
-  index('users_username_idx').on(table.username)
-]);
+import { TransactionMetadata } from '../../../../shared-types';
+import {user, session, account, verification}  from './auth-schema';
 
 export const groups = sqliteTable('groups', {
   groupid: integer('groupid').primaryKey({ autoIncrement: true }),
@@ -21,14 +10,6 @@ export const groups = sqliteTable('groups', {
   budgets: text('budgets', { length: 1000 }),
   metadata: text('metadata', { length: 2000 })
 });
-
-export const sessions = sqliteTable('sessions', {
-  username: text('username', { length: 255 }).notNull(),
-  sessionid: text('sessionid', { length: 255 }).notNull(),
-  expiryTime: text('expiry_time').notNull()
-}, (table) => [
-  index('sessions_sessionid_idx').on(table.sessionid)
-]);
 
 export const transactions = sqliteTable('transactions', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -49,9 +30,9 @@ export const transactions = sqliteTable('transactions', {
 
 export const transactionUsers = sqliteTable('transaction_users', {
   transactionId: text('transaction_id', { length: 100 }).notNull(),
-  userId: integer('user_id').notNull(),
+  userId: text('user_id').notNull(),
   amount: real('amount').notNull(),
-  owedToUserId: integer('owed_to_user_id').notNull(),
+  owedToUserId: text('owed_to_user_id').notNull(),
   groupId: integer('group_id').notNull(),
   currency: text('currency', { length: 10 }).notNull(),
   deleted: text('deleted')
@@ -91,8 +72,8 @@ export const budget = sqliteTable('budget', {
 
 export const userBalances = sqliteTable('user_balances', {
   groupId: integer('group_id').notNull(),
-  userId: integer('user_id').notNull(),
-  owedToUserId: integer('owed_to_user_id').notNull(),
+  userId: text('user_id').notNull(),
+  owedToUserId: text('owed_to_user_id').notNull(),
   currency: text('currency', { length: 10 }).notNull(),
   balance: real('balance').notNull().default(0),
   updatedAt: text('updated_at').notNull()
@@ -115,9 +96,11 @@ export const budgetTotals = sqliteTable('budget_totals', {
 
 // Create schema object for Drizzle
 export const schema = {
-  users,
+  user,
   groups,
-  sessions,
+  session,
+  account,
+  verification,
   transactions,
   transactionUsers,
   budget,
@@ -126,12 +109,12 @@ export const schema = {
 };
 
 // Export inferred types
-export type User = typeof users.$inferSelect;
-export type NewUser = typeof users.$inferInsert;
+export type User = typeof user.$inferSelect;
+export type NewUser = typeof user.$inferInsert;
 export type Group = typeof groups.$inferSelect;
 export type NewGroup = typeof groups.$inferInsert;
-export type Session = typeof sessions.$inferSelect;
-export type NewSession = typeof sessions.$inferInsert;
+export type Session = typeof session.$inferSelect;
+export type NewSession = typeof session.$inferInsert;
 export type Transaction = typeof transactions.$inferSelect;
 export type NewTransaction = typeof transactions.$inferInsert;
 export type TransactionUser = typeof transactionUsers.$inferSelect;

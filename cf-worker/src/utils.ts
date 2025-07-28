@@ -1,15 +1,16 @@
 import {
-  CFRequest,
   CurrentSession,
-  Env,
   SplitAmount,
   UserBalance,
-  BudgetTotal
+  BudgetTotal,
+  Session,
+  Group
 } from './types';
-import { sessions, users, groups, userBalances, budgetTotals, transactionUsers } from './db/schema';
+import { groups, userBalances, budgetTotals, transactionUsers } from './db/schema/schema';
 import { getDb } from './db';
 import { eq, inArray, sql, and, isNull } from 'drizzle-orm';
-
+import { auth } from './auth';
+import { user } from './db/schema/auth-schema';
 // Generate random ID
 export function generateRandomId(length: number = 16): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -25,115 +26,89 @@ export function formatSQLiteTime(date: Date = new Date()): string {
   return date.toISOString().replace('T', ' ').slice(0, 19);
 }
 
-// Validate session with Drizzle (primary session validation function)
-export async function validateSession(sessionId: string, env: Env): Promise<CurrentSession | null> {
-  try {
-    const db = getDb(env);
-
-    // Get session from database using Drizzle
-    const sessionResult = await db
-      .select()
-      .from(sessions)
-      .where(eq(sessions.sessionid, sessionId))
-      .limit(1);
-
-    if (sessionResult.length === 0) {
-      return null;
-    }
-
-    const session = sessionResult[0];
-
-    // Check if session is expired
-    const now = new Date();
-    const expiryTime = new Date(session.expiryTime);
-    if (now > expiryTime) {
-      return null;
-    }
-
-    // Get user from database using Drizzle
-    const userResult = await db
-      .select()
-      .from(users)
-      .where(eq(users.username, session.username))
-      .limit(1);
-
-    if (userResult.length === 0) {
-      return null;
-    }
-
-    const userRow = userResult[0];
-    const user = {
-      Id: userRow.id,
-      username: userRow.username,
-      FirstName: userRow.firstName || '',
-      groupid: userRow.groupid
-    };
-
-    // Get group from database using Drizzle
-    const groupResult = await db
-      .select()
-      .from(groups)
-      .where(eq(groups.groupid, user.groupid))
-      .limit(1);
-
-    if (groupResult.length === 0) {
-      return null;
-    }
-
-    const groupRow = groupResult[0];
-    const group = {
-      groupid: groupRow.groupid,
-      budgets: groupRow.budgets || '[]',
-      userids: groupRow.userids || '[]',
-      metadata: groupRow.metadata || '{}'
-    };
-
-    // Get users in group using Drizzle
-    const userIds = JSON.parse(group.userids) as number[];
-    const usersInGroup = await db
-      .select()
-      .from(users)
-      .where(inArray(users.id, userIds));
-
-    const usersById: Record<number, typeof user> = {};
-    usersInGroup.forEach((u: typeof userRow) => {
-      usersById[u.id] = {
-        Id: u.id,
-        username: u.username,
-        FirstName: u.firstName || '',
-        groupid: u.groupid
-      };
-    });
-
-    return {
-      session: {
-        username: session.username,
-        sessionid: session.sessionid,
-        expiry_time: session.expiryTime
-      },
-      user,
-      group,
-      usersById
-    };
-  } catch (error) {
-    console.error('Session validation error:', error);
-    return null;
+export async function enrichSession(session: Session, db: ReturnType<typeof getDb>): Promise<CurrentSession> {
+  if (!session) {
+    throw new Error('Session not found');
   }
+  const userObj = session.user;
+  const userGroup = await db
+    .select({ groupid: user.groupid, metadata: groups.metadata, budgets: groups.budgets, userids: groups.userids })
+    .from(user)
+    .innerJoin(groups, eq(user.groupid, groups.groupid))
+    .where(eq(user.id, userObj.id))
+    .limit(1);
+  const currentUser = await db.select().from(user).where(eq(user.id, userObj.id)).limit(1);
+  if (!currentUser || currentUser.length === 0) {
+    throw new Error('Current user not found');
+  }
+  const group: Group | null = getGroup(userGroup);
+  if (!group) {
+    return {
+      group: null,
+      usersById: {},
+      currentUser: currentUser[0]
+    };
+  }
+  const userIds = JSON.parse(group.userids) as string[];
+  const usersInGroup = await db
+    .select()
+    .from(user)
+    .where(inArray(user.id, userIds));
+
+  const usersById: Record<string, typeof user.$inferSelect> = {};
+  usersInGroup.forEach(u => usersById[u.id] = u);
+  return {
+    group,
+    usersById: usersById,
+    currentUser: currentUser[0]
+  };
 }
 
-// Check if user is authenticated and return session
-export async function authenticate(request: CFRequest, env: Env): Promise<CurrentSession | null> {
-  const authHeader = request.headers.get('Authorization');
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+function getGroup(userGroup: { groupid: number | null; metadata: string | null; budgets: string | null; userids: string | null; }[]) {
+  if (!userGroup || userGroup.length === 0 || !userGroup[0]?.groupid) {
     return null;
   }
 
-  const sessionId = authHeader.substring(7);
-  return await validateSession(sessionId, env);
+  const group: Group = {
+    groupid: userGroup[0].groupid,
+    budgets: userGroup[0].budgets || '[]',
+    userids: userGroup[0].userids || '[]',
+    metadata: userGroup[0].metadata || '{}'
+  };
+  return group;
+}
+
+// This function acts as a guard for our protected routes
+export async function withAuth(
+  request: Request,
+  env: Env,
+  handler: (session: Awaited<ReturnType<typeof enrichSession>> & Session, db: ReturnType<typeof getDb>) => Promise<Response>
+): Promise<Response> {
+  try {
+    const authInstance = auth(env);
+    const db = getDb(env);
+    // Get session from better-auth
+    const sessionData = await authInstance.api.getSession({
+      headers: request.headers
+    });
+
+    if (!sessionData || !sessionData.user) {
+      return createErrorResponse('Unauthorized', 401, request, env);
+    }
+    const enrichedSession = await enrichSession(sessionData, db);
+    // Call the handler with the session and database
+    return await handler({
+      ...sessionData,
+      ...enrichedSession
+    }, db);
+  } catch (error) {
+    console.error('Auth middleware error:', error);
+    return createErrorResponse('Authentication failed', 401, request, env);
+  }
 }
 
 // CORS headers
-export function getCORSHeaders(request: CFRequest, env: Env): Record<string, string> {
+export function getCORSHeaders(request: Request, env: Env): Record<string, string> {
   const origin = request.headers.get('Origin');
   const allowedOrigins = env.ALLOWED_ORIGINS ? env.ALLOWED_ORIGINS.split(',') : [];
 
@@ -151,7 +126,7 @@ export function getCORSHeaders(request: CFRequest, env: Env): Record<string, str
 }
 
 // Create OPTIONS response
-export function createOptionsResponse(request: CFRequest, env: Env): Response {
+export function createOptionsResponse(request: Request, env: Env): Response {
   return new Response(null, {
     status: 204,
     headers: getCORSHeaders(request, env)
@@ -159,7 +134,7 @@ export function createOptionsResponse(request: CFRequest, env: Env): Response {
 }
 
 // Create JSON response with CORS headers
-export function createJsonResponse(data: unknown, status: number = 200, headers: Record<string, string> = {}, request?: CFRequest, env?: Env): Response {
+export function createJsonResponse(data: unknown, status: number = 200, headers: Record<string, string> = {}, request?: Request, env?: Env): Response {
   const responseHeaders = {
     'Content-Type': 'application/json',
     ...headers
@@ -176,14 +151,14 @@ export function createJsonResponse(data: unknown, status: number = 200, headers:
 }
 
 // Create error response
-export function createErrorResponse(error: string, status: number = 500, request?: CFRequest, env?: Env): Response {
+export function createErrorResponse(error: string, status: number = 500, request?: Request, env?: Env): Response {
   return createJsonResponse({ error }, status, {}, request, env);
 }
 
 // Helper function to check if user is authorized for a budget
 export function isAuthorizedForBudget(session: CurrentSession, budgetName: string): boolean {
   try {
-    const budgets = JSON.parse(session.group.budgets) as string[];
+    const budgets = JSON.parse(session.group?.budgets || '[]') as string[];
     return budgets.includes(budgetName);
   } catch (error) {
     console.error('Error parsing budgets:', error);
@@ -214,38 +189,35 @@ export function validatePaidAmounts(paidByShares: Record<string, number>, totalA
 // Calculate split amounts for transactions using net settlement logic
 export function calculateSplitAmounts(
   amount: number,
-  paidByShares: Record<number, number>,
-  splitPctShares: Record<number, number>,
+  paidByShares: Record<string, number>,
+  splitPctShares: Record<string, number>,
   currency: string
-): Array<{ user_id: number; amount: number; owed_to_user_id: number; currency: string }> {
-  const splitAmounts: Array<{ user_id: number; amount: number; owed_to_user_id: number; currency: string }> = [];
+): SplitAmount[] {
+  const splitAmounts: SplitAmount[] = [];
 
   // Calculate net position for each user (positive = owed money, negative = owes money)
-  const netPositions: Record<number, number> = {};
+  const netPositions: Record<string, number> = {};
 
   // Calculate what each user owes based on split percentages
   for (const [userIdStr, splitPct] of Object.entries(splitPctShares)) {
-    const userId = parseInt(userIdStr, 10);
     const owedAmount = (amount * splitPct) / 100;
-    netPositions[userId] = (netPositions[userId] || 0) - owedAmount;
+    netPositions[userIdStr] = (netPositions[userIdStr] || 0) - owedAmount;
   }
 
   // Add what each user paid
   for (const [userIdStr, paidAmount] of Object.entries(paidByShares)) {
-    const userId = parseInt(userIdStr, 10);
-    netPositions[userId] = (netPositions[userId] || 0) + paidAmount;
+    netPositions[userIdStr] = (netPositions[userIdStr] || 0) + paidAmount;
   }
 
   // Separate creditors (net positive) and debtors (net negative)
-  const creditors: Array<{ userId: number; amount: number }> = [];
-  const debtors: Array<{ userId: number; amount: number }> = [];
+  const creditors: Array<{ userId: string; amount: number }> = [];
+  const debtors: Array<{ userId: string; amount: number }> = [];
 
   for (const [userIdStr, netAmount] of Object.entries(netPositions)) {
-    const userId = parseInt(userIdStr, 10);
     if (netAmount > 0.001) { // Creditor (owed money)
-      creditors.push({ userId, amount: netAmount });
+      creditors.push({ userId: userIdStr, amount: netAmount });
     } else if (netAmount < -0.01) { // Debtor (owes money)
-      debtors.push({ userId, amount: -netAmount });
+      debtors.push({ userId: userIdStr, amount: -netAmount });
     }
   }
 

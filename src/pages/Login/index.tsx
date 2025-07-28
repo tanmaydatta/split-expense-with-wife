@@ -1,58 +1,43 @@
-import sha256 from "crypto-js/sha256";
 import React, { useState } from "react";
 import { useDispatch } from "react-redux";
-import { useNavigate } from "react-router-dom";
-import styled from "styled-components";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Form/Input";
 import { Loader } from "@/components/Loader";
 import { setData, unsetData } from "@/redux/data";
-import { typedApi } from "@/utils/api";
-import { LoginRequest, LoginResponse } from '@shared-types';
-
-const LoginContainer = styled.div`
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 100vh;
-`;
-
-const LoginForm = styled.form`
-  display: flex;
-  flex-direction: column;
-  gap: ${({ theme }) => theme.spacing.medium};
-  width: 300px;
-`;
+import { authClient } from "@/utils/authClient";
+import "./index.css";
 
 function LoginPage() {
-  const [username, setUsername] = useState("");
+  const [identifier, setIdentifier] = useState(""); // Can be username or email
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
+  const location = useLocation();
   const dispatch = useDispatch();
   const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string>("");
+  // Get success message from signup redirect
+  const successMessage = location.state?.message;
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setError("");
+    
     try {
-      const loginRequest: LoginRequest = {
-        username,
-        password: sha256(password).toString()
-      };
-      
-      const response: LoginResponse = await typedApi.post('/login', loginRequest);
-      const { token, ...userData } = response;
-
-      // Store token in local storage
-      localStorage.setItem('sessionToken', token);
-
-      // Dispatch user data to Redux store (including currencies)
-      dispatch(setData(userData));
-
-      // Redirect to home page
-      navigate('/');
-    } catch (_err) {
-      console.log('Invalid username or password');
+      // Use username for better-auth username plugin
+      const {data, error} = await authClient.signIn.username({ 
+        username: identifier, 
+        password 
+      });
+      if (error) {
+        throw error;
+      }
+      // On success, redirect or reload to fetch the user's session data
+      window.location.href = '/';
+    } catch (err: any) {
+      console.error('Login error:', err);
+      setError('Invalid credentials. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -62,15 +47,24 @@ function LoginPage() {
     dispatch(unsetData());
   }, [dispatch]);
   return (
-    <LoginContainer data-test-id="login-container">
+    <div className="login-container" data-test-id="login-container">
       {loading && <Loader data-test-id="login-loader" />}
       {!loading && (
-        <LoginForm onSubmit={handleLogin} data-test-id="login-form">
+        <form className="login-form" onSubmit={handleLogin} data-test-id="login-form">
+          <h2>Welcome Back</h2>
+          
+          {successMessage && (
+            <div className="login-success" data-test-id="login-success">
+              {successMessage}
+            </div>
+          )}
+          
           <Input
-            placeholder="Username"
+            placeholder="Username or Email"
             type="text"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
+            value={identifier}
+            onChange={(e) => setIdentifier(e.target.value)}
+            required
             data-test-id="username-input"
           />
           <Input
@@ -78,14 +72,22 @@ function LoginPage() {
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            required
             data-test-id="password-input"
           />
-          <Button type="submit" data-test-id="login-button">
-            Login
+          
+          {error && <div className="login-error" data-test-id="login-error">{error}</div>}
+          
+          <Button type="submit" disabled={loading} data-test-id="login-button">
+            {loading ? <Loader /> : "Login"}
           </Button>
-        </LoginForm>
+          
+          <p className="login-link">
+            Don't have an account? <a href="/signup">Sign up here</a>
+          </p>
+        </form>
       )}
-    </LoginContainer>
+    </div>
   );
 }
 

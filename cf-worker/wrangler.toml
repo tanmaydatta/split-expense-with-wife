@@ -8,16 +8,22 @@ compatibility_flags = ["nodejs_compat"]
 directory = "../build"
 binding = "ASSETS"
 not_found_handling = "single-page-application"
-run_worker_first = ["/.netlify/functions/*", "/hello"]
+run_worker_first = ["/.netlify/functions/*", "/hello", "/auth/*"]
 
 [vars]
 ALLOWED_ORIGINS = "https://staging--splitexpense.netlify.app,https://splitexpense.netlify.app,https://deploy-preview-5--splitexpense.netlify.app,http://localhost:3000,http://localhost:3001"
 GROUP_IDS = "1"
+BASE_URL = "http://localhost:8787/auth"
+AUTH_TRUSTED_ORIGINS = ["http://localhost:8787"]
+AUTH_PUBLIC_KEY = "placeholder_put_real_key_here"
+AUTH_PRIVATE_KEY = "placeholder_put_real_key_here"
+LOCAL = true
 
 [[d1_databases]]
 binding = "DB"
 database_name = "splitexpense-dev"
 database_id = "a721ee7e-a5ee-452d-88d4-ebb97a1f0786" 
+migrations_dir = "src/db/migrations"
 #binding = "DB"
 #database_name = "splitexpense"
 #database_id = "56f19864-f964-4c28-b176-001047d58e00" 
@@ -40,6 +46,11 @@ crons = [ "0 0 1 * *" ]
     [env.prod.vars]
     ALLOWED_ORIGINS = "https://splitexpense.netlify.app,https://deploy-preview-5--splitexpense.netlify.app,http://localhost:3000,http://localhost:3001"
     GROUP_IDS = "1"
+    BASE_URL = "https://splitexpense.tanmaydatta.workers.dev/auth"
+    AUTH_TRUSTED_ORIGINS = ["https://splitexpense.tanmaydatta.workers.dev"]
+    AUTH_PUBLIC_KEY = "placeholder_put_real_key_here"
+    AUTH_PRIVATE_KEY = "placeholder_put_real_key_here"
+    LOCAL = false
 
 
 
@@ -52,3 +63,8 @@ crons = [ "0 0 1 * *" ]
     [env.dev.vars]
     ALLOWED_ORIGINS = "https://staging--splitexpense.netlify.app,https://splitexpense.netlify.app,https://deploy-preview-5--splitexpense.netlify.app,http://localhost:3000,http://localhost:3001"
     GROUP_IDS = "1"
+    BASE_URL = "https://splitexpense-dev.tanmaydatta.workers.dev/auth"
+    AUTH_TRUSTED_ORIGINS = ["https://splitexpense.tanmaydatta.workers.dev"]
+    AUTH_PUBLIC_KEY = "placeholder_put_real_key_here"
+    AUTH_PRIVATE_KEY = "placeholder_put_real_key_here"
+    LOCAL = false

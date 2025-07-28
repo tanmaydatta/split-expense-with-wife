@@ -1,7 +1,5 @@
 /// <reference types="vitest" />
-/// <reference types="@cloudflare/workers-types" />
-
-import { Env } from './types';
+/// <reference types="worker-configuration.d.ts" />
 
 declare module 'vitest' {
     interface TestContext {

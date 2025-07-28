@@ -1,4 +1,5 @@
 /// <reference types="@cloudflare/workers-types" />
+/// <reference types="worker-configuration.d.ts" />
 
 declare module 'cloudflare:test' {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

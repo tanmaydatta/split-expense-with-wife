@@ -3,18 +3,12 @@
 
 // User and authentication types
 export interface User {
-  Id: number;
-  username: string;
-  FirstName: string;
-  LastName?: string;
-  groupid: number;
+  Id: string;
+  username?: string | null;
+  FirstName: string | null;
+  LastName?: string | null;
+  groupid: number | null;
   password?: string; // Only used in login
-}
-
-export interface Session {
-  username: string;
-  sessionid: string;
-  expiry_time: string; // ISO string format
 }
 
 export interface Group {
@@ -52,9 +46,9 @@ export interface Transaction {
 
 export interface TransactionUser {
   transaction_id: string;
-  user_id: number;
+  user_id: string;
   amount: number;
-  owed_to_user_id: number;
+  owed_to_user_id: string;
   group_id: number;
   currency: string;
   deleted?: string; // ISO string format

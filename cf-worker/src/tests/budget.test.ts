@@ -1,11 +1,11 @@
 import { env as testEnv, createExecutionContext, waitOnExecutionContext } from 'cloudflare:test';
-import { describe, it, expect, beforeEach } from 'vitest';
+// Vitest globals are available through the test environment
 import worker from '../index';
-import { setupAndCleanDatabase, createTestUserData, createTestSession, populateMaterializedTables } from './test-utils';
+import { setupAndCleanDatabase, createTestUserData, populateMaterializedTables, signInAndGetCookies } from './test-utils';
 import { BudgetMonthlyResponse, MonthlyBudget, AverageSpendPeriod } from '../../../shared-types';
-import { UserBalancesByUser, Env } from '../types';
+import { UserBalancesByUser } from '../types';
 import { getDb } from '../db';
-import { budget } from '../db/schema';
+import { budget, transactionUsers, transactions } from '../db/schema/schema';
 
 // Type aliases for API responses
 type BudgetTotalResponse = Array<{ currency: string; amount: number }>;
@@ -13,19 +13,45 @@ type BudgetTotalResponse = Array<{ currency: string; amount: number }>;
 const env = testEnv as unknown as Env;
 
 describe('Budget Handlers', () => {
+  let TEST_USERS: Record<string, Record<string, string>>;
   beforeEach(async () => {
     await setupAndCleanDatabase(env);
+    TEST_USERS = await createTestUserData(env);
   });
 
   describe('handleBalances', () => {
     it('should return calculated balances for the user', async () => {
       // Set up test data
-      await createTestUserData(env);
-      await createTestSession(env);
+      const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
 
       // Add some transaction data to create balances
-      await env.DB.exec("INSERT INTO transactions (transaction_id, description, amount, currency, group_id, created_at) VALUES ('test-tx-1', 'Test transaction', 100, 'USD', 1, '2024-01-01 00:00:00')");
-      await env.DB.exec("INSERT INTO transaction_users (transaction_id, user_id, amount, owed_to_user_id, currency, group_id) VALUES ('test-tx-1', 1, 50, 2, 'USD', 1), ('test-tx-1', 2, 20, 1, 'USD', 1)");
+      const db = getDb(env);
+      await db.insert(transactions).values({
+        transactionId: 'test-tx-1',
+        description: 'Test transaction',
+        amount: 100,
+        currency: 'USD',
+        groupId: 1,
+        createdAt: '2024-01-01 00:00:00'
+      });
+      await db.insert(transactionUsers).values([
+        {
+          transactionId: 'test-tx-1',
+          userId: TEST_USERS.user1.id,
+          amount: 50,
+          owedToUserId: TEST_USERS.user2.id,
+          currency: 'USD',
+          groupId: 1
+        },
+        {
+          transactionId: 'test-tx-1',
+          userId: TEST_USERS.user2.id,
+          amount: 20,
+          owedToUserId: TEST_USERS.user1.id,
+          currency: 'USD',
+          groupId: 1
+        }
+      ]);
 
       // Populate materialized tables for optimized queries
       await populateMaterializedTables(env);
@@ -33,10 +59,10 @@ describe('Budget Handlers', () => {
       // Populate materialized tables for optimized queries
       await populateMaterializedTables(env);
 
-      const request = new Request('http://example.com/.netlify/functions/balances', {
+      const request = new Request('http://localhost:8787/.netlify/functions/balances', {
         method: 'POST',
         headers: {
-          'Authorization': 'Bearer test-session-id',
+          'Cookie': cookies,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({})
@@ -48,25 +74,43 @@ describe('Budget Handlers', () => {
 
       expect(response.status).toBe(200);
       const json = await response.json() as UserBalancesByUser;
-      expect(json.Other.USD).toBe(-30);
+      expect(json[TEST_USERS.user2.firstName].USD).toBe(-30);
     });
 
     it('should handle 2-user scenario where current user is owed money', async () => {
       // Set up test data
-      await createTestUserData(env);
-      await createTestSession(env);
 
-      // User 2 owes 75 to user 1 (testuser), user 1 owes 25 to user 2
+      const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
+
+      // User 2 owes 75 to user 1, user 1 owes 25 to user 2
       // Net: user 2 owes 50 to user 1
-      await env.DB.exec("INSERT INTO transaction_users (transaction_id, user_id, amount, owed_to_user_id, currency, group_id) VALUES ('tx-2', 2, 75, 1, 'USD', 1), ('tx-2', 1, 25, 2, 'USD', 1)");
+      const db = getDb(env);
+      await db.insert(transactionUsers).values([
+        {
+          transactionId: 'tx-2',
+          userId: TEST_USERS.user2.id,
+          amount: 75,
+          owedToUserId: TEST_USERS.user1.id,
+          currency: 'USD',
+          groupId: 1
+        },
+        {
+          transactionId: 'tx-2',
+          userId: TEST_USERS.user1.id,
+          amount: 25,
+          owedToUserId: TEST_USERS.user2.id,
+          currency: 'USD',
+          groupId: 1
+        }
+      ]);
 
       // Populate materialized tables for optimized queries
       await populateMaterializedTables(env);
 
-      const request = new Request('http://example.com/.netlify/functions/balances', {
+      const request = new Request('http://localhost:8787/.netlify/functions/balances', {
         method: 'POST',
         headers: {
-          'Authorization': 'Bearer test-session-id',
+          'Cookie': cookies,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({})
@@ -78,27 +122,51 @@ describe('Budget Handlers', () => {
 
       expect(response.status).toBe(200);
       const json = await response.json() as UserBalancesByUser;
-      expect(json.Other.USD).toBe(50); // Other owes 50 to testuser
+      expect(json[TEST_USERS.user2.firstName].USD).toBe(50); // User 2 owes 50 to user 1
     });
 
     it('should handle 3-user triangular debt scenario', async () => {
-      // Set up test data
-      await createTestUserData(env);
-      await createTestSession(env);
+      const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
 
       // Create triangular debt:
-      // User 1 (testuser) owes 30 to user 2 (Other)
-      // User 2 (Other) owes 40 to user 3 (Third)
-      // User 3 (Third) owes 20 to user 1 (testuser)
-      await env.DB.exec("INSERT INTO transaction_users (transaction_id, user_id, amount, owed_to_user_id, currency, group_id) VALUES ('tx-3a', 1, 30, 2, 'USD', 1), ('tx-3b', 2, 40, 3, 'USD', 1), ('tx-3c', 3, 20, 1, 'USD', 1)");
+      // User 1 owes 30 to user 2
+      // User 2 owes 40 to user 3
+      // User 3 owes 20 to user 1
+      const db = getDb(env);
+      await db.insert(transactionUsers).values([
+        {
+          transactionId: 'tx-3a',
+          userId: TEST_USERS.user1.id,
+          amount: 30,
+          owedToUserId: TEST_USERS.user2.id,
+          currency: 'USD',
+          groupId: 1
+        },
+        {
+          transactionId: 'tx-3b',
+          userId: TEST_USERS.user2.id,
+          amount: 40,
+          owedToUserId: TEST_USERS.user3.id,
+          currency: 'USD',
+          groupId: 1
+        },
+        {
+          transactionId: 'tx-3c',
+          userId: TEST_USERS.user3.id,
+          amount: 20,
+          owedToUserId: TEST_USERS.user1.id,
+          currency: 'USD',
+          groupId: 1
+        }
+      ]);
 
       // Populate materialized tables for optimized queries
       await populateMaterializedTables(env);
 
-      const request = new Request('http://example.com/.netlify/functions/balances', {
+      const request = new Request('http://localhost:8787/.netlify/functions/balances', {
         method: 'POST',
         headers: {
-          'Authorization': 'Bearer test-session-id',
+          'Cookie': cookies,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({})
@@ -110,29 +178,61 @@ describe('Budget Handlers', () => {
 
       expect(response.status).toBe(200);
       const json = await response.json() as UserBalancesByUser;
-      expect(json.Other.USD).toBe(-30); // testuser owes 30 to Other
-      expect(json.Third.USD).toBe(20); // Third owes 20 to testuser
+      expect(json[TEST_USERS.user2.firstName].USD).toBe(-30); // user 1 owes 30 to user 2
+      expect(json[TEST_USERS.user3.firstName].USD).toBe(20); // user 3 owes 20 to user 1
     });
 
     it('should handle 4-user complex debt scenario', async () => {
-      // Set up test data
-      await createTestUserData(env);
-      await createTestSession(env);
+      const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
 
       // Complex scenario with 4 users:
-      // User 1 (testuser) owes 50 to user 2 (Other)
-      // User 3 (Third) owes 30 to user 1 (testuser)
-      // User 4 (Fourth) owes 40 to user 1 (testuser)
-      // User 1 (testuser) owes 20 to user 4 (Fourth)
-      await env.DB.exec("INSERT INTO transaction_users (transaction_id, user_id, amount, owed_to_user_id, currency, group_id) VALUES ('tx-4a', 1, 50, 2, 'USD', 1), ('tx-4b', 3, 30, 1, 'USD', 1), ('tx-4c', 4, 40, 1, 'USD', 1), ('tx-4d', 1, 20, 4, 'USD', 1)");
+      // User 1 owes 50 to user 2
+      // User 3 owes 30 to user 1
+      // User 4 owes 40 to user 1
+      // User 1 owes 20 to user 4
+      const db = getDb(env);
+      await db.insert(transactionUsers).values([
+        {
+          transactionId: 'tx-4a',
+          userId: TEST_USERS.user1.id,
+          amount: 50,
+          owedToUserId: TEST_USERS.user2.id,
+          currency: 'USD',
+          groupId: 1
+        },
+        {
+          transactionId: 'tx-4b',
+          userId: TEST_USERS.user3.id,
+          amount: 30,
+          owedToUserId: TEST_USERS.user1.id,
+          currency: 'USD',
+          groupId: 1
+        },
+        {
+          transactionId: 'tx-4c',
+          userId: TEST_USERS.user4.id,
+          amount: 40,
+          owedToUserId: TEST_USERS.user1.id,
+          currency: 'USD',
+          groupId: 1
+        },
+        {
+          transactionId: 'tx-4d',
+          userId: TEST_USERS.user1.id,
+          amount: 20,
+          owedToUserId: TEST_USERS.user4.id,
+          currency: 'USD',
+          groupId: 1
+        }
+      ]);
 
       // Populate materialized tables for optimized queries
       await populateMaterializedTables(env);
 
-      const request = new Request('http://example.com/.netlify/functions/balances', {
+      const request = new Request('http://localhost:8787/.netlify/functions/balances', {
         method: 'POST',
         headers: {
-          'Authorization': 'Bearer test-session-id',
+          'Cookie': cookies,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({})
@@ -144,28 +244,54 @@ describe('Budget Handlers', () => {
 
       expect(response.status).toBe(200);
       const json = await response.json() as UserBalancesByUser;
-      expect(json.Other.USD).toBe(-50); // testuser owes 50 to Other
-      expect(json.Third.USD).toBe(30); // Third owes 30 to testuser
-      expect(json.Fourth.USD).toBe(20); // Fourth owes 20 to testuser (40 - 20 = 20)
+      expect(json[TEST_USERS.user2.firstName].USD).toBe(-50); // user 1 owes 50 to user 2
+      expect(json[TEST_USERS.user3.firstName].USD).toBe(30); // user 3 owes 30 to user 1
+      expect(json[TEST_USERS.user4.firstName].USD).toBe(20); // user 4 owes 20 to user 1 (40 - 20 = 20)
     });
 
     it('should handle multi-currency balances', async () => {
       // Set up test data
-      await createTestUserData(env);
-      await createTestSession(env);
+
+      const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
 
       // Multi-currency scenario:
       // User 1 owes 50 USD to user 2, user 2 owes 30 EUR to user 1
       // User 3 owes 100 GBP to user 1
-      await env.DB.exec("INSERT INTO transaction_users (transaction_id, user_id, amount, owed_to_user_id, currency, group_id) VALUES ('tx-5a', 1, 50, 2, 'USD', 1), ('tx-5b', 2, 30, 1, 'EUR', 1), ('tx-5c', 3, 100, 1, 'GBP', 1)");
+      const db = getDb(env);
+      await db.insert(transactionUsers).values([
+        {
+          transactionId: 'tx-5a',
+          userId: TEST_USERS.user1.id,
+          amount: 50,
+          owedToUserId: TEST_USERS.user2.id,
+          currency: 'USD',
+          groupId: 1
+        },
+        {
+          transactionId: 'tx-5b',
+          userId: TEST_USERS.user2.id,
+          amount: 30,
+          owedToUserId: TEST_USERS.user1.id,
+          currency: 'EUR',
+          groupId: 1
+        },
+        {
+          transactionId: 'tx-5c',
+          userId: TEST_USERS.user3.id,
+          amount: 100,
+          owedToUserId: TEST_USERS.user1.id,
+          currency: 'GBP',
+          groupId: 1
+        }
+      ]);
 
       // Populate materialized tables for optimized queries
       await populateMaterializedTables(env);
 
-      const request = new Request('http://example.com/.netlify/functions/balances', {
+      const request = new Request('http://localhost:8787/.netlify/functions/balances', {
         method: 'POST',
         headers: {
-          'Authorization': 'Bearer test-session-id',
+          'Cookie': cookies,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({})
@@ -177,22 +303,22 @@ describe('Budget Handlers', () => {
 
       expect(response.status).toBe(200);
       const json = await response.json() as UserBalancesByUser;
-      expect(json.Other.USD).toBe(-50); // testuser owes 50 USD to Other
-      expect(json.Other.EUR).toBe(30); // Other owes 30 EUR to testuser
-      expect(json.Third.GBP).toBe(100); // Third owes 100 GBP to testuser
+      expect(json[TEST_USERS.user2.firstName].USD).toBe(-50); // user 1 owes 50 USD to user 2
+      expect(json[TEST_USERS.user2.firstName].EUR).toBe(30); // user 2 owes 30 EUR to user 1
+      expect(json[TEST_USERS.user3.firstName].GBP).toBe(100); // user 3 owes 100 GBP to user 1
     });
 
     it('should return empty object when no balances exist', async () => {
       // Set up test data
-      await createTestUserData(env);
-      await createTestSession(env);
+
+      const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
 
       // No transaction_users entries
 
-      const request = new Request('http://example.com/.netlify/functions/balances', {
+      const request = new Request('http://localhost:8787/.netlify/functions/balances', {
         method: 'POST',
         headers: {
-          'Authorization': 'Bearer test-session-id',
+          'Cookie': cookies,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({})
@@ -209,19 +335,45 @@ describe('Budget Handlers', () => {
 
     it('should ignore self-owed amounts', async () => {
       // Set up test data
-      await createTestUserData(env);
-      await createTestSession(env);
+
+      const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
 
       // Add some self-owed amounts (should be ignored) and real balances
-      await env.DB.exec("INSERT INTO transaction_users (transaction_id, user_id, amount, owed_to_user_id, currency, group_id) VALUES ('tx-6a', 1, 100, 1, 'USD', 1), ('tx-6b', 2, 50, 2, 'USD', 1), ('tx-6c', 1, 40, 2, 'USD', 1)");
+      const db = getDb(env);
+      await db.insert(transactionUsers).values([
+        {
+          transactionId: 'tx-6a',
+          userId: TEST_USERS.user1.id,
+          amount: 100,
+          owedToUserId: TEST_USERS.user1.id,
+          currency: 'USD',
+          groupId: 1
+        },
+        {
+          transactionId: 'tx-6b',
+          userId: TEST_USERS.user2.id,
+          amount: 50,
+          owedToUserId: TEST_USERS.user2.id,
+          currency: 'USD',
+          groupId: 1
+        },
+        {
+          transactionId: 'tx-6c',
+          userId: TEST_USERS.user1.id,
+          amount: 40,
+          owedToUserId: TEST_USERS.user2.id,
+          currency: 'USD',
+          groupId: 1
+        }
+      ]);
 
       // Populate materialized tables for optimized queries
       await populateMaterializedTables(env);
 
-      const request = new Request('http://example.com/.netlify/functions/balances', {
+      const request = new Request('http://localhost:8787/.netlify/functions/balances', {
         method: 'POST',
         headers: {
-          'Authorization': 'Bearer test-session-id',
+          'Cookie': cookies,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({})
@@ -233,28 +385,70 @@ describe('Budget Handlers', () => {
 
       expect(response.status).toBe(200);
       const json = await response.json() as UserBalancesByUser;
-      expect(json.Other.USD).toBe(-40); // Only the real debt should be counted
+      expect(json[TEST_USERS.user2.firstName].USD).toBe(-40); // Only the real debt should be counted
     });
 
     it('should handle complex multiple transactions between same users', async () => {
       // Set up test data
-      await createTestUserData(env);
-      await createTestSession(env);
+
+      const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
 
       // Multiple transactions between users:
       // Transaction 1: User 1 owes 60 to user 2, user 2 owes 10 to user 1
       // Transaction 2: User 1 owes 30 to user 2, user 2 owes 20 to user 1
       // Transaction 3: User 3 owes 50 to user 1
       // Net result: User 1 owes 60 to user 2, user 3 owes 50 to user 1
-      await env.DB.exec("INSERT INTO transaction_users (transaction_id, user_id, amount, owed_to_user_id, currency, group_id) VALUES ('tx-7a', 1, 60, 2, 'USD', 1), ('tx-7b', 2, 10, 1, 'USD', 1), ('tx-7c', 1, 30, 2, 'USD', 1), ('tx-7d', 2, 20, 1, 'USD', 1), ('tx-7e', 3, 50, 1, 'USD', 1)");
+      const db = getDb(env);
+      await db.insert(transactionUsers).values([
+        {
+          transactionId: 'tx-7a',
+          userId: TEST_USERS.user1.id,
+          amount: 60,
+          owedToUserId: TEST_USERS.user2.id,
+          currency: 'USD',
+          groupId: 1
+        },
+        {
+          transactionId: 'tx-7b',
+          userId: TEST_USERS.user2.id,
+          amount: 10,
+          owedToUserId: TEST_USERS.user1.id,
+          currency: 'USD',
+          groupId: 1
+        },
+        {
+          transactionId: 'tx-7c',
+          userId: TEST_USERS.user1.id,
+          amount: 30,
+          owedToUserId: TEST_USERS.user2.id,
+          currency: 'USD',
+          groupId: 1
+        },
+        {
+          transactionId: 'tx-7d',
+          userId: TEST_USERS.user2.id,
+          amount: 20,
+          owedToUserId: TEST_USERS.user1.id,
+          currency: 'USD',
+          groupId: 1
+        },
+        {
+          transactionId: 'tx-7e',
+          userId: TEST_USERS.user3.id,
+          amount: 50,
+          owedToUserId: TEST_USERS.user1.id,
+          currency: 'USD',
+          groupId: 1
+        }
+      ]);
 
       // Populate materialized tables for optimized queries
       await populateMaterializedTables(env);
 
-      const request = new Request('http://example.com/.netlify/functions/balances', {
+      const request = new Request('http://localhost:8787/.netlify/functions/balances', {
         method: 'POST',
         headers: {
-          'Authorization': 'Bearer test-session-id',
+          'Cookie': cookies,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({})
@@ -266,25 +460,41 @@ describe('Budget Handlers', () => {
 
       expect(response.status).toBe(200);
       const json = await response.json() as UserBalancesByUser;
-      expect(json.Other.USD).toBe(-60); // testuser owes 60 to Other (90 - 30 = 60)
-      expect(json.Third.USD).toBe(50); // Third owes 50 to testuser
+      expect(json[TEST_USERS.user2.firstName].USD).toBe(-60); // user 1 owes 60 to user 2 (90 - 30 = 60)
+      expect(json[TEST_USERS.user3.firstName].USD).toBe(50); // user 3 owes 50 to user 1
     });
 
     it('should handle balances for different session users', async () => {
       // Set up test data
-      await createTestUserData(env);
-      await createTestSession(env, 'other-session', 'testuser2'); // Session for user 2 (Other)
-
+      const cookies = await signInAndGetCookies(env, TEST_USERS.user2.email, TEST_USERS.user2.password);
       // User 1 owes 50 to user 2, user 2 owes 30 to user 3
-      await env.DB.exec("INSERT INTO transaction_users (transaction_id, user_id, amount, owed_to_user_id, currency, group_id) VALUES ('tx-8a', 1, 50, 2, 'USD', 1), ('tx-8b', 2, 30, 3, 'USD', 1)");
+      const db = getDb(env);
+      await db.insert(transactionUsers).values([
+        {
+          transactionId: 'tx-8a',
+          userId: TEST_USERS.user1.id,
+          amount: 50,
+          owedToUserId: TEST_USERS.user2.id,
+          currency: 'USD',
+          groupId: 1
+        },
+        {
+          transactionId: 'tx-8b',
+          userId: TEST_USERS.user2.id,
+          amount: 30,
+          owedToUserId: TEST_USERS.user3.id,
+          currency: 'USD',
+          groupId: 1
+        }
+      ]);
 
       // Populate materialized tables for optimized queries
       await populateMaterializedTables(env);
 
-      const request = new Request('http://example.com/.netlify/functions/balances', {
+      const request = new Request('http://localhost:8787/.netlify/functions/balances', {
         method: 'POST',
         headers: {
-          'Authorization': 'Bearer other-session',
+          'Cookie': cookies,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({})
@@ -296,25 +506,43 @@ describe('Budget Handlers', () => {
 
       expect(response.status).toBe(200);
       const json = await response.json() as UserBalancesByUser;
-      expect(json.Test.USD).toBe(50); // Test (user 1) owes 50 to Other (user 2)
-      expect(json.Third.USD).toBe(-30); // Other (user 2) owes 30 to Third (user 3)
+      expect(json[TEST_USERS.user1.firstName].USD).toBe(50); // user 1 owes 50 to user 2
+      expect(json[TEST_USERS.user3.firstName].USD).toBe(-30); // user 2 owes 30 to user 3
     });
 
     it('should handle 3-user scenario where one user owes multiple others', async () => {
       // Set up test data
-      await createTestUserData(env);
-      await createTestSession(env);
 
-      // User 1 (testuser) owes 100 to user 2 (Other) and 75 to user 3 (Third)
-      await env.DB.exec("INSERT INTO transaction_users (transaction_id, user_id, amount, owed_to_user_id, currency, group_id) VALUES ('tx-9a', 1, 100, 2, 'USD', 1), ('tx-9b', 1, 75, 3, 'USD', 1)");
+      const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
+
+      // User 1 owes 100 to user 2 and 75 to user 3
+      const db = getDb(env);
+      await db.insert(transactionUsers).values([
+        {
+          transactionId: 'tx-9a',
+          userId: TEST_USERS.user1.id,
+          amount: 100,
+          owedToUserId: TEST_USERS.user2.id,
+          currency: 'USD',
+          groupId: 1
+        },
+        {
+          transactionId: 'tx-9b',
+          userId: TEST_USERS.user1.id,
+          amount: 75,
+          owedToUserId: TEST_USERS.user3.id,
+          currency: 'USD',
+          groupId: 1
+        }
+      ]);
 
       // Populate materialized tables for optimized queries
       await populateMaterializedTables(env);
 
-      const request = new Request('http://example.com/.netlify/functions/balances', {
+      const request = new Request('http://localhost:8787/.netlify/functions/balances', {
         method: 'POST',
         headers: {
-          'Authorization': 'Bearer test-session-id',
+          'Cookie': cookies,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({})
@@ -326,25 +554,43 @@ describe('Budget Handlers', () => {
 
       expect(response.status).toBe(200);
       const json = await response.json() as UserBalancesByUser;
-      expect(json.Other.USD).toBe(-100); // testuser owes 100 to Other
-      expect(json.Third.USD).toBe(-75); // testuser owes 75 to Third
+      expect(json[TEST_USERS.user2.firstName].USD).toBe(-100); // user 1 owes 100 to user 2
+      expect(json[TEST_USERS.user3.firstName].USD).toBe(-75); // user 1 owes 75 to user 3
     });
 
     it('should handle 3-user scenario where multiple users owe one user', async () => {
       // Set up test data
-      await createTestUserData(env);
-      await createTestSession(env);
 
-      // User 2 (Other) owes 60 to user 1 (testuser) and user 3 (Third) owes 40 to user 1 (testuser)
-      await env.DB.exec("INSERT INTO transaction_users (transaction_id, user_id, amount, owed_to_user_id, currency, group_id) VALUES ('tx-10a', 2, 60, 1, 'USD', 1), ('tx-10b', 3, 40, 1, 'USD', 1)");
+      const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
+
+      // User 2 owes 60 to user 1 and user 3 owes 40 to user 1
+      const db = getDb(env);
+      await db.insert(transactionUsers).values([
+        {
+          transactionId: 'tx-10a',
+          userId: TEST_USERS.user2.id,
+          amount: 60,
+          owedToUserId: TEST_USERS.user1.id,
+          currency: 'USD',
+          groupId: 1
+        },
+        {
+          transactionId: 'tx-10b',
+          userId: TEST_USERS.user3.id,
+          amount: 40,
+          owedToUserId: TEST_USERS.user1.id,
+          currency: 'USD',
+          groupId: 1
+        }
+      ]);
 
       // Populate materialized tables for optimized queries
       await populateMaterializedTables(env);
 
-      const request = new Request('http://example.com/.netlify/functions/balances', {
+      const request = new Request('http://localhost:8787/.netlify/functions/balances', {
         method: 'POST',
         headers: {
-          'Authorization': 'Bearer test-session-id',
+          'Cookie': cookies,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({})
@@ -356,25 +602,51 @@ describe('Budget Handlers', () => {
 
       expect(response.status).toBe(200);
       const json = await response.json() as UserBalancesByUser;
-      expect(json.Other.USD).toBe(60); // Other owes 60 to testuser
-      expect(json.Third.USD).toBe(40); // Third owes 40 to testuser
+      expect(json[TEST_USERS.user2.firstName].USD).toBe(60); // user 2 owes 60 to user 1
+      expect(json[TEST_USERS.user3.firstName].USD).toBe(40); // user 3 owes 40 to user 1
     });
 
     it('should handle 3-user chain debt scenario', async () => {
       // Set up test data
-      await createTestUserData(env);
-      await createTestSession(env);
+
+      const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
 
       // Chain: User 1 owes 50 to user 2, user 2 owes 30 to user 3, user 3 owes 20 to user 1
-      await env.DB.exec("INSERT INTO transaction_users (transaction_id, user_id, amount, owed_to_user_id, currency, group_id) VALUES ('tx-11a', 1, 50, 2, 'USD', 1), ('tx-11b', 2, 30, 3, 'USD', 1), ('tx-11c', 3, 20, 1, 'USD', 1)");
+      const db = getDb(env);
+      await db.insert(transactionUsers).values([
+        {
+          transactionId: 'tx-11a',
+          userId: TEST_USERS.user1.id,
+          amount: 50,
+          owedToUserId: TEST_USERS.user2.id,
+          currency: 'USD',
+          groupId: 1
+        },
+        {
+          transactionId: 'tx-11b',
+          userId: TEST_USERS.user2.id,
+          amount: 30,
+          owedToUserId: TEST_USERS.user3.id,
+          currency: 'USD',
+          groupId: 1
+        },
+        {
+          transactionId: 'tx-11c',
+          userId: TEST_USERS.user3.id,
+          amount: 20,
+          owedToUserId: TEST_USERS.user1.id,
+          currency: 'USD',
+          groupId: 1
+        }
+      ]);
 
       // Populate materialized tables for optimized queries
       await populateMaterializedTables(env);
 
-      const request = new Request('http://example.com/.netlify/functions/balances', {
+      const request = new Request('http://localhost:8787/.netlify/functions/balances', {
         method: 'POST',
         headers: {
-          'Authorization': 'Bearer test-session-id',
+          'Cookie': cookies,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({})
@@ -386,25 +658,51 @@ describe('Budget Handlers', () => {
 
       expect(response.status).toBe(200);
       const json = await response.json() as UserBalancesByUser;
-      expect(json.Other.USD).toBe(-50); // testuser owes 50 to Other
-      expect(json.Third.USD).toBe(20); // Third owes 20 to testuser
+      expect(json[TEST_USERS.user2.firstName].USD).toBe(-50); // user 1 owes 50 to user 2
+      expect(json[TEST_USERS.user3.firstName].USD).toBe(20); // user 3 owes 20 to user 1
     });
 
     it('should handle 4-user scenario where one user owes all others', async () => {
       // Set up test data
-      await createTestUserData(env);
-      await createTestSession(env);
 
-      // User 1 (testuser) owes money to all other users
-      await env.DB.exec("INSERT INTO transaction_users (transaction_id, user_id, amount, owed_to_user_id, currency, group_id) VALUES ('tx-12a', 1, 25, 2, 'USD', 1), ('tx-12b', 1, 35, 3, 'USD', 1), ('tx-12c', 1, 45, 4, 'USD', 1)");
+      const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
+
+      // User 1 owes money to all other users
+      const db = getDb(env);
+      await db.insert(transactionUsers).values([
+        {
+          transactionId: 'tx-12a',
+          userId: TEST_USERS.user1.id,
+          amount: 25,
+          owedToUserId: TEST_USERS.user2.id,
+          currency: 'USD',
+          groupId: 1
+        },
+        {
+          transactionId: 'tx-12b',
+          userId: TEST_USERS.user1.id,
+          amount: 35,
+          owedToUserId: TEST_USERS.user3.id,
+          currency: 'USD',
+          groupId: 1
+        },
+        {
+          transactionId: 'tx-12c',
+          userId: TEST_USERS.user1.id,
+          amount: 45,
+          owedToUserId: TEST_USERS.user4.id,
+          currency: 'USD',
+          groupId: 1
+        }
+      ]);
 
       // Populate materialized tables for optimized queries
       await populateMaterializedTables(env);
 
-      const request = new Request('http://example.com/.netlify/functions/balances', {
+      const request = new Request('http://localhost:8787/.netlify/functions/balances', {
         method: 'POST',
         headers: {
-          'Authorization': 'Bearer test-session-id',
+          'Cookie': cookies,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({})
@@ -416,26 +714,52 @@ describe('Budget Handlers', () => {
 
       expect(response.status).toBe(200);
       const json = await response.json() as UserBalancesByUser;
-      expect(json.Other.USD).toBe(-25); // testuser owes 25 to Other
-      expect(json.Third.USD).toBe(-35); // testuser owes 35 to Third
-      expect(json.Fourth.USD).toBe(-45); // testuser owes 45 to Fourth
+      expect(json[TEST_USERS.user2.firstName].USD).toBe(-25); // user 1 owes 25 to user 2
+      expect(json[TEST_USERS.user3.firstName].USD).toBe(-35); // user 1 owes 35 to user 3
+      expect(json[TEST_USERS.user4.firstName].USD).toBe(-45); // user 1 owes 45 to user 4
     });
 
     it('should handle 4-user scenario where all others owe one user', async () => {
       // Set up test data
-      await createTestUserData(env);
-      await createTestSession(env);
 
-      // All other users owe money to user 1 (testuser)
-      await env.DB.exec("INSERT INTO transaction_users (transaction_id, user_id, amount, owed_to_user_id, currency, group_id) VALUES ('tx-13a', 2, 80, 1, 'USD', 1), ('tx-13b', 3, 65, 1, 'USD', 1), ('tx-13c', 4, 55, 1, 'USD', 1)");
+      const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
+
+      // All other users owe money to user 1
+      const db = getDb(env);
+      await db.insert(transactionUsers).values([
+        {
+          transactionId: 'tx-13a',
+          userId: TEST_USERS.user2.id,
+          amount: 80,
+          owedToUserId: TEST_USERS.user1.id,
+          currency: 'USD',
+          groupId: 1
+        },
+        {
+          transactionId: 'tx-13b',
+          userId: TEST_USERS.user3.id,
+          amount: 65,
+          owedToUserId: TEST_USERS.user1.id,
+          currency: 'USD',
+          groupId: 1
+        },
+        {
+          transactionId: 'tx-13c',
+          userId: TEST_USERS.user4.id,
+          amount: 55,
+          owedToUserId: TEST_USERS.user1.id,
+          currency: 'USD',
+          groupId: 1
+        }
+      ]);
 
       // Populate materialized tables for optimized queries
       await populateMaterializedTables(env);
 
-      const request = new Request('http://example.com/.netlify/functions/balances', {
+      const request = new Request('http://localhost:8787/.netlify/functions/balances', {
         method: 'POST',
         headers: {
-          'Authorization': 'Bearer test-session-id',
+          'Cookie': cookies,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({})
@@ -447,27 +771,45 @@ describe('Budget Handlers', () => {
 
       expect(response.status).toBe(200);
       const json = await response.json() as UserBalancesByUser;
-      expect(json.Other.USD).toBe(80); // Other owes 80 to testuser
-      expect(json.Third.USD).toBe(65); // Third owes 65 to testuser
-      expect(json.Fourth.USD).toBe(55); // Fourth owes 55 to testuser
+      expect(json[TEST_USERS.user2.firstName].USD).toBe(80); // user 2 owes 80 to user 1
+      expect(json[TEST_USERS.user3.firstName].USD).toBe(65); // user 3 owes 65 to user 1
+      expect(json[TEST_USERS.user4.firstName].USD).toBe(55); // user 4 owes 55 to user 1
     });
 
     it('should handle 4-user scenario with two pairs of debt', async () => {
       // Set up test data
-      await createTestUserData(env);
-      await createTestSession(env);
+
+      const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
 
       // Two pairs: User 1 owes user 2, user 3 owes user 4
       // But we're user 1, so we only see our relationship with user 2
-      await env.DB.exec("INSERT INTO transaction_users (transaction_id, user_id, amount, owed_to_user_id, currency, group_id) VALUES ('tx-14a', 1, 90, 2, 'USD', 1), ('tx-14b', 3, 70, 4, 'USD', 1)");
+      const db = getDb(env);
+      await db.insert(transactionUsers).values([
+        {
+          transactionId: 'tx-14a',
+          userId: TEST_USERS.user1.id,
+          amount: 90,
+          owedToUserId: TEST_USERS.user2.id,
+          currency: 'USD',
+          groupId: 1
+        },
+        {
+          transactionId: 'tx-14b',
+          userId: TEST_USERS.user3.id,
+          amount: 70,
+          owedToUserId: TEST_USERS.user4.id,
+          currency: 'USD',
+          groupId: 1
+        }
+      ]);
 
       // Populate materialized tables for optimized queries
       await populateMaterializedTables(env);
 
-      const request = new Request('http://example.com/.netlify/functions/balances', {
+      const request = new Request('http://localhost:8787/.netlify/functions/balances', {
         method: 'POST',
         headers: {
-          'Authorization': 'Bearer test-session-id',
+          'Cookie': cookies,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({})
@@ -479,28 +821,62 @@ describe('Budget Handlers', () => {
 
       expect(response.status).toBe(200);
       const json = await response.json() as UserBalancesByUser;
-      expect(json.Other.USD).toBe(-90); // testuser owes 90 to Other
-      expect(json.Third).toBeUndefined(); // Third doesn't have debt with testuser
-      expect(json.Fourth).toBeUndefined(); // Fourth doesn't have debt with testuser
+      expect(json[TEST_USERS.user2.firstName].USD).toBe(-90); // user 1 owes 90 to user 2
+      expect(json[TEST_USERS.user3.firstName]).toBeUndefined(); // user 3 doesn't have debt with user 1
+      expect(json[TEST_USERS.user4.firstName]).toBeUndefined(); // user 4 doesn't have debt with user 1
     });
 
     it('should handle 3-user multi-currency complex scenario', async () => {
       // Set up test data
-      await createTestUserData(env);
-      await createTestSession(env);
+
+      const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
 
       // Complex multi-currency with 3 users:
       // User 1 owes 100 USD to user 2, user 2 owes 50 EUR to user 1
       // User 3 owes 200 GBP to user 1, user 1 owes 75 EUR to user 3
-      await env.DB.exec("INSERT INTO transaction_users (transaction_id, user_id, amount, owed_to_user_id, currency, group_id) VALUES ('tx-15a', 1, 100, 2, 'USD', 1), ('tx-15b', 2, 50, 1, 'EUR', 1), ('tx-15c', 3, 200, 1, 'GBP', 1), ('tx-15d', 1, 75, 3, 'EUR', 1)");
+      const db = getDb(env);
+      await db.insert(transactionUsers).values([
+        {
+          transactionId: 'tx-15a',
+          userId: TEST_USERS.user1.id,
+          amount: 100,
+          owedToUserId: TEST_USERS.user2.id,
+          currency: 'USD',
+          groupId: 1
+        },
+        {
+          transactionId: 'tx-15b',
+          userId: TEST_USERS.user2.id,
+          amount: 50,
+          owedToUserId: TEST_USERS.user1.id,
+          currency: 'EUR',
+          groupId: 1
+        },
+        {
+          transactionId: 'tx-15c',
+          userId: TEST_USERS.user3.id,
+          amount: 200,
+          owedToUserId: TEST_USERS.user1.id,
+          currency: 'GBP',
+          groupId: 1
+        },
+        {
+          transactionId: 'tx-15d',
+          userId: TEST_USERS.user1.id,
+          amount: 75,
+          owedToUserId: TEST_USERS.user3.id,
+          currency: 'EUR',
+          groupId: 1
+        }
+      ]);
 
       // Populate materialized tables for optimized queries
       await populateMaterializedTables(env);
 
-      const request = new Request('http://example.com/.netlify/functions/balances', {
+      const request = new Request('http://localhost:8787/.netlify/functions/balances', {
         method: 'POST',
         headers: {
-          'Authorization': 'Bearer test-session-id',
+          'Cookie': cookies,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({})
@@ -512,30 +888,80 @@ describe('Budget Handlers', () => {
 
       expect(response.status).toBe(200);
       const json = await response.json() as UserBalancesByUser;
-      expect(json.Other.USD).toBe(-100); // testuser owes 100 USD to Other
-      expect(json.Other.EUR).toBe(50); // Other owes 50 EUR to testuser
-      expect(json.Third.GBP).toBe(200); // Third owes 200 GBP to testuser
-      expect(json.Third.EUR).toBe(-75); // testuser owes 75 EUR to Third
+      expect(json[TEST_USERS.user2.firstName].USD).toBe(-100); // user 1 owes 100 USD to user 2
+      expect(json[TEST_USERS.user2.firstName].EUR).toBe(50); // user 2 owes 50 EUR to user 1
+      expect(json[TEST_USERS.user3.firstName].GBP).toBe(200); // user 3 owes 200 GBP to user 1
+      expect(json[TEST_USERS.user3.firstName].EUR).toBe(-75); // user 1 owes 75 EUR to user 3
     });
 
     it('should handle 4-user web of debt scenario', async () => {
       // Set up test data
-      await createTestUserData(env);
-      await createTestSession(env);
+
+      const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
 
       // Complex web: Multiple interconnected debts
       // User 1 owes 40 to user 2, user 2 owes 30 to user 1 (net: user 1 owes 10 to user 2)
       // User 3 owes 60 to user 1, user 1 owes 20 to user 3 (net: user 3 owes 40 to user 1)
       // User 4 owes 80 to user 1, user 1 owes 35 to user 4 (net: user 4 owes 45 to user 1)
-      await env.DB.exec("INSERT INTO transaction_users (transaction_id, user_id, amount, owed_to_user_id, currency, group_id) VALUES ('tx-16a', 1, 40, 2, 'USD', 1), ('tx-16b', 2, 30, 1, 'USD', 1), ('tx-16c', 3, 60, 1, 'USD', 1), ('tx-16d', 1, 20, 3, 'USD', 1), ('tx-16e', 4, 80, 1, 'USD', 1), ('tx-16f', 1, 35, 4, 'USD', 1)");
+      const db = getDb(env);
+      await db.insert(transactionUsers).values([
+        {
+          transactionId: 'tx-16a',
+          userId: TEST_USERS.user1.id,
+          amount: 40,
+          owedToUserId: TEST_USERS.user2.id,
+          currency: 'USD',
+          groupId: 1
+        },
+        {
+          transactionId: 'tx-16b',
+          userId: TEST_USERS.user2.id,
+          amount: 30,
+          owedToUserId: TEST_USERS.user1.id,
+          currency: 'USD',
+          groupId: 1
+        },
+        {
+          transactionId: 'tx-16c',
+          userId: TEST_USERS.user3.id,
+          amount: 60,
+          owedToUserId: TEST_USERS.user1.id,
+          currency: 'USD',
+          groupId: 1
+        },
+        {
+          transactionId: 'tx-16d',
+          userId: TEST_USERS.user1.id,
+          amount: 20,
+          owedToUserId: TEST_USERS.user3.id,
+          currency: 'USD',
+          groupId: 1
+        },
+        {
+          transactionId: 'tx-16e',
+          userId: TEST_USERS.user4.id,
+          amount: 80,
+          owedToUserId: TEST_USERS.user1.id,
+          currency: 'USD',
+          groupId: 1
+        },
+        {
+          transactionId: 'tx-16f',
+          userId: TEST_USERS.user1.id,
+          amount: 35,
+          owedToUserId: TEST_USERS.user4.id,
+          currency: 'USD',
+          groupId: 1
+        }
+      ]);
 
       // Populate materialized tables for optimized queries
       await populateMaterializedTables(env);
 
-      const request = new Request('http://example.com/.netlify/functions/balances', {
+      const request = new Request('http://localhost:8787/.netlify/functions/balances', {
         method: 'POST',
         headers: {
-          'Authorization': 'Bearer test-session-id',
+          'Cookie': cookies,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({})
@@ -547,26 +973,42 @@ describe('Budget Handlers', () => {
 
       expect(response.status).toBe(200);
       const json = await response.json() as UserBalancesByUser;
-      expect(json.Other.USD).toBe(-10); // testuser owes 10 to Other (40 - 30)
-      expect(json.Third.USD).toBe(40); // Third owes 40 to testuser (60 - 20)
-      expect(json.Fourth.USD).toBe(45); // Fourth owes 45 to testuser (80 - 35)
+      expect(json[TEST_USERS.user2.firstName].USD).toBe(-10); // user 1 owes 10 to user 2 (40 - 30)
+      expect(json[TEST_USERS.user3.firstName].USD).toBe(40); // user 3 owes 40 to user 1 (60 - 20)
+      expect(json[TEST_USERS.user4.firstName].USD).toBe(45); // user 4 owes 45 to user 1 (80 - 35)
     });
 
     it('should handle 3-user scenario with one user having no debt', async () => {
       // Set up test data
-      await createTestUserData(env);
-      await createTestSession(env);
 
+      const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
       // Only debt between user 1 and user 2, user 3 has no debt with user 1
-      await env.DB.exec("INSERT INTO transaction_users (transaction_id, user_id, amount, owed_to_user_id, currency, group_id) VALUES ('tx-17a', 1, 85, 2, 'USD', 1), ('tx-17b', 3, 50, 2, 'USD', 1)");
+      const db = getDb(env);
+      await db.insert(transactionUsers).values([
+        {
+          transactionId: 'tx-17a',
+          userId: TEST_USERS.user1.id,
+          amount: 85,
+          owedToUserId: TEST_USERS.user2.id,
+          currency: 'USD',
+          groupId: 1
+        },
+        {
+          transactionId: 'tx-17b',
+          userId: TEST_USERS.user3.id,
+          amount: 50,
+          owedToUserId: TEST_USERS.user2.id,
+          currency: 'USD',
+          groupId: 1
+        }
+      ]);
 
       // Populate materialized tables for optimized queries
       await populateMaterializedTables(env);
-
-      const request = new Request('http://example.com/.netlify/functions/balances', {
+      const request = new Request('http://localhost:8787/.netlify/functions/balances', {
         method: 'POST',
         headers: {
-          'Authorization': 'Bearer test-session-id',
+          'Cookie': cookies,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({})
@@ -575,24 +1017,23 @@ describe('Budget Handlers', () => {
       const ctx = createExecutionContext();
       const response = await worker.fetch(request, env, ctx);
       await waitOnExecutionContext(ctx);
-
       expect(response.status).toBe(200);
       const json = await response.json() as UserBalancesByUser;
-      expect(json.Other.USD).toBe(-85); // testuser owes 85 to Other
-      expect(json.Third).toBeUndefined(); // Third has no debt with testuser
+      expect(json[TEST_USERS.user2.firstName].USD).toBe(-85); // testuser owes 85 to Other
+      expect(json[TEST_USERS.user3.firstName]).toBeUndefined(); // Third has no debt with testuser
     });
   });
 
   describe('handleBudget', () => {
     it('should create a budget entry successfully', async () => {
       // Set up test data
-      await createTestUserData(env);
-      await createTestSession(env);
 
-      const request = new Request('http://example.com/.netlify/functions/budget', {
+      const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
+
+      const request = new Request('http://localhost:8787/.netlify/functions/budget', {
         method: 'POST',
         headers: {
-          'Authorization': 'Bearer test-session-id',
+          'Cookie': cookies,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
@@ -615,13 +1056,13 @@ describe('Budget Handlers', () => {
 
     it('should return 401 if not authorized for budget', async () => {
       // Set up test data
-      await createTestUserData(env);
-      await createTestSession(env);
 
-      const request = new Request('http://example.com/.netlify/functions/budget', {
+      const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
+
+      const request = new Request('http://localhost:8787/.netlify/functions/budget', {
         method: 'POST',
         headers: {
-          'Authorization': 'Bearer test-session-id',
+          'Cookie': cookies,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
@@ -644,8 +1085,8 @@ describe('Budget Handlers', () => {
   describe('handleBudgetDelete', () => {
     it('should delete a budget entry successfully', async () => {
       // Set up test data
-      await createTestUserData(env);
-      await createTestSession(env);
+
+      const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
       const db = getDb(env);
 
       // Create a budget entry to delete with correct schema
@@ -660,10 +1101,10 @@ describe('Budget Handlers', () => {
         currency: 'USD'
       });
 
-      const request = new Request('http://example.com/.netlify/functions/budget_delete', {
+      const request = new Request('http://localhost:8787/.netlify/functions/budget_delete', {
         method: 'POST',
         headers: {
-          'Authorization': 'Bearer test-session-id',
+          'Cookie': cookies,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
@@ -684,8 +1125,8 @@ describe('Budget Handlers', () => {
   describe('handleBudgetList', () => {
     it('should return a list of budget entries', async () => {
       // Set up test data
-      await createTestUserData(env);
-      await createTestSession(env);
+
+      const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
       const db = getDb(env);
 
       // Create budget entries with correct schema
@@ -700,10 +1141,10 @@ describe('Budget Handlers', () => {
         currency: 'USD'
       });
 
-      const request = new Request('http://example.com/.netlify/functions/budget_list', {
+      const request = new Request('http://localhost:8787/.netlify/functions/budget_list', {
         method: 'POST',
         headers: {
-          'Authorization': 'Bearer test-session-id',
+          'Cookie': cookies,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
@@ -725,8 +1166,8 @@ describe('Budget Handlers', () => {
   describe('handleBudgetMonthly', () => {
     it('should return monthly budget totals with average calculations', async () => {
       // Set up test data
-      await createTestUserData(env);
-      await createTestSession(env);
+
+      const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
       const db = getDb(env);
 
       // Create dynamic dates - use recent months for reliable testing
@@ -772,10 +1213,10 @@ describe('Budget Handlers', () => {
         }
       ]);
 
-      const request = new Request('http://example.com/.netlify/functions/budget_monthly', {
+      const request = new Request('http://localhost:8787/.netlify/functions/budget_monthly', {
         method: 'POST',
         headers: {
-          'Authorization': 'Bearer test-session-id',
+          'Cookie': cookies,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
@@ -857,15 +1298,15 @@ describe('Budget Handlers', () => {
 
     it('should handle empty budget data and return default averages', async () => {
       // Set up test data
-      await createTestUserData(env);
-      await createTestSession(env);
+
+      const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
 
       // No budget entries
 
-      const request = new Request('http://example.com/.netlify/functions/budget_monthly', {
+      const request = new Request('http://localhost:8787/.netlify/functions/budget_monthly', {
         method: 'POST',
         headers: {
-          'Authorization': 'Bearer test-session-id',
+          'Cookie': cookies,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
@@ -927,8 +1368,8 @@ describe('Budget Handlers', () => {
 
     it('should calculate rolling averages correctly for different time periods', async () => {
       // Set up test data
-      await createTestUserData(env);
-      await createTestSession(env);
+
+      const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
       const db = getDb(env);
 
       // Create budget entries across 6 recent months that would be within rolling window
@@ -996,10 +1437,10 @@ describe('Budget Handlers', () => {
         }
       ]);
 
-      const request = new Request('http://example.com/.netlify/functions/budget_monthly', {
+      const request = new Request('http://localhost:8787/.netlify/functions/budget_monthly', {
         method: 'POST',
         headers: {
-          'Authorization': 'Bearer test-session-id',
+          'Cookie': cookies,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
@@ -1047,8 +1488,8 @@ describe('Budget Handlers', () => {
 
     it('should handle mixed positive and negative amounts correctly', async () => {
       // Set up test data
-      await createTestUserData(env);
-      await createTestSession(env);
+
+      const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
       const db = getDb(env);
 
       // Create dynamic dates - use recent months for reliable testing
@@ -1198,10 +1639,10 @@ describe('Budget Handlers', () => {
         }
       ]);
 
-      const request = new Request('http://example.com/.netlify/functions/budget_monthly', {
+      const request = new Request('http://localhost:8787/.netlify/functions/budget_monthly', {
         method: 'POST',
         headers: {
-          'Authorization': 'Bearer test-session-id',
+          'Cookie': cookies,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
@@ -1316,8 +1757,8 @@ describe('Budget Handlers', () => {
 
     it('should handle currencies with zero spending correctly', async () => {
       // Set up test data
-      await createTestUserData(env);
-      await createTestSession(env);
+
+      const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
       const db = getDb(env);
 
       // Create dynamic dates - use recent month for reliable testing
@@ -1352,10 +1793,10 @@ describe('Budget Handlers', () => {
         }
       ]);
 
-      const request = new Request('http://example.com/.netlify/functions/budget_monthly', {
+      const request = new Request('http://localhost:8787/.netlify/functions/budget_monthly', {
         method: 'POST',
         headers: {
-          'Authorization': 'Bearer test-session-id',
+          'Cookie': cookies,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
@@ -1415,8 +1856,9 @@ describe('Budget Handlers', () => {
   describe('handleBudgetTotal', () => {
     it('should return budget totals', async () => {
       // Set up test data
-      await createTestUserData(env);
-      await createTestSession(env);
+
+      const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
+
       const db = getDb(env);
 
       // Create budget entries with correct schema
@@ -1444,10 +1886,10 @@ describe('Budget Handlers', () => {
       // Populate materialized tables for optimized queries
       await populateMaterializedTables(env);
 
-      const request = new Request('http://example.com/.netlify/functions/budget_total', {
+      const request = new Request('http://localhost:8787/.netlify/functions/budget_total', {
         method: 'POST',
         headers: {
-          'Authorization': 'Bearer test-session-id',
+          'Cookie': cookies, // Use session cookies from sign-in
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({

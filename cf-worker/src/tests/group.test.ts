@@ -1,8 +1,11 @@
 /// <reference types="vitest" />
 import { env } from 'cloudflare:test';
-import { describe, it, expect, beforeEach } from 'vitest';
+// Vitest globals are available through the test environment
 import { handleUpdateGroupMetadata, handleGroupDetails } from '../handlers/group';
-import { setupAndCleanDatabase, createTestUserData, createTestSession, createMockRequest } from './test-utils';
+import { setupAndCleanDatabase, createTestUserData, createMockRequest, signInAndGetCookies } from './test-utils';
+import { getDb } from '../db';
+import { groups } from '../db/schema/schema';
+import { eq } from 'drizzle-orm';
 import {
   UpdateGroupMetadataRequest,
   UpdateGroupMetadataResponse,
@@ -10,92 +13,127 @@ import {
 } from '../../../shared-types';
 
 describe('Group Metadata Handler', () => {
+  let TEST_USERS: Record<string, Record<string, string>>;
   beforeEach(async () => {
     await setupAndCleanDatabase(env);
-    await createTestUserData(env);
-    await createTestSession(env, 'test-session-id', 'testuser');
+    TEST_USERS = await createTestUserData(env);
   });
 
   it('should successfully update both defaultShare and defaultCurrency', async () => {
+    const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
+
     const requestBody: UpdateGroupMetadataRequest = {
       groupid: 1,
       defaultShare: {
-        '1': 25,
-        '2': 25,
-        '3': 25,
-        '4': 25
+        [TEST_USERS.user1.id]: 25,
+        [TEST_USERS.user2.id]: 25,
+        [TEST_USERS.user3.id]: 25,
+        [TEST_USERS.user4.id]: 25
       },
       defaultCurrency: 'USD'
     };
 
-    const request = createMockRequest('POST', requestBody, 'test-session-id');
+    const request = createMockRequest('POST', requestBody, cookies);
     const response = await handleUpdateGroupMetadata(request, env);
 
     expect(response.status).toBe(200);
     const responseData = await response.json() as UpdateGroupMetadataResponse;
     expect(responseData.message).toBe('Group metadata updated successfully');
-    expect(responseData.metadata.defaultShare).toEqual({'1': 25, '2': 25, '3': 25, '4': 25});
+    expect(responseData.metadata.defaultShare).toEqual({
+      [TEST_USERS.user1.id]: 25,
+      [TEST_USERS.user2.id]: 25,
+      [TEST_USERS.user3.id]: 25,
+      [TEST_USERS.user4.id]: 25
+    });
     expect(responseData.metadata.defaultCurrency).toBe('USD');
 
     // Verify database was updated
-    const groupData = await env.DB.prepare('SELECT metadata FROM groups WHERE groupid = 1').first() as { metadata: string };
-    const metadata = JSON.parse(groupData.metadata);
-    expect(metadata.defaultShare).toEqual({'1': 25, '2': 25, '3': 25, '4': 25});
+    const db = getDb(env);
+    const groupData = await db
+      .select({ metadata: groups.metadata })
+      .from(groups)
+      .where(eq(groups.groupid, 1))
+      .limit(1);
+    expect(groupData).toHaveLength(1);
+    const metadata = JSON.parse(groupData[0].metadata || '{}');
+    expect(metadata.defaultShare).toEqual({
+      [TEST_USERS.user1.id]: 25,
+      [TEST_USERS.user2.id]: 25,
+      [TEST_USERS.user3.id]: 25,
+      [TEST_USERS.user4.id]: 25
+    });
     expect(metadata.defaultCurrency).toBe('USD');
   });
 
   it('should successfully update only defaultShare', async () => {
+    const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
+    const db = getDb(env);
+
     // First set some initial metadata
-    await env.DB.prepare(`
-      UPDATE groups
-      SET metadata = '{"defaultCurrency": "GBP", "other_field": "preserved"}'
-      WHERE groupid = 1
-    `).run();
+    await db
+      .update(groups)
+      .set({ metadata: '{"defaultCurrency": "GBP", "other_field": "preserved"}' })
+      .where(eq(groups.groupid, 1));
 
     const requestBody: UpdateGroupMetadataRequest = {
       groupid: 1,
       defaultShare: {
-        '1': 40,
-        '2': 30,
-        '3': 20,
-        '4': 10
+        [TEST_USERS.user1.id]: 40,
+        [TEST_USERS.user2.id]: 30,
+        [TEST_USERS.user3.id]: 20,
+        [TEST_USERS.user4.id]: 10
       }
     };
 
-    const request = createMockRequest('POST', requestBody, 'test-session-id');
+    const request = createMockRequest('POST', requestBody, cookies);
     const response = await handleUpdateGroupMetadata(request, env);
 
     expect(response.status).toBe(200);
     const responseData = await response.json() as UpdateGroupMetadataResponse;
-    expect(responseData.metadata.defaultShare).toEqual({'1': 40, '2': 30, '3': 20, '4': 10});
+    expect(responseData.metadata.defaultShare).toEqual({
+      [TEST_USERS.user1.id]: 40,
+      [TEST_USERS.user2.id]: 30,
+      [TEST_USERS.user3.id]: 20,
+      [TEST_USERS.user4.id]: 10
+    });
     expect(responseData.metadata.defaultCurrency).toBe('GBP'); // Should preserve existing
 
     // Verify other fields are preserved
-    const groupData = await env.DB.prepare('SELECT metadata FROM groups WHERE groupid = 1').first() as { metadata: string };
-    const metadata = JSON.parse(groupData.metadata);
+    const groupData = await db
+      .select({ metadata: groups.metadata })
+      .from(groups)
+      .where(eq(groups.groupid, 1))
+      .limit(1);
+    expect(groupData).toHaveLength(1);
+    const metadata = JSON.parse(groupData[0].metadata || '{}');
     expect(metadata.other_field).toBe('preserved');
   });
 
   it('should successfully update only defaultCurrency', async () => {
+    const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
+
     // First set some initial metadata
-    await env.DB.prepare(`
-      UPDATE groups
-      SET metadata = '{"defaultShare": {"1": 50, "2": 50}, "other_field": "preserved"}'
-      WHERE groupid = 1
-    `).run();
+    const db = getDb(env);
+    await db
+      .update(groups)
+      .set({ metadata: `{"defaultShare": {"${TEST_USERS.user1.id}": 50, "${TEST_USERS.user2.id}": 50}, "other_field": "preserved"}` })
+      .where(eq(groups.groupid, 1));
 
     const requestBody: UpdateGroupMetadataRequest = {
       groupid: 1,
       defaultCurrency: 'EUR'
     };
 
-    const request = createMockRequest('POST', requestBody, 'test-session-id');
+    const request = createMockRequest('POST', requestBody, cookies);
     const response = await handleUpdateGroupMetadata(request, env);
 
     expect(response.status).toBe(200);
     const responseData = await response.json() as UpdateGroupMetadataResponse;
     expect(responseData.metadata.defaultCurrency).toBe('EUR');
-    expect(responseData.metadata.defaultShare).toEqual({'1': 50, '2': 50}); // Should preserve existing
+    expect(responseData.metadata.defaultShare).toEqual({
+      [TEST_USERS.user1.id]: 50,
+      [TEST_USERS.user2.id]: 50
+    }); // Should preserve existing
   });
 
   it('should return 401 for missing authentication token', async () => {
@@ -141,12 +179,14 @@ describe('Group Metadata Handler', () => {
   });
 
   it('should return 400 for invalid currency code', async () => {
+    const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
+
     const requestBody: UpdateGroupMetadataRequest = {
       groupid: 1,
       defaultCurrency: 'INVALID'
     };
 
-    const request = createMockRequest('POST', requestBody, 'test-session-id');
+    const request = createMockRequest('POST', requestBody, cookies);
     const response = await handleUpdateGroupMetadata(request, env);
 
     expect(response.status).toBe(400);
@@ -155,17 +195,19 @@ describe('Group Metadata Handler', () => {
   });
 
   it('should return 400 when percentages do not add up to 100', async () => {
+    const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
+
     const requestBody: UpdateGroupMetadataRequest = {
       groupid: 1,
       defaultShare: {
-        '1': 40,
-        '2': 30,
-        '3': 20,
-        '4': 5 // Only adds up to 95%
+        [TEST_USERS.user1.id]: 40,
+        [TEST_USERS.user2.id]: 30,
+        [TEST_USERS.user3.id]: 20,
+        [TEST_USERS.user4.id]: 5 // Only adds up to 95%
       }
     };
 
-    const request = createMockRequest('POST', requestBody, 'test-session-id');
+    const request = createMockRequest('POST', requestBody, cookies);
     const response = await handleUpdateGroupMetadata(request, env);
 
     expect(response.status).toBe(400);
@@ -174,14 +216,16 @@ describe('Group Metadata Handler', () => {
   });
 
   it('should return 400 when not all group members are included', async () => {
+    const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
+
     const requestBody: UpdateGroupMetadataRequest = {
       groupid: 1,
       defaultShare: {
-        '1': 100 // Missing users 2, 3, 4
+        [TEST_USERS.user1.id]: 100 // Missing users 2, 3, 4
       }
     };
 
-    const request = createMockRequest('POST', requestBody, 'test-session-id');
+    const request = createMockRequest('POST', requestBody, cookies);
     const response = await handleUpdateGroupMetadata(request, env);
 
     expect(response.status).toBe(400);
@@ -190,18 +234,20 @@ describe('Group Metadata Handler', () => {
   });
 
   it('should return 400 when invalid user IDs are included', async () => {
+    const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
+
     const requestBody: UpdateGroupMetadataRequest = {
       groupid: 1,
       defaultShare: {
-        '1': 25,
-        '2': 25,
-        '3': 25,
-        '4': 25,
+        [TEST_USERS.user1.id]: 25,
+        [TEST_USERS.user2.id]: 25,
+        [TEST_USERS.user3.id]: 25,
+        [TEST_USERS.user4.id]: 25,
         '999': 0 // User 999 is not in group 1
       }
     };
 
-    const request = createMockRequest('POST', requestBody, 'test-session-id');
+    const request = createMockRequest('POST', requestBody, cookies);
     const response = await handleUpdateGroupMetadata(request, env);
 
     expect(response.status).toBe(400);
@@ -210,17 +256,19 @@ describe('Group Metadata Handler', () => {
   });
 
   it('should return 400 for negative percentages', async () => {
+    const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
+
     const requestBody: UpdateGroupMetadataRequest = {
       groupid: 1,
       defaultShare: {
-        '1': -10,
-        '2': 60,
-        '3': 30,
-        '4': 20
+        [TEST_USERS.user1.id]: -10,
+        [TEST_USERS.user2.id]: 60,
+        [TEST_USERS.user3.id]: 30,
+        [TEST_USERS.user4.id]: 20
       }
     };
 
-    const request = createMockRequest('POST', requestBody, 'test-session-id');
+    const request = createMockRequest('POST', requestBody, cookies);
     const response = await handleUpdateGroupMetadata(request, env);
 
     expect(response.status).toBe(400);
@@ -229,12 +277,14 @@ describe('Group Metadata Handler', () => {
   });
 
   it('should return 400 for empty defaultShare object', async () => {
+    const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
+
     const requestBody: UpdateGroupMetadataRequest = {
       groupid: 1,
       defaultShare: {}
     };
 
-    const request = createMockRequest('POST', requestBody, 'test-session-id');
+    const request = createMockRequest('POST', requestBody, cookies);
     const response = await handleUpdateGroupMetadata(request, env);
 
     expect(response.status).toBe(400);
@@ -252,61 +302,66 @@ describe('Group Metadata Handler', () => {
   });
 
   it('should handle floating point precision correctly', async () => {
+    const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
+
     const requestBody: UpdateGroupMetadataRequest = {
       groupid: 1,
       defaultShare: {
-        '1': 33.33,
-        '2': 33.33,
-        '3': 33.34  // Total: 100.00
+        [TEST_USERS.user1.id]: 25.25,
+        [TEST_USERS.user2.id]: 25.25,
+        [TEST_USERS.user3.id]: 25.25,
+        [TEST_USERS.user4.id]: 24.25  // Total: 100.00
       }
     };
 
-    // First add user 3 to the group for this test
-    await env.DB.prepare(`
-      UPDATE groups
-      SET userids = '[1, 2, 3, 4]'
-      WHERE groupid = 1
-    `).run();
-
-    const request = createMockRequest('POST', requestBody, 'test-session-id');
+    const request = createMockRequest('POST', requestBody, cookies);
     const response = await handleUpdateGroupMetadata(request, env);
 
-    expect(response.status).toBe(400); // Should fail because we need all 4 users
+    expect(response.status).toBe(200); // Should succeed with proper floating point percentages
   });
 
   it('should successfully update with all 4 group members', async () => {
+    const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
+
     const requestBody: UpdateGroupMetadataRequest = {
       groupid: 1,
       defaultShare: {
-        '1': 25,
-        '2': 25,
-        '3': 25,
-        '4': 25
+        [TEST_USERS.user1.id]: 25,
+        [TEST_USERS.user2.id]: 25,
+        [TEST_USERS.user3.id]: 25,
+        [TEST_USERS.user4.id]: 25
       },
       defaultCurrency: 'INR'
     };
 
-    const request = createMockRequest('POST', requestBody, 'test-session-id');
+    const request = createMockRequest('POST', requestBody, cookies);
     const response = await handleUpdateGroupMetadata(request, env);
 
     expect(response.status).toBe(200);
     const responseData = await response.json() as UpdateGroupMetadataResponse;
-    expect(responseData.metadata.defaultShare).toEqual({'1': 25, '2': 25, '3': 25, '4': 25});
+    expect(responseData.metadata.defaultShare).toEqual({
+      [TEST_USERS.user1.id]: 25,
+      [TEST_USERS.user2.id]: 25,
+      [TEST_USERS.user3.id]: 25,
+      [TEST_USERS.user4.id]: 25
+    });
     expect(responseData.metadata.defaultCurrency).toBe('INR');
   });
 
   it('should use default currency USD when no currency provided and no existing currency', async () => {
+    const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
+
     const requestBody: UpdateGroupMetadataRequest = {
       groupid: 1,
       defaultShare: {
-        '1': 25,
-        '2': 25,
-        '3': 25,
-        '4': 25
+        [TEST_USERS.user1.id]: 25,
+        [TEST_USERS.user2.id]: 25,
+        [TEST_USERS.user3.id]: 25,
+        [TEST_USERS.user4.id]: 25
       }
     };
 
-    const request = createMockRequest('POST', requestBody, 'test-session-id');
+    const request = createMockRequest('POST', requestBody, cookies);
     const response = await handleUpdateGroupMetadata(request, env);
 
     expect(response.status).toBe(200);
@@ -316,15 +371,16 @@ describe('Group Metadata Handler', () => {
 });
 
 describe('Group Details Handler', () => {
+  let TEST_USERS: Record<string, Record<string, string>>;
   beforeEach(async () => {
     await setupAndCleanDatabase(env);
-    await createTestUserData(env);
-    await createTestSession(env, 'test-session-id', 'testuser');
+    TEST_USERS = await createTestUserData(env);
   });
 
   describe('handleGroupDetails Success Cases', () => {
     it('should return group details with users, metadata, and budgets for authenticated user', async () => {
-      const request = createMockRequest('GET', undefined, 'test-session-id');
+      const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
+      const request = createMockRequest('GET', undefined, cookies);
       const response = await handleGroupDetails(request, env);
 
       expect(response.status).toBe(200);
@@ -352,7 +408,8 @@ describe('Group Details Handler', () => {
     });
 
     it('should include first_name and last_name for all users in group', async () => {
-      const request = createMockRequest('GET', undefined, 'test-session-id');
+      const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
+      const request = createMockRequest('GET', undefined, cookies);
       const response = await handleGroupDetails(request, env);
 
       expect(response.status).toBe(200);
@@ -361,12 +418,13 @@ describe('Group Details Handler', () => {
       responseData.users.forEach(user => {
         expect(typeof user.FirstName).toBe('string');
         expect(typeof user.LastName).toBe('string');
-        expect(user.FirstName.length).toBeGreaterThan(0);
+        expect(user.FirstName?.length).toBeGreaterThan(0);
       });
     });
 
     it('should parse budgets array correctly from JSON', async () => {
-      const request = createMockRequest('GET', undefined, 'test-session-id');
+      const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
+      const request = createMockRequest('GET', undefined, cookies);
       const response = await handleGroupDetails(request, env);
 
       expect(response.status).toBe(200);
@@ -417,20 +475,22 @@ describe('Group Details Handler', () => {
 });
 
 describe('Extended Group Metadata Handler', () => {
+  let TEST_USERS: Record<string, Record<string, string>>;
   beforeEach(async () => {
     await setupAndCleanDatabase(env);
-    await createTestUserData(env);
-    await createTestSession(env, 'test-session-id', 'testuser');
+    TEST_USERS = await createTestUserData(env);
   });
 
   describe('Group Name Updates', () => {
     it('should update group name successfully with valid input', async () => {
+      const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
+
       const requestBody: UpdateGroupMetadataRequest = {
         groupid: 1,
         groupName: 'Updated Group Name'
       };
 
-      const request = createMockRequest('POST', requestBody, 'test-session-id');
+      const request = createMockRequest('POST', requestBody, cookies);
       const response = await handleUpdateGroupMetadata(request, env);
 
       expect(response.status).toBe(200);
@@ -438,74 +498,102 @@ describe('Extended Group Metadata Handler', () => {
       expect(responseData.message).toContain('successfully');
 
       // Verify in database
-      const groupStmt = env.DB.prepare('SELECT group_name FROM groups WHERE groupid = ?');
-      const groupResult = await groupStmt.bind(1).first() as { group_name: string };
-      expect(groupResult.group_name).toBe('Updated Group Name');
+      const db = getDb(env);
+      const groupResult = await db
+        .select({ groupName: groups.groupName })
+        .from(groups)
+        .where(eq(groups.groupid, 1))
+        .limit(1);
+      expect(groupResult).toHaveLength(1);
+      expect(groupResult[0].groupName).toBe('Updated Group Name');
     });
 
     it('should trim whitespace from group name', async () => {
+      const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
+
       const requestBody: UpdateGroupMetadataRequest = {
         groupid: 1,
         groupName: '  Trimmed Group Name  '
       };
 
-      const request = createMockRequest('POST', requestBody, 'test-session-id');
+      const request = createMockRequest('POST', requestBody, cookies);
       const response = await handleUpdateGroupMetadata(request, env);
 
       expect(response.status).toBe(200);
 
       // Verify trimmed name in database
-      const groupStmt = env.DB.prepare('SELECT group_name FROM groups WHERE groupid = ?');
-      const groupResult = await groupStmt.bind(1).first() as { group_name: string };
-      expect(groupResult.group_name).toBe('Trimmed Group Name');
+      const db = getDb(env);
+      const groupResult = await db
+        .select({ groupName: groups.groupName })
+        .from(groups)
+        .where(eq(groups.groupid, 1))
+        .limit(1);
+      expect(groupResult).toHaveLength(1);
+      expect(groupResult[0].groupName).toBe('Trimmed Group Name');
     });
 
     it('should return 400 for empty group name after trimming', async () => {
+      const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
+
       const requestBody: UpdateGroupMetadataRequest = {
         groupid: 1,
         groupName: '   '
       };
 
-      const request = createMockRequest('POST', requestBody, 'test-session-id');
+      const request = createMockRequest('POST', requestBody, cookies);
       const response = await handleUpdateGroupMetadata(request, env);
 
       expect(response.status).toBe(400);
     });
 
     it('should handle special characters in group name appropriately', async () => {
+      const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
+
       const requestBody: UpdateGroupMetadataRequest = {
         groupid: 1,
         groupName: 'Family & Friends Group 2024 🏠'
       };
 
-      const request = createMockRequest('POST', requestBody, 'test-session-id');
+      const request = createMockRequest('POST', requestBody, cookies);
       const response = await handleUpdateGroupMetadata(request, env);
 
       expect(response.status).toBe(200);
 
       // Verify special characters are preserved
-      const groupStmt = env.DB.prepare('SELECT group_name FROM groups WHERE groupid = ?');
-      const groupResult = await groupStmt.bind(1).first() as { group_name: string };
-      expect(groupResult.group_name).toBe('Family & Friends Group 2024 🏠');
+      const db = getDb(env);
+      const groupResult = await db
+        .select({ groupName: groups.groupName })
+        .from(groups)
+        .where(eq(groups.groupid, 1))
+        .limit(1);
+      expect(groupResult).toHaveLength(1);
+      expect(groupResult[0].groupName).toBe('Family & Friends Group 2024 🏠');
     });
   });
 
   describe('Budget Category Updates', () => {
     it('should add new budget categories to existing list', async () => {
+      const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
+
       const requestBody: UpdateGroupMetadataRequest = {
         groupid: 1,
         budgets: ['house', 'food', 'transportation', 'entertainment', 'vacation']
       };
 
-      const request = createMockRequest('POST', requestBody, 'test-session-id');
+      const request = createMockRequest('POST', requestBody, cookies);
       const response = await handleUpdateGroupMetadata(request, env);
 
       expect(response.status).toBe(200);
 
       // Verify budgets in database
-      const groupStmt = env.DB.prepare('SELECT budgets FROM groups WHERE groupid = ?');
-      const groupResult = await groupStmt.bind(1).first() as { budgets: string };
-      const budgets = JSON.parse(groupResult.budgets);
+      const db = getDb(env);
+      const groupResult = await db
+        .select({ budgets: groups.budgets })
+        .from(groups)
+        .where(eq(groups.groupid, 1))
+        .limit(1);
+      expect(groupResult).toHaveLength(1);
+      const budgets = JSON.parse(groupResult[0].budgets || '[]');
 
       expect(budgets).toContain('vacation');
       expect(budgets).toContain('entertainment');
@@ -513,40 +601,54 @@ describe('Extended Group Metadata Handler', () => {
     });
 
     it('should remove budget categories from existing list', async () => {
+      const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
+
       const requestBody: UpdateGroupMetadataRequest = {
         groupid: 1,
         budgets: ['food'] // Remove 'house' and 'transportation'
       };
 
-      const request = createMockRequest('POST', requestBody, 'test-session-id');
+      const request = createMockRequest('POST', requestBody, cookies);
       const response = await handleUpdateGroupMetadata(request, env);
 
       expect(response.status).toBe(200);
 
       // Verify budgets in database
-      const groupStmt = env.DB.prepare('SELECT budgets FROM groups WHERE groupid = ?');
-      const groupResult = await groupStmt.bind(1).first() as { budgets: string };
-      const budgets = JSON.parse(groupResult.budgets);
+      const db = getDb(env);
+      const groupResult = await db
+        .select({ budgets: groups.budgets })
+        .from(groups)
+        .where(eq(groups.groupid, 1))
+        .limit(1);
+      expect(groupResult).toHaveLength(1);
+      const budgets = JSON.parse(groupResult[0].budgets || '[]');
 
       expect(budgets).toEqual(['food']);
       expect(budgets).not.toContain('house');
     });
 
     it('should handle duplicate budget names (deduplicate)', async () => {
+      const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
+
       const requestBody: UpdateGroupMetadataRequest = {
         groupid: 1,
         budgets: ['house', 'food', 'house', 'transportation', 'food', 'entertainment']
       };
 
-      const request = createMockRequest('POST', requestBody, 'test-session-id');
+      const request = createMockRequest('POST', requestBody, cookies);
       const response = await handleUpdateGroupMetadata(request, env);
 
       expect(response.status).toBe(200);
 
       // Verify no duplicates in database
-      const groupStmt = env.DB.prepare('SELECT budgets FROM groups WHERE groupid = ?');
-      const groupResult = await groupStmt.bind(1).first() as { budgets: string };
-      const budgets = JSON.parse(groupResult.budgets);
+      const db = getDb(env);
+      const groupResult = await db
+        .select({ budgets: groups.budgets })
+        .from(groups)
+        .where(eq(groups.groupid, 1))
+        .limit(1);
+      expect(groupResult).toHaveLength(1);
+      const budgets = JSON.parse(groupResult[0].budgets || '[]');
 
       expect(budgets.length).toBe(4); // Should be unique
       expect(budgets).toContain('house');
@@ -556,31 +658,40 @@ describe('Extended Group Metadata Handler', () => {
     });
 
     it('should handle empty budgets array', async () => {
+      const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
+
       const requestBody: UpdateGroupMetadataRequest = {
         groupid: 1,
         budgets: []
       };
 
-      const request = createMockRequest('POST', requestBody, 'test-session-id');
+      const request = createMockRequest('POST', requestBody, cookies);
       const response = await handleUpdateGroupMetadata(request, env);
 
       expect(response.status).toBe(200);
 
       // Verify empty array in database
-      const groupStmt = env.DB.prepare('SELECT budgets FROM groups WHERE groupid = ?');
-      const groupResult = await groupStmt.bind(1).first() as { budgets: string };
-      const budgets = JSON.parse(groupResult.budgets);
+      const db = getDb(env);
+      const groupResult = await db
+        .select({ budgets: groups.budgets })
+        .from(groups)
+        .where(eq(groups.groupid, 1))
+        .limit(1);
+      expect(groupResult).toHaveLength(1);
+      const budgets = JSON.parse(groupResult[0].budgets || '[]');
 
       expect(budgets).toEqual([]);
     });
 
     it('should preserve existing budgets when not updated', async () => {
+      const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
+
       // First update to set initial budgets
       const initialRequest: UpdateGroupMetadataRequest = {
         groupid: 1,
         budgets: ['house', 'food', 'utilities']
       };
-      await handleUpdateGroupMetadata(createMockRequest('POST', initialRequest, 'test-session-id'), env);
+      await handleUpdateGroupMetadata(createMockRequest('POST', initialRequest, cookies), env);
 
       // Update only currency, should preserve budgets
       const requestBody: UpdateGroupMetadataRequest = {
@@ -588,15 +699,20 @@ describe('Extended Group Metadata Handler', () => {
         defaultCurrency: 'EUR'
       };
 
-      const request = createMockRequest('POST', requestBody, 'test-session-id');
+      const request = createMockRequest('POST', requestBody, cookies);
       const response = await handleUpdateGroupMetadata(request, env);
 
       expect(response.status).toBe(200);
 
       // Verify budgets are preserved
-      const groupStmt = env.DB.prepare('SELECT budgets FROM groups WHERE groupid = ?');
-      const groupResult = await groupStmt.bind(1).first() as { budgets: string };
-      const budgets = JSON.parse(groupResult.budgets);
+      const db = getDb(env);
+      const groupResult = await db
+        .select({ budgets: groups.budgets })
+        .from(groups)
+        .where(eq(groups.groupid, 1))
+        .limit(1);
+      expect(groupResult).toHaveLength(1);
+      const budgets = JSON.parse(groupResult[0].budgets || '[]');
 
       expect(budgets).toContain('house');
       expect(budgets).toContain('food');
@@ -604,20 +720,27 @@ describe('Extended Group Metadata Handler', () => {
     });
 
     it('should allow budget names with spaces and hyphens', async () => {
+      const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
+
       const requestBody: UpdateGroupMetadataRequest = {
         groupid: 1,
         budgets: ['house rent', 'food-delivery', 'car_maintenance']
       };
 
-      const request = createMockRequest('POST', requestBody, 'test-session-id');
+      const request = createMockRequest('POST', requestBody, cookies);
       const response = await handleUpdateGroupMetadata(request, env);
 
       expect(response.status).toBe(200);
 
       // Verify budgets in database
-      const groupStmt = env.DB.prepare('SELECT budgets FROM groups WHERE groupid = ?');
-      const groupResult = await groupStmt.bind(1).first() as { budgets: string };
-      const budgets = JSON.parse(groupResult.budgets);
+      const db = getDb(env);
+      const groupResult = await db
+        .select({ budgets: groups.budgets })
+        .from(groups)
+        .where(eq(groups.groupid, 1))
+        .limit(1);
+      expect(groupResult).toHaveLength(1);
+      const budgets = JSON.parse(groupResult[0].budgets || '[]');
 
       expect(budgets).toContain('house rent');
       expect(budgets).toContain('food-delivery');
@@ -625,12 +748,14 @@ describe('Extended Group Metadata Handler', () => {
     });
 
     it('should reject budget names with invalid characters', async () => {
+      const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
+
       const requestBody: UpdateGroupMetadataRequest = {
         groupid: 1,
         budgets: ['valid-budget', 'invalid!@#']
       };
 
-      const request = createMockRequest('POST', requestBody, 'test-session-id');
+      const request = createMockRequest('POST', requestBody, cookies);
       const response = await handleUpdateGroupMetadata(request, env);
 
       expect(response.status).toBe(400);
@@ -641,42 +766,55 @@ describe('Extended Group Metadata Handler', () => {
 
   describe('Combined Updates', () => {
     it('should update multiple fields in single request (groupName + budgets + currency + shares)', async () => {
+      const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
+
       const requestBody: UpdateGroupMetadataRequest = {
         groupid: 1,
         groupName: 'Multi-Update Group',
         budgets: ['rent', 'groceries', 'utilities'],
         defaultCurrency: 'EUR',
         defaultShare: {
-          '1': 25,
-          '2': 25,
-          '3': 25,
-          '4': 25
+          [TEST_USERS.user1.id]: 25,
+          [TEST_USERS.user2.id]: 25,
+          [TEST_USERS.user3.id]: 25,
+          [TEST_USERS.user4.id]: 25
         }
       };
 
-      const request = createMockRequest('POST', requestBody, 'test-session-id');
+      const request = createMockRequest('POST', requestBody, cookies);
       const response = await handleUpdateGroupMetadata(request, env);
 
       expect(response.status).toBe(200);
 
       // Verify all fields updated
-      const groupStmt = env.DB.prepare('SELECT group_name, budgets, metadata FROM groups WHERE groupid = ?');
-      const groupResult = await groupStmt.bind(1).first() as { group_name: string; budgets: string; metadata: string };
+      const db = getDb(env);
+      const groupResult = await db
+        .select({
+          groupName: groups.groupName,
+          budgets: groups.budgets,
+          metadata: groups.metadata
+        })
+        .from(groups)
+        .where(eq(groups.groupid, 1))
+        .limit(1);
+      expect(groupResult).toHaveLength(1);
 
-      expect(groupResult.group_name).toBe('Multi-Update Group');
+      expect(groupResult[0].groupName).toBe('Multi-Update Group');
 
-      const budgets = JSON.parse(groupResult.budgets);
+      const budgets = JSON.parse(groupResult[0].budgets || '[]');
       expect(budgets).toEqual(['rent', 'groceries', 'utilities']);
 
-      const metadata = JSON.parse(groupResult.metadata);
+      const metadata = JSON.parse(groupResult[0].metadata || '{}');
       expect(metadata.defaultCurrency).toBe('EUR');
-      expect(metadata.defaultShare['1']).toBe(25);
-      expect(metadata.defaultShare['2']).toBe(25);
-      expect(metadata.defaultShare['3']).toBe(25);
-      expect(metadata.defaultShare['4']).toBe(25);
+      expect(metadata.defaultShare[TEST_USERS.user1.id]).toBe(25);
+      expect(metadata.defaultShare[TEST_USERS.user2.id]).toBe(25);
+      expect(metadata.defaultShare[TEST_USERS.user3.id]).toBe(25);
+      expect(metadata.defaultShare[TEST_USERS.user4.id]).toBe(25);
     });
 
     it('should handle partial updates (only some fields changed)', async () => {
+      const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
+
       // Update only group name and budgets
       const requestBody: UpdateGroupMetadataRequest = {
         groupid: 1,
@@ -684,34 +822,45 @@ describe('Extended Group Metadata Handler', () => {
         budgets: ['new-category']
       };
 
-      const request = createMockRequest('POST', requestBody, 'test-session-id');
+      const request = createMockRequest('POST', requestBody, cookies);
       const response = await handleUpdateGroupMetadata(request, env);
 
       expect(response.status).toBe(200);
 
       // Verify only specified fields updated
-      const groupStmt = env.DB.prepare('SELECT group_name, budgets, metadata FROM groups WHERE groupid = ?');
-      const groupResult = await groupStmt.bind(1).first() as { group_name: string; budgets: string; metadata: string };
+      const db = getDb(env);
+      const groupResult = await db
+        .select({
+          groupName: groups.groupName,
+          budgets: groups.budgets,
+          metadata: groups.metadata
+        })
+        .from(groups)
+        .where(eq(groups.groupid, 1))
+        .limit(1);
+      expect(groupResult).toHaveLength(1);
 
-      expect(groupResult.group_name).toBe('Partial Update Group');
+      expect(groupResult[0].groupName).toBe('Partial Update Group');
 
-      const budgets = JSON.parse(groupResult.budgets);
+      const budgets = JSON.parse(groupResult[0].budgets || '[]');
       expect(budgets).toEqual(['new-category']);
 
       // Metadata should preserve existing values
-      const metadata = JSON.parse(groupResult.metadata);
+      const metadata = JSON.parse(groupResult[0].metadata || '{}');
       expect(metadata.defaultCurrency).toBeDefined(); // Should still exist
     });
   });
 
   describe('Error Cases', () => {
     it('should return 400 for requests with no changes', async () => {
+      const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
+
       const requestBody: UpdateGroupMetadataRequest = {
         groupid: 1
         // No fields to update
       };
 
-      const request = createMockRequest('POST', requestBody, 'test-session-id');
+      const request = createMockRequest('POST', requestBody, cookies);
       const response = await handleUpdateGroupMetadata(request, env);
 
       expect(response.status).toBe(400);
@@ -730,134 +879,142 @@ describe('Extended Group Metadata Handler', () => {
     });
 
     it('should return 400 for invalid percentage totals (≠ 100%)', async () => {
+      const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
+
       const requestBody: UpdateGroupMetadataRequest = {
         groupid: 1,
         defaultShare: {
-          '1': 60,
-          '2': 30 // Total = 90%, not 100%
+          [TEST_USERS.user1.id]: 60,
+          [TEST_USERS.user2.id]: 30 // Total = 90%, not 100%
         }
       };
 
-      const request = createMockRequest('POST', requestBody, 'test-session-id');
+      const request = createMockRequest('POST', requestBody, cookies);
       const response = await handleUpdateGroupMetadata(request, env);
 
       expect(response.status).toBe(400);
     });
 
     it('should return 400 for invalid currency codes', async () => {
+      const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
+
       const requestBody: UpdateGroupMetadataRequest = {
         groupid: 1,
         defaultCurrency: 'INVALID'
       };
 
-      const request = createMockRequest('POST', requestBody, 'test-session-id');
+      const request = createMockRequest('POST', requestBody, cookies);
       const response = await handleUpdateGroupMetadata(request, env);
 
       expect(response.status).toBe(400);
     });
 
     it('should return 400 for negative percentages', async () => {
+      const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
+
       const requestBody: UpdateGroupMetadataRequest = {
         groupid: 1,
         defaultShare: {
-          '1': -10,
-          '2': 110
+          [TEST_USERS.user1.id]: -10,
+          [TEST_USERS.user2.id]: 110
         }
       };
 
-      const request = createMockRequest('POST', requestBody, 'test-session-id');
+      const request = createMockRequest('POST', requestBody, cookies);
       const response = await handleUpdateGroupMetadata(request, env);
 
       expect(response.status).toBe(400);
     });
 
     it('should handle precise percentage validation with 3 users (infinite decimals)', async () => {
-      // Create a test scenario with 3 users only
-      await env.DB.exec('DELETE FROM users WHERE groupid = 1');
-      await env.DB.exec('DELETE FROM groups WHERE groupid = 1');
+      const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
 
-      // Create group with 3 users only
-      await env.DB.exec("INSERT INTO groups (groupid, group_name, budgets, userids, metadata) VALUES (1, 'Test Group 3', '[\"house\", \"food\"]', '[1, 2, 3]', '{\"defaultCurrency\": \"USD\", \"defaultShare\": {\"1\": 33.333, \"2\": 33.333, \"3\": 33.334}}')");
-      await env.DB.exec("INSERT INTO users (id, username, first_name, last_name, groupid, password) VALUES (1, 'testuser', 'Test', 'User', 1, 'password123')");
-      await env.DB.exec("INSERT INTO users (id, username, first_name, last_name, groupid, password) VALUES (2, 'otheruser', 'Other', 'Person', 1, 'pass456')");
-      await env.DB.exec("INSERT INTO users (id, username, first_name, last_name, groupid, password) VALUES (3, 'thirduser', 'Third', 'Member', 1, 'pass789')");
+      // Update group to use only 3 users for this test
+      const db = getDb(env);
+      await db
+        .update(groups)
+        .set({
+          userids: `["${TEST_USERS.user1.id}", "${TEST_USERS.user2.id}", "${TEST_USERS.user3.id}"]`,
+          metadata: `{"defaultCurrency": "USD", "defaultShare": {"${TEST_USERS.user1.id}": 33.333, "${TEST_USERS.user2.id}": 33.333, "${TEST_USERS.user3.id}": 33.334}}`
+        })
+        .where(eq(groups.groupid, 1));
 
       // Test case 1: Perfect precision - should pass (total = 100.000)
       const perfectRequest: UpdateGroupMetadataRequest = {
         groupid: 1,
         defaultShare: {
-          '1': 33.333,
-          '2': 33.333,
-          '3': 33.334
+          [TEST_USERS.user1.id]: 33.333,
+          [TEST_USERS.user2.id]: 33.333,
+          [TEST_USERS.user3.id]: 33.334
         }
       };
 
-      const perfectResponse = await handleUpdateGroupMetadata(createMockRequest('POST', perfectRequest, 'test-session-id'), env);
+      const perfectResponse = await handleUpdateGroupMetadata(createMockRequest('POST', perfectRequest, cookies), env);
       expect(perfectResponse.status).toBe(200);
 
       // Test case 2: Within 0.001 tolerance - should pass (total = 99.9995, difference = 0.0005)
       const toleranceRequest: UpdateGroupMetadataRequest = {
         groupid: 1,
         defaultShare: {
-          '1': 33.3335,
-          '2': 33.333,
-          '3': 33.333 // Total = 99.9995, difference from 100 = 0.0005 < 0.001
+          [TEST_USERS.user1.id]: 33.3335,
+          [TEST_USERS.user2.id]: 33.333,
+          [TEST_USERS.user3.id]: 33.333 // Total = 99.9995, difference from 100 = 0.0005 < 0.001
         }
       };
 
-      const toleranceResponse = await handleUpdateGroupMetadata(createMockRequest('POST', toleranceRequest, 'test-session-id'), env);
+      const toleranceResponse = await handleUpdateGroupMetadata(createMockRequest('POST', toleranceRequest, cookies), env);
       expect(toleranceResponse.status).toBe(200);
 
       // Test case 3: Outside 0.001 tolerance - should fail (total = 99.997, difference = 0.003)
       const failRequest: UpdateGroupMetadataRequest = {
         groupid: 1,
         defaultShare: {
-          '1': 33.333,
-          '2': 33.332,
-          '3': 33.332 // Total = 99.997, difference from 100 = 0.003 > 0.001
+          [TEST_USERS.user1.id]: 33.333,
+          [TEST_USERS.user2.id]: 33.332,
+          [TEST_USERS.user3.id]: 33.332 // Total = 99.997, difference from 100 = 0.003 > 0.001
         }
       };
 
-      const failResponse = await handleUpdateGroupMetadata(createMockRequest('POST', failRequest, 'test-session-id'), env);
+      const failResponse = await handleUpdateGroupMetadata(createMockRequest('POST', failRequest, cookies), env);
       expect(failResponse.status).toBe(400);
 
       // Test case 4: High precision with many decimals - should pass (total = 100.000)
       const precisionRequest: UpdateGroupMetadataRequest = {
         groupid: 1,
         defaultShare: {
-          '1': 33.33333,
-          '2': 33.33333,
-          '3': 33.33334 // Total = 100.000
+          [TEST_USERS.user1.id]: 33.33333,
+          [TEST_USERS.user2.id]: 33.33333,
+          [TEST_USERS.user3.id]: 33.33334 // Total = 100.000
         }
       };
 
-      const precisionResponse = await handleUpdateGroupMetadata(createMockRequest('POST', precisionRequest, 'test-session-id'), env);
+      const precisionResponse = await handleUpdateGroupMetadata(createMockRequest('POST', precisionRequest, cookies), env);
       expect(precisionResponse.status).toBe(200);
 
       // Test case 5: Slightly over 100% but within tolerance - should pass (total = 100.0005)
       const overRequest: UpdateGroupMetadataRequest = {
         groupid: 1,
         defaultShare: {
-          '1': 33.3335,
-          '2': 33.333,
-          '3': 33.334 // Total = 100.0005, difference = 0.0005 < 0.001
+          [TEST_USERS.user1.id]: 33.3335,
+          [TEST_USERS.user2.id]: 33.333,
+          [TEST_USERS.user3.id]: 33.334 // Total = 100.0005, difference = 0.0005 < 0.001
         }
       };
 
-      const overResponse = await handleUpdateGroupMetadata(createMockRequest('POST', overRequest, 'test-session-id'), env);
+      const overResponse = await handleUpdateGroupMetadata(createMockRequest('POST', overRequest, cookies), env);
       expect(overResponse.status).toBe(200);
 
       // Test case 6: Way over tolerance - should fail (total = 100.5)
       const wayOverRequest: UpdateGroupMetadataRequest = {
         groupid: 1,
         defaultShare: {
-          '1': 33.5,
-          '2': 33.5,
-          '3': 33.5 // Total = 100.5, way outside tolerance
+          [TEST_USERS.user1.id]: 33.5,
+          [TEST_USERS.user2.id]: 33.5,
+          [TEST_USERS.user3.id]: 33.5 // Total = 100.5, way outside tolerance
         }
       };
 
-      const wayOverResponse = await handleUpdateGroupMetadata(createMockRequest('POST', wayOverRequest, 'test-session-id'), env);
+      const wayOverResponse = await handleUpdateGroupMetadata(createMockRequest('POST', wayOverRequest, cookies), env);
       expect(wayOverResponse.status).toBe(400);
     });
   });
