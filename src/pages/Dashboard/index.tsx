@@ -43,11 +43,11 @@ function Dashboard(): JSX.Element {
 
   // Helper function to calculate default user percentages from metadata
   const calculateDefaultUserPercentages = useCallback((usersFromAuth: { FirstName: string; Id: number }[]) => {
-    if (data.metadata?.defaultShare && usersFromAuth.length > 0) {
+    if ((data as any)?.extra?.group?.metadata?.defaultShare && usersFromAuth.length > 0) {
       return usersFromAuth.map((u: any) => {
         // Convert user ID to string to match defaultShare keys
         const userIdStr = u.Id.toString();
-        const defaultPercentage = data.metadata.defaultShare[userIdStr];
+        const defaultPercentage = (data as any)?.extra?.group?.metadata?.defaultShare[userIdStr];
         return {
           ...u,
           percentage: defaultPercentage !== undefined ? defaultPercentage : (100 / usersFromAuth.length),
@@ -60,7 +60,7 @@ function Dashboard(): JSX.Element {
         percentage: 100 / usersFromAuth.length,
       }));
     }
-  }, [data.metadata]);
+  }, [data]);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -68,14 +68,14 @@ function Dashboard(): JSX.Element {
     }
 
     // Get users and budgets from the login data
-    const usersFromAuth = data.users || [];
+    const usersFromAuth = (data as any)?.extra?.usersById || [];
     setUsersState(usersFromAuth);
     
     // Only set defaults if they haven't been initialized yet (to avoid overriding user changes)
     if (!defaultsInitialized) {
       // Set default currency from metadata
-      if (data.metadata?.defaultCurrency) {
-        setCurrency(data.metadata.defaultCurrency);
+      if ((data as any)?.extra?.group?.metadata?.defaultCurrency) {
+        setCurrency((data as any)?.extra?.group?.metadata?.defaultCurrency);
       }
 
       // Set default split percentages from metadata
@@ -83,13 +83,13 @@ function Dashboard(): JSX.Element {
       setUsers(defaultUsers);
 
       // Set default budget from available budgets
-      if (data.budgets && data.budgets.length > 0 && !budget) {
-        setBudget(data.budgets[0]);
+      if ((data as any)?.extra?.group?.budgets && (data as any)?.extra?.group?.budgets.length > 0 && !budget) {
+        setBudget((data as any)?.extra?.group?.budgets[0]);
       }
 
       // Set default paid by to current user
-      if (data.userId && !paidBy) {
-        setPaidBy(data.userId);
+      if ((data as any)?.extra?.currentUser?.id && !paidBy) {
+        setPaidBy((data as any)?.extra?.currentUser?.id);
       }
 
       // Mark defaults as initialized
@@ -102,10 +102,10 @@ function Dashboard(): JSX.Element {
         setUsers(defaultUsers);
       }
     }
-  }, [isAuthenticated, data.users, data.budgets, data.userId, data.metadata, budget, paidBy, defaultsInitialized, users.length, calculateDefaultUserPercentages]);
+  }, [isAuthenticated, data, budget, paidBy, defaultsInitialized, users.length, calculateDefaultUserPercentages]);
 
   const onSubmitExpense = async () => {
-    if (!data?.userId) {
+    if (!data?.user.id) {
       throw new Error("User not authenticated");
     }
 
@@ -138,7 +138,7 @@ function Dashboard(): JSX.Element {
   };
 
   const onSubmitBudget = async () => {
-    if (!data?.userId) {
+    if (!data?.user.id) {
       throw new Error("User not authenticated");
     }
 
@@ -146,7 +146,7 @@ function Dashboard(): JSX.Element {
       amount: creditDebit === "Debit" ? -amount! : amount!,
       description: description!,
       name: budget,
-      groupid: data.groupId || 0,
+      groupid: (data as any)?.extra?.group?.groupid || 0,
       currency: currency,
     };
 

@@ -2,7 +2,6 @@ import { Route, Routes } from "react-router-dom";
 import { ThemeProvider } from "styled-components";
 import styled from "styled-components";
 import { useState, useEffect } from "react";
-import { isAuthenticated } from "@/utils/auth";
 import Dashboard from "@/pages/Dashboard";
 import Balances from "@/pages/Balances";
 import { Budget } from "@/pages/Budget";
@@ -127,7 +126,9 @@ const PageContent = styled.div`
 function withAuthCheck(Component: React.ComponentType) {
   return function AuthenticatedComponent(props: any): JSX.Element {
     // Use centralized authentication check
-    if (!isAuthenticated()) {
+  const {data, error} =  authClient.useSession();
+  const isAuthenticated = data?.user !== null && error === null;
+    if (!isAuthenticated) {
       return <LoginPage />;
     }
     
@@ -145,7 +146,11 @@ const AuthenticatedSettings = withAuthCheck(Settings);
 
 function AppWrapper() {
   const {data, error} =  authClient.useSession();
-  const isAuthenticated = data?.user !== null && error === null;
+  const isAuthenticated = data?.user != null && error === null;
+  console.log("isAuthenticated", isAuthenticated);
+  console.log("data", data);
+  console.log("data?.user", data?.user);
+  console.log("error", error);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 

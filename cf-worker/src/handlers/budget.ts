@@ -238,6 +238,7 @@ export async function handleBudgetList(request: Request, env: Env): Promise<Resp
   try {
     return withAuth(request, env, async (session, db) => {
       if (!session.group) {
+        console.log("Session group not found", session);
         return createErrorResponse('Unauthorized', 401, request, env);
       }
       const body = await request.json() as BudgetListRequest;

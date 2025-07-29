@@ -15,6 +15,7 @@ import {
 import { handleHelloWorld } from './handlers/hello';
 import { handleCron } from './handlers/cron';
 import { handleUpdateGroupMetadata, handleGroupDetails } from './handlers/group';
+import { handleRelinkData } from './handlers/migration';
 import { auth } from './auth';
 
 export default {
@@ -71,6 +72,9 @@ export default {
 
       case 'transactions_list':
         return await handleTransactionsList(request, env);
+
+      case 'relink-data':
+        return await handleRelinkData(request, env);
 
       case 'hello':
         return await handleHelloWorld(request, env);

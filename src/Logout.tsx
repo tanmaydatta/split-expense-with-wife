@@ -1,13 +1,14 @@
 import React, { useEffect } from 'react';
 import { logout } from '@/utils/auth';
 import { typedApi } from '@/utils/api';
+import { authClient } from './utils/authClient';
 
 const Logout: React.FC = () => {
   useEffect(() => {
     const performLogout = async () => {
       try {
         // Call logout API endpoint
-        await typedApi.post('/logout', {});
+        await authClient.signOut();
       } catch (error) {
         console.error('Logout API call failed:', error);
         // Note: Even if the API call fails, we still want to clear local data
