@@ -16,6 +16,8 @@ import Transactions from "@/pages/Transactions";
 import Settings from "@/pages/Settings";
 import NotFound from "@/pages/NotFound";
 import { authClient } from "./utils/authClient";
+import { setData } from "./redux/data";
+import { useDispatch } from "react-redux";
 
 const AppContainer = styled.div`
   display: flex;
@@ -151,6 +153,9 @@ function AppWrapper() {
   console.log("data", data);
   console.log("data?.user", data?.user);
   console.log("error", error);
+  const dispatch = useDispatch();
+  dispatch(setData(data));
+
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 

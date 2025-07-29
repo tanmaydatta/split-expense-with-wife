@@ -1,6 +1,11 @@
 // Shared types for both frontend and backend
 // These types ensure consistency across API requests and responses
 
+export type UserFromAuth = {
+  firstName: string;
+  id: string;
+}
+
 // User and authentication types
 export interface User {
   Id: string;
@@ -249,6 +254,70 @@ export interface UpdateGroupMetadataRequest {
 export interface UpdateGroupMetadataResponse {
   message: string;
   metadata: GroupMetadata;
+}
+
+// Better-auth and session types (matching actual schema)
+export interface AuthenticatedUser {
+  id: string;
+  name: string;
+  email: string;
+  emailVerified: boolean;
+  image: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  username: string | null;
+  displayUsername: string | null;
+  groupid: number | null;
+  firstName: string;
+  lastName: string;
+}
+
+export interface BetterAuthSession {
+  id: string;
+  expiresAt: Date;
+  token: string;
+  createdAt: Date;
+  updatedAt: Date;
+  ipAddress: string | null;
+  userAgent: string | null;
+  userId: string;
+}
+
+export interface EnrichedSessionExtra {
+  currentUser: AuthenticatedUser;
+  usersById: Record<string, AuthenticatedUser>;
+  group: ParsedGroupData | null; // Already parsed in backend
+}
+
+export interface FullAuthSession {
+  user: AuthenticatedUser;
+  session: BetterAuthSession;
+  extra: EnrichedSessionExtra;
+}
+
+// Parsed group data for frontend use (same structure as backend ParsedGroup)
+export interface ParsedGroupData {
+  groupid: number;
+  budgets: string[];
+  userids: string[];
+  metadata: GroupMetadata;
+}
+
+// Redux store state type
+export interface ReduxState {
+  value: FullAuthSession | null;
+}
+
+// Dashboard component types
+export interface DashboardUser {
+  FirstName: string;
+  Id: string;
+  percentage?: number;
+}
+
+export interface ApiOperationResponses {
+  expense?: { message: string; transactionId: string };
+  budget?: { message: string };
 }
 
 // API endpoint types for type-safe API calls

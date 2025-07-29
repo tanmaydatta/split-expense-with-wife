@@ -1,6 +1,6 @@
 DROP TABLE `sessions_old`;--> statement-breakpoint
 DROP TABLE `users_old`;--> statement-breakpoint
-PRAGMA foreign_keys=OFF;--> statement-breakpoint
+PRAGMA defer_foreign_keys=ON;--> statement-breakpoint
 CREATE TABLE `__new_transaction_users` (
 	`transaction_id` text(100) NOT NULL,
 	`user_id` text NOT NULL,
@@ -15,7 +15,7 @@ CREATE TABLE `__new_transaction_users` (
 INSERT INTO `__new_transaction_users`("transaction_id", "user_id", "amount", "owed_to_user_id", "group_id", "currency", "deleted") SELECT "transaction_id", "user_id", "amount", "owed_to_user_id", "group_id", "currency", "deleted" FROM `transaction_users`;--> statement-breakpoint
 DROP TABLE `transaction_users`;--> statement-breakpoint
 ALTER TABLE `__new_transaction_users` RENAME TO `transaction_users`;--> statement-breakpoint
-PRAGMA foreign_keys=ON;--> statement-breakpoint
+PRAGMA defer_foreign_keys=OFF;--> statement-breakpoint
 CREATE INDEX `transaction_users_transaction_group_idx` ON `transaction_users` (`transaction_id`,`group_id`,`deleted`);--> statement-breakpoint
 CREATE INDEX `transaction_users_transaction_idx` ON `transaction_users` (`transaction_id`,`deleted`);--> statement-breakpoint
 CREATE INDEX `transaction_users_group_owed_idx` ON `transaction_users` (`group_id`,`owed_to_user_id`,`deleted`);--> statement-breakpoint

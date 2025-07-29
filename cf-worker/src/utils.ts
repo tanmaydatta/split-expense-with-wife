@@ -4,7 +4,9 @@ import {
   UserBalance,
   BudgetTotal,
   Session,
-  Group
+  Group,
+  ParsedGroup,
+  GroupMetadata
 } from './types';
 import { groups, userBalances, budgetTotals, transactionUsers } from './db/schema/schema';
 import { getDb } from './db';
@@ -41,7 +43,7 @@ export async function enrichSession(session: Session, db: ReturnType<typeof getD
   if (!currentUser || currentUser.length === 0) {
     throw new Error('Current user not found');
   }
-  const group: Group | null = getGroup(userGroup);
+  const group: ParsedGroup | null = getGroup(userGroup);
   if (!group) {
     return {
       group: null,
@@ -49,7 +51,7 @@ export async function enrichSession(session: Session, db: ReturnType<typeof getD
       currentUser: currentUser[0]
     };
   }
-  const userIds = JSON.parse(group.userids) as string[];
+  const userIds = group.userids;
   const usersInGroup = await db
     .select()
     .from(user)
@@ -64,18 +66,30 @@ export async function enrichSession(session: Session, db: ReturnType<typeof getD
   };
 }
 
-function getGroup(userGroup: { groupid: number | null; metadata: string | null; budgets: string | null; userids: string | null; }[]) {
+function getGroup(userGroup: { groupid: number | null; metadata: string | null; budgets: string | null; userids: string | null; }[]): ParsedGroup | null {
   if (!userGroup || userGroup.length === 0 || !userGroup[0]?.groupid) {
     return null;
   }
 
-  const group: Group = {
-    groupid: userGroup[0].groupid,
-    budgets: userGroup[0].budgets || '[]',
-    userids: userGroup[0].userids || '[]',
-    metadata: userGroup[0].metadata || '{}'
-  };
-  return group;
+  try {
+    const rawGroup = userGroup[0];
+    const group: ParsedGroup = {
+      groupid: rawGroup.groupid!,
+      budgets: JSON.parse(rawGroup.budgets || '[]') as string[],
+      userids: JSON.parse(rawGroup.userids || '[]') as string[],
+      metadata: JSON.parse(rawGroup.metadata || '{}') as GroupMetadata
+    };
+    return group;
+  } catch (error) {
+    console.error('Error parsing group data:', error);
+    // Return a safe default group
+    return {
+      groupid: userGroup[0].groupid!,
+      budgets: [],
+      userids: [],
+      metadata: { defaultShare: {}, defaultCurrency: 'USD' }
+    };
+  }
 }
 
 // This function acts as a guard for our protected routes
@@ -157,13 +171,10 @@ export function createErrorResponse(error: string, status: number = 500, request
 
 // Helper function to check if user is authorized for a budget
 export function isAuthorizedForBudget(session: CurrentSession, budgetName: string): boolean {
-  try {
-    const budgets = JSON.parse(session.group?.budgets || '[]') as string[];
-    return budgets.includes(budgetName);
-  } catch (error) {
-    console.error('Error parsing budgets:', error);
+  if (!session.group) {
     return false;
   }
+  return session.group.budgets.includes(budgetName);
 }
 
 // Supported currencies list

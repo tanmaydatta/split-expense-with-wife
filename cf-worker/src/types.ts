@@ -14,7 +14,15 @@ export type User = Session['user'];
 export interface CurrentSession {
   currentUser: typeof user.$inferSelect;
   usersById: Record<string, typeof user.$inferSelect>;
-  group: Group | null;
+  group: ParsedGroup | null;
+}
+
+// Parsed group data (JSON strings parsed into structured data)
+export interface ParsedGroup {
+  groupid: number;
+  budgets: string[];
+  userids: string[];
+  metadata: GroupMetadata;
 }
 
 // Cookie options (CF Worker specific)

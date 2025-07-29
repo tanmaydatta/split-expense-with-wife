@@ -33,6 +33,9 @@ function LoginPage() {
       if (error) {
         throw error;
       }
+      if (!data) {
+        throw new Error("No data returned from login");
+      }
       // On success, redirect or reload to fetch the user's session data
       window.location.href = '/';
     } catch (err: any) {

@@ -1,5 +1,5 @@
 
-import  { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Form/Input";
 import { ErrorContainer, SuccessContainer } from "@/components/MessageContainer";
@@ -8,25 +8,32 @@ import { CreditDebit } from "./CreditDebit";
 import { SelectBudget } from "@/SelectBudget";
 import { typedApi, ApiError } from "@/utils/api";
 import { scrollToTop } from "@/utils/scroll";
-import type { BudgetRequest, SplitNewRequest } from '@shared-types';
+import type { 
+  BudgetRequest, 
+  SplitNewRequest, 
+  UserFromAuth, 
+  ReduxState, 
+  FullAuthSession,
+  DashboardUser,
+  ApiOperationResponses
+} from '@shared-types';
 import "./index.css";
 import { authClient } from "@/utils/authClient";
+import { useSelector } from "react-redux";
 
 function Dashboard(): JSX.Element {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
   const [success, setSuccess] = useState<string>("");
-  
+
   const [creditDebit, setCreditDebit] = useState("Debit");
   const [amount, setAmount] = useState<number>();
   const [description, setDescription] = useState<string>();
   const [budget, setBudget] = useState<string>("");
   const [currency, setCurrency] = useState<string>("USD");
-  const [paidBy, setPaidBy] = useState<number>();
-  const [usersState, setUsersState] = useState<
-    { FirstName: string; Id: number }[]
-  >([]);
-  const [users, setUsers] = useState<{ FirstName: string; Id: number; percentage?: number }[]>([]);
+  const [paidBy, setPaidBy] = useState<string>();
+  const [usersState, setUsersState] = useState<DashboardUser[]>([]);
+  const [users, setUsers] = useState<DashboardUser[]>([]);
 
   // Action selection state - both checked by default
   const [addExpense, setAddExpense] = useState<boolean>(true);
@@ -36,18 +43,19 @@ function Dashboard(): JSX.Element {
   const [defaultsInitialized, setDefaultsInitialized] = useState<boolean>(false);
 
   // Get auth data from the data store (where login puts it)
-  const {data, error:authError} =  authClient.useSession();
-  
+  const data = useSelector((state: ReduxState) => state.value);
+
   // Check if user is authenticated by checking if data exists
-  const isAuthenticated = data?.user !== null && authError === null;
+  const isAuthenticated = data?.user !== null;
 
   // Helper function to calculate default user percentages from metadata
-  const calculateDefaultUserPercentages = useCallback((usersFromAuth: { FirstName: string; Id: number }[]) => {
-    if ((data as any)?.extra?.group?.metadata?.defaultShare && usersFromAuth.length > 0) {
-      return usersFromAuth.map((u: any) => {
+  const calculateDefaultUserPercentages = useCallback((usersFromAuth: DashboardUser[]): DashboardUser[] => {
+    console.log("calculateDefaultUserPercentages", data);
+    if (data?.extra?.group?.metadata?.defaultShare && usersFromAuth.length > 0) {
+      return usersFromAuth.map((u) => {
         // Convert user ID to string to match defaultShare keys
         const userIdStr = u.Id.toString();
-        const defaultPercentage = (data as any)?.extra?.group?.metadata?.defaultShare[userIdStr];
+        const defaultPercentage = data.extra.group!.metadata.defaultShare[userIdStr];
         return {
           ...u,
           percentage: defaultPercentage !== undefined ? defaultPercentage : (100 / usersFromAuth.length),
@@ -55,7 +63,7 @@ function Dashboard(): JSX.Element {
       });
     } else {
       // Fallback to equal split if no default share available
-      return usersFromAuth.map((u: any) => ({
+      return usersFromAuth.map((u) => ({
         ...u,
         percentage: 100 / usersFromAuth.length,
       }));
@@ -63,19 +71,22 @@ function Dashboard(): JSX.Element {
   }, [data]);
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!isAuthenticated || !data) {
       return; // AppWrapper will handle showing login page
     }
 
     // Get users and budgets from the login data
-    const usersFromAuth = (data as any)?.extra?.usersById || [];
+    const usersFromAuth: DashboardUser[] = Object.values(data.extra.usersById).map((v) => ({
+      FirstName: v.firstName,
+      Id: v.id,
+    }));
     setUsersState(usersFromAuth);
-    
+
     // Only set defaults if they haven't been initialized yet (to avoid overriding user changes)
     if (!defaultsInitialized) {
       // Set default currency from metadata
-      if ((data as any)?.extra?.group?.metadata?.defaultCurrency) {
-        setCurrency((data as any)?.extra?.group?.metadata?.defaultCurrency);
+      if (data.extra.group?.metadata?.defaultCurrency) {
+        setCurrency(data.extra.group.metadata.defaultCurrency);
       }
 
       // Set default split percentages from metadata
@@ -83,13 +94,13 @@ function Dashboard(): JSX.Element {
       setUsers(defaultUsers);
 
       // Set default budget from available budgets
-      if ((data as any)?.extra?.group?.budgets && (data as any)?.extra?.group?.budgets.length > 0 && !budget) {
-        setBudget((data as any)?.extra?.group?.budgets[0]);
+      if (data.extra.group?.budgets && data.extra.group.budgets.length > 0 && !budget) {
+        setBudget(data.extra.group.budgets[0]);
       }
 
       // Set default paid by to current user
-      if ((data as any)?.extra?.currentUser?.id && !paidBy) {
-        setPaidBy((data as any)?.extra?.currentUser?.id);
+      if (data.extra.currentUser?.id && !paidBy) {
+        setPaidBy(data.extra.currentUser.id);
       }
 
       // Mark defaults as initialized
@@ -142,13 +153,13 @@ function Dashboard(): JSX.Element {
       throw new Error("User not authenticated");
     }
 
-    const budgetPayload: BudgetRequest = {
-      amount: creditDebit === "Debit" ? -amount! : amount!,
-      description: description!,
-      name: budget,
-      groupid: (data as any)?.extra?.group?.groupid || 0,
-      currency: currency,
-    };
+          const budgetPayload: BudgetRequest = {
+        amount: creditDebit === "Debit" ? -amount! : amount!,
+        description: description!,
+        name: budget,
+        groupid: data?.extra?.group?.groupid || 0,
+        currency: currency,
+      };
 
     const response = await typedApi.post("/budget", budgetPayload);
     return response; // Returns { message: string }
@@ -156,25 +167,25 @@ function Dashboard(): JSX.Element {
 
   const onSubmit = async () => {
     setLoading(true);
-    
+
     // Clear any previous messages
     setError("");
     setSuccess("");
 
     // HTML5 validation will handle: amount, description, paidBy, currency
-    
+
     if (!addExpense && !updateBudget) {
       setError("Please select at least one action to perform");
       return;
     }
 
     try {
-      const responses: { expense?: any; budget?: any } = {};
-      
+      const responses: ApiOperationResponses = {};
+
       if (addExpense) {
         responses.expense = await onSubmitExpense();
       }
-      
+
       if (updateBudget) {
         responses.budget = await onSubmitBudget();
       }
@@ -193,23 +204,26 @@ function Dashboard(): JSX.Element {
       if (responses.budget) {
         messages.push(responses.budget.message);
       }
-      
+
       // Show success message with actual API messages
       setSuccess(`Success! ${messages.join(" and ")}`);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error:", error);
-      
+
       // Clear any success message when there's an error
       setSuccess("");
-      
+
       // Handle our typed ApiError
       if (error instanceof ApiError) {
         setError(error.errorMessage);
+      } else if (error instanceof Error) {
+        // Handle standard Error objects
+        setError(error.message);
       } else {
         // Fallback for any unexpected error types
-        setError(error.message || "An unexpected error occurred. Please try again.");
+        setError("An unexpected error occurred. Please try again.");
       }
-      
+
       // AppWrapper will handle auth state if 401 error
     } finally {
       setLoading(false);
@@ -217,7 +231,7 @@ function Dashboard(): JSX.Element {
     }
   };
 
-  const updateUserPercentage = (userId: number, percentage: number) => {
+  const updateUserPercentage = (userId: string, percentage: number) => {
     setUsers((prevUsers) =>
       prevUsers.map((user) =>
         user.Id === userId ? { ...user, percentage } : user
@@ -236,16 +250,16 @@ function Dashboard(): JSX.Element {
       <form className="form-container" data-test-id="expense-form">
         {/* Error Container */}
         {error && (
-          <ErrorContainer 
-            message={error} 
+          <ErrorContainer
+            message={error}
             onClose={() => setError("")}
           />
         )}
 
         {/* Success Container */}
         {success && (
-          <SuccessContainer 
-            message={success} 
+          <SuccessContainer
+            message={success}
             onClose={() => setSuccess("")}
             data-test-id="success-container"
           />
@@ -266,7 +280,7 @@ function Dashboard(): JSX.Element {
           maxLength={100}
           title="Please enter a description between 2-100 characters"
         />
-        
+
         <label>Amount</label>
         <Input
           type="number"
@@ -287,7 +301,7 @@ function Dashboard(): JSX.Element {
         {addExpense && (
           <div className="split-percentage-container">
             {users.map(
-              (u: { FirstName: string; Id: number; percentage?: number }, _i: Number) => (
+              (u: DashboardUser, _i: number) => (
                 <div key={u.Id} className="split-percentage-input-container">
                   <label>{u.FirstName}</label>
                   <Input
@@ -313,8 +327,8 @@ function Dashboard(): JSX.Element {
 
         {/* Currency */}
         <label>Currency</label>
-        <select 
-          value={currency} 
+        <select
+          value={currency}
           onChange={(e) => setCurrency(e.target.value)}
           className="currency-select"
           name="currency"
@@ -335,9 +349,9 @@ function Dashboard(): JSX.Element {
         {addExpense && (
           <>
             <label>Paid By</label>
-            <select 
-              value={paidBy || ""} 
-              onChange={(e) => setPaidBy(parseInt(e.target.value))}
+            <select
+              value={paidBy || ""}
+              onChange={(e) => setPaidBy(e.target.value)}
               className="paid-by-select"
               name="paidBy"
               data-test-id="paid-by-select"
@@ -400,7 +414,7 @@ function Dashboard(): JSX.Element {
 
         {/* Single submit button */}
         <div className="button-container">
-          <Button 
+          <Button
             type="submit"
             data-test-id="submit-button"
             onClick={(e) => {
