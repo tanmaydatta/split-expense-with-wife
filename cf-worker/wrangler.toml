@@ -1,6 +1,6 @@
 name = "splitexpense"
 main = "src/index.ts"
-compatibility_date = "2023-12-01"
+compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
 
 # Static assets configuration for Single Page Application
@@ -15,9 +15,6 @@ ALLOWED_ORIGINS = "https://staging--splitexpense.netlify.app,https://splitexpens
 GROUP_IDS = "1"
 BASE_URL = "http://localhost:8787/auth"
 AUTH_TRUSTED_ORIGINS = ["http://localhost:8787", "http://localhost:3000"]
-AUTH_PUBLIC_KEY = "placeholder_put_real_key_here"
-AUTH_PRIVATE_KEY = "placeholder_put_real_key_here"
-MIGRATION_SECRET = "super-secret-migration-key-2024"
 LOCAL = true
 
 [[d1_databases]]
@@ -35,8 +32,8 @@ enabled = true
 
 
 
-[triggers]
-crons = [ "0 0 1 * *" ]
+#[triggers]
+#crons = [ "0 0 1 * *" ]
 
 [env.prod]
     [[env.prod.d1_databases]]
@@ -49,9 +46,6 @@ crons = [ "0 0 1 * *" ]
     GROUP_IDS = "1"
     BASE_URL = "https://splitexpense.tanmaydatta.workers.dev/auth"
     AUTH_TRUSTED_ORIGINS = ["https://splitexpense.tanmaydatta.workers.dev"]
-    AUTH_PUBLIC_KEY = "placeholder_put_real_key_here"
-    AUTH_PRIVATE_KEY = "placeholder_put_real_key_here"
-    MIGRATION_SECRET = "super-secret-migration-key-2024"
     LOCAL = false
 
 
@@ -64,11 +58,8 @@ crons = [ "0 0 1 * *" ]
     migrations_dir = "src/db/migrations"
 
     [env.dev.vars]
-    ALLOWED_ORIGINS = "https://staging--splitexpense.netlify.app,https://splitexpense.netlify.app,https://deploy-preview-5--splitexpense.netlify.app,http://localhost:3000,http://localhost:3001"
+    ALLOWED_ORIGINS = "https://splitexpense-dev.tanmaydatta.workers.dev,https://splitexpense.netlify.app,https://deploy-preview-5--splitexpense.netlify.app,http://localhost:3000,http://localhost:3001"
     GROUP_IDS = "1"
     BASE_URL = "https://splitexpense-dev.tanmaydatta.workers.dev/auth"
-    AUTH_TRUSTED_ORIGINS = ["https://splitexpense.tanmaydatta.workers.dev"]
-    AUTH_PUBLIC_KEY = "placeholder_put_real_key_here"
-    AUTH_PRIVATE_KEY = "placeholder_put_real_key_here"
-    MIGRATION_SECRET = "super-secret-migration-key-2024"
+    AUTH_TRUSTED_ORIGINS = ["https://splitexpense-dev.tanmaydatta.workers.dev"]
     LOCAL = false

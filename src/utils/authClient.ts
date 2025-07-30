@@ -3,7 +3,7 @@ import { usernameClient } from 'better-auth/client/plugins';
 
 export const authClient = createAuthClient({
     // The base URL for our auth routes on the server
-    baseURL: `http://localhost:8787/auth`, 
+    baseURL: `${process.env.REACT_APP_AUTH_BASE_URL}/auth`, 
     plugins: [
         // This enables client-side functions like signIn.username()
         usernameClient()

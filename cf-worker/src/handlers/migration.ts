@@ -1,12 +1,19 @@
 import { getDb } from '../db';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { groups, transactionUsers, userBalances } from '../db/schema/schema';
+import { account } from '../db/schema/auth-schema';
+import { createJsonResponse, createErrorResponse } from '../utils';
 
 // ID mapping from old integer IDs to new better-auth string IDs
+// const idMap = [
+//   { oldId: 1, newId: '3u51cDX5RHkHwensx4WprwJN5lCNCXTc' },
+//   { oldId: 2, newId: 'sQuIElfh12RQgKMHqCquo3urDNraR9kf' }
+// ];
+
 const idMap = [
-  { oldId: 3, newId: 'afseouCMc0Gpp0UdiOeNWRNBhFfi79FO' },
-  { oldId: 4, newId: '2ALTQqHRvFqFHKzCpgAvVnBegknPczDN' },
-  { oldId: 5, newId: 'JEK8w51Gv5gO98BFifDWKdTMuoH2m38e' }
+  { oldId: 3, newId: '773hAvjPl8otWzSsXHMFFRsxMguEdwyw' },
+  { oldId: 4, newId: 'lUsYNUzFl6sN4AXe9dPicaCU3khcDjvZ' },
+  { oldId: 5, newId: 'uwnwzpESqA2h5Km8SFNFcJc2h4vwS3zg' }
 ];
 
 export async function handleRelinkData(request: Request, env: Env) {
@@ -126,6 +133,119 @@ export async function handleRelinkData(request: Request, env: Env) {
         status: 500,
         headers: { 'Content-Type': 'application/json' }
       }
+    );
+  }
+}
+
+// Helper function to hash passwords using the same algorithm as auth.ts
+async function hashPasswordWithWebCrypto(password: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password);
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+
+  // Use PBKDF2 with 10,000 iterations (same as in auth.ts)
+  const key = await crypto.subtle.importKey(
+    'raw',
+    data,
+    { name: 'PBKDF2' },
+    false,
+    ['deriveBits']
+  );
+
+  const hashBuffer = await crypto.subtle.deriveBits(
+    {
+      name: 'PBKDF2',
+      salt: salt,
+      iterations: 10000,
+      hash: 'SHA-256'
+    },
+    key,
+    256
+  );
+
+  // Combine salt + hash for storage
+  const combined = new Uint8Array(salt.length + hashBuffer.byteLength);
+  combined.set(salt);
+  combined.set(new Uint8Array(hashBuffer), salt.length);
+
+  // Return as base64
+  return btoa(String.fromCharCode.apply(null, Array.from(combined)));
+}
+
+export async function handlePasswordMigration(request: Request, env: Env) {
+  // Only allow POST requests
+  if (request.method !== 'POST') {
+    return new Response('Method not allowed', { status: 405 });
+  }
+
+  // Check for migration secret
+  const migrationSecret = request.headers.get('x-migration-secret');
+  if (!migrationSecret || migrationSecret !== env.MIGRATION_SECRET) {
+    return createErrorResponse('Unauthorized', 401, request, env);
+  }
+
+  const db = getDb(env);
+
+  try {
+    const body = await request.json() as {
+      passwords: Array<{
+        userId: string;
+        plainPassword: string;
+      }>;
+    };
+
+    console.log('🔒 Starting password hash migration...');
+    console.log(`📊 Migrating ${body.passwords.length} passwords`);
+
+    const batchStatements = [];
+
+    for (const { userId, plainPassword } of body.passwords) {
+      console.log(`🔄 Hashing password for user: ${userId}`);
+
+      // Hash the password using our new Web Crypto implementation
+      const hashedPassword = await hashPasswordWithWebCrypto(plainPassword);
+
+      // Update the account table where userId matches and providerId is 'credential'
+      batchStatements.push(
+        db
+          .update(account)
+          .set({
+            password: hashedPassword,
+            updatedAt: new Date()
+          })
+          .where(and(
+            eq(account.userId, userId),
+            eq(account.providerId, 'credential')
+          ))
+      );
+    }
+
+    // Execute all updates in a batch
+    await db.batch([batchStatements[0], ...batchStatements.slice(1)]);
+
+    console.log('✅ Password migration completed!');
+    console.log(`📊 Updated ${body.passwords.length} password accounts`);
+
+    return createJsonResponse({
+      success: true,
+      message: 'Password hash migration completed successfully',
+      details: {
+        updatedAccounts: body.passwords.length,
+        action: 'Migrated bcrypt passwords to Web Crypto PBKDF2 hashes'
+      }
+    }, 200, {}, request, env);
+
+  } catch (error) {
+    console.error('❌ Password migration failed:', error);
+    return createErrorResponse(
+      JSON.stringify({
+        error: 'Password migration failed',
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined
+      }),
+      500,
+      request,
+      env
     );
   }
 }
