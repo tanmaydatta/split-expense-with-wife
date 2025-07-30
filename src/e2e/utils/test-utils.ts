@@ -157,7 +157,8 @@ export class TestHelper {
       'Settings': '/settings'
     };
     
-    await this.page.waitForURL(urlMap[page]);
+    await this.page.goto(urlMap[page]);
+    await this.page.waitForTimeout(1000);
   }
 
   /**

@@ -394,7 +394,6 @@ export async function getCurrentUserPercentages(authenticatedPage: TestHelper): 
   // Get all percentage input elements dynamically
   const percentageInputs = await authenticatedPage.page.locator('[data-test-id*="-percentage"]').all();
   const allUserPercentages: Record<string, string> = {};
-
   for (const input of percentageInputs) {
     const testId = await input.getAttribute('data-test-id');
     if (testId && testId.includes('user-') && testId.endsWith('-percentage')) {
@@ -404,7 +403,6 @@ export async function getCurrentUserPercentages(authenticatedPage: TestHelper): 
       allUserPercentages[userId] = percentage;
     }
   }
-
   // Navigate back to original page
   await authenticatedPage.page.goto(currentUrl);
   await authenticatedPage.waitForLoading();
