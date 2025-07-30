@@ -1,4 +1,4 @@
-import { Route, Routes, Navigate, useLocation } from "react-router-dom";
+import { Route, Routes, Navigate } from "react-router-dom";
 import { ThemeProvider } from "styled-components";
 import styled from "styled-components";
 import { useState, useEffect } from "react";
@@ -17,7 +17,7 @@ import Settings from "@/pages/Settings";
 import NotFound from "@/pages/NotFound";
 import { authClient } from "./utils/authClient";
 import { setData } from "./redux/data";
-import { useDispatch } from "react-redux";
+
 import { store } from "./redux/store";
 // import { Loader } from "./components/Loader";
 
@@ -146,7 +146,7 @@ function AppWrapper() {
       console.log("dispatching data", data);
       store.dispatch(setData(data));
     }
-  }, [data, store]);
+  }, [data]);
   
   // Check if we're on mobile
   useEffect(() => {

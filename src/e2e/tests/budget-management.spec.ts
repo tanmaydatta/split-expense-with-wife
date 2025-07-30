@@ -365,7 +365,7 @@ test.describe('Budget Management', () => {
     await budgetHelper.verifyBudgetTotals();
   });
 
-  test('should show loading state during budget submission', async ({ authenticatedPage, context }) => {
+  test('should show loading state during budget submission', async ({ authenticatedPage, context: _context }) => {
     // And a very broad catch-all that should definitely work
     await authenticatedPage.page.route('**/*', async (route) => {
       const url = route.request().url();

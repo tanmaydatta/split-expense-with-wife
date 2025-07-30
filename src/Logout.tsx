@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { logout } from '@/utils/auth';
-import { typedApi } from '@/utils/api';
+
 import { authClient } from './utils/authClient';
 
 const Logout: React.FC = () => {

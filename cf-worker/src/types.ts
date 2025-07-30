@@ -1,6 +1,6 @@
 // Import all shared types
 export * from '../../shared-types';
-import type { Group, GroupMetadata } from '../../shared-types';
+import type { GroupMetadata } from '../../shared-types';
 import { auth } from './auth';
 import { user } from './db/schema/auth-schema';
 

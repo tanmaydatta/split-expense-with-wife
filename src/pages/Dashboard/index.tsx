@@ -11,14 +11,12 @@ import { scrollToTop } from "@/utils/scroll";
 import type { 
   BudgetRequest, 
   SplitNewRequest, 
-  UserFromAuth, 
   ReduxState, 
-  FullAuthSession,
   DashboardUser,
   ApiOperationResponses
 } from '@shared-types';
 import "./index.css";
-import { authClient } from "@/utils/authClient";
+
 import { useSelector } from "react-redux";
 
 function Dashboard(): JSX.Element {

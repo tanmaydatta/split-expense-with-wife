@@ -198,6 +198,12 @@ export class ExpenseTestHelper {
     }
   }
 
+  async getCurrentCurrency(): Promise<string> {
+    // Wait for currency selector to be loaded
+    await this.authenticatedPage.page.waitForSelector('[data-test-id="currency-select"]', { timeout: getCITimeout(10000) });
+    return await this.authenticatedPage.page.locator('[data-test-id="currency-select"]').inputValue();
+  }
+
   async getCurrentFormValues() {
     // Wait for form to be fully loaded
     await this.authenticatedPage.page.waitForSelector('[data-test-id="currency-select"]', { timeout: getCITimeout(10000) });
@@ -363,6 +369,21 @@ export class ExpenseTestHelper {
 
     console.log(`Successfully deleted expense: ${description}`);
   }
+}
+
+export async function getCurrentCurrencyFromSettings(authenticatedPage: TestHelper): Promise<string> {
+  // Navigate to Settings page to get current currency
+  const currentUrl = authenticatedPage.page.url();
+  await authenticatedPage.navigateToPage('Settings');
+
+  // Get the current currency from settings
+  const currency = await authenticatedPage.page.inputValue('[data-test-id="currency-select"]');
+
+  // Navigate back to original page
+  await authenticatedPage.page.goto(currentUrl);
+  await authenticatedPage.waitForLoading();
+
+  return currency;
 }
 
 export async function getCurrentUserPercentages(authenticatedPage: TestHelper): Promise<Record<string, string>> {

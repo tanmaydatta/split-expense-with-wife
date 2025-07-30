@@ -1,4 +1,4 @@
-import { FullAuthSession, ReduxState } from "@shared-types";
+import { FullAuthSession } from "@shared-types";
 import { useSelector } from "react-redux";
 import { useNavigate, useLocation } from "react-router-dom";
 import styled from "styled-components";

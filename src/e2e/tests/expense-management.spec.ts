@@ -1,6 +1,6 @@
 import { test, expect } from '../fixtures/setup';
 import { createTestExpenses } from '../fixtures/test-data';
-import { ExpenseTestHelper, getCurrentUserPercentages, createTestExpensesWithCurrentUser } from '../utils/expense-test-helper';
+import { ExpenseTestHelper, getCurrentUserPercentages, createTestExpensesWithCurrentUser, getCurrentCurrencyFromSettings } from '../utils/expense-test-helper';
 
 test.describe('Expense Management', () => {
   test.beforeEach(async ({ page }) => {
@@ -35,8 +35,11 @@ test.describe('Expense Management', () => {
     // Get current default percentages from Settings page
     const currentPercentages = await getCurrentUserPercentages(authenticatedPage);
 
+    // Get the actual default currency from Settings page (not from Dashboard)
+    const currentCurrency = await getCurrentCurrencyFromSettings(authenticatedPage);
+
     // Since authenticatedPage uses real login data, verify the defaults are set correctly
-    await expenseHelper.verifyFormDefaults('USD', currentPercentages);
+    await expenseHelper.verifyFormDefaults(currentCurrency, currentPercentages);
   });
 
   test('should preserve user-modified percentages within dashboard session but reset after navigation', async ({ authenticatedPage }) => {
@@ -99,6 +102,9 @@ test.describe('Expense Management', () => {
     // Get current default percentages from Settings page
     const currentPercentages = await getCurrentUserPercentages(authenticatedPage);
 
+    // Get the current default currency from Settings page before changing it
+    const defaultCurrency = await getCurrentCurrencyFromSettings(authenticatedPage);
+
     // Get the actual user IDs dynamically
     const userIds = Object.keys(currentPercentages);
     expect(userIds.length).toBeGreaterThanOrEqual(1); // Ensure we have at least 1 user
@@ -129,9 +135,9 @@ test.describe('Expense Management', () => {
     // Navigate back to Add page to check currency resets to default
     await authenticatedPage.navigateToPage('Add');
 
-    // Verify currency selection resets to default (USD from user metadata)
+    // Verify currency selection resets to default (from user metadata)
     const formValues = await expenseHelper.getCurrentFormValues();
-    expect(formValues.currency).toBe('USD');
+    expect(formValues.currency).toBe(defaultCurrency);
   });
 
   test('should successfully add a new expense with custom split and verify on expenses page', async ({ authenticatedPage }) => {

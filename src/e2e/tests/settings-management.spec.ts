@@ -306,7 +306,7 @@ test.describe('Settings Management', () => {
             const settingsHelper = new SettingsTestHelper(authenticatedPage);
 
             // Get dynamic user IDs
-            const { currentUserId, allUserIds } = await settingsHelper.getDynamicUserIds();
+            const { currentUserId: _currentUserId, allUserIds: _allUserIds } = await settingsHelper.getDynamicUserIds();
             // Verify percentage symbols are positioned inside inputs
             const userElements = authenticatedPage.page.locator('[data-test-id^="user-"][data-test-id$="-percentage"]');
             const count = await userElements.count();
@@ -314,15 +314,15 @@ test.describe('Settings Management', () => {
             expect(count).toBeGreaterThan(0);
 
             // Check first user's percentage symbol positioning (current user)
-            await settingsHelper.verifyPercentageSymbolPosition(currentUserId);
+            await settingsHelper.verifyPercentageSymbolPosition(_currentUserId);
         });
 
         test('should validate percentage totals with 0.001 precision', async ({ authenticatedPage }) => {
             const settingsHelper = new SettingsTestHelper(authenticatedPage);
 
             // Get dynamic user IDs
-            const { currentUserId, allUserIds } = await settingsHelper.getDynamicUserIds();
-            const [userId1, userId2] = allUserIds;
+            const { currentUserId: _currentUserId, allUserIds: _allUserIds } = await settingsHelper.getDynamicUserIds();
+            const [userId1, userId2] = _allUserIds;
 
             // Test case: Set percentages that don't add to 100%
             await settingsHelper.setUserPercentage(userId1, '30');
@@ -341,8 +341,8 @@ test.describe('Settings Management', () => {
             const settingsHelper = new SettingsTestHelper(authenticatedPage);
 
             // Get dynamic user IDs
-            const { currentUserId, allUserIds } = await settingsHelper.getDynamicUserIds();
-            const [userId1, userId2] = allUserIds;
+            const { currentUserId: _currentUserId, allUserIds: _allUserIds } = await settingsHelper.getDynamicUserIds();
+            const [userId1, userId2] = _allUserIds;
 
             // Wait for page to load user data
             await authenticatedPage.page.waitForTimeout(2000);
@@ -366,8 +366,8 @@ test.describe('Settings Management', () => {
             const settingsHelper = new SettingsTestHelper(authenticatedPage);
 
             // Get dynamic user IDs
-            const { currentUserId, allUserIds } = await settingsHelper.getDynamicUserIds();
-            const [userId1, userId2] = allUserIds;
+            const { currentUserId: _currentUserId, allUserIds: _allUserIds } = await settingsHelper.getDynamicUserIds();
+            const [userId1, userId2] = _allUserIds;
 
             // Wait for data to load
             await authenticatedPage.page.waitForTimeout(2000);
@@ -542,8 +542,8 @@ test.describe('Settings Management', () => {
             const settingsHelper = new SettingsTestHelper(authenticatedPage);
 
             // Get dynamic user IDs
-            const { currentUserId, allUserIds } = await settingsHelper.getDynamicUserIds();
-            const [userId1, userId2] = allUserIds;
+            const { currentUserId: _currentUserId, allUserIds: _allUserIds } = await settingsHelper.getDynamicUserIds();
+            const [userId1, userId2] = _allUserIds;
 
             // Get current currency to change to something different
             const initialCurrency = await authenticatedPage.page.inputValue('[data-test-id="currency-select"]');
@@ -727,8 +727,8 @@ test.describe('Settings Management', () => {
             const settingsHelper = new SettingsTestHelper(authenticatedPage);
 
             // Get dynamic user IDs
-            const { currentUserId, allUserIds } = await settingsHelper.getDynamicUserIds();
-            const [userId1, userId2] = allUserIds;
+            const { currentUserId: _currentUserId, allUserIds: _allUserIds } = await settingsHelper.getDynamicUserIds();
+            const [userId1, userId2] = _allUserIds;
 
             // Update share percentages
             await settingsHelper.setUserPercentage(userId1, '70');

@@ -1,10 +1,10 @@
 import React, { useState } from "react";
-import { useDispatch } from "react-redux";
-import { useNavigate, useLocation } from "react-router-dom";
+
+import { useLocation } from "react-router-dom";
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Form/Input";
 import { Loader } from "@/components/Loader";
-import { setData, unsetData } from "@/redux/data";
+import { unsetData } from "@/redux/data";
 import { authClient } from "@/utils/authClient";
 import "./index.css";
 import { store } from "@/redux/store";
@@ -12,7 +12,7 @@ import { store } from "@/redux/store";
 function LoginPage() {
   const [identifier, setIdentifier] = useState(""); // Can be username or email
   const [password, setPassword] = useState("");
-  const navigate = useNavigate();
+
   const location = useLocation();
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
@@ -49,7 +49,7 @@ function LoginPage() {
 
   React.useEffect(() => {
     store.dispatch(unsetData());
-  }, [store]);
+  }, []);
   return (
     <div className="login-container" data-test-id="login-container">
       {loading && <Loader data-test-id="login-loader" />}

@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { useSelector, useDispatch } from 'react-redux';
+import { useSelector } from 'react-redux';
 import { typedApi } from '@/utils/api';
 import { setData } from '@/redux/data';
-import { persistor, store } from '@/redux/store';
+import { store } from '@/redux/store';
 import { scrollToTop } from '@/utils/scroll';
 import { Card } from '@/components/Card';
 import { Button } from '@/components/Button';
@@ -10,7 +10,7 @@ import { Input } from '@/components/Form/Input';
 import { Select } from '@/components/Form/Select';
 import { Loader } from '@/components/Loader';
 import { ErrorContainer, SuccessContainer } from '@/components/MessageContainer';
-import type { FullAuthSession, GroupDetailsResponse, ReduxState, UpdateGroupMetadataRequest, User } from '@shared-types';
+import type { GroupDetailsResponse, ReduxState, UpdateGroupMetadataRequest, User } from '@shared-types';
 import './index.css';
 
 interface SettingsState {

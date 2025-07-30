@@ -4,7 +4,6 @@ import {
   UserBalance,
   BudgetTotal,
   Session,
-  Group,
   ParsedGroup,
   GroupMetadata
 } from './types';
@@ -74,8 +73,11 @@ function getGroup(userGroup: { groupid: number | null; metadata: string | null; 
 
   try {
     const rawGroup = userGroup[0];
+    if (!rawGroup.groupid) {
+      throw new Error('Group ID is required');
+    }
     const group: ParsedGroup = {
-      groupid: rawGroup.groupid!,
+      groupid: rawGroup.groupid,
       budgets: JSON.parse(rawGroup.budgets || '[]') as string[],
       userids: JSON.parse(rawGroup.userids || '[]') as string[],
       metadata: JSON.parse(rawGroup.metadata || '{}') as GroupMetadata
@@ -85,7 +87,7 @@ function getGroup(userGroup: { groupid: number | null; metadata: string | null; 
     console.error('Error parsing group data:', error);
     // Return a safe default group
     return {
-      groupid: userGroup[0].groupid!,
+      groupid: userGroup[0].groupid || 0,
       budgets: [],
       userids: [],
       metadata: { defaultShare: {}, defaultCurrency: 'USD' }
@@ -178,12 +180,12 @@ export function createErrorResponse(error: string, status: number = 500, request
 export function addCORSHeaders(response: Response, request: Request, env: Env): Response {
   const corsHeaders = getCORSHeaders(request, env);
   const newHeaders = new Headers(response.headers);
-  
+
   // Add CORS headers
   Object.entries(corsHeaders).forEach(([key, value]) => {
     newHeaders.set(key, value);
   });
-  
+
   // Clone the response with new headers
   return new Response(response.body, {
     status: response.status,

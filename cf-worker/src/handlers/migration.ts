@@ -68,11 +68,13 @@ export async function handleRelinkData(request: Request, env: Env) {
     const allGroups = await db.select().from(groups);
 
     for (const group of allGroups) {
-      if (!group.userids) continue;
+      if (!group.userids) {
+        continue;
+      }
 
       try {
         const oldUserIds: number[] = JSON.parse(group.userids);
-        
+
         // Map old IDs to new IDs
         const newUserIds = oldUserIds.map(oldId => {
           const mapping = idMap.find(m => m.oldId === oldId);
@@ -111,7 +113,7 @@ export async function handleRelinkData(request: Request, env: Env) {
       }
     );
 
-  } catch (error: any) {
+  } catch (error: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
     console.error('MIGRATION FAILED:', error);
     return new Response(
       JSON.stringify({
