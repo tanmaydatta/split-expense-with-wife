@@ -15,6 +15,7 @@ export interface CurrentSession {
   currentUser: typeof user.$inferSelect;
   usersById: Record<string, typeof user.$inferSelect>;
   group: ParsedGroup | null;
+  currencies?: string[];
 }
 
 // Parsed group data (JSON strings parsed into structured data)

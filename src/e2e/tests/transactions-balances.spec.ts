@@ -19,7 +19,7 @@ class TransactionBalanceTestHelper {
       description: description || 'Test expense',
       amount: amount || 100,
       currency: currency || 'USD',
-      paidBy: paidBy || '1'
+      paidBy: paidBy // Remove hardcoded fallback - let ExpenseTestHelper handle it
     };
 
     const result = await this.expenseHelper.addExpenseEntry(expense, customSplits);

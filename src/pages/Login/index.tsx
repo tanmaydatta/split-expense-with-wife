@@ -7,13 +7,13 @@ import { Loader } from "@/components/Loader";
 import { setData, unsetData } from "@/redux/data";
 import { authClient } from "@/utils/authClient";
 import "./index.css";
+import { store } from "@/redux/store";
 
 function LoginPage() {
   const [identifier, setIdentifier] = useState(""); // Can be username or email
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
   const location = useLocation();
-  const dispatch = useDispatch();
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
   // Get success message from signup redirect
@@ -33,10 +33,11 @@ function LoginPage() {
       if (error) {
         throw error;
       }
-      if (!data) {
+      
+      if (!data || !data.user) {
         throw new Error("No data returned from login");
       }
-      // On success, redirect or reload to fetch the user's session data
+      console.log("login success, navigating to /");
       window.location.href = '/';
     } catch (err: any) {
       console.error('Login error:', err);
@@ -47,8 +48,8 @@ function LoginPage() {
   };
 
   React.useEffect(() => {
-    dispatch(unsetData());
-  }, [dispatch]);
+    store.dispatch(unsetData());
+  }, [store]);
   return (
     <div className="login-container" data-test-id="login-container">
       {loading && <Loader data-test-id="login-loader" />}

@@ -38,7 +38,7 @@ export default defineConfig({
   use: {
     /* Base URL to use in actions like `await page.goto('/')`. */
     baseURL: process.env.PLAYWRIGHT_BASE_URL,
-
+    serviceWorkers: 'block',
     /* Longer action timeout for CI */
     actionTimeout: process.env.CI ? 30 * 1000 : 20 * 1000,
 
@@ -81,7 +81,7 @@ export default defineConfig({
       },
       {
         name: 'Mobile Safari',
-        use: { ...devices['iPhone 12'] },
+        use: { ...devices['iPhone 12'],},
       },]),
 
     /* Test against branded browsers. */

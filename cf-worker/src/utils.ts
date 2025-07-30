@@ -62,7 +62,8 @@ export async function enrichSession(session: Session, db: ReturnType<typeof getD
   return {
     group,
     usersById: usersById,
-    currentUser: currentUser[0]
+    currentUser: currentUser[0],
+    currencies: SUPPORTED_CURRENCIES
   };
 }
 

@@ -44,10 +44,6 @@ function Dashboard(): JSX.Element {
 
   // Get auth data from the data store (where login puts it)
   const data = useSelector((state: ReduxState) => state.value);
-
-  // Check if user is authenticated by checking if data exists
-  const isAuthenticated = data?.user !== null;
-
   // Helper function to calculate default user percentages from metadata
   const calculateDefaultUserPercentages = useCallback((usersFromAuth: DashboardUser[]): DashboardUser[] => {
     console.log("calculateDefaultUserPercentages", data);
@@ -71,8 +67,9 @@ function Dashboard(): JSX.Element {
   }, [data]);
 
   useEffect(() => {
-    if (!isAuthenticated || !data) {
-      return; // AppWrapper will handle showing login page
+    // AppWrapper ensures we're authenticated, but data might still be loading
+    if (!data?.extra?.usersById) {
+      return; // Wait for session data to load
     }
 
     // Get users and budgets from the login data
@@ -113,7 +110,7 @@ function Dashboard(): JSX.Element {
         setUsers(defaultUsers);
       }
     }
-  }, [isAuthenticated, data, budget, paidBy, defaultsInitialized, users.length, calculateDefaultUserPercentages]);
+  }, [data, budget, paidBy, defaultsInitialized, users.length, calculateDefaultUserPercentages]);
 
   const onSubmitExpense = async () => {
     if (!data?.user.id) {
@@ -199,7 +196,6 @@ function Dashboard(): JSX.Element {
       if (responses.expense) {
         messages.push(responses.expense.message);
         // Store transaction ID if needed for future operations
-        console.log("Transaction ID:", responses.expense.transactionId);
       }
       if (responses.budget) {
         messages.push(responses.budget.message);
@@ -241,8 +237,9 @@ function Dashboard(): JSX.Element {
 
 
 
-  if (!isAuthenticated) {
-    return <Loader />; // Show loading while redirecting to login
+  // Show loading while session data is being fetched
+  if (!data?.extra?.usersById) {
+    return <Loader />;
   }
 
   return (

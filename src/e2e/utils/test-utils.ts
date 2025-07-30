@@ -29,6 +29,58 @@ export interface TestBudget {
   type: 'Credit' | 'Debit';
 }
 
+/**
+ * Get current user ID from Redux state
+ */
+export async function getCurrentUserId(testHelper: TestHelper): Promise<string> {
+  // Get current user ID from sidebar welcome message
+  const currentUrl = testHelper.page.url();
+  // Wait a moment for page to be fully loaded
+  await testHelper.page.waitForTimeout(1000);
+  
+  // Check if we're on mobile
+  const isMobile = await testHelper.isMobile();
+  
+  // If mobile, click hamburger menu to open sidebar
+  if (isMobile) {
+    const hamburgerButton = testHelper.page.locator('button:has(span)').first();
+    if (await hamburgerButton.count() > 0) {
+      await hamburgerButton.click();
+      await testHelper.page.waitForTimeout(500); // Wait for sidebar to open
+    }
+  }
+  
+  // Look for sidebar welcome message with user ID
+  const welcomeElement = testHelper.page.locator('[data-test-id^="sidebar-welcome-"]');
+  if (await welcomeElement.count() > 0) {
+    const testId = await welcomeElement.getAttribute('data-test-id');
+    
+    if (testId && testId.startsWith('sidebar-welcome-')) {
+      // Extract user ID from data-test-id like "sidebar-welcome-{userId}"
+      const userId = testId.replace('sidebar-welcome-', '');
+      
+      // If mobile, close sidebar by clicking hamburger again
+      if (isMobile) {
+        // const hamburgerButton = testHelper.page.locator('button:has(span)').first();
+        // if (await hamburgerButton.count() > 0) {
+        //   await hamburgerButton.click();
+        //   await testHelper.page.waitForTimeout(500); // Wait for sidebar to close
+        // }
+        await testHelper.page.goto(currentUrl);
+      }
+      
+      return userId;
+    }
+  }
+  
+  // If mobile and sidebar didn't work, close it anyway
+  if (isMobile) {
+    await testHelper.page.goto(currentUrl);
+  }
+  
+  throw new Error('Could not get current user ID from sidebar welcome message. Make sure user is logged in and the page has loaded completely.');
+}
+
 export class TestHelper {
   constructor(public page: Page) {}
 
@@ -75,7 +127,7 @@ export class TestHelper {
   /**
    * Navigate using sidebar
    */
-  async navigateToPage(page: 'Add' | 'Expenses' | 'Balances' | 'Budget' | 'Monthly Budget'): Promise<void> {
+  async navigateToPage(page: 'Add' | 'Expenses' | 'Balances' | 'Budget' | 'Monthly Budget' | 'Settings'): Promise<void> {
     // Check if we're on mobile
     const isMobile = await this.isMobile();
     
@@ -101,7 +153,8 @@ export class TestHelper {
       'Expenses': '/expenses',
       'Balances': '/balances',
       'Budget': '/budget',
-      'Monthly Budget': '/monthly-budget'
+      'Monthly Budget': '/monthly-budget',
+      'Settings': '/settings'
     };
     
     await this.page.waitForURL(urlMap[page]);

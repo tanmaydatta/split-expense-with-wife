@@ -287,6 +287,7 @@ export interface EnrichedSessionExtra {
   currentUser: AuthenticatedUser;
   usersById: Record<string, AuthenticatedUser>;
   group: ParsedGroupData | null; // Already parsed in backend
+  currencies?: string[];
 }
 
 export interface FullAuthSession {

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { typedApi } from '@/utils/api';
 import { setData } from '@/redux/data';
+import { persistor, store } from '@/redux/store';
 import { scrollToTop } from '@/utils/scroll';
 import { Card } from '@/components/Card';
 import { Button } from '@/components/Button';
@@ -9,7 +10,7 @@ import { Input } from '@/components/Form/Input';
 import { Select } from '@/components/Form/Select';
 import { Loader } from '@/components/Loader';
 import { ErrorContainer, SuccessContainer } from '@/components/MessageContainer';
-import type { GroupDetailsResponse, UpdateGroupMetadataRequest, User } from '@shared-types';
+import type { FullAuthSession, GroupDetailsResponse, ReduxState, UpdateGroupMetadataRequest, User } from '@shared-types';
 import './index.css';
 
 interface SettingsState {
@@ -17,14 +18,14 @@ interface SettingsState {
   error: string;
   success: string;
   groupDetails: GroupDetailsResponse | null;
-  
+
   // Form fields
   groupName: string;
   defaultCurrency: string;
   userPercentages: Record<string, number>;
   budgets: string[];
   newBudgetName: string;
-  
+
   // Dirty flags
   groupNameDirty: boolean;
   currencyDirty: boolean;
@@ -33,9 +34,7 @@ interface SettingsState {
 }
 
 const Settings: React.FC = () => {
-  const dispatch = useDispatch();
-  const data = useSelector((state: any) => state.value);
-
+  const data = useSelector((state: ReduxState) => state.value);
   const [state, setState] = useState<SettingsState>({
     loading: false,
     error: '',
@@ -56,10 +55,10 @@ const Settings: React.FC = () => {
   useEffect(() => {
     const fetchGroupDetails = async () => {
       setState(prev => ({ ...prev, loading: true, error: '' }));
-      
+
       try {
         const response: GroupDetailsResponse = await typedApi.get('/group/details');
-        
+
         // Initialize form with current values
         const initialPercentages: Record<string, number> = {};
         response.users.forEach((user: User) => {
@@ -96,10 +95,10 @@ const Settings: React.FC = () => {
     setState(prev => {
       const newPercentages = { ...prev.userPercentages, [userId]: percentage };
       const originalPercentages = prev.groupDetails?.metadata.defaultShare || {};
-      const isDirty = Object.keys(newPercentages).some(id => 
+      const isDirty = Object.keys(newPercentages).some(id =>
         newPercentages[id] !== (originalPercentages[id] || 0)
       );
-      
+
       return {
         ...prev,
         userPercentages: newPercentages,
@@ -135,20 +134,20 @@ const Settings: React.FC = () => {
       const updateRequest: UpdateGroupMetadataRequest = {
         groupid: state.groupDetails!.groupid
       };
-      
+
       // Add changes to the request
       if (state.groupNameDirty) {
         updateRequest.groupName = state.groupName.trim();
       }
-      
+
       if (state.currencyDirty) {
         updateRequest.defaultCurrency = state.defaultCurrency;
       }
-      
+
       if (state.sharesDirty) {
         updateRequest.defaultShare = state.userPercentages;
       }
-      
+
       if (state.budgetsDirty) {
         updateRequest.budgets = state.budgets;
       }
@@ -162,18 +161,47 @@ const Settings: React.FC = () => {
       await typedApi.post('/group/metadata', updateRequest);
 
       // Update Redux store with new data
-      const updatedData = { ...data };
-      if (state.currencyDirty) {
-        updatedData.metadata = { ...updatedData.metadata, defaultCurrency: state.defaultCurrency };
+      let updatedData = { ...data };
+
+      // Helper function to safely update nested properties
+      const updateNestedData = (data: any, updates: any) => {
+        return {
+          ...data,
+          extra: {
+            ...data.extra,
+            group: {
+              ...data.extra?.group,
+              ...updates.group,
+              metadata: {
+                ...data.extra?.group?.metadata,
+                ...updates.group?.metadata
+              }
+            }
+          }
+        };
+      };
+
+      // Prepare updates object
+      const updates: any = { group: {} };
+
+      if (state.currencyDirty || state.sharesDirty) {
+        updates.group.metadata = {};
+        if (state.currencyDirty) {
+          updates.group.metadata.defaultCurrency = state.defaultCurrency;
+        }
+        if (state.sharesDirty) {
+          updates.group.metadata.defaultShare = state.userPercentages;
+        }
       }
-      if (state.sharesDirty) {
-        updatedData.metadata = { ...updatedData.metadata, defaultShare: state.userPercentages };
-      }
+
       if (state.budgetsDirty) {
-        updatedData.budgets = state.budgets;
+        updates.group.budgets = state.budgets;
       }
-      
-      dispatch(setData(updatedData));
+
+      // Apply updates
+      updatedData = updateNestedData(updatedData, updates);
+      console.log("updatedData", updatedData);
+      store.dispatch(setData(updatedData));
 
       setState(prev => ({
         ...prev,
@@ -225,7 +253,7 @@ const Settings: React.FC = () => {
       {state.error && (
         <ErrorContainer message={state.error} onClose={clearMessages} />
       )}
-      
+
       {state.success && (
         <SuccessContainer message={state.success} onClose={clearMessages} />
       )}
@@ -239,10 +267,10 @@ const Settings: React.FC = () => {
             id="groupName"
             type="text"
             value={state.groupName}
-            onChange={(e) => setState(prev => ({ 
-              ...prev, 
+            onChange={(e) => setState(prev => ({
+              ...prev,
               groupName: e.target.value,
-              groupNameDirty: e.target.value.trim() !== state.groupDetails?.groupName 
+              groupNameDirty: e.target.value.trim() !== state.groupDetails?.groupName
             }))}
             placeholder="Enter group name"
             data-test-id="group-name-input"
@@ -258,14 +286,14 @@ const Settings: React.FC = () => {
           <Select
             id="defaultCurrency"
             value={state.defaultCurrency}
-            onChange={(e) => setState(prev => ({ 
-              ...prev, 
+            onChange={(e) => setState(prev => ({
+              ...prev,
               defaultCurrency: e.target.value,
-              currencyDirty: e.target.value !== state.groupDetails?.metadata.defaultCurrency 
+              currencyDirty: e.target.value !== state.groupDetails?.metadata.defaultCurrency
             }))}
             data-test-id="currency-select"
           >
-            {(data.currencies || ['USD']).map((currency: string) => (
+            {(data?.extra?.currencies || ['USD']).map((currency: string) => (
               <option key={currency} value={currency}>
                 {currency}
               </option>
@@ -292,7 +320,7 @@ const Settings: React.FC = () => {
                   step="0.01"
                   value={state.userPercentages[user.Id.toString()]?.toString() || '0'}
                   onChange={(e) => updateUserPercentage(
-                    user.Id.toString(), 
+                    user.Id.toString(),
                     parseFloat(e.target.value) || 0
                   )}
                   className="percentage-input"
@@ -316,7 +344,7 @@ const Settings: React.FC = () => {
             {state.budgets.map((budget, index) => (
               <div key={budget} className="budget-item">
                 <span>{budget}</span>
-                <Button 
+                <Button
                   onClick={() => removeBudget(budget)}
                   className="remove-button"
                   data-test-id={`remove-budget-${index}`}
@@ -326,7 +354,7 @@ const Settings: React.FC = () => {
               </div>
             ))}
           </div>
-          
+
           <div className="add-budget">
             <div className="form-group">
               <Input
@@ -347,7 +375,7 @@ const Settings: React.FC = () => {
 
       {/* Single Submit Button */}
       <div className="settings-actions" data-test-id="settings-actions">
-        <Button 
+        <Button
           onClick={saveAllChanges}
           disabled={!canSave}
           className="save-all-button"

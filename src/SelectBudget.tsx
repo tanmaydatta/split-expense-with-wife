@@ -1,3 +1,4 @@
+import { ReduxState } from "@shared-types";
 import { ToggleButton, ToggleButtonGroup } from "./components/ToggleButtonGroup";
 import { useSelector } from "react-redux";
 
@@ -12,11 +13,11 @@ export const SelectBudget: React.FC<SelectBudgetProps> = ({
   handleChangeBudget,
   disabled = false,
 }) => {
-  const data = useSelector((state: any) => state.value);
+  const data = useSelector((state: ReduxState) => state.value);
   console.log(data, "hehkbjhbjg");
   
   // Handle case where data or metadata might not be loaded yet
-  const budgets = data?.budgets || [];
+  const budgets = data?.extra?.group?.budgets || [];
   
   return (
     <ToggleButtonGroup

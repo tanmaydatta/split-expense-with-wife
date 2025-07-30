@@ -55,7 +55,7 @@ export async function handleBalances(request: Request, env: Env): Promise<Respon
 
       // Transform balances into UserBalancesByUser format
       const result: Record<string, Record<string, number>> = {};
-      console.log('balances', balances);
+
       for (const balance of balances) {
         const { userId, owedToUserId, currency, balance: amount } = balance;
 
@@ -63,7 +63,7 @@ export async function handleBalances(request: Request, env: Env): Promise<Respon
         if (userId === session.currentUser.id) {
           // Current user owes someone else (negative for that person)
           const otherUserName = userIdToName.get(owedToUserId);
-          if (otherUserName) {
+          if (otherUserName && owedToUserId !== session.user.id) {
             if (!result[otherUserName]) {
               result[otherUserName] = {};
             }

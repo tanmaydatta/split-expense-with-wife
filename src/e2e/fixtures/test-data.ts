@@ -29,49 +29,59 @@ export const testUsers: Record<string, TestUser> = {
   }
 };
 
-// Test expenses for different scenarios
-export const testExpenses: Record<string, TestExpense> = {
-  groceries: {
-    description: 'Grocery shopping',
-    amount: 150.50,
-    currency: 'USD',
-    paidBy: 'John',
-    splitPercentages: {
-      '1': 50,
-      '2': 50
-    }
-  },
-  restaurant: {
-    description: 'Dinner at restaurant',
-    amount: 80.00,
-    currency: 'USD',
-    paidBy: 'Jane',
-    splitPercentages: {
-      '1': 40,
-      '2': 60
-    }
-  },
-  utilities: {
-    description: 'Monthly utilities',
-    amount: 120.00,
-    currency: 'USD',
-    paidBy: 'John',
-    splitPercentages: {
-      '1': 70,
-      '2': 30
-    }
-  },
-  multiCurrency: {
-    description: 'International purchase',
-    amount: 100.00,
-    currency: 'EUR',
-    paidBy: 'Jane',
-    splitPercentages: {
-      '1': 50,
-      '2': 50
-    }
+
+
+// Helper function to create test expenses with dynamic user IDs
+export function createTestExpenses(userIds: string[]): Record<string, TestExpense> {
+  if (userIds.length < 2) {
+    throw new Error('At least 2 user IDs are required for test expenses');
   }
-};
+  
+  const [userId1, userId2] = userIds;
+  
+  return {
+    groceries: {
+      description: 'Grocery shopping',
+      amount: 150.50,
+      currency: 'USD',
+      paidBy: userId1,
+      splitPercentages: {
+        [userId1]: 50,
+        [userId2]: 50
+      }
+    },
+    restaurant: {
+      description: 'Dinner at restaurant',
+      amount: 80.00,
+      currency: 'USD',
+      paidBy: userId2,
+      splitPercentages: {
+        [userId1]: 40,
+        [userId2]: 60
+      }
+    },
+    utilities: {
+      description: 'Monthly utilities',
+      amount: 120.00,
+      currency: 'USD',
+      paidBy: userId1,
+      splitPercentages: {
+        [userId1]: 70,
+        [userId2]: 30
+      }
+    },
+    multiCurrency: {
+      description: 'International purchase',
+      amount: 100.00,
+      currency: 'EUR',
+      paidBy: userId2,
+      splitPercentages: {
+        [userId1]: 50,
+        [userId2]: 50
+      }
+    }
+  };
+}
 
 // Test budgets for different scenarios
 export const testBudgets: Record<string, TestBudget> = {
@@ -118,7 +128,7 @@ export const mockApiResponses = {
         defaultCurrency: 'USD',
         defaultShare: { '1': 50, '2': 50 },
         budgets: ['house', 'food', 'transport', 'entertainment']
-      }
+      },
     },
     error: {
       error: 'Invalid username or password'
@@ -205,13 +215,31 @@ export const mockApiResponses = {
         currency: 'USD'
       }
     ]
+  },
+  getSession: {
+    user: {
+      id: 1,
+      name: 'John Doe'
+    },
+    session: {
+      id: 1,
+      expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30).toISOString(),
+      token: 'mock-jwt-token',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+    extra: {
+      currentUser: {
+        id: 1,
+        name: 'John Doe'
+      }
+    }
   }
 };
 
 // Common test data
 export const testData = {
   users: testUsers,
-  expenses: testExpenses,
   budgets: testBudgets,
   mockResponses: mockApiResponses
 }; 
