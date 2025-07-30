@@ -98,7 +98,7 @@ export default defineConfig({
   /* Run your local dev server before starting the tests */
   webServer: {
     command: 'yarn start',
-    url: 'http://localhost:8787',
+    url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
     timeout: process.env.CI ? 180 * 1000 : 120 * 1000, // 3 minutes on CI
   },
