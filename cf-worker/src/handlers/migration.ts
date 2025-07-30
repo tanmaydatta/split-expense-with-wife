@@ -4,8 +4,9 @@ import { groups, transactionUsers, userBalances } from '../db/schema/schema';
 
 // ID mapping from old integer IDs to new better-auth string IDs
 const idMap = [
-  { oldId: 1, newId: 'VPmIFs25sK6pnHiEkOyZaabrlkTcNwg7' },
-  { oldId: 2, newId: '1g5YVURae7c4TjLKTnTrFUqZkEl3ORrB' }
+  { oldId: 3, newId: 'afseouCMc0Gpp0UdiOeNWRNBhFfi79FO' },
+  { oldId: 4, newId: '2ALTQqHRvFqFHKzCpgAvVnBegknPczDN' },
+  { oldId: 5, newId: 'JEK8w51Gv5gO98BFifDWKdTMuoH2m38e' }
 ];
 
 export async function handleRelinkData(request: Request, env: Env) {
