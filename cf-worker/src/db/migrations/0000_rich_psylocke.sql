@@ -1,4 +1,4 @@
-CREATE TABLE `budget` (
+CREATE TABLE IF NOT EXISTS `budget` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`description` text(100) NOT NULL,
 	`added_time` text DEFAULT 'CURRENT_TIMESTAMP' NOT NULL,
@@ -10,15 +10,15 @@ CREATE TABLE `budget` (
 	`currency` text(10) DEFAULT 'GBP' NOT NULL
 );
 --> statement-breakpoint
-CREATE INDEX `budget_monthly_query_idx` ON `budget` (`name`,`groupid`,`deleted`,`added_time`);--> statement-breakpoint
-CREATE INDEX `budget_name_groupid_deleted_added_time_amount_idx` ON `budget` (`name`,`groupid`,`deleted`,`added_time`,`amount`);--> statement-breakpoint
-CREATE INDEX `budget_name_groupid_deleted_idx` ON `budget` (`name`,`groupid`,`deleted`);--> statement-breakpoint
-CREATE INDEX `budget_name_price_idx` ON `budget` (`name`,`price`);--> statement-breakpoint
-CREATE INDEX `budget_name_idx` ON `budget` (`name`);--> statement-breakpoint
-CREATE INDEX `budget_amount_idx` ON `budget` (`amount`);--> statement-breakpoint
-CREATE INDEX `budget_name_added_time_idx` ON `budget` (`name`,`added_time`);--> statement-breakpoint
-CREATE INDEX `budget_added_time_idx` ON `budget` (`added_time`);--> statement-breakpoint
-CREATE TABLE `budget_totals` (
+CREATE INDEX IF NOT EXISTS `budget_monthly_query_idx` ON `budget` (`name`,`groupid`,`deleted`,`added_time`);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS `budget_name_groupid_deleted_added_time_amount_idx` ON `budget` (`name`,`groupid`,`deleted`,`added_time`,`amount`);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS `budget_name_groupid_deleted_idx` ON `budget` (`name`,`groupid`,`deleted`);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS `budget_name_price_idx` ON `budget` (`name`,`price`);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS `budget_name_idx` ON `budget` (`name`);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS `budget_amount_idx` ON `budget` (`amount`);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS `budget_name_added_time_idx` ON `budget` (`name`,`added_time`);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS `budget_added_time_idx` ON `budget` (`added_time`);--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `budget_totals` (
 	`group_id` integer NOT NULL,
 	`name` text(100) NOT NULL,
 	`currency` text(10) NOT NULL,
@@ -27,8 +27,8 @@ CREATE TABLE `budget_totals` (
 	PRIMARY KEY(`group_id`, `name`, `currency`)
 );
 --> statement-breakpoint
-CREATE INDEX `budget_totals_group_name_idx` ON `budget_totals` (`group_id`,`name`);--> statement-breakpoint
-CREATE TABLE `groups` (
+CREATE INDEX IF NOT EXISTS `budget_totals_group_name_idx` ON `budget_totals` (`group_id`,`name`);--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `groups` (
 	`groupid` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`group_name` text(50) NOT NULL,
 	`created_at` text DEFAULT 'CURRENT_TIMESTAMP' NOT NULL,
@@ -37,14 +37,14 @@ CREATE TABLE `groups` (
 	`metadata` text(2000)
 );
 --> statement-breakpoint
-CREATE TABLE `sessions` (
+CREATE TABLE IF NOT EXISTS `sessions` (
 	`username` text(255) NOT NULL,
 	`sessionid` text(255) NOT NULL,
 	`expiry_time` text NOT NULL
 );
 --> statement-breakpoint
-CREATE INDEX `sessions_sessionid_idx` ON `sessions` (`sessionid`);--> statement-breakpoint
-CREATE TABLE `transaction_users` (
+CREATE INDEX IF NOT EXISTS `sessions_sessionid_idx` ON `sessions` (`sessionid`);--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `transaction_users` (
 	`transaction_id` text(100) NOT NULL,
 	`user_id` integer NOT NULL,
 	`amount` real NOT NULL,
@@ -55,16 +55,16 @@ CREATE TABLE `transaction_users` (
 	PRIMARY KEY(`transaction_id`, `user_id`, `owed_to_user_id`)
 );
 --> statement-breakpoint
-CREATE INDEX `transaction_users_transaction_group_idx` ON `transaction_users` (`transaction_id`,`group_id`,`deleted`);--> statement-breakpoint
-CREATE INDEX `transaction_users_transaction_idx` ON `transaction_users` (`transaction_id`,`deleted`);--> statement-breakpoint
-CREATE INDEX `transaction_users_group_owed_idx` ON `transaction_users` (`group_id`,`owed_to_user_id`,`deleted`);--> statement-breakpoint
-CREATE INDEX `transaction_users_group_user_idx` ON `transaction_users` (`group_id`,`user_id`,`deleted`);--> statement-breakpoint
-CREATE INDEX `transaction_users_balances_idx` ON `transaction_users` (`group_id`,`deleted`,`user_id`,`owed_to_user_id`,`currency`);--> statement-breakpoint
-CREATE INDEX `transaction_users_group_id_deleted_idx` ON `transaction_users` (`group_id`,`deleted`);--> statement-breakpoint
-CREATE INDEX `transaction_users_user_id_idx` ON `transaction_users` (`user_id`);--> statement-breakpoint
-CREATE INDEX `transaction_users_owed_to_user_id_idx` ON `transaction_users` (`owed_to_user_id`);--> statement-breakpoint
-CREATE INDEX `transaction_users_group_id_idx` ON `transaction_users` (`group_id`);--> statement-breakpoint
-CREATE TABLE `transactions` (
+CREATE INDEX IF NOT EXISTS `transaction_users_transaction_group_idx` ON `transaction_users` (`transaction_id`,`group_id`,`deleted`);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS `transaction_users_transaction_idx` ON `transaction_users` (`transaction_id`,`deleted`);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS `transaction_users_group_owed_idx` ON `transaction_users` (`group_id`,`owed_to_user_id`,`deleted`);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS `transaction_users_group_user_idx` ON `transaction_users` (`group_id`,`user_id`,`deleted`);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS `transaction_users_balances_idx` ON `transaction_users` (`group_id`,`deleted`,`user_id`,`owed_to_user_id`,`currency`);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS `transaction_users_group_id_deleted_idx` ON `transaction_users` (`group_id`,`deleted`);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS `transaction_users_user_id_idx` ON `transaction_users` (`user_id`);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS `transaction_users_owed_to_user_id_idx` ON `transaction_users` (`owed_to_user_id`);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS `transaction_users_group_id_idx` ON `transaction_users` (`group_id`);--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `transactions` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`description` text(255) NOT NULL,
 	`amount` real NOT NULL,
@@ -76,11 +76,11 @@ CREATE TABLE `transactions` (
 	`deleted` text
 );
 --> statement-breakpoint
-CREATE INDEX `transactions_group_id_deleted_created_at_idx` ON `transactions` (`group_id`,`deleted`,`created_at`);--> statement-breakpoint
-CREATE INDEX `transactions_created_at_idx` ON `transactions` (`created_at`);--> statement-breakpoint
-CREATE UNIQUE INDEX `transactions_transaction_id_idx` ON `transactions` (`transaction_id`);--> statement-breakpoint
-CREATE INDEX `transactions_group_id_idx` ON `transactions` (`group_id`);--> statement-breakpoint
-CREATE TABLE `user_balances` (
+CREATE INDEX IF NOT EXISTS `transactions_group_id_deleted_created_at_idx` ON `transactions` (`group_id`,`deleted`,`created_at`);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS `transactions_created_at_idx` ON `transactions` (`created_at`);--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS `transactions_transaction_id_idx` ON `transactions` (`transaction_id`);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS `transactions_group_id_idx` ON `transactions` (`group_id`);--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `user_balances` (
 	`group_id` integer NOT NULL,
 	`user_id` integer NOT NULL,
 	`owed_to_user_id` integer NOT NULL,
@@ -90,9 +90,9 @@ CREATE TABLE `user_balances` (
 	PRIMARY KEY(`group_id`, `user_id`, `owed_to_user_id`, `currency`)
 );
 --> statement-breakpoint
-CREATE INDEX `user_balances_group_owed_idx` ON `user_balances` (`group_id`,`owed_to_user_id`,`currency`);--> statement-breakpoint
-CREATE INDEX `user_balances_group_user_idx` ON `user_balances` (`group_id`,`user_id`,`currency`);--> statement-breakpoint
-CREATE TABLE `users` (
+CREATE INDEX IF NOT EXISTS `user_balances_group_owed_idx` ON `user_balances` (`group_id`,`owed_to_user_id`,`currency`);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS `user_balances_group_user_idx` ON `user_balances` (`group_id`,`user_id`,`currency`);--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `users` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`username` text(50) NOT NULL,
 	`password` text(255) NOT NULL,
@@ -102,4 +102,4 @@ CREATE TABLE `users` (
 	`created_at` text DEFAULT 'CURRENT_TIMESTAMP' NOT NULL
 );
 --> statement-breakpoint
-CREATE INDEX `users_username_idx` ON `users` (`username`);
+CREATE INDEX IF NOT EXISTS `users_username_idx` ON `users` (`username`);
