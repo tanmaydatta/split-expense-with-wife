@@ -127,15 +127,19 @@ export function getCORSHeaders(request: Request, env: Env): Record<string, strin
   const origin = request.headers.get('Origin');
   const allowedOrigins = env.ALLOWED_ORIGINS ? env.ALLOWED_ORIGINS.split(',') : [];
 
-  let allowOrigin = '*';
-  if (origin && allowedOrigins.includes(origin)) {
+  let allowOrigin = origin || 'http://localhost:3000';
+  if (allowedOrigins.length > 0 && origin && allowedOrigins.includes(origin)) {
     allowOrigin = origin;
+  } else if (allowedOrigins.length === 0) {
+    // For development, allow localhost:3000 by default
+    allowOrigin = origin || 'http://localhost:3000';
   }
 
   return {
     'Access-Control-Allow-Origin': allowOrigin,
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, Cookie',
+    'Access-Control-Allow-Credentials': 'true',
     'Access-Control-Max-Age': '86400'
   };
 }
@@ -168,6 +172,24 @@ export function createJsonResponse(data: unknown, status: number = 200, headers:
 // Create error response
 export function createErrorResponse(error: string, status: number = 500, request?: Request, env?: Env): Response {
   return createJsonResponse({ error }, status, {}, request, env);
+}
+
+// Add CORS headers to any response
+export function addCORSHeaders(response: Response, request: Request, env: Env): Response {
+  const corsHeaders = getCORSHeaders(request, env);
+  const newHeaders = new Headers(response.headers);
+  
+  // Add CORS headers
+  Object.entries(corsHeaders).forEach(([key, value]) => {
+    newHeaders.set(key, value);
+  });
+  
+  // Clone the response with new headers
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: newHeaders
+  });
 }
 
 // Helper function to check if user is authorized for a budget

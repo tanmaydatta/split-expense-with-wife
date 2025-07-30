@@ -56,7 +56,7 @@ function Sidebar({ onNavigate }: SidebarProps): JSX.Element {
   return (
     <SidebarContainer>
       <SidebarHeader>
-        {data.extra?.currentUser && (
+        {data?.extra?.currentUser && (
           <div data-test-id={`sidebar-welcome-${data.extra?.currentUser?.id}`}>
             Welcome{" "}
             {data.extra?.currentUser?.firstName}
