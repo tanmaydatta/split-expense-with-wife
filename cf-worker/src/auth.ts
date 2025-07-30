@@ -1,5 +1,5 @@
 import { betterAuth } from 'better-auth';
-import {customSession, username } from 'better-auth/plugins';
+import { customSession, username } from 'better-auth/plugins';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { getDb } from './db';
 import { enrichSession } from './utils';
@@ -7,7 +7,7 @@ import { Session } from './types';
 
 // const env = process.env as unknown as Env;
 export const auth = (env: Env): ReturnType<typeof betterAuth> => betterAuth({
-// export const auth =  betterAuth({
+  // export const auth =  betterAuth({
   database: drizzleAdapter(getDb(env), {
     provider: 'sqlite'
   }),
@@ -20,10 +20,16 @@ export const auth = (env: Env): ReturnType<typeof betterAuth> => betterAuth({
       return {
         user,
         session,
-        extra: await enrichSession({user, session} as Session, getDb(env))
+        extra: await enrichSession({ user, session } as Session, getDb(env))
       };
     })
   ],
+  session: {
+    cookieCache: {
+      enabled: true,
+      maxAge: 5 * 60 // Cache duration in seconds
+    }
+  },
   secret: env.AUTH_PRIVATE_KEY,
   baseURL: env.BASE_URL,
   trustedOrigins: env.AUTH_TRUSTED_ORIGINS,

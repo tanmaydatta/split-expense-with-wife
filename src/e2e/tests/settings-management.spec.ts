@@ -309,6 +309,7 @@ test.describe('Settings Management', () => {
             const { currentUserId: _currentUserId, allUserIds: _allUserIds } = await settingsHelper.getDynamicUserIds();
             // Verify percentage symbols are positioned inside inputs
             const userElements = authenticatedPage.page.locator('[data-test-id^="user-"][data-test-id$="-percentage"]');
+            await authenticatedPage.page.waitForTimeout(1000);
             const count = await userElements.count();
 
             expect(count).toBeGreaterThan(0);
