@@ -456,7 +456,7 @@ export async function getNewUserPercentage(authenticatedPage: TestHelper, userId
 
   const userPercentage = Number(await authenticatedPage.page.inputValue(`[data-test-id="user-${userId}-percentage"]`));
 
-  const newUserPercentage = userPercentage < 100 ? userPercentage + 1 : 100 - userPercentage;
+  const newUserPercentage = userPercentage < 80 ? userPercentage + 1 : 100 - userPercentage;
   console.log(`newUser${userId}Percentage`, newUserPercentage);
   return newUserPercentage;
 }
