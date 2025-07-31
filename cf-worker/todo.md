@@ -17,6 +17,7 @@
 - remove pin ✅
 - drizzle ✅
 - use better-auth
+- react query
 - fix duplicate first name issue
 - multi person split
 - sessions api - d1
@@ -27,3 +28,5 @@
 - budget/add
 - group context - idk??
 - add new users
+- rate limiting
+- roles

@@ -225,6 +225,7 @@ export class TestHelper {
   async waitForLoading(): Promise<void> {
     // Use CI-aware timeout for loading states
     await this.page.waitForFunction(() => !document.querySelector('.loader'), { timeout: getCITimeout(10000) });
+    await this.page.waitForTimeout(1000);
   }
 
   /**
