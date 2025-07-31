@@ -53,7 +53,7 @@ export default defineConfig({
 
     /* No slow motion on CI for speed */
     launchOptions: {
-      slowMo: process.env.PLAYWRIGHT_SLOWMO ? parseInt(process.env.PLAYWRIGHT_SLOWMO, 10) : 100,
+      slowMo: 400,
     },
   },
 
