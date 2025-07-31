@@ -344,20 +344,20 @@ test.describe('Settings Management', () => {
             // Get dynamic user IDs
             const { currentUserId: _currentUserId, allUserIds: _allUserIds } = await settingsHelper.getDynamicUserIds();
             const [userId1, userId2] = _allUserIds;
-
+            const newUser1Percentage = await getNewUserPercentage(authenticatedPage, userId1);
             // Wait for page to load user data
             await authenticatedPage.page.waitForTimeout(2000);
 
             // Set precise percentages for 2 users
-            await settingsHelper.setUserPercentage(userId1, '50.001');
-            await settingsHelper.setUserPercentage(userId2, '49.999');
+            await settingsHelper.setUserPercentage(userId1, (newUser1Percentage + 0.001).toFixed(3).toString());
+            await settingsHelper.setUserPercentage(userId2, (100-(newUser1Percentage + 0.001)).toFixed(3).toString());
 
             // This should be valid (totals 100.000)
             await expect(await settingsHelper.isSaveButtonEnabled()).toBe(true);
 
             // Test slightly off but within tolerance
-            await settingsHelper.setUserPercentage(userId1, '50.0005');
-            await settingsHelper.setUserPercentage(userId2, '49.9995'); // Total = 100.000
+            await settingsHelper.setUserPercentage(userId1, (newUser1Percentage + 0.0005).toFixed(3).toString());
+            await settingsHelper.setUserPercentage(userId2, (100-(newUser1Percentage + 0.0005)).toFixed(3).toString()); // Total = 100.000
 
             // Should still be valid (within 0.001 tolerance)
             await expect(await settingsHelper.isSaveButtonEnabled()).toBe(true);
@@ -551,11 +551,12 @@ test.describe('Settings Management', () => {
             const currencyOptions = await authenticatedPage.page.locator('[data-test-id="currency-select"] option').allTextContents();
             const newCurrency = currencyOptions.find(currency => currency !== initialCurrency) || '';
             // Make multiple changes
+            const newUser1Percentage = await getNewUserPercentage(authenticatedPage, userId1);
             const newName = `Multi_Change_${Date.now()}`;  // Use underscores
             await settingsHelper.setGroupName(newName);
             await settingsHelper.setDefaultCurrency(newCurrency);
-            await settingsHelper.setUserPercentage(userId1, '60');
-            await settingsHelper.setUserPercentage(userId2, '40');
+            await settingsHelper.setUserPercentage(userId1, newUser1Percentage.toString());
+            await settingsHelper.setUserPercentage(userId2, (100-newUser1Percentage).toString());
             await settingsHelper.addBudgetCategory('new_category');
 
             // Single save operation
@@ -570,8 +571,8 @@ test.describe('Settings Management', () => {
 
             expect(await settingsHelper.getGroupName()).toBe(newName);
             expect(await settingsHelper.getDefaultCurrency()).toBe(newCurrency);
-            expect(await settingsHelper.getUserPercentage(userId1)).toBe('60');
-            expect(await settingsHelper.getUserPercentage(userId2)).toBe('40');
+            expect(await settingsHelper.getUserPercentage(userId1)).toBe(newUser1Percentage.toString());
+            expect(await settingsHelper.getUserPercentage(userId2)).toBe((100-newUser1Percentage).toString());
         });
 
         test('should show loading state during save operation', async ({ authenticatedPage }) => {
@@ -730,10 +731,10 @@ test.describe('Settings Management', () => {
             // Get dynamic user IDs
             const { currentUserId: _currentUserId, allUserIds: _allUserIds } = await settingsHelper.getDynamicUserIds();
             const [userId1, userId2] = _allUserIds;
-
+            const newUser1Percentage = await getNewUserPercentage(authenticatedPage, userId1);
             // Update share percentages
-            await settingsHelper.setUserPercentage(userId1, '70');
-            await settingsHelper.setUserPercentage(userId2, '30');
+            await settingsHelper.setUserPercentage(userId1, newUser1Percentage.toString());
+            await settingsHelper.setUserPercentage(userId2, (100-newUser1Percentage).toString());
             await settingsHelper.saveAllChanges();
             await settingsHelper.waitForSuccessMessage();
 
