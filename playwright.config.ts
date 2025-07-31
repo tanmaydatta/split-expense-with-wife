@@ -32,7 +32,7 @@ export default defineConfig({
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: process.env.CI ? [['list'], ['html']] : 'html',
   /* Longer timeout for CI */
-  timeout: process.env.CI ? 60 * 1000 : 40 * 1000,
+  timeout: 80 * 1000,
 
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {

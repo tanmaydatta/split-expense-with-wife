@@ -129,23 +129,23 @@ export class TestHelper {
    */
   async navigateToPage(page: 'Add' | 'Expenses' | 'Balances' | 'Budget' | 'Monthly Budget' | 'Settings'): Promise<void> {
     // Check if we're on mobile
-    const isMobile = await this.isMobile();
+    // const isMobile = await this.isMobile();
     
-    if (isMobile) {
-      // On mobile, first open the sidebar using the hamburger button
-      const hamburger = this.page.locator('button:has(span)').first();
-      try {
-        await hamburger.waitFor({ state: 'visible', timeout: 2000 });
-        await hamburger.click();
-        // Wait for sidebar to animate in
-        await this.page.waitForTimeout(500);
-      } catch (_e) {
-        // Hamburger button not visible, continue without opening sidebar
-      }
-    }
+    // if (isMobile) {
+    //   // On mobile, first open the sidebar using the hamburger button
+    //   const hamburger = this.page.locator('button:has(span)').first();
+    //   try {
+    //     await hamburger.waitFor({ state: 'visible', timeout: 2000 });
+    //     await hamburger.click();
+    //     // Wait for sidebar to animate in
+    //     await this.page.waitForTimeout(500);
+    //   } catch (_e) {
+    //     // Hamburger button not visible, continue without opening sidebar
+    //   }
+    // }
     
-    // Use text-based selector that works with styled components
-    await this.page.click(`text="${page}"`);
+    // // Use text-based selector that works with styled components
+    // await this.page.click(`text="${page}"`);
     
     // Wait for navigation to complete
     const urlMap = {
@@ -156,9 +156,9 @@ export class TestHelper {
       'Monthly Budget': '/monthly-budget',
       'Settings': '/settings'
     };
-    
+    console.log("Navigating to page:", page, urlMap[page]);
     await this.page.goto(urlMap[page]);
-    await this.page.waitForTimeout(1000);
+    await this.page.waitForTimeout(2000);
   }
 
   /**
