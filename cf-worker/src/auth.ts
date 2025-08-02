@@ -39,7 +39,6 @@ export const auth = (env: Env): ReturnType<typeof betterAuth> => betterAuth({
     password: {
       /** Hash new passwords using Web Crypto API (works in Cloudflare Workers) */
       hash: async (password: string) => {
-        console.log('🔒 Custom password hashing called for password length:', password?.length);
         const encoder = new TextEncoder();
         const data = encoder.encode(password);
         const salt = crypto.getRandomValues(new Uint8Array(16));
@@ -75,10 +74,6 @@ export const auth = (env: Env): ReturnType<typeof betterAuth> => betterAuth({
 
       /** Compare a candidate password with the stored hash */
       verify: async ({ hash, password }: { hash: string, password: string }) => {
-        console.log('🔐 Custom password verification called');
-        console.log('📝 Hash received:', hash ? `${hash.substring(0, 20)}...` : 'null/undefined');
-        console.log('📝 Password length:', password?.length || 'undefined');
-
         try {
           if (!hash) {
             console.log('❌ No hash provided');
