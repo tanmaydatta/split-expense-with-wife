@@ -5,16 +5,16 @@ import { account } from '../db/schema/auth-schema';
 import { createJsonResponse, createErrorResponse } from '../utils';
 
 // ID mapping from old integer IDs to new better-auth string IDs
-// const idMap = [
-//   { oldId: 1, newId: '3u51cDX5RHkHwensx4WprwJN5lCNCXTc' },
-//   { oldId: 2, newId: 'sQuIElfh12RQgKMHqCquo3urDNraR9kf' }
-// ];
-
 const idMap = [
-  { oldId: 3, newId: '773hAvjPl8otWzSsXHMFFRsxMguEdwyw' },
-  { oldId: 4, newId: 'lUsYNUzFl6sN4AXe9dPicaCU3khcDjvZ' },
-  { oldId: 5, newId: 'uwnwzpESqA2h5Km8SFNFcJc2h4vwS3zg' }
+  { oldId: 1, newId: 'Rvm030I7qkaaETdWJmb1HkewD3h2KUYh' },
+  { oldId: 2, newId: '3zhTivbcZxsYbW2OabtZwbBsuVxx5vFQ' }
 ];
+
+// const idMap = [
+//   { oldId: 3, newId: '773hAvjPl8otWzSsXHMFFRsxMguEdwyw' },
+//   { oldId: 4, newId: 'lUsYNUzFl6sN4AXe9dPicaCU3khcDjvZ' },
+//   { oldId: 5, newId: 'uwnwzpESqA2h5Km8SFNFcJc2h4vwS3zg' }
+// ];
 
 export async function handleRelinkData(request: Request, env: Env) {
   // Only allow POST requests
