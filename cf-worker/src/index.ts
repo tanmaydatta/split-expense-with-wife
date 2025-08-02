@@ -30,6 +30,19 @@ export default {
 
     // Priority 1: Handle all better-auth routes
     if (path.startsWith('/auth/')) {
+      // Disable signups - return 404 for any signup-related routes
+      const signupRoutes = [
+        '/auth/sign-up',
+        '/auth/signup',
+        '/auth/register',
+        '/auth/sign-up/email',
+        '/auth/signup/email'
+      ];
+
+      if (signupRoutes.some(route => path.startsWith(route))) {
+        return createErrorResponse('Not Found', 404, request, env);
+      }
+
       const authInstance = auth(env);
       const authResponse = await authInstance.handler(request);
       return addCORSHeaders(authResponse, request, env);
