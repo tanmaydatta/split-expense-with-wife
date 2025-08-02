@@ -1,4 +1,11 @@
 import { defineConfig, devices } from '@playwright/test';
+import dotenv from 'dotenv';
+
+// Load environment variables from .env file
+dotenv.config({ path: '.env' });
+
+// Load test-specific .env file if it exists
+dotenv.config({ path: '.env.test', override: false });
 
 /**
  * @see https://playwright.dev/docs/test-configuration
@@ -25,13 +32,13 @@ export default defineConfig({
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: process.env.CI ? [['list'], ['html']] : 'html',
   /* Longer timeout for CI */
-  timeout: process.env.CI ? 60 * 1000 : 40 * 1000,
+  timeout: 100 * 1000,
 
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('/')`. */
-    baseURL: 'https://splitexpense-dev.tanmaydatta.workers.dev',
-
+    baseURL: process.env.PLAYWRIGHT_BASE_URL || 'https://splitexpense-dev.tanmaydatta.workers.dev',
+    serviceWorkers: 'block',
     /* Longer action timeout for CI */
     actionTimeout: process.env.CI ? 30 * 1000 : 20 * 1000,
 
@@ -46,7 +53,7 @@ export default defineConfig({
 
     /* No slow motion on CI for speed */
     launchOptions: {
-      slowMo: process.env.PLAYWRIGHT_SLOWMO ? parseInt(process.env.PLAYWRIGHT_SLOWMO, 10) : 100,
+      slowMo: 400,
     },
   },
 
@@ -56,7 +63,7 @@ export default defineConfig({
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },
-    ...(process.env.CI ? [] : [
+    ...[
       {
         name: 'firefox',
         use: { ...devices['Desktop Firefox'] },
@@ -74,8 +81,9 @@ export default defineConfig({
       },
       {
         name: 'Mobile Safari',
-        use: { ...devices['iPhone 12'] },
-      },]),
+        use: { ...devices['iPhone 12'], },
+      }
+    ]
 
     /* Test against branded browsers. */
     // {

@@ -1,8 +1,7 @@
-import { CFRequest, Env } from '../types';
 import {
   createJsonResponse,
   createErrorResponse,
-  authenticate
+  withAuth
 } from '../utils';
 import {
   GroupDetailsResponse,
@@ -11,25 +10,20 @@ import {
   User,
   GroupMetadata
 } from '../../../shared-types';
-import { getDb } from '../db';
-import { users, groups } from '../db/schema';
-import { eq, inArray } from 'drizzle-orm';
+import { groups } from '../db/schema/schema';
+import { eq } from 'drizzle-orm';
 
 // Handle getting group details
-export async function handleGroupDetails(request: CFRequest, env: Env): Promise<Response> {
+export async function handleGroupDetails(request: Request, env: Env): Promise<Response> {
   if (request.method !== 'GET') {
     return createErrorResponse('Method not allowed', 405, request, env);
   }
 
-  try {
-    const session = await authenticate(request, env);
-    if (!session) {
+  return withAuth(request, env, async (session, db) => {
+    // Get group data using Drizzle
+    if (!session.group) {
       return createErrorResponse('Unauthorized', 401, request, env);
     }
-
-    const db = getDb(env);
-
-    // Get group data using Drizzle
     const groupResult = await db
       .select({
         groupid: groups.groupid,
@@ -49,26 +43,15 @@ export async function handleGroupDetails(request: CFRequest, env: Env): Promise<
     const group = groupResult[0];
 
     // Parse user IDs from group data
-    const userIds = JSON.parse(group.userids || '[]') as number[];
-
+    const usersResult = Object.values(session.usersById);
     // Get all users in the group using Drizzle
-    const usersResult = await db
-      .select({
-        id: users.id,
-        username: users.username,
-        firstName: users.firstName,
-        lastName: users.lastName,
-        groupid: users.groupid
-      })
-      .from(users)
-      .where(inArray(users.id, userIds));
 
     // Convert to User type format
     const groupUsers: User[] = usersResult.map(user => ({
       Id: user.id,
       username: user.username,
-      FirstName: user.firstName || '',
-      LastName: user.lastName || '',
+      FirstName: user.firstName,
+      LastName: user.lastName,
       groupid: user.groupid
     }));
 
@@ -81,27 +64,20 @@ export async function handleGroupDetails(request: CFRequest, env: Env): Promise<
     };
 
     return createJsonResponse(response, 200, {}, request, env);
-
-  } catch (error) {
-    console.error('Group details error:', error);
-    return createErrorResponse('Internal server error', 500, request, env);
-  }
+  });
 }
 
 // Handle updating group metadata
-export async function handleUpdateGroupMetadata(request: CFRequest, env: Env): Promise<Response> {
+export async function handleUpdateGroupMetadata(request: Request, env: Env): Promise<Response> {
   if (request.method !== 'POST') {
     return createErrorResponse('Method not allowed', 405, request, env);
   }
 
-  try {
-    const session = await authenticate(request, env);
-    if (!session) {
+  return withAuth(request, env, async (session, db) => {
+    if (!session.group) {
       return createErrorResponse('Unauthorized', 401, request, env);
     }
-
     const body = await request.json() as UpdateGroupMetadataRequest;
-    const db = getDb(env);
 
     // Check if user is authorized to modify this group
     if (body.groupid && body.groupid !== session.group.groupid) {
@@ -178,7 +154,7 @@ export async function handleUpdateGroupMetadata(request: CFRequest, env: Env): P
 
     // Check if no changes were provided
     if (body.defaultShare === undefined && body.defaultCurrency === undefined &&
-        body.groupName === undefined && body.budgets === undefined) {
+      body.groupName === undefined && body.budgets === undefined) {
       return createErrorResponse('No changes provided', 400, request, env);
     }
 
@@ -241,9 +217,5 @@ export async function handleUpdateGroupMetadata(request: CFRequest, env: Env): P
     };
 
     return createJsonResponse(response, 200, {}, request, env);
-
-  } catch (error) {
-    console.error('Update group metadata error:', error);
-    return createErrorResponse('Internal server error', 500, request, env);
-  }
+  });
 }

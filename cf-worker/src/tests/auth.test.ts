@@ -1,142 +1,334 @@
 import { env } from 'cloudflare:test';
-import { describe, it, expect, beforeEach } from 'vitest';
-import { handleLogin, handleLogout } from '../handlers/auth';
-import { cleanupDatabase, createTestUserData, setupDatabase } from './test-utils';
+// Vitest globals are available through the test environment
+import { cleanupDatabase, setupDatabase } from './test-utils';
 import { getDb } from '../db';
-import { sessions } from '../db/schema';
+import { user } from '../db/schema/auth-schema';
 import { eq } from 'drizzle-orm';
-import { LoginResponse, ErrorResponse, ApiEndpoints } from '../../../shared-types';
+import { auth } from '../auth';
 
-// Type alias for logout response
-type LogoutResponse = ApiEndpoints['/logout']['response'];
-
-describe('Auth handlers', () => {
+describe('Better Auth Integration', () => {
+  let authInstance: ReturnType<typeof auth>;
   beforeEach(async () => {
     await setupDatabase(env);
     await cleanupDatabase(env);
-    await createTestUserData(env);
+    authInstance = auth(env);
   });
 
-  describe('Login', () => {
-    it('should return a login response on successful login', async () => {
-      const request = new Request('https://example.com/login', {
+  describe('Auth Instance Test', () => {
+    it('should verify better-auth instance is created correctly', async () => {
+      expect(authInstance).toBeDefined();
+      expect(authInstance.api).toBeDefined();
+      expect(authInstance.handler).toBeDefined();
+      console.log('Better-auth instance created successfully');
+    });
+
+    it('should test direct API calls', async () => {
+      try {
+        // Try to call the API directly without HTTP
+        const result = await authInstance.api.signUpEmail({
+          body: {
+            email: 'direct@example.com',
+            password: 'testpassword123',
+            name: 'Direct Test',
+            firstName: 'Direct',
+            lastName: 'Test'
+          } as any // eslint-disable-line @typescript-eslint/no-explicit-any
+        });
+
+        console.log('Direct API call result:', result);
+        expect(result).toBeDefined();
+
+        // Verify in database
+        const db = getDb(env);
+        const users = await db.select().from(user).where(eq(user.email, 'direct@example.com')).limit(1);
+        expect(users.length).toBe(1);
+      } catch (error) {
+        console.error('Direct API call failed:', error);
+        throw error;
+      }
+    });
+  });
+
+  describe('Debug Routes', () => {
+    it('should test what routes are available', async () => {
+      // Test different possible endpoints using the correct BASE_URL
+      const testRoutes = [
+        '/auth',
+        '/auth/',
+        '/auth/session',
+        '/auth/sign-up',
+        '/auth/signup',
+        '/auth/register',
+        '/auth/sign-in',
+        '/auth/signin',
+        '/auth/login'
+      ];
+
+      for (const route of testRoutes) {
+        const request = new Request(`http://localhost:8787${route}`, {
+          method: 'GET'
+        });
+        const response = await authInstance.handler(request);
+        console.log(`Route ${route}: Status ${response.status}`);
+
+        if (response.status !== 404) {
+          const text = await response.text();
+          console.log(`Route ${route} response:`, text);
+        }
+      }
+
+      // This test will always pass, it's just for debugging
+      expect(true).toBe(true);
+    });
+
+    it('should test POST to different signup routes', async () => {
+      const signupRoutes = [
+        '/auth/sign-up',
+        '/auth/signup',
+        '/auth/register',
+        '/auth/sign-up/email',
+        '/auth/signup/email'
+      ];
+
+      const testData = {
+        email: 'debug@example.com',
+        password: 'testpassword123',
+        name: 'Debug User',
+        firstName: 'Debug',
+        lastName: 'User'
+      };
+
+      for (const route of signupRoutes) {
+        const request = new Request(`http://localhost:8787${route}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(testData)
+        });
+        const response = await authInstance.handler(request);
+        console.log(`POST ${route}: Status ${response.status}`);
+
+        if (response.status !== 404) {
+          try {
+            const json = await response.json();
+            console.log(`POST ${route} response:`, json);
+          } catch {
+            const text = await response.text();
+            console.log(`POST ${route} response text:`, text);
+          }
+        }
+      }
+
+      expect(true).toBe(true);
+    });
+  });
+
+  describe('Auth Handler Routes', () => {
+    it('should handle signup via HTTP handler', async () => {
+      const signUpRequest = new Request('http://localhost:8787/auth/sign-up/email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          username: 'testuser',
-          password: 'testpass'
+          email: 'test@example.com',
+          password: 'testpassword123',
+          name: 'Test User',
+          firstName: 'Test',
+          lastName: 'User'
         })
       });
 
-      const response = await handleLogin(request, env);
+      const response = await authInstance.handler(signUpRequest);
       expect(response.status).toBe(200);
 
-      const json = await response.json() as LoginResponse;
-      expect(json.username).toBe('testuser');
-      expect(json.token).toBeDefined();
+      const result = await response.json();
+      expect(result).toBeDefined();
 
-      // Verify session was created using Drizzle
-      expect(json.token).toBeDefined();
+      // Verify user was created in database
       const db = getDb(env);
-      const sessionResult = await db.select().from(sessions).where(eq(sessions.sessionid, json.token)).limit(1);
-      expect(sessionResult.length).toBe(1);
-      expect(sessionResult[0].username).toBe('testuser');
+      const userResult = await db
+        .select()
+        .from(user)
+        .where(eq(user.email, 'test@example.com'))
+        .limit(1);
+
+      expect(userResult.length).toBe(1);
+      expect(userResult[0].email).toBe('test@example.com');
     });
 
-    it('should return error for invalid credentials', async () => {
-      const request = new Request('https://example.com/login', {
+    it('should handle signin via HTTP handler', async () => {
+      // First create a user
+      const signUpRequest = new Request('http://localhost:8787/auth/sign-up/email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          username: 'testuser',
+          email: 'signin@example.com',
+          password: 'testpassword123',
+          name: 'SignIn User',
+          firstName: 'SignIn',
+          lastName: 'User'
+        })
+      });
+
+      await authInstance.handler(signUpRequest);
+
+      // Now test sign in
+      const signInRequest = new Request('http://localhost:8787/auth/sign-in/email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: 'signin@example.com',
+          password: 'testpassword123'
+        })
+      });
+
+      const signInResponse = await authInstance.handler(signInRequest);
+      expect(signInResponse.status).toBe(200);
+
+      const result = await signInResponse.json();
+      expect(result).toBeDefined();
+    });
+
+    it('should reject signin with invalid credentials', async () => {
+      // Create user first
+      const signUpRequest = new Request('http://localhost:8787/auth/sign-up/email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: 'invalid@example.com',
+          password: 'testpassword123',
+          name: 'Invalid User',
+          firstName: 'Invalid',
+          lastName: 'User'
+        })
+      });
+
+      await authInstance.handler(signUpRequest);
+
+      // Try to sign in with wrong password
+      const signInRequest = new Request('http://localhost:8787/auth/sign-in/email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: 'invalid@example.com',
           password: 'wrongpassword'
         })
       });
 
-      const response = await handleLogin(request, env);
-      expect(response.status).toBe(401);
-
-      const json = await response.json() as ErrorResponse;
-      expect(json.error).toBe('Invalid credentials');
+      const signInResponse = await authInstance.handler(signInRequest);
+      expect(signInResponse.status).toBeGreaterThanOrEqual(400);
     });
 
-    it('should return error for missing user', async () => {
-      const request = new Request('https://example.com/login', {
+    it('should handle session validation', async () => {
+      // Create and sign in user
+      const signUpRequest = new Request('http://localhost:8787/auth/sign-up/email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          username: 'nonexistent',
-          password: 'testpass'
+          email: 'session@example.com',
+          password: 'testpassword123',
+          name: 'Session User',
+          firstName: 'Session',
+          lastName: 'User'
         })
       });
 
-      const response = await handleLogin(request, env);
-      expect(response.status).toBe(401);
+      await authInstance.handler(signUpRequest);
 
-      const json = await response.json() as ErrorResponse;
-      expect(json.error).toBe('Invalid credentials');
-    });
-
-    it('should return error for wrong HTTP method', async () => {
-      const request = new Request('https://example.com/login', {
-        method: 'GET'
+      const signInRequest = new Request('http://localhost:8787/auth/sign-in/email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: 'session@example.com',
+          password: 'testpassword123'
+        })
       });
 
-      const response = await handleLogin(request, env);
-      expect(response.status).toBe(405);
+      const signInResponse = await authInstance.handler(signInRequest);
+      const signInResult = await signInResponse.json();
 
-      const json = await response.json() as ErrorResponse;
-      expect(json.error).toBe('Method not allowed');
+      // Test session endpoint if it has a token
+      if (signInResult && typeof signInResult === 'object' && 'token' in signInResult) {
+        const sessionRequest = new Request('http://localhost:8787/auth/get-session', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${signInResult.token}`
+          }
+        });
+
+        const sessionResponse = await authInstance.handler(sessionRequest);
+        expect(sessionResponse.status).toBe(200);
+      }
     });
   });
 
-  describe('Logout', () => {
-    it('should successfully logout and remove session', async () => {
-      // First login to create a session
-      const loginRequest = new Request('https://example.com/login', {
+  describe('Database Integration', () => {
+    it('should store users in the database correctly', async () => {
+      const signUpRequest = new Request('http://localhost:8787/auth/sign-up/email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          username: 'testuser',
-          password: 'testpass'
+          email: 'db@example.com',
+          password: 'testpassword123',
+          name: 'DB User',
+          firstName: 'DB',
+          lastName: 'User'
         })
       });
 
-      const loginResponse = await handleLogin(loginRequest, env);
-      const loginJson = await loginResponse.json() as LoginResponse;
-      const sessionId = loginJson.token;
+      const response = await authInstance.handler(signUpRequest);
+      expect(response.status).toBe(200);
 
-      // Now logout
-      const logoutRequest = new Request('https://example.com/logout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionId: sessionId
-        })
-      });
-
-      const logoutResponse = await handleLogout(logoutRequest, env);
-      expect(logoutResponse.status).toBe(200);
-
-      const logoutJson = await logoutResponse.json() as LogoutResponse;
-      expect(logoutJson.message).toBe('Logout successful');
-
-      // Verify session was deleted using Drizzle
+      // Check database
       const db = getDb(env);
-      const sessionResult = await db.select().from(sessions).where(eq(sessions.sessionid, sessionId)).limit(1);
-      expect(sessionResult.length).toBe(0);
+      const users = await db.select().from(user).where(eq(user.email, 'db@example.com')).limit(1);
+
+      expect(users.length).toBe(1);
+      expect(users[0].email).toBe('db@example.com');
+      expect(users[0].name).toBe('DB User');
+      expect(users[0].id).toBeDefined();
     });
 
-    it('should return error for wrong HTTP method', async () => {
-      const request = new Request('https://example.com/logout', {
-        method: 'GET'
+    it('should prevent duplicate email registrations', async () => {
+      const signUpData = {
+        email: 'duplicate@example.com',
+        password: 'testpassword123',
+        name: 'First User',
+        firstName: 'First',
+        lastName: 'User'
+      };
+
+      // First signup
+      const firstRequest = new Request('http://localhost:8787/auth/sign-up/email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(signUpData)
       });
 
-      const response = await handleLogout(request, env);
-      expect(response.status).toBe(405);
+      const firstResponse = await authInstance.handler(firstRequest);
+      console.log('First response:', await firstResponse.json());
+      expect(firstResponse.status).toBe(200);
 
-      const json = await response.json() as ErrorResponse;
-      expect(json.error).toBe('Method not allowed');
+      // Second signup with same email
+      const secondData = {
+        email: 'duplicate@example.com',
+        password: 'differentpassword',
+        name: 'Second User',
+        firstName: 'Second',
+        lastName: 'User'
+      };
+
+      const secondRequest = new Request('http://localhost:8787/auth/sign-up/email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(secondData)
+      });
+
+      const secondResponse = await authInstance.handler(secondRequest);
+      expect(secondResponse.status).not.toBe(200); // Should fail
+
+      // Verify only one user exists
+      const db = getDb(env);
+      const users = await db.select().from(user).where(eq(user.email, 'duplicate@example.com'));
+      expect(users.length).toBe(1);
     });
   });
 });

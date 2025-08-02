@@ -16,8 +16,10 @@
 - retire netlify functions ✅
 - remove pin ✅
 - drizzle ✅
+- use better-auth
+- react query
+- fix duplicate first name issue
 - multi person split
-- use jwt so that verification is done with making db call
 - sessions api - d1
 - schedule actions
 - scan receipt
@@ -26,3 +28,6 @@
 - budget/add
 - group context - idk??
 - add new users
+- rate limiting
+- roles
+- convert to dropdown if more than 4 budgets

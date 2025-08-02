@@ -1,5 +1,5 @@
 import { env, createExecutionContext, waitOnExecutionContext } from 'cloudflare:test';
-import { describe, it, expect } from 'vitest';
+// Vitest globals are available through the test environment
 import worker from '../index';
 
 // Hello response type (keeping local since it's specific to the hello endpoint)
@@ -11,7 +11,7 @@ interface HelloResponse {
 
 describe('Hello handler', () => {
   it('should return hello message', async () => {
-    const request = new Request('https://example.com/.netlify/functions/hello', {
+    const request = new Request('https://localhost:8787/.netlify/functions/hello', {
       method: 'GET'
     });
 

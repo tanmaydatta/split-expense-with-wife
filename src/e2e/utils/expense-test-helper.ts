@@ -1,10 +1,10 @@
 import { expect } from '@playwright/test';
 import { getCITimeout } from './test-utils';
-import { TestHelper } from './test-utils';
+import { TestHelper, getCurrentUserId } from './test-utils';
 
 // Shared helper class for expense operations
 export class ExpenseTestHelper {
-  constructor(private authenticatedPage: TestHelper) {}
+  constructor(private authenticatedPage: TestHelper) { }
 
   async addExpenseEntry(expense: any, customSplits?: Record<string, number>) {
     const expenseForm = this.authenticatedPage.page.locator('[data-test-id="expense-form"]');
@@ -14,12 +14,21 @@ export class ExpenseTestHelper {
     const timestamp = Date.now().toString().slice(-6);
     const description = `${expense.description} ${randomId}${timestamp}`;
     console.log("Adding expense with description:", description);
-
     // Fill basic form fields
     await this.authenticatedPage.page.fill('[data-test-id="description-input"]', description);
     await this.authenticatedPage.page.fill('[data-test-id="amount-input"]', expense.amount.toString());
     await this.authenticatedPage.page.selectOption('[data-test-id="currency-select"]', expense.currency);
-    await this.authenticatedPage.page.selectOption('[data-test-id="paid-by-select"]', expense.paidBy || '1');
+
+    // Set paid by - if expense.paidBy is provided, use it, otherwise use the first available option
+    if (expense.paidBy) {
+      await this.authenticatedPage.page.selectOption('[data-test-id="paid-by-select"]', expense.paidBy);
+    } else {
+      // If no paidBy specified, select the first available option
+      const firstOption = await this.authenticatedPage.page.locator('[data-test-id="paid-by-select"] option').first().getAttribute('value');
+      if (firstOption) {
+        await this.authenticatedPage.page.selectOption('[data-test-id="paid-by-select"]', firstOption);
+      }
+    }
 
     // Set custom split percentages if provided
     if (customSplits) {
@@ -46,7 +55,7 @@ export class ExpenseTestHelper {
   async verifyExpensesPageComponents() {
     // Verify basic expenses page structure
     await expect(this.authenticatedPage.page).toHaveURL('/expenses');
-    
+
     // Verify expenses page elements are present using only data-test-id
     const expensesContainer = this.authenticatedPage.page.locator('[data-test-id="expenses-container"]');
     try {
@@ -62,7 +71,7 @@ export class ExpenseTestHelper {
     await this.authenticatedPage.page.reload();
     await this.authenticatedPage.page.waitForTimeout(1000);
     console.log("verifySpecificExpenseEntry", "description", description, "amount", amount, "currency", currency, "expectedShare", expectedShare);
-    
+
     let expenseFound = false;
     let attempts = 0;
     const maxAttempts = 5;
@@ -71,7 +80,7 @@ export class ExpenseTestHelper {
     while (!expenseFound && attempts <= maxAttempts) {
       attempts++;
       console.log(`Attempt ${attempts} to find expense: ${description}`);
-      
+
       // Look for the expense using only data-test-id attributes
       const expenseSelectors = [
         '[data-test-id="transaction-item"]',
@@ -82,21 +91,21 @@ export class ExpenseTestHelper {
       for (const selector of expenseSelectors) {
         const expenseItems = this.authenticatedPage.page.locator(selector);
         const count = await expenseItems.count();
-        
+
         if (count > 0) {
           console.log(`Found ${count} expense items with selector: ${selector}`);
-          
+
           // Check each expense item for our description
           for (let i = 0; i < count; i++) {
             const item = expenseItems.nth(i);
             const text = await item.textContent();
             if (text && text.includes(description)) {
               console.log(`Found expense with description: ${description}`);
-              
+
               // Verify it also contains the amount and share
               const hasAmount = text.includes(amount);
               const hasShare = !expectedShare || text.includes(expectedShare);
-              
+
               if (hasAmount && hasShare) {
                 if (expectedShare) {
                   console.log(`Verified amount ${amount} and share ${expectedShare} in expense`);
@@ -108,7 +117,7 @@ export class ExpenseTestHelper {
               }
             }
           }
-          
+
           if (expenseFound) break;
         }
       }
@@ -123,7 +132,7 @@ export class ExpenseTestHelper {
           const hasDescription = containerText && containerText.includes(description);
           const hasAmount = containerText && containerText.includes(amount);
           const hasShare = !expectedShare || (containerText && containerText.includes(expectedShare));
-          
+
           if (hasDescription && hasAmount && hasShare) {
             if (expectedShare) {
               console.log(`Found expense in expenses container: ${description} with amount ${amount} and share ${expectedShare}`);
@@ -140,7 +149,7 @@ export class ExpenseTestHelper {
       // If still not found and we have attempts left, try clicking "Show more"
       if (!expenseFound && attempts <= maxAttempts) {
         console.log(`Expense not found on attempt ${attempts}, looking for "Show more" button`);
-        
+
         // Look for "Show more" button using data-test-id
         const showMoreButton = this.authenticatedPage.page.locator('[data-test-id="show-more-button"]');
         await expect(this.authenticatedPage.page).toHaveURL('/expenses');
@@ -162,10 +171,10 @@ export class ExpenseTestHelper {
 
   async verifyExpenseNotPresent(description: string) {
     console.log("verifyExpenseNotPresent", "description", description);
-    
+
     // Check that no expense items contain this description using only data-test-id
     const expenseSelectors = [
-      '[data-test-id="transaction-item"]', 
+      '[data-test-id="transaction-item"]',
       '[data-test-id="expense-item"]',
       '[data-test-id="transaction-card"]'
     ];
@@ -174,7 +183,7 @@ export class ExpenseTestHelper {
       const itemsWithDescription = await this.authenticatedPage.page.locator(selector).filter({ hasText: description }).count();
       expect(itemsWithDescription).toBe(0);
     }
-    
+
     console.log(`Verified expense not present: ${description}`);
   }
 
@@ -189,38 +198,42 @@ export class ExpenseTestHelper {
     }
   }
 
+  async getCurrentCurrency(): Promise<string> {
+    // Wait for currency selector to be loaded
+    await this.authenticatedPage.page.waitForSelector('[data-test-id="currency-select"]', { timeout: getCITimeout(10000) });
+    return await this.authenticatedPage.page.locator('[data-test-id="currency-select"]').inputValue();
+  }
+
   async getCurrentFormValues() {
     // Wait for form to be fully loaded
     await this.authenticatedPage.page.waitForSelector('[data-test-id="currency-select"]', { timeout: getCITimeout(10000) });
-    
+
     const currency = await this.authenticatedPage.page.locator('[data-test-id="currency-select"]').inputValue();
     const description = await this.authenticatedPage.page.locator('[data-test-id="description-input"]').inputValue();
     const amount = await this.authenticatedPage.page.locator('[data-test-id="amount-input"]').inputValue();
 
-    // Get percentage values for each user with more robust selection
+    // Get percentage values for each user dynamically
     const percentages: Record<string, string> = {};
-    
+
     // Wait for percentage inputs to be visible
     await this.authenticatedPage.page.waitForTimeout(1000);
-    
-    // Try to find percentage inputs specifically for users 1 and 2
-    const user1Input = this.authenticatedPage.page.locator('[data-test-id="percentage-input-1"]');
-    const user2Input = this.authenticatedPage.page.locator('[data-test-id="percentage-input-2"]');
-    
-    try {
-      await user1Input.waitFor({ state: 'visible', timeout: 5000 });
-      percentages['1'] = await user1Input.inputValue();
-      console.log('User 1 percentage:', percentages['1']);
-    } catch (_e) {
-      console.log('User 1 percentage input not found');
-    }
-    
-    try {
-      await user2Input.waitFor({ state: 'visible', timeout: 5000 });
-      percentages['2'] = await user2Input.inputValue();
-      console.log('User 2 percentage:', percentages['2']);
-    } catch (_e) {
-      console.log('User 2 percentage input not found');
+
+    // Find all percentage inputs dynamically
+    const percentageInputs = await this.authenticatedPage.page.locator('[data-test-id*="percentage-input-"]').all();
+
+    for (const input of percentageInputs) {
+      try {
+        const testId = await input.getAttribute('data-test-id');
+        if (testId && testId.includes('percentage-input-')) {
+          // Extract user ID from data-test-id like "percentage-input-{userId}"
+          const userId = testId.replace('percentage-input-', '');
+          const value = await input.inputValue();
+          percentages[userId] = value;
+          console.log(`User ${userId} percentage:`, value);
+        }
+      } catch (_e) {
+        console.log('Could not read percentage input:', _e);
+      }
     }
 
     console.log('Current form values:', { currency, description, amount, percentages });
@@ -229,7 +242,7 @@ export class ExpenseTestHelper {
 
   async setCustomSplitPercentages(percentages: Record<string, number>) {
     console.log("Setting custom split percentages:", percentages);
-    
+
     for (const userId in percentages) {
       const percentage = percentages[userId];
       await this.authenticatedPage.page.fill(`[data-test-id="percentage-input-${userId}"]`, percentage.toString());
@@ -247,7 +260,7 @@ export class ExpenseTestHelper {
 
   async deleteExpenseEntry(description: string): Promise<void> {
     console.log("Attempting to delete expense with description:", description);
-    
+
     // Navigate to expenses page if not already there
     if (!this.authenticatedPage.page.url().includes('/expenses')) {
       await this.authenticatedPage.navigateToPage('Expenses');
@@ -263,15 +276,15 @@ export class ExpenseTestHelper {
     while (!expenseFound && attempts <= maxAttempts) {
       attempts++;
       console.log(`Attempt ${attempts} to find expense for deletion: ${description}`);
-      
+
       // Check viewport to determine if we're on mobile or desktop
       const isMobile = await this.authenticatedPage.isMobile();
-      
+
       if (isMobile) {
         // On mobile, look for the card with the description and find its delete button
         const expenseCards = this.authenticatedPage.page.locator('[data-test-id="transaction-card"]');
         const cardCount = await expenseCards.count();
-        
+
         for (let i = 0; i < cardCount; i++) {
           const card = expenseCards.nth(i);
           const text = await card.textContent();
@@ -292,7 +305,7 @@ export class ExpenseTestHelper {
         // On desktop, look for the table row with the description and find its delete button
         const expenseRows = this.authenticatedPage.page.locator('[data-test-id="transaction-item"]');
         const rowCount = await expenseRows.count();
-        
+
         for (let i = 0; i < rowCount; i++) {
           const row = expenseRows.nth(i);
           const text = await row.textContent();
@@ -343,48 +356,107 @@ export class ExpenseTestHelper {
     await expect(deleteButton!).toBeEnabled();
     await deleteButton!.click();
     console.log("Delete button clicked");
-    
+
     // Wait for deletion to complete and verify success message appears
     await this.authenticatedPage.waitForLoading();
-    
+
     // Check for success container instead of alert dialog
     await this.authenticatedPage.page.waitForSelector('[data-test-id="success-container"]', { timeout: getCITimeout(10000) });
     const successMessage = await this.authenticatedPage.page.locator('[data-test-id="success-message"]').textContent();
     console.log(`Success message: ${successMessage}`);
-    
+
     await this.verifyExpensesPageComponents();
-    
+
     console.log(`Successfully deleted expense: ${description}`);
   }
-} 
+}
 
+export async function getCurrentCurrencyFromSettings(authenticatedPage: TestHelper): Promise<string> {
+  // Navigate to Settings page to get current currency
+  const currentUrl = authenticatedPage.page.url();
+  await authenticatedPage.navigateToPage('Settings');
+
+  // Get the current currency from settings
+  const currency = await authenticatedPage.page.inputValue('[data-test-id="currency-select"]');
+
+  // Navigate back to original page
+  await authenticatedPage.page.goto(currentUrl);
+  await authenticatedPage.waitForLoading();
+
+  return currency;
+}
 
 export async function getCurrentUserPercentages(authenticatedPage: TestHelper): Promise<Record<string, string>> {
   // Navigate to Settings page to get current percentages
   const currentUrl = authenticatedPage.page.url();
-  
-  await authenticatedPage.page.click('[data-test-id="sidebar-settings"]');
-  await authenticatedPage.waitForLoading();
-  await authenticatedPage.page.waitForTimeout(2000); // Wait for data to load
-  
-  // Get current percentages
-  const user1Percentage = await authenticatedPage.page.inputValue('[data-test-id="user-1-percentage"]');
-  const user2Percentage = await authenticatedPage.page.inputValue('[data-test-id="user-2-percentage"]');
-  
+  await authenticatedPage.navigateToPage('Settings');// Wait for data to load
+
+  // Get all percentage input elements dynamically
+  const percentageInputs = await authenticatedPage.page.locator('[data-test-id*="-percentage"]').all();
+  const allUserPercentages: Record<string, string> = {};
+  for (const input of percentageInputs) {
+    const testId = await input.getAttribute('data-test-id');
+    if (testId && testId.includes('user-') && testId.endsWith('-percentage')) {
+      // Extract user ID from data-test-id like "user-{userId}-percentage"
+      const userId = testId.replace('user-', '').replace('-percentage', '');
+      const percentage = await input.inputValue();
+      allUserPercentages[userId] = percentage;
+    }
+  }
   // Navigate back to original page
   await authenticatedPage.page.goto(currentUrl);
   await authenticatedPage.waitForLoading();
+
+  // Get current user ID and reorder with current user first
+  const currentUserId = await getCurrentUserId(authenticatedPage);
+  const allUserIds = Object.keys(allUserPercentages);
+  const otherUserIds = allUserIds.filter(id => id !== currentUserId);
+  const orderedUserIds = [currentUserId, ...otherUserIds];
   
-  return {
-    '1': user1Percentage,
-    '2': user2Percentage
-  };
+  // Create ordered result with current user first
+  const orderedUserPercentages: Record<string, string> = {};
+  for (const userId of orderedUserIds) {
+    if (allUserPercentages[userId] !== undefined) {
+      orderedUserPercentages[userId] = allUserPercentages[userId];
+    }
+  }
+
+  return orderedUserPercentages;
 }
 
-export async function getNewUserPercentage(authenticatedPage: TestHelper) {
-  const user1Percentage = Number(await authenticatedPage.page.inputValue('[data-test-id="user-1-percentage"]'));
+export async function createTestExpensesWithCurrentUser(authenticatedPage: TestHelper): Promise<Record<string, any>> {
+  // Get current user ID and all user percentages
+  const currentUserId = await getCurrentUserId(authenticatedPage);
+  const currentPercentages = await getCurrentUserPercentages(authenticatedPage);
 
-  const newUser1Percentage = user1Percentage < 100 ? user1Percentage + 1 : 100 - user1Percentage;
-  console.log('newUser1Percentage', newUser1Percentage);
-  return newUser1Percentage;
+  // Get all user IDs and ensure current user is first
+  const allUserIds = Object.keys(currentPercentages);
+  const otherUserIds = allUserIds.filter(id => id !== currentUserId);
+  const orderedUserIds = [currentUserId, ...otherUserIds];
+
+  console.log('Current user ID:', currentUserId);
+  console.log('All user IDs:', allUserIds);
+  console.log('Ordered user IDs (current user first):', orderedUserIds);
+
+  // Import and use createTestExpenses
+  const { createTestExpenses } = await import('../fixtures/test-data');
+  return createTestExpenses(orderedUserIds);
+}
+
+export async function getNewUserPercentage(authenticatedPage: TestHelper, userId?: string) {
+  // If no userId provided, get the first available user from current percentages
+  if (!userId) {
+    const currentPercentages = await getCurrentUserPercentages(authenticatedPage);
+    const userIds = Object.keys(currentPercentages);
+    if (userIds.length === 0) {
+      throw new Error('No users found to get percentage for');
+    }
+    userId = userIds[0]; // Use first available user
+  }
+
+  const userPercentage = Number(await authenticatedPage.page.inputValue(`[data-test-id="user-${userId}-percentage"]`));
+
+  const newUserPercentage = userPercentage < 80 ? userPercentage + 1 : 100 - userPercentage;
+  console.log(`newUser${userId}Percentage`, newUserPercentage);
+  return newUserPercentage;
 }

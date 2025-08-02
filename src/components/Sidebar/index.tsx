@@ -1,3 +1,4 @@
+import { FullAuthSession } from "@shared-types";
 import { useSelector } from "react-redux";
 import { useNavigate, useLocation } from "react-router-dom";
 import styled from "styled-components";
@@ -39,8 +40,8 @@ interface SidebarProps {
 function Sidebar({ onNavigate }: SidebarProps): JSX.Element {
   const navigate = useNavigate();
   const location = useLocation();
-  const data = useSelector((state: any) => state.value);
-  
+  const data: FullAuthSession = useSelector((state: any) => state.value);
+
   const isActive = (path: string) => {
     if (path === "/" && location.pathname === "/") return true;
     if (path !== "/" && location.pathname.startsWith(path)) return true;
@@ -51,58 +52,54 @@ function Sidebar({ onNavigate }: SidebarProps): JSX.Element {
     navigate(path);
     onNavigate?.();
   };
-  
+  console.log("sidebar data", data);
   return (
     <SidebarContainer>
       <SidebarHeader>
-        {data.users && (
-          <div>
+        {data?.extra?.currentUser && (
+          <div data-test-id={`sidebar-welcome-${data.extra?.currentUser?.id}`}>
             Welcome{" "}
-            {
-              data.users?.find(
-                (u: { Id: number; FirstName: string }) => u.Id === data.userId
-              )?.FirstName
-            }
+            {data.extra?.currentUser?.firstName}
           </div>
         )}
       </SidebarHeader>
-      <SidebarItem 
-        $active={isActive("/")} 
+      <SidebarItem
+        $active={isActive("/")}
         onClick={() => handleNavigate("/")}
         data-test-id="sidebar-dashboard"
       >
         Add
       </SidebarItem>
-      <SidebarItem 
-        $active={isActive("/expenses")} 
+      <SidebarItem
+        $active={isActive("/expenses")}
         onClick={() => handleNavigate("/expenses")}
         data-test-id="sidebar-expenses"
       >
         Expenses
       </SidebarItem>
-      <SidebarItem 
-        $active={isActive("/balances")} 
+      <SidebarItem
+        $active={isActive("/balances")}
         onClick={() => handleNavigate("/balances")}
         data-test-id="sidebar-balances"
       >
         Balances
       </SidebarItem>
-      <SidebarItem 
-        $active={isActive("/budget")} 
+      <SidebarItem
+        $active={isActive("/budget")}
         onClick={() => handleNavigate("/budget")}
         data-test-id="sidebar-budget"
       >
         Budget
       </SidebarItem>
-      <SidebarItem 
-        $active={isActive("/monthly-budget")} 
+      <SidebarItem
+        $active={isActive("/monthly-budget")}
         onClick={() => handleNavigate("/monthly-budget")}
         data-test-id="sidebar-monthly-budget"
       >
         Monthly Budget
       </SidebarItem>
-      <SidebarItem 
-        $active={isActive("/settings")} 
+      <SidebarItem
+        $active={isActive("/settings")}
         onClick={() => handleNavigate("/settings")}
         data-test-id="sidebar-settings"
       >

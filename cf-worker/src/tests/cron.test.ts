@@ -1,9 +1,12 @@
 /// <reference types="vitest" />
 import { env } from 'cloudflare:test';
-import { describe, it, expect, beforeEach } from 'vitest';
+// Vitest globals are available through the test environment
 import { handleCron } from '../handlers/cron';
 import { setupAndCleanDatabase, createTestUserData } from './test-utils';
-import { BudgetEntry } from '../../../shared-types';
+import { getDb } from '../db';
+import { budget } from '../db/schema/schema';
+import { desc } from 'drizzle-orm';
+// Types are imported but not used in this test file
 
 describe('Cron handler', () => {
   beforeEach(async () => {
@@ -17,11 +20,14 @@ describe('Cron handler', () => {
     await handleCron(env, 'monthly');
 
     // Verify budget entries were created
-    const budgetEntries = await env.DB.prepare('SELECT * FROM budget ORDER BY added_time DESC').all();
-    expect(budgetEntries.results.length).toBeGreaterThan(0);
+    const db = getDb(env);
+    const budgetEntries = await db
+      .select()
+      .from(budget)
+      .orderBy(desc(budget.addedTime));
 
     // Check that entries have the right structure
-    const entry = budgetEntries.results[0] as BudgetEntry;
+    const entry = budgetEntries[0];
     expect(entry.description).toContain(new Date().toLocaleString('default', { month: 'long' }));
     expect(entry.currency).toBe('GBP');
     expect(entry.amount).toBe(800); // house credit amount

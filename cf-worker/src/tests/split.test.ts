@@ -1,9 +1,9 @@
 import { env, createExecutionContext, waitOnExecutionContext } from 'cloudflare:test';
-import { describe, it, expect, beforeEach } from 'vitest';
+// Vitest globals are available through the test environment
 import worker from '../index';
-import { setupAndCleanDatabase, createTestUserData, createTestSession, createTestRequest } from './test-utils';
+import { setupAndCleanDatabase, createTestUserData, createTestRequest, signInAndGetCookies } from './test-utils';
 import { getDb } from '../db';
-import { groups, users, transactions, transactionUsers } from '../db/schema';
+import { groups, transactions, transactionUsers } from '../db/schema/schema';
 import { eq } from 'drizzle-orm';
 import {
   ErrorResponse,
@@ -15,38 +15,27 @@ import {
 type SplitCreateResponse = ApiEndpoints['/split_new']['response'];
 type SplitDeleteResponse = ApiEndpoints['/split_delete']['response'];
 
-// Define types for database result objects
-interface TransactionDbResult {
-  description: string;
-  amount: number;
-  currency: string;
-  metadata: string;
-}
-
-interface TransactionUserDbResult {
-  amount: number;
-  currency: string;
-  group_id: number;
-}
+// Database result types removed - now using Drizzle schema types directly
 
 describe('Split handlers', () => {
+  let TEST_USERS: Record<string, Record<string, string>>;
+
   beforeEach(async () => {
     await setupAndCleanDatabase(env);
+    TEST_USERS = await createTestUserData(env);
   });
 
   describe('Split creation', () => {
     it('should create a split transaction successfully', async () => {
-      // Set up test data
-      await createTestUserData(env);
-      const sessionId = await createTestSession(env);
+      const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
 
       const request = createTestRequest('split_new', 'POST', {
         amount: 100,
         description: 'Test split',
         currency: 'USD',
-        paidByShares: { 1: 60, 2: 40 },
-        splitPctShares: { 1: 50, 2: 50 }
-      }, sessionId);
+        paidByShares: { [TEST_USERS.user1.id]: 60, [TEST_USERS.user2.id]: 40 },
+        splitPctShares: { [TEST_USERS.user1.id]: 50, [TEST_USERS.user2.id]: 50 }
+      }, cookies);
 
       const ctx = createExecutionContext();
       const response = await worker.fetch(request, env, ctx);
@@ -59,25 +48,28 @@ describe('Split handlers', () => {
       expect(json.transactionId).toBeDefined();
 
       // Verify transaction was created in database
-      const transactionResult = await env.DB.prepare('SELECT * FROM transactions WHERE transaction_id = ?').bind(json.transactionId).first();
-      expect(transactionResult).toBeDefined();
-      expect((transactionResult as TransactionDbResult).description).toBe('Test split');
-      expect((transactionResult as TransactionDbResult).amount).toBe(100);
-      expect((transactionResult as TransactionDbResult).currency).toBe('USD');
+      const db = getDb(env);
+      const transactionResult = await db
+        .select()
+        .from(transactions)
+        .where(eq(transactions.transactionId, json.transactionId));
+      expect(transactionResult).toHaveLength(1);
+      const transaction = transactionResult[0];
+      expect(transaction.description).toBe('Test split');
+      expect(transaction.amount).toBe(100);
+      expect(transaction.currency).toBe('USD');
     });
 
     it('should create a complex split with multiple users successfully', async () => {
-      // Set up test data
-      await createTestUserData(env);
-      const sessionId = await createTestSession(env);
+      const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
 
       const request = createTestRequest('split_new', 'POST', {
         amount: 120,
         description: 'Group dinner',
         currency: 'USD',
-        paidByShares: { 1: 80, 2: 40 },
-        splitPctShares: { 1: 60, 2: 40 }
-      }, sessionId);
+        paidByShares: { [TEST_USERS.user1.id]: 80, [TEST_USERS.user2.id]: 40 },
+        splitPctShares: { [TEST_USERS.user1.id]: 60, [TEST_USERS.user2.id]: 40 }
+      }, cookies);
 
       const ctx = createExecutionContext();
       const response = await worker.fetch(request, env, ctx);
@@ -92,24 +84,27 @@ describe('Split handlers', () => {
       // User 1: paid $80, owes $72 (60% of $120) → net +$8 (creditor)
       // User 2: paid $40, owes $48 (40% of $120) → net -$8 (debtor)
       // Expected: User 2 owes User 1 $8
-      const userTransactions = await env.DB.prepare('SELECT * FROM transaction_users WHERE transaction_id = ?').bind(json.transactionId).all();
-      expect(userTransactions.results).toHaveLength(1);
+      const db = getDb(env);
+      const userTransactions = await db
+        .select()
+        .from(transactionUsers)
+        .where(eq(transactionUsers.transactionId, json.transactionId));
+      expect(userTransactions).toHaveLength(1);
 
-      const debt = userTransactions.results[0] as TransactionUserDbResult;
+      const debt = userTransactions[0];
       expect(debt.amount).toBeCloseTo(8, 2); // User 2's debt to User 1
     });
 
     it('should return error for invalid split percentages', async () => {
-      await createTestUserData(env);
-      const sessionId = await createTestSession(env);
+      const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
 
       const request = createTestRequest('split_new', 'POST', {
         amount: 100,
         description: 'Invalid split',
         currency: 'USD',
-        paidByShares: { 1: 100 },
-        splitPctShares: { 1: 60, 2: 30 } // Only adds up to 90%
-      }, sessionId);
+        paidByShares: { [TEST_USERS.user1.id]: 100 },
+        splitPctShares: { [TEST_USERS.user1.id]: 60, [TEST_USERS.user2.id]: 30 } // Only adds up to 90%
+      }, cookies);
 
       const ctx = createExecutionContext();
       const response = await worker.fetch(request, env, ctx);
@@ -122,16 +117,15 @@ describe('Split handlers', () => {
     });
 
     it('should return error for invalid paid amounts', async () => {
-      await createTestUserData(env);
-      const sessionId = await createTestSession(env);
+      const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
 
       const request = createTestRequest('split_new', 'POST', {
         amount: 100,
         description: 'Invalid paid amounts',
         currency: 'USD',
-        paidByShares: { 1: 60, 2: 30 }, // Only adds up to 90
-        splitPctShares: { 1: 50, 2: 50 }
-      }, sessionId);
+        paidByShares: { [TEST_USERS.user1.id]: 60, [TEST_USERS.user2.id]: 30 }, // Only adds up to 90
+        splitPctShares: { [TEST_USERS.user1.id]: 50, [TEST_USERS.user2.id]: 50 }
+      }, cookies);
 
       const ctx = createExecutionContext();
       const response = await worker.fetch(request, env, ctx);
@@ -146,17 +140,30 @@ describe('Split handlers', () => {
 
   describe('Split deletion', () => {
     it('should delete a split transaction successfully', async () => {
-      // Set up test data and create a transaction first
-      await createTestUserData(env);
-      const sessionId = await createTestSession(env);
+      const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
 
-      // Insert a test transaction
-      await env.DB.exec("INSERT INTO transactions (transaction_id, description, amount, currency, group_id, created_at) VALUES ('123', 'Test split', 100, 'USD', 1, '2024-01-01 00:00:00')");
-      await env.DB.exec("INSERT INTO transaction_users (transaction_id, user_id, amount, owed_to_user_id, currency, group_id) VALUES ('123', 1, 50, 2, 'USD', 1)");
+      // Insert a test transaction using Drizzle
+      const db = getDb(env);
+      await db.insert(transactions).values({
+        transactionId: '123',
+        description: 'Test split',
+        amount: 100,
+        currency: 'USD',
+        groupId: 1,
+        createdAt: '2024-01-01 00:00:00'
+      });
+      await db.insert(transactionUsers).values({
+        transactionId: '123',
+        userId: TEST_USERS.user1.id,
+        amount: 50,
+        owedToUserId: TEST_USERS.user2.id,
+        currency: 'USD',
+        groupId: 1
+      });
 
       const request = createTestRequest('split_delete', 'POST', {
         id: '123'
-      }, sessionId);
+      }, cookies);
 
       const ctx = createExecutionContext();
       const response = await worker.fetch(request, env, ctx);
@@ -169,12 +176,11 @@ describe('Split handlers', () => {
     });
 
     it('should handle deletion of non-existent transaction', async () => {
-      await createTestUserData(env);
-      const sessionId = await createTestSession(env);
+      const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
 
       const request = createTestRequest('split_delete', 'POST', {
         id: 'non-existent'
-      }, sessionId);
+      }, cookies);
 
       const ctx = createExecutionContext();
       const response = await worker.fetch(request, env, ctx);
@@ -189,16 +195,15 @@ describe('Split handlers', () => {
 
   describe('Split creation (split_new)', () => {
     it('should create a new split with generated transaction ID', async () => {
-      await createTestUserData(env);
-      const sessionId = await createTestSession(env);
+      const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
 
       const request = createTestRequest('split_new', 'POST', {
         amount: 75,
         description: 'New split test',
         currency: 'EUR',
-        paidByShares: { 1: 45, 2: 30 },
-        splitPctShares: { 1: 70, 2: 30 }
-      }, sessionId);
+        paidByShares: { [TEST_USERS.user1.id]: 45, [TEST_USERS.user2.id]: 30 },
+        splitPctShares: { [TEST_USERS.user1.id]: 70, [TEST_USERS.user2.id]: 30 }
+      }, cookies);
 
       const ctx = createExecutionContext();
       const response = await worker.fetch(request, env, ctx);
@@ -211,24 +216,28 @@ describe('Split handlers', () => {
       expect(json.transactionId.length).toBeGreaterThan(0);
 
       // Verify transaction was created in database
-      const transactionResult = await env.DB.prepare('SELECT * FROM transactions WHERE transaction_id = ?').bind(json.transactionId).first();
-      expect(transactionResult).toBeDefined();
-      expect((transactionResult as TransactionDbResult).description).toBe('New split test');
-      expect((transactionResult as TransactionDbResult).amount).toBe(75);
-      expect((transactionResult as TransactionDbResult).currency).toBe('EUR');
+      const db = getDb(env);
+      const transactionResult = await db
+        .select()
+        .from(transactions)
+        .where(eq(transactions.transactionId, json.transactionId));
+      expect(transactionResult).toHaveLength(1);
+      const transaction = transactionResult[0];
+      expect(transaction.description).toBe('New split test');
+      expect(transaction.amount).toBe(75);
+      expect(transaction.currency).toBe('EUR');
     });
 
     it('should create transaction users for new split', async () => {
-      await createTestUserData(env);
-      const sessionId = await createTestSession(env);
+      const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
 
       const request = createTestRequest('split_new', 'POST', {
         amount: 90,
         description: 'Multi-user split',
         currency: 'GBP',
-        paidByShares: { 1: 60, 2: 30 },
-        splitPctShares: { 1: 40, 2: 60 }
-      }, sessionId);
+        paidByShares: { [TEST_USERS.user1.id]: 60, [TEST_USERS.user2.id]: 30 },
+        splitPctShares: { [TEST_USERS.user1.id]: 40, [TEST_USERS.user2.id]: 60, [TEST_USERS.user3.id]: 0, [TEST_USERS.user4.id]: 0 }
+      }, cookies);
 
       const ctx = createExecutionContext();
       const response = await worker.fetch(request, env, ctx);
@@ -242,12 +251,16 @@ describe('Split handlers', () => {
       // User 1: paid £60, owes £36 (40% of £90) → net +£24 (creditor)
       // User 2: paid £30, owes £54 (60% of £90) → net -£24 (debtor)
       // Expected: User 2 owes User 1 £24
-      const userTransactions = await env.DB.prepare('SELECT * FROM transaction_users WHERE transaction_id = ?').bind(json.transactionId).all();
-      expect(userTransactions.results).toHaveLength(1);
+      const db = getDb(env);
+      const userTransactions = await db
+        .select()
+        .from(transactionUsers)
+        .where(eq(transactionUsers.transactionId, json.transactionId));
+      expect(userTransactions).toHaveLength(1);
 
-      const debt = userTransactions.results[0] as TransactionUserDbResult;
+      const debt = userTransactions[0];
       expect(debt.currency).toBe('GBP');
-      expect(debt.group_id).toBe(1);
+      expect(debt.groupId).toBe(1);
       expect(debt.amount).toBeCloseTo(24, 2); // User 2's debt to User 1
     });
 
@@ -271,16 +284,15 @@ describe('Split handlers', () => {
     });
 
     it('should return error for invalid currency', async () => {
-      await createTestUserData(env);
-      const sessionId = await createTestSession(env);
+      const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
 
       const request = createTestRequest('split_new', 'POST', {
         amount: 100,
         description: 'Invalid currency split',
         currency: 'INVALID',
-        paidByShares: { 1: 100 },
-        splitPctShares: { 1: 100 }
-      }, sessionId);
+        paidByShares: { [TEST_USERS.user1.id]: 100 },
+        splitPctShares: { [TEST_USERS.user1.id]: 100 }
+      }, cookies);
 
       const ctx = createExecutionContext();
       const response = await worker.fetch(request, env, ctx);
@@ -293,44 +305,17 @@ describe('Split handlers', () => {
     });
 
     it('should handle multiple payers with multiple people splitting', async () => {
-      // Set up test data for 3-person group using the DB helper
+      // Set up test data for 3-person group using existing TEST_USERS
       const db = getDb(env);
 
       await db.insert(groups).values({
         groupid: 2,
         groupName: 'Multi-person Group',
-        userids: '[3, 4, 5]',
-        metadata: '{"defaultCurrency": "EUR", "defaultShare": {"3": 40, "4": 30, "5": 30}}'
+        userids: `["${TEST_USERS.user1.id}", "${TEST_USERS.user2.id}", "${TEST_USERS.user3.id}"]`,
+        metadata: `{"defaultCurrency": "EUR", "defaultShare": {"${TEST_USERS.user1.id}": 40, "${TEST_USERS.user2.id}": 30, "${TEST_USERS.user3.id}": 30}}`
       });
 
-      await db.insert(users).values([
-        {
-          id: 3,
-          username: 'alice.wilson',
-          password: 'hash3',
-          firstName: 'Alice',
-          lastName: 'Wilson',
-          groupid: 2
-        },
-        {
-          id: 4,
-          username: 'bob.johnson',
-          password: 'hash4',
-          firstName: 'Bob',
-          lastName: 'Johnson',
-          groupid: 2
-        },
-        {
-          id: 5,
-          username: 'charlie.brown',
-          password: 'hash5',
-          firstName: 'Charlie',
-          lastName: 'Brown',
-          groupid: 2
-        }
-      ]);
-
-      const sessionId = await createTestSession(env, 'session_alice_multi', 'alice.wilson');
+      const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
 
       // Test multi-payer scenario:
       // Alice pays €80, Bob pays €70 (total €150)
@@ -339,9 +324,9 @@ describe('Split handlers', () => {
         amount: 150,
         description: 'Multi-payer group expense',
         currency: 'EUR',
-        paidByShares: { 3: 80, 4: 70 }, // Alice pays €80, Bob pays €70
-        splitPctShares: { 3: 40, 4: 35, 5: 25 } // Alice 40%, Bob 35%, Charlie 25%
-      }, sessionId);
+        paidByShares: { [TEST_USERS.user1.id]: 80, [TEST_USERS.user2.id]: 70 }, // User1 pays €80, User2 pays €70
+        splitPctShares: { [TEST_USERS.user1.id]: 40, [TEST_USERS.user2.id]: 35, [TEST_USERS.user3.id]: 25 } // User1 40%, User2 35%, User3 25%
+      }, cookies);
 
       const ctx = createExecutionContext();
       const response = await worker.fetch(request, env, ctx);
@@ -372,28 +357,22 @@ describe('Split handlers', () => {
       const metadata = transactionResult.metadata || { paidByShares: {}, owedAmounts: {}, owedToAmounts: {} };
 
       expect(metadata.paidByShares).toEqual({
-        'Alice': 80,
-        'Bob': 70
-      });
-
-      // Verify metadata contains correct values
-      expect(metadata.paidByShares).toEqual({
-        'Alice': 80,
-        'Bob': 70
+        [TEST_USERS.user1.firstName]: 80,
+        [TEST_USERS.user2.firstName]: 70
       });
 
       // Verify owedAmounts (each person's total share of the expense)
       expect(metadata.owedAmounts).toEqual({
-        'Alice': 60,      // 40% of €150
-        'Bob': 52.5,      // 35% of €150
-        'Charlie': 37.5   // 25% of €150
+        [TEST_USERS.user1.firstName]: 60,      // 40% of €150
+        [TEST_USERS.user2.firstName]: 52.5,    // 35% of €150
+        [TEST_USERS.user3.firstName]: 37.5     // 25% of €150
       });
 
       // Verify owedToAmounts (net amounts owed to each person)
       expect(metadata.owedToAmounts).toEqual({
-        'Alice': 20,      // Alice paid €80, owes €60, so she's owed €20
-        'Bob': 17.5       // Bob paid €70, owes €52.50, so he's owed €17.50
-        // Charlie not included since he owes money (paid €0, owes €37.50)
+        [TEST_USERS.user1.firstName]: 20,      // User1 paid €80, owes €60, so he's owed €20
+        [TEST_USERS.user2.firstName]: 17.5     // User2 paid €70, owes €52.50, so he's owed €17.50
+        // User3 not included since he owes money (paid €0, owes €37.50)
       });
 
       // Verify transaction_users records contain the correct debt relationships
@@ -419,8 +398,8 @@ describe('Split handlers', () => {
       expect(userRecords).toHaveLength(2);
 
       const expectedRelationships = [
-        { user_id: 5, owed_to_user_id: 3, amount: 20 },     // Charlie owes Alice €20
-        { user_id: 5, owed_to_user_id: 4, amount: 17.5 }   // Charlie owes Bob €17.50
+        { user_id: TEST_USERS.user3.id, owed_to_user_id: TEST_USERS.user1.id, amount: 20 },     // User3 owes User1 €20
+        { user_id: TEST_USERS.user3.id, owed_to_user_id: TEST_USERS.user2.id, amount: 17.5 }   // User3 owes User2 €17.50
       ];
 
       for (const expected of expectedRelationships) {
@@ -440,44 +419,17 @@ describe('Split handlers', () => {
     });
 
     it('should handle user who pays but still owes money in multi-person group', async () => {
-      // Set up test data for 3-person group using the DB helper
+      // Set up test data for 3-person group using existing TEST_USERS
       const db = getDb(env);
 
       await db.insert(groups).values({
         groupid: 3,
         groupName: 'Mixed Payment Group',
-        userids: '[6, 7, 8]',
-        metadata: '{"defaultCurrency": "EUR", "defaultShare": {"6": 50, "7": 30, "8": 20}}'
+        userids: `["${TEST_USERS.user1.id}", "${TEST_USERS.user2.id}", "${TEST_USERS.user3.id}"]`,
+        metadata: `{"defaultCurrency": "EUR", "defaultShare": {"${TEST_USERS.user1.id}": 50, "${TEST_USERS.user2.id}": 30, "${TEST_USERS.user3.id}": 20}}`
       });
 
-      await db.insert(users).values([
-        {
-          id: 6,
-          username: 'alice.mixed',
-          password: 'hash6',
-          firstName: 'Alice',
-          lastName: 'Mixed',
-          groupid: 3
-        },
-        {
-          id: 7,
-          username: 'bob.mixed',
-          password: 'hash7',
-          firstName: 'Bob',
-          lastName: 'Mixed',
-          groupid: 3
-        },
-        {
-          id: 8,
-          username: 'charlie.mixed',
-          password: 'hash8',
-          firstName: 'Charlie',
-          lastName: 'Mixed',
-          groupid: 3
-        }
-      ]);
-
-      const sessionId = await createTestSession(env, 'session_alice_mixed', 'alice.mixed');
+      const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
 
       // Test scenario where Alice pays but still owes money:
       // Total: €120, Split: Alice 50% (€60), Bob 30% (€36), Charlie 20% (€24)
@@ -487,9 +439,9 @@ describe('Split handlers', () => {
         amount: 120,
         description: 'Mixed payment scenario',
         currency: 'EUR',
-        paidByShares: { 6: 40, 7: 80 }, // Alice pays €40, Bob pays €80, Charlie pays €0
-        splitPctShares: { 6: 50, 7: 30, 8: 20 } // Alice 50%, Bob 30%, Charlie 20%
-      }, sessionId);
+        paidByShares: { [TEST_USERS.user1.id]: 40, [TEST_USERS.user2.id]: 80 }, // User1 pays €40, User2 pays €80, User3 pays €0
+        splitPctShares: { [TEST_USERS.user1.id]: 50, [TEST_USERS.user2.id]: 30, [TEST_USERS.user3.id]: 20 } // User1 50%, User2 30%, User3 20%
+      }, cookies);
 
       const ctx = createExecutionContext();
       const response = await worker.fetch(request, env, ctx);
@@ -520,21 +472,21 @@ describe('Split handlers', () => {
       const metadata = transactionResult.metadata || { paidByShares: {}, owedAmounts: {}, owedToAmounts: {} };
 
       expect(metadata.paidByShares).toEqual({
-        'Alice': 40,
-        'Bob': 80
+        [TEST_USERS.user1.firstName]: 40,
+        [TEST_USERS.user2.firstName]: 80
       });
 
       // Verify owedAmounts (each person's total share of the expense)
       expect(metadata.owedAmounts).toEqual({
-        'Alice': 60,    // 50% of €120
-        'Bob': 36,      // 30% of €120
-        'Charlie': 24   // 20% of €120
+        [TEST_USERS.user1.firstName]: 60,    // 50% of €120
+        [TEST_USERS.user2.firstName]: 36,    // 30% of €120
+        [TEST_USERS.user3.firstName]: 24     // 20% of €120
       });
 
-      // Verify owedToAmounts (only Bob is owed money since he's the only net creditor)
+      // Verify owedToAmounts (only User2 is owed money since he's the only net creditor)
       expect(metadata.owedToAmounts).toEqual({
-        'Bob': 44       // Bob paid €80, owes €36, so he's owed €44
-        // Alice and Charlie not included since they have net debt
+        [TEST_USERS.user2.firstName]: 44       // User2 paid €80, owes €36, so he's owed €44
+        // User1 and User3 not included since they have net debt
       });
 
       // Verify transaction_users records contain the correct debt relationships
@@ -560,8 +512,8 @@ describe('Split handlers', () => {
       expect(userRecords).toHaveLength(2);
 
       const expectedRelationships = [
-        { user_id: 6, owed_to_user_id: 7, amount: 20 },   // Alice owes Bob €20
-        { user_id: 8, owed_to_user_id: 7, amount: 24 }   // Charlie owes Bob €24
+        { user_id: TEST_USERS.user1.id, owed_to_user_id: TEST_USERS.user2.id, amount: 20 },   // User1 owes User2 €20
+        { user_id: TEST_USERS.user3.id, owed_to_user_id: TEST_USERS.user2.id, amount: 24 }   // User3 owes User2 €24
       ];
 
       for (const expected of expectedRelationships) {
@@ -583,52 +535,16 @@ describe('Split handlers', () => {
     });
 
     it('should handle 2 debtors owing to 2 different creditors with everyone paying', async () => {
-      // Set up test data for 4-person group using the DB helper
+      // Set up test data for 4-person group using existing TEST_USERS
       const db = getDb(env);
 
       await db.insert(groups).values({
         groupid: 4,
         groupName: 'Four Person Group',
-        userids: '[9, 10, 11, 12]',
-        metadata: '{"defaultCurrency": "USD", "defaultShare": {"9": 40, "10": 20, "11": 25, "12": 15}}'
+        userids: `["${TEST_USERS.user1.id}", "${TEST_USERS.user2.id}", "${TEST_USERS.user3.id}", "${TEST_USERS.user4.id}"]`,
+        metadata: `{"defaultCurrency": "USD", "defaultShare": {"${TEST_USERS.user1.id}": 40, "${TEST_USERS.user2.id}": 20, "${TEST_USERS.user3.id}": 25, "${TEST_USERS.user4.id}": 15}}`
       });
-
-      await db.insert(users).values([
-        {
-          id: 9,
-          username: 'alice.four',
-          password: 'hash9',
-          firstName: 'Alice',
-          lastName: 'Four',
-          groupid: 4
-        },
-        {
-          id: 10,
-          username: 'bob.four',
-          password: 'hash10',
-          firstName: 'Bob',
-          lastName: 'Four',
-          groupid: 4
-        },
-        {
-          id: 11,
-          username: 'charlie.four',
-          password: 'hash11',
-          firstName: 'Charlie',
-          lastName: 'Four',
-          groupid: 4
-        },
-        {
-          id: 12,
-          username: 'david.four',
-          password: 'hash12',
-          firstName: 'David',
-          lastName: 'Four',
-          groupid: 4
-        }
-      ]);
-
-      const sessionId = await createTestSession(env, 'session_alice_four', 'alice.four');
+      const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
 
       // Test scenario with 4 people where 2 owe to 2 different creditors:
       // Total: $200, Split: Alice 40% ($80), Bob 20% ($40), Charlie 25% ($50), David 15% ($30)
@@ -640,9 +556,9 @@ describe('Split handlers', () => {
         amount: 200,
         description: 'Four person expense scenario',
         currency: 'USD',
-        paidByShares: { 9: 60, 10: 70, 11: 30, 12: 40 }, // Everyone pays something
-        splitPctShares: { 9: 40, 10: 20, 11: 25, 12: 15 } // Split percentages
-      }, sessionId);
+        paidByShares: { [TEST_USERS.user1.id]: 60, [TEST_USERS.user2.id]: 70, [TEST_USERS.user3.id]: 30, [TEST_USERS.user4.id]: 40 }, // Everyone pays something
+        splitPctShares: { [TEST_USERS.user1.id]: 40, [TEST_USERS.user2.id]: 20, [TEST_USERS.user3.id]: 25, [TEST_USERS.user4.id]: 15 } // Split percentages
+      }, cookies);
 
       const ctx = createExecutionContext();
       const response = await worker.fetch(request, env, ctx);
@@ -673,25 +589,25 @@ describe('Split handlers', () => {
       const metadata = transactionResult.metadata || { paidByShares: {}, owedAmounts: {}, owedToAmounts: {} };
 
       expect(metadata.paidByShares).toEqual({
-        'Alice': 60,
-        'Bob': 70,
-        'Charlie': 30,
-        'David': 40
+        [TEST_USERS.user1.firstName]: 60,
+        [TEST_USERS.user2.firstName]: 70,
+        [TEST_USERS.user3.firstName]: 30,
+        [TEST_USERS.user4.firstName]: 40
       });
 
       // Verify owedAmounts (each person's total share of the expense)
       expect(metadata.owedAmounts).toEqual({
-        'Alice': 80,    // 40% of $200
-        'Bob': 40,      // 20% of $200
-        'Charlie': 50,  // 25% of $200
-        'David': 30     // 15% of $200
+        [TEST_USERS.user1.firstName]: 80,    // 40% of $200
+        [TEST_USERS.user2.firstName]: 40,    // 20% of $200
+        [TEST_USERS.user3.firstName]: 50,    // 25% of $200
+        [TEST_USERS.user4.firstName]: 30     // 15% of $200
       });
 
       // Verify owedToAmounts (only net creditors are included)
       expect(metadata.owedToAmounts).toEqual({
-        'Bob': 30,      // Bob paid $70, owes $40, so he's owed $30
-        'David': 10     // David paid $40, owes $30, so he's owed $10
-        // Alice and Charlie not included since they have net debt
+        [TEST_USERS.user2.firstName]: 30,      // User2 paid $70, owes $40, so he's owed $30
+        [TEST_USERS.user4.firstName]: 10       // User4 paid $40, owes $30, so he's owed $10
+        // User1 and User3 not included since they have net debt
       });
 
       // Verify transaction_users records contain the correct debt relationships
@@ -720,10 +636,10 @@ describe('Split handlers', () => {
       expect(userRecords).toHaveLength(4);
 
       const expectedRelationships = [
-        { user_id: 9, owed_to_user_id: 10, amount: 15 },   // Alice owes Bob $15
-        { user_id: 9, owed_to_user_id: 12, amount: 5 },    // Alice owes David $5
-        { user_id: 11, owed_to_user_id: 10, amount: 15 },  // Charlie owes Bob $15
-        { user_id: 11, owed_to_user_id: 12, amount: 5 }   // Charlie owes David $5
+        { user_id: TEST_USERS.user1.id, owed_to_user_id: TEST_USERS.user2.id, amount: 15 },   // User1 owes User2 $15
+        { user_id: TEST_USERS.user1.id, owed_to_user_id: TEST_USERS.user4.id, amount: 5 },    // User1 owes User4 $5
+        { user_id: TEST_USERS.user3.id, owed_to_user_id: TEST_USERS.user2.id, amount: 15 },  // User3 owes User2 $15
+        { user_id: TEST_USERS.user3.id, owed_to_user_id: TEST_USERS.user4.id, amount: 5 }   // User3 owes User4 $5
       ];
 
       for (const expected of expectedRelationships) {
@@ -743,14 +659,14 @@ describe('Split handlers', () => {
 
       // Verify amounts owed to each creditor
       const bobTotal = userRecords
-        .filter(r => r.owed_to_user_id === 10)
+        .filter(r => r.owed_to_user_id === TEST_USERS.user2.id)
         .reduce((sum, r) => sum + r.amount, 0);
-      expect(bobTotal).toBeCloseTo(30, 2); // Bob should receive $30 total
+      expect(bobTotal).toBeCloseTo(30, 2); // User2 should receive $30 total
 
       const davidTotal = userRecords
-        .filter(r => r.owed_to_user_id === 12)
+        .filter(r => r.owed_to_user_id === TEST_USERS.user4.id)
         .reduce((sum, r) => sum + r.amount, 0);
-      expect(davidTotal).toBeCloseTo(10, 2); // David should receive $10 total
+      expect(davidTotal).toBeCloseTo(10, 2); // User4 should receive $10 total
 
       console.log('✅ Four person debt distribution test completed successfully');
     });
@@ -758,15 +674,22 @@ describe('Split handlers', () => {
 
   describe('Transactions list', () => {
     it('should return list of transactions', async () => {
-      await createTestUserData(env);
-      const sessionId = await createTestSession(env);
+      const cookies = await signInAndGetCookies(env, TEST_USERS.user1.email, TEST_USERS.user1.password);
 
-      // Add a test transaction
-      await env.DB.exec("INSERT INTO transactions (transaction_id, description, amount, currency, group_id, created_at) VALUES ('1', 'Transaction 1', 100, 'USD', 1, '2024-01-01 00:00:00')");
+      // Add a test transaction using Drizzle
+      const db = getDb(env);
+      await db.insert(transactions).values({
+        transactionId: '1',
+        description: 'Transaction 1',
+        amount: 100,
+        currency: 'USD',
+        groupId: 1,
+        createdAt: '2024-01-01 00:00:00'
+      });
 
       const request = createTestRequest('transactions_list', 'POST', {
         offset: 0
-      }, sessionId);
+      }, cookies);
 
       const ctx = createExecutionContext();
       const response = await worker.fetch(request, env, ctx);

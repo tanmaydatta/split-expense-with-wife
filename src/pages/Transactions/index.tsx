@@ -17,7 +17,7 @@ import {
 } from "@/components/Icons";
 import { dateToFullStr } from "@/utils/date";
 import { ApiError, typedApi } from "@/utils/api";
-import type { FrontendTransaction, TransactionsListRequest, TransactionsListResponse, SplitDeleteRequest, TransactionMetadata, TransactionUser } from '@shared-types';
+import type { FrontendTransaction, TransactionsListRequest, TransactionsListResponse, SplitDeleteRequest, TransactionMetadata, TransactionUser, ReduxState } from '@shared-types';
 import "./index.css";
 
 const TransactionList: React.FC<{
@@ -194,7 +194,7 @@ const Transactions: React.FC = () => {
   const [transactions, setTransactions] = useState<FrontendTransaction[]>([]);
   const navigate = useNavigate();
 
-  const data = useSelector((state: any) => state.value);
+  const data = useSelector((state: ReduxState) => state.value);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
   const [success, setSuccess] = useState<string>("");
@@ -213,10 +213,10 @@ const Transactions: React.FC = () => {
               e.transaction_id
             ] as TransactionUser[] || [];
             txnDetails.forEach((txn) => {
-              if (data.userId === txn.owed_to_user_id) {
+              if (data?.user?.id === txn.owed_to_user_id) {
                 totalOwed += txn.amount;
               }
-              if (data.userId === txn.user_id) {
+              if (data?.user?.id === txn.user_id) {
                 totalOwed -= txn.amount;
               }
             });
@@ -249,7 +249,7 @@ const Transactions: React.FC = () => {
         setLoading(false);
       }
     },
-    [data.userId, navigate]
+    [data?.user?.id, navigate]
   );
 
   useEffect(() => {

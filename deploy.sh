@@ -78,7 +78,7 @@ print_success "CF Worker tests passed"
 
 # Step 7: Deploy to Cloudflare Workers
 print_step "Deploying to Cloudflare Workers ($ENV environment)..."
-yarn wrangler deploy -e $ENV
+yarn clean:redirects && yarn wrangler deploy -e $ENV
 print_success "Deployment to $ENV completed!"
 
 cd ..

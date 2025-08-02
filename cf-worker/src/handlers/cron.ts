@@ -1,7 +1,6 @@
-import { Env } from '../types';
 import { formatSQLiteTime } from '../utils';
 import { getDb } from '../db';
-import { groups, budget } from '../db/schema';
+import { groups, budget } from '../db/schema/schema';
 import { eq } from 'drizzle-orm';
 
 const MONTHLY_CREDITS: { [key: string]: number } = {

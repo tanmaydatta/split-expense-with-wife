@@ -3,7 +3,7 @@
     "target": "ES2020",
     "module": "ES2020",
     "moduleResolution": "bundler",
-    "lib": ["ES2020", "WebWorker"],
+    "lib": ["ES2020"],
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
@@ -13,9 +13,9 @@
     "sourceMap": true,
     "resolveJsonModule": true,
     "allowSyntheticDefaultImports": true,
-    "types": ["@cloudflare/workers-types", "node"],
-    "typeRoots": ["./node_modules/@types", "./src"]
+    "types": ["worker-configuration.d.ts", "node"],
+    "typeRoots": ["./node_modules/@types", "./"]
   },
-  "include": ["src/**/*", "vitest.config.ts"],
+  "include": ["src/**/*", "vitest.config.ts", "worker-configuration.d.ts"],
   "exclude": ["node_modules", "dist"]
 } 

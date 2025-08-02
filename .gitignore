@@ -76,3 +76,4 @@ pr-description.md
 # Development documentation
 plan.md
 *drizzle.md
+migrate-passwords.sh

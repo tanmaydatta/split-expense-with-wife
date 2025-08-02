@@ -1,6 +1,5 @@
 import { drizzle } from 'drizzle-orm/d1';
-import { schema } from './schema';
-import type { Env } from '../types';
+import { schema } from './schema/schema';
 
 /**
  * Get Drizzle database instance for the given environment

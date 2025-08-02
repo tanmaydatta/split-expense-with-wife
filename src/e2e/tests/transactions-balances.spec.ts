@@ -1,5 +1,5 @@
 import { test, expect } from '../fixtures/setup';
-import { ExpenseTestHelper, getNewUserPercentage } from '../utils/expense-test-helper';
+import { ExpenseTestHelper, getCurrentUserPercentages } from '../utils/expense-test-helper';
 import { TestHelper } from '../utils/test-utils';
 
 // Helper class for transaction and balance operations using composition
@@ -19,7 +19,7 @@ class TransactionBalanceTestHelper {
       description: description || 'Test expense',
       amount: amount || 100,
       currency: currency || 'USD',
-      paidBy: paidBy || '1'
+      paidBy: paidBy // Remove hardcoded fallback - let ExpenseTestHelper handle it
     };
 
     const result = await this.expenseHelper.addExpenseEntry(expense, customSplits);
@@ -423,9 +423,15 @@ test.describe('Transactions and Balances', () => {
   test('should display transactions page with real expense data', async ({ authenticatedPage }) => {
     const helper = new TransactionBalanceTestHelper(authenticatedPage);
 
+    // Get dynamic user IDs
+    const userPercentages = await getCurrentUserPercentages(authenticatedPage);
+    const userIds = Object.keys(userPercentages);
+    const userId1 = userIds[0]; // Current user
+    const userId2 = userIds[1]; // Other user
+
     // Create a test expense first (default 50/50 split)
     // 50/50 split on $75: User 1 pays $75, owes $37.50, share = +$37.50
-    const expense = await helper.createTestExpense('Grocery shopping for test', 75, 'USD', { '1': 50, '2': 50 });
+    const expense = await helper.createTestExpense('Grocery shopping for test', 75, 'USD', { [userId1]: 50, [userId2]: 50 });
 
     // Navigate to transactions page
     await authenticatedPage.navigateToPage('Expenses');
@@ -440,11 +446,17 @@ test.describe('Transactions and Balances', () => {
   test('should display transaction with correct amount and currency formatting', async ({ authenticatedPage }) => {
     const helper = new TransactionBalanceTestHelper(authenticatedPage);
 
+    // Get dynamic user IDs
+    const userPercentages = await getCurrentUserPercentages(authenticatedPage);
+    const userIds = Object.keys(userPercentages);
+    const userId1 = userIds[0]; // Current user
+    const userId2 = userIds[1]; // Other user
+
     // Create expenses with different amounts and currencies (default 50/50 split)
     // 50/50 split on $5.50: User 1 pays $5.50, owes $2.75, share = +$2.75
-    const expense1 = await helper.createTestExpense('Small purchase', 5.50, 'USD', { '1': 50, '2': 50 });
+    const expense1 = await helper.createTestExpense('Small purchase', 5.50, 'USD', { [userId1]: 50, [userId2]: 50 });
     // 50/50 split on €1234.99: User 1 pays €1234.99, owes €617.50 (rounded), share = +€617.50
-    const expense2 = await helper.createTestExpense('Large purchase', 1234.99, 'EUR', { '1': 50, '2': 50 }  );
+    const expense2 = await helper.createTestExpense('Large purchase', 1234.99, 'EUR', { [userId1]: 50, [userId2]: 50 }  );
 
     // Navigate to transactions page
     await authenticatedPage.navigateToPage('Expenses');
@@ -458,8 +470,14 @@ test.describe('Transactions and Balances', () => {
   test('should display transaction share calculations correctly', async ({ authenticatedPage }) => {
     const helper = new TransactionBalanceTestHelper(authenticatedPage);
 
+    // Get dynamic user IDs
+    const userPercentages = await getCurrentUserPercentages(authenticatedPage);
+    const userIds = Object.keys(userPercentages);
+    const userId1 = userIds[0]; // Current user
+    const userId2 = userIds[1]; // Other user
+
     // Create expense with custom split (60/40)
-    const expense = await helper.createTestExpense('Custom split expense', 100, 'USD', { '1': 60, '2': 40 });
+    const expense = await helper.createTestExpense('Custom split expense', 100, 'USD', { [userId1]: 60, [userId2]: 40 });
 
     // Navigate to transactions page
     await authenticatedPage.navigateToPage('Expenses');
@@ -471,18 +489,21 @@ test.describe('Transactions and Balances', () => {
 
   test('should handle transaction details expansion', async ({ authenticatedPage }) => {
     const helper = new TransactionBalanceTestHelper(authenticatedPage);
+    
+    // Get dynamic user IDs and names
+    const userPercentages = await getCurrentUserPercentages(authenticatedPage);
+    const userIds = Object.keys(userPercentages);
+    const userId1 = userIds[0]; // Current user
+    const userId2 = userIds[1]; // Other user
+    
     // Reset percentages to 50/50 for consistent test results
-    await authenticatedPage.page.click('[data-test-id="sidebar-settings"]');
+    await authenticatedPage.navigateToPage('Settings');
     await authenticatedPage.waitForLoading();
     await authenticatedPage.page.waitForTimeout(2000); // Wait for data to load
-    const newUser1Percentage = await getNewUserPercentage(authenticatedPage);
-    await authenticatedPage.page.fill('[data-test-id="user-1-percentage"]', newUser1Percentage.toString());
-    await authenticatedPage.page.fill('[data-test-id="user-2-percentage"]', (100 - newUser1Percentage).toString());
-    await authenticatedPage.page.click('[data-test-id="save-all-button"]');
-    await authenticatedPage.page.waitForSelector('[data-test-id="success-container"]', { timeout: 10000 });
-
-    const expense = await helper.createTestExpense('Detailed expense', 150, 'USD');
-
+    const newUser1Percentage = 71;
+    const expense = await helper.createTestExpense('Detailed expense', 150, 'USD', { [userId1]: newUser1Percentage, [userId2]: 100 - newUser1Percentage });
+    console.log("Expense created:", expense);
+    console.log("User 1 percentage:", newUser1Percentage);
     // Navigate to transactions page
     await authenticatedPage.navigateToPage('Expenses');
     await helper.verifyTransactionsPageComponents();
@@ -509,9 +530,15 @@ test.describe('Transactions and Balances', () => {
   test('should display balances page with real data', async ({ authenticatedPage }) => {
     const helper = new TransactionBalanceTestHelper(authenticatedPage);
 
+    // Get dynamic user IDs
+    const userPercentages = await getCurrentUserPercentages(authenticatedPage);
+    const userIds = Object.keys(userPercentages);
+    const userId1 = userIds[0]; // Current user
+    const userId2 = userIds[1]; // Other user
+
     // Create some test expenses to generate balances
-    await helper.createTestExpense('Balance test 1', 50, 'USD', { '1': 70, '2': 30 });
-    await helper.createTestExpense('Balance test 2', 80, 'EUR', { '1': 40, '2': 60 });
+    await helper.createTestExpense('Balance test 1', 50, 'USD', { [userId1]: 70, [userId2]: 30 });
+    await helper.createTestExpense('Balance test 2', 80, 'EUR', { [userId1]: 40, [userId2]: 60 });
 
     // Navigate to balances page
     await authenticatedPage.navigateToPage('Balances');
@@ -567,12 +594,18 @@ test.describe('Transactions and Balances', () => {
     const initialBalances = await helper.getCurrentBalances();
     console.log("Initial balances:", JSON.stringify(initialBalances, null, 2));
 
+    // Get dynamic user IDs
+    const userPercentages = await getCurrentUserPercentages(authenticatedPage);
+    const userIds = Object.keys(userPercentages);
+    const userId1 = userIds[0]; // Current user
+    const userId2 = userIds[1]; // Other user
+
     // Create a single test expense with 60/40 split
     // John (User 1) pays $120, owes $72 (60%), gets +$48.00 back
     // Jane (User 2) owes $48 (40%), so her balance decreases by -$48.00
     const expenseAmount = 120;
     const currency = 'USD';
-    await helper.createTestExpense('Balance test expense', expenseAmount, currency, { '1': 60, '2': 40 });
+    await helper.createTestExpense('Balance test expense', expenseAmount, currency, { [userId1]: 60, [userId2]: 40 });
 
     // Calculate expected balance changes
     const expectedBalances = JSON.parse(JSON.stringify(initialBalances)); // deep copy
@@ -606,11 +639,17 @@ test.describe('Transactions and Balances', () => {
     const initialBalances = await helper.getCurrentBalances();
     console.log("Initial balances:", JSON.stringify(initialBalances, null, 2));
 
+    // Get dynamic user IDs
+    const userPercentages = await getCurrentUserPercentages(authenticatedPage);
+    const userIds = Object.keys(userPercentages);
+    const userId1 = userIds[0]; // Current user
+    const userId2 = userIds[1]; // Other user
+
     // Create multiple transactions with different splits
     // Transaction 1: 50/50 split on $100: John pays $100, owes $50, gets +$50.00 back
-    await helper.createTestExpense('Transaction 1', 100, 'USD', { '1': 50, '2': 50 });
+    await helper.createTestExpense('Transaction 1', 100, 'USD', { [userId1]: 50, [userId2]: 50 });
     // Transaction 2: 75/25 split on $80: John pays $80, owes $60, gets +$20.00 back
-    await helper.createTestExpense('Transaction 2', 80, 'USD', { '1': 75, '2': 25 });
+    await helper.createTestExpense('Transaction 2', 80, 'USD', { [userId1]: 75, [userId2]: 25 });
 
     // Calculate expected balance changes
     const expectedBalances = JSON.parse(JSON.stringify(initialBalances)); // deep copy
@@ -641,12 +680,18 @@ test.describe('Transactions and Balances', () => {
   test('should display loading states during data fetching', async ({ authenticatedPage }) => {
     const helper = new TransactionBalanceTestHelper(authenticatedPage);
 
+    // Get dynamic user IDs for mock data
+    const userPercentages = await getCurrentUserPercentages(authenticatedPage);
+    const userIds = Object.keys(userPercentages);
+    const userId1 = userIds[0]; // Current user
+    const userId2 = userIds[1]; // Other user
+
     // Mock the transactions_list API with a 2-second delay
     await authenticatedPage.page.route('**/.netlify/functions/transactions_list', async (route) => {
       // Simulate a 2-second delay
       await new Promise(resolve => setTimeout(resolve, 2000));
 
-      // Return a successful response with mock data
+      // Return a successful response with mock data using dynamic user IDs
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -661,23 +706,23 @@ test.describe('Transactions and Balances', () => {
               transaction_id: 'mock_txn_001',
               group_id: 1,
               metadata: JSON.stringify({
-                owedAmounts: { '1': 50, '2': 50 },
-                paidByShares: { '1': 100 },
-                owedToAmounts: { '1': 50, '2': 50 }
+                owedAmounts: { [userId1]: 50, [userId2]: 50 },
+                paidByShares: { [userId1]: 100 },
+                owedToAmounts: { [userId1]: 50, [userId2]: 50 }
               })
             }
           ],
           transactionDetails: {
             'mock_txn_001': [
               {
-                user_id: 1,
-                owed_to_user_id: 1,
+                user_id: userId1,
+                owed_to_user_id: userId1,
                 amount: 100,
                 first_name: 'John'
               },
               {
-                user_id: 2,
-                owed_to_user_id: 1,
+                user_id: userId2,
+                owed_to_user_id: userId1,
                 amount: 50,
                 first_name: 'Jane'
               }
@@ -718,14 +763,20 @@ test.describe('Transactions and Balances', () => {
     const initialBalances = await helper.getCurrentBalances();
     console.log("Initial balances before expense creation:", JSON.stringify(initialBalances, null, 2));
 
+    // Get dynamic user IDs
+    const userPercentages = await getCurrentUserPercentages(authenticatedPage);
+    const userIds = Object.keys(userPercentages);
+    const userId1 = userIds[0]; // Current user
+    const userId2 = userIds[1]; // Other user
+
     // Create test expenses that will affect balances
     // Expense 1: 60/40 split on $100: John pays $100, owes $60, gets +$40 back
     // This means Jane owes John $40
-    const expense1 = await helper.createTestExpense('Balance deletion test 1', 100, 'USD', { '1': 60, '2': 40 });
+    const expense1 = await helper.createTestExpense('Balance deletion test 1', 100, 'USD', { [userId1]: 60, [userId2]: 40 });
 
     // Expense 2: 50/50 split on €80: John pays €80, owes €40, gets +€40 back
     // This means Jane owes John €40
-    const expense2 = await helper.createTestExpense('Balance deletion test 2', 80, 'EUR', { '1': 50, '2': 50 });
+    const expense2 = await helper.createTestExpense('Balance deletion test 2', 80, 'EUR', { [userId1]: 50, [userId2]: 50 });
 
     // Check balances after adding both expenses
     await authenticatedPage.navigateToPage('Balances');
@@ -776,16 +827,22 @@ test.describe('Transactions and Balances', () => {
   test('should handle transactions with more than 2 people in group', async ({ authenticatedMultiPersonPage }) => {
     const helper = new TransactionBalanceTestHelper(authenticatedMultiPersonPage);
 
+    // Get dynamic user IDs for the multi-person group
+    const userPercentages = await getCurrentUserPercentages(authenticatedMultiPersonPage);
+    const userIds = Object.keys(userPercentages);
+    const userId1 = userIds[0]; // Current user (Alice)
+    const userId2 = userIds[1]; // Bob  
+    const userId3 = userIds[2]; // Charlie
+
     // Explicitly set split percentages for 3-person group test
-    // Group 2 users: Alice (user 3), Bob (user 4), Charlie (user 5)
     // Split: Alice 40%, Bob 35%, Charlie 25%
     // Total: €150, Alice pays: €150, Alice owes: €60 (40%), Alice share: +€90
     const multiPersonExpense = await helper.createTestExpense(
       'Multi-person group expense', 
       150, 
       'EUR',
-      { '3': 40, '4': 35, '5': 25 },  // Explicit split: Alice 40%, Bob 35%, Charlie 25%
-      '3'  // Alice (user 3) pays for the expense
+      { [userId1]: 40, [userId2]: 35, [userId3]: 25 },  // Explicit split: Alice 40%, Bob 35%, Charlie 25%
+      userId1  // Alice (current user) pays for the expense
     );
 
     // Navigate to transactions page to verify the expense appears

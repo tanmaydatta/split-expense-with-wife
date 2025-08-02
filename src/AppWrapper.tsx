@@ -1,21 +1,25 @@
-import { useSelector } from "react-redux";
-import { Route, Routes } from "react-router-dom";
+import { Route, Routes, Navigate } from "react-router-dom";
 import { ThemeProvider } from "styled-components";
 import styled from "styled-components";
 import { useState, useEffect } from "react";
-import { isAuthenticated } from "@/utils/auth";
 import Dashboard from "@/pages/Dashboard";
 import Balances from "@/pages/Balances";
 import { Budget } from "@/pages/Budget";
 import { GlobalStyles } from "@/components/theme/GlobalStyles";
 import { theme } from "@/components/theme";
 import LoginPage from "@/pages/Login";
+import SignUpPage from "@/pages/SignUp";
 import Logout  from "@/Logout";
 import { MonthlyBudgetPage } from "@/pages/MonthlyBudgetPage";
 import Sidebar from "@/components/Sidebar";
 import Transactions from "@/pages/Transactions";
 import Settings from "@/pages/Settings";
 import NotFound from "@/pages/NotFound";
+import { authClient } from "./utils/authClient";
+import { setData } from "./redux/data";
+
+import { store } from "./redux/store";
+// import { Loader } from "./components/Loader";
 
 const AppContainer = styled.div`
   display: flex;
@@ -123,31 +127,27 @@ const PageContent = styled.div`
   }
 `;
 
-function withAuthCheck(Component: React.ComponentType) {
-  return function AuthenticatedComponent(props: any): JSX.Element {
-    // Use centralized authentication check
-    if (!isAuthenticated()) {
-      return <LoginPage />;
-    }
-    
-    return <Component {...props} />;
-  };
-}
-
 // Create wrapped components outside of render to prevent recreation
-const AuthenticatedDashboard = withAuthCheck(Dashboard);
-const AuthenticatedBalances = withAuthCheck(Balances);
-const AuthenticatedBudget = withAuthCheck(Budget);
-const AuthenticatedMonthlyBudgetPage = withAuthCheck(MonthlyBudgetPage);
-const AuthenticatedTransactions = withAuthCheck(Transactions);
-const AuthenticatedSettings = withAuthCheck(Settings);
-
 function AppWrapper() {
-  const data = useSelector((state: any) => state.value);
-  const isAuthenticated = Object.keys(data).length > 0;
+  const session =  authClient.useSession();
+  const {data, error} = session;
+  console.log("session", session);
+  const isAuthenticated = data?.user != null && error === null && !session.isPending;
+  console.log("isAuthenticated", isAuthenticated, "isrefetching", (session as any).isRefetching);
+  console.log("data", data);
+  console.log("data?.user", data?.user);
+  console.log("error", error);
+  console.log("window.location.pathname", window.location.pathname);
+
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-
+  useEffect(() => {
+    if (data) {
+      console.log("dispatching data", data);
+      store.dispatch(setData(data));
+    }
+  }, [data]);
+  
   // Check if we're on mobile
   useEffect(() => {
     const checkMobile = () => {
@@ -176,6 +176,11 @@ function AppWrapper() {
     if (path === '/logout') return 'Logout';
     return 'Page Not Found'; // For 404 and unknown routes
   };
+  // Show loading while session data is being fetched
+  if (session.isPending) {
+    console.log("loading");
+    return <div>Loading...</div>;
+  }
 
   return (
     <ThemeProvider theme={theme}>
@@ -200,19 +205,19 @@ function AppWrapper() {
             )}
             <PageContent>
               <Routes>
-                <Route path="/" element={<AuthenticatedDashboard />} />
-                <Route path="/balances" element={<AuthenticatedBalances />} />
-                <Route path="/budget" element={<AuthenticatedBudget />} />
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/balances" element={<Balances />} />
+                <Route path="/budget" element={<Budget />} />
                 <Route
                   path="/monthly-budget"
-                  element={<AuthenticatedMonthlyBudgetPage />}
+                  element={<MonthlyBudgetPage />}
                 />
                 <Route
                   path="/monthly-budget/:budgetName"
-                  element={<AuthenticatedMonthlyBudgetPage />}
+                  element={<MonthlyBudgetPage />}
                 />
-                <Route path="/expenses" element={<AuthenticatedTransactions />} />
-                <Route path="/settings" element={<AuthenticatedSettings />} />
+                <Route path="/expenses" element={<Transactions />} />
+                <Route path="/settings" element={<Settings />} />
                 <Route path="/logout" element={<Logout />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
@@ -221,16 +226,10 @@ function AppWrapper() {
         </AppContainer>
       ) : (
         <Routes>
-          <Route path="/" element={<LoginPage />} />
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/balances" element={<LoginPage />} />
-          <Route path="/budget" element={<LoginPage />} />
-          <Route path="/monthly-budget" element={<LoginPage />} />
-          <Route path="/monthly-budget/:budgetName" element={<LoginPage />} />
-          <Route path="/expenses" element={<LoginPage />} />
-          <Route path="/settings" element={<LoginPage />} />
-          <Route path="/logout" element={<LoginPage />} />
-          <Route path="*" element={<NotFound />} />
+          <Route path="/signup" element={<SignUpPage />} />
+          {/* Redirect all other routes to login when unauthenticated */}
+          <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       )}
     </ThemeProvider>

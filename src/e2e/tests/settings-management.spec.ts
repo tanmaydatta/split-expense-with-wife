@@ -1,16 +1,15 @@
 import { randomUUID } from 'crypto';
 import { test, expect } from '../fixtures/setup';
-import { getNewUserPercentage } from '../utils/expense-test-helper';
+import { getNewUserPercentage, getCurrentUserPercentages } from '../utils/expense-test-helper';
+import { getCurrentUserId, TestHelper } from '../utils/test-utils';
 
 // Helper class for Settings page operations
 class SettingsTestHelper {
-    constructor(private authenticatedPage: any) { }
+    constructor(private authenticatedPage: TestHelper) { }
 
     async navigateToSettings() {
         // Navigate to settings via sidebar
-        await this.authenticatedPage.page.click('[data-test-id="sidebar-settings"]');
-        await this.authenticatedPage.waitForLoading();
-        await expect(this.authenticatedPage.page).toHaveURL('/settings');
+        await this.authenticatedPage.navigateToPage('Settings');
     }
 
     async verifySettingsPageComponents() {
@@ -141,6 +140,14 @@ class SettingsTestHelper {
         }
     }
 
+    async getDynamicUserIds(): Promise<{ currentUserId: string; allUserIds: string[] }> {
+        // Get current user ID and all user percentages (which returns ordered IDs)
+        const currentUserId = await getCurrentUserId(this.authenticatedPage);
+        const currentPercentages = await getCurrentUserPercentages(this.authenticatedPage);
+        const allUserIds = Object.keys(currentPercentages);
+        return { currentUserId, allUserIds };
+    }
+
     async verifyPercentageSymbolPosition(userId: string) {
         // Verify that % symbol is inside the input field
         const inputWrapper = this.authenticatedPage.page.locator(`[data-test-id="percentage-wrapper-${userId}"]`);
@@ -168,9 +175,8 @@ test.describe('Settings Management', () => {
 
         test('should be accessible via sidebar navigation', async ({ authenticatedPage }) => {
             // Go back to dashboard first
-            await authenticatedPage.page.click('[data-test-id="sidebar-dashboard"]');
+            await authenticatedPage.navigateToPage('Add');
             await expect(authenticatedPage.page).toHaveURL('/');
-
             // Then navigate to settings via sidebar
             const settingsHelper = new SettingsTestHelper(authenticatedPage);
             await settingsHelper.navigateToSettings();
@@ -257,6 +263,11 @@ test.describe('Settings Management', () => {
         });
 
         test('should save currency changes and update other forms', async ({ authenticatedPage }) => {
+            // Capture console logs
+            authenticatedPage.page.on('console', msg => {
+                console.log('Browser console:', msg.text());
+            });
+            
             const settingsHelper = new SettingsTestHelper(authenticatedPage);
 
             // Get current currency
@@ -281,7 +292,7 @@ test.describe('Settings Management', () => {
             expect(successMessage).toContain('successfully');
 
             // Navigate to dashboard and verify currency is updated
-            await authenticatedPage.page.click('[data-test-id="sidebar-dashboard"]');
+            await authenticatedPage.navigateToPage('Add');
             await authenticatedPage.waitForLoading();
 
             const currencySelect = authenticatedPage.page.locator('[data-test-id="currency-select"]');
@@ -294,22 +305,29 @@ test.describe('Settings Management', () => {
         test('should display current user shares with percentage symbols inside inputs', async ({ authenticatedPage }) => {
             const settingsHelper = new SettingsTestHelper(authenticatedPage);
 
+            // Get dynamic user IDs
+            const { currentUserId: _currentUserId, allUserIds: _allUserIds } = await settingsHelper.getDynamicUserIds();
             // Verify percentage symbols are positioned inside inputs
             const userElements = authenticatedPage.page.locator('[data-test-id^="user-"][data-test-id$="-percentage"]');
+            await authenticatedPage.page.waitForTimeout(2000);
             const count = await userElements.count();
 
             expect(count).toBeGreaterThan(0);
 
-            // Check first user's percentage symbol positioning
-            await settingsHelper.verifyPercentageSymbolPosition('1');
+            // Check first user's percentage symbol positioning (current user)
+            await settingsHelper.verifyPercentageSymbolPosition(_currentUserId);
         });
 
         test('should validate percentage totals with 0.001 precision', async ({ authenticatedPage }) => {
             const settingsHelper = new SettingsTestHelper(authenticatedPage);
 
+            // Get dynamic user IDs
+            const { currentUserId: _currentUserId, allUserIds: _allUserIds } = await settingsHelper.getDynamicUserIds();
+            const [userId1, userId2] = _allUserIds;
+
             // Test case: Set percentages that don't add to 100%
-            await settingsHelper.setUserPercentage('1', '30');
-            await settingsHelper.setUserPercentage('2', '30');
+            await settingsHelper.setUserPercentage(userId1, '30');
+            await settingsHelper.setUserPercentage(userId2, '30');
             // Leave remaining users with original values (should not total 100%)
 
             // Save button should be disabled due to validation error
@@ -323,19 +341,23 @@ test.describe('Settings Management', () => {
         test('should handle 2-user scenarios with precise percentages', async ({ authenticatedPage }) => {
             const settingsHelper = new SettingsTestHelper(authenticatedPage);
 
+            // Get dynamic user IDs
+            const { currentUserId: _currentUserId, allUserIds: _allUserIds } = await settingsHelper.getDynamicUserIds();
+            const [userId1, userId2] = _allUserIds;
+            const newUser1Percentage = await getNewUserPercentage(authenticatedPage, userId1);
             // Wait for page to load user data
             await authenticatedPage.page.waitForTimeout(2000);
 
             // Set precise percentages for 2 users
-            await settingsHelper.setUserPercentage('1', '50.001');
-            await settingsHelper.setUserPercentage('2', '49.999');
+            await settingsHelper.setUserPercentage(userId1, (newUser1Percentage + 0.001).toFixed(3).toString());
+            await settingsHelper.setUserPercentage(userId2, (100-(newUser1Percentage + 0.001)).toFixed(3).toString());
 
             // This should be valid (totals 100.000)
             await expect(await settingsHelper.isSaveButtonEnabled()).toBe(true);
 
             // Test slightly off but within tolerance
-            await settingsHelper.setUserPercentage('1', '50.0005');
-            await settingsHelper.setUserPercentage('2', '49.9995'); // Total = 100.000
+            await settingsHelper.setUserPercentage(userId1, (newUser1Percentage + 0.0005).toFixed(3).toString());
+            await settingsHelper.setUserPercentage(userId2, (100-(newUser1Percentage + 0.0005)).toFixed(3).toString()); // Total = 100.000
 
             // Should still be valid (within 0.001 tolerance)
             await expect(await settingsHelper.isSaveButtonEnabled()).toBe(true);
@@ -344,14 +366,17 @@ test.describe('Settings Management', () => {
         test('should save percentage changes successfully', async ({ authenticatedPage }) => {
             const settingsHelper = new SettingsTestHelper(authenticatedPage);
 
+            // Get dynamic user IDs
+            const { currentUserId: _currentUserId, allUserIds: _allUserIds } = await settingsHelper.getDynamicUserIds();
+            const [userId1, userId2] = _allUserIds;
+
             // Wait for data to load
             await authenticatedPage.page.waitForTimeout(2000);
 
-
-            const newUser1Percentage = await getNewUserPercentage(authenticatedPage);
+            const newUser1Percentage = await getNewUserPercentage(authenticatedPage, userId1);
             // Set valid percentages for 2 users
-            await settingsHelper.setUserPercentage('1', newUser1Percentage.toString());
-            await settingsHelper.setUserPercentage('2', (100 - newUser1Percentage).toString());
+            await settingsHelper.setUserPercentage(userId1, newUser1Percentage.toString());
+            await settingsHelper.setUserPercentage(userId2, (100 - newUser1Percentage).toString());
 
             await settingsHelper.saveAllChanges();
 
@@ -363,8 +388,8 @@ test.describe('Settings Management', () => {
             await authenticatedPage.waitForLoading();
             await authenticatedPage.page.waitForTimeout(2000);
 
-            expect(await settingsHelper.getUserPercentage('1')).toBe(newUser1Percentage.toString());
-            expect(await settingsHelper.getUserPercentage('2')).toBe((100 - newUser1Percentage).toString());
+            expect(await settingsHelper.getUserPercentage(userId1)).toBe(newUser1Percentage.toString());
+            expect(await settingsHelper.getUserPercentage(userId2)).toBe((100 - newUser1Percentage).toString());
         });
     });
 
@@ -394,7 +419,7 @@ test.describe('Settings Management', () => {
             expect(successMessage).toContain('successfully');
 
             // Verify new category appears in budget forms
-            await authenticatedPage.page.click('[data-test-id="sidebar-budget"]');
+            await authenticatedPage.navigateToPage('Budget');
             await authenticatedPage.waitForLoading();
 
             const budgetRadio = authenticatedPage.page.locator(`[data-test-id="budget-radio-${newCategory}"]`);
@@ -427,7 +452,7 @@ test.describe('Settings Management', () => {
             expect(successMessage).toContain('successfully');
 
             // Verify category is removed from budget forms
-            await authenticatedPage.page.click('[data-test-id="sidebar-budget"]');
+            await authenticatedPage.navigateToPage('Budget');
             await authenticatedPage.waitForLoading();
 
             const budgetRadio = authenticatedPage.page.locator(`[data-test-id="budget-radio-${categoryToRemove}"]`);
@@ -517,16 +542,21 @@ test.describe('Settings Management', () => {
         test('should save all changes in single API call', async ({ authenticatedPage }) => {
             const settingsHelper = new SettingsTestHelper(authenticatedPage);
 
+            // Get dynamic user IDs
+            const { currentUserId: _currentUserId, allUserIds: _allUserIds } = await settingsHelper.getDynamicUserIds();
+            const [userId1, userId2] = _allUserIds;
+
             // Get current currency to change to something different
             const initialCurrency = await authenticatedPage.page.inputValue('[data-test-id="currency-select"]');
             const currencyOptions = await authenticatedPage.page.locator('[data-test-id="currency-select"] option').allTextContents();
             const newCurrency = currencyOptions.find(currency => currency !== initialCurrency) || '';
             // Make multiple changes
+            const newUser1Percentage = await getNewUserPercentage(authenticatedPage, userId1);
             const newName = `Multi_Change_${Date.now()}`;  // Use underscores
             await settingsHelper.setGroupName(newName);
             await settingsHelper.setDefaultCurrency(newCurrency);
-            await settingsHelper.setUserPercentage('1', '60');
-            await settingsHelper.setUserPercentage('2', '40');
+            await settingsHelper.setUserPercentage(userId1, newUser1Percentage.toString());
+            await settingsHelper.setUserPercentage(userId2, (100-newUser1Percentage).toString());
             await settingsHelper.addBudgetCategory('new_category');
 
             // Single save operation
@@ -541,15 +571,19 @@ test.describe('Settings Management', () => {
 
             expect(await settingsHelper.getGroupName()).toBe(newName);
             expect(await settingsHelper.getDefaultCurrency()).toBe(newCurrency);
-            expect(await settingsHelper.getUserPercentage('1')).toBe('60');
-            expect(await settingsHelper.getUserPercentage('2')).toBe('40');
+            expect(await settingsHelper.getUserPercentage(userId1)).toBe(newUser1Percentage.toString());
+            expect(await settingsHelper.getUserPercentage(userId2)).toBe((100-newUser1Percentage).toString());
         });
 
         test('should show loading state during save operation', async ({ authenticatedPage }) => {
+            await authenticatedPage.page.route('**/group/metadata', async route => {
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                route.continue();
+            });
             const settingsHelper = new SettingsTestHelper(authenticatedPage);
 
             // Make a change
-            await settingsHelper.setGroupName('Loading_Test');
+            await settingsHelper.setGroupName('Loading_Test ' + randomUUID());
 
             // Click save but don't wait for completion
             await authenticatedPage.page.click('[data-test-id="save-all-button"]');
@@ -571,7 +605,7 @@ test.describe('Settings Management', () => {
             await settingsHelper.waitForSuccessMessage();
 
             // Navigate to another page and back to verify Redux state
-            await authenticatedPage.page.click('[data-test-id="sidebar-dashboard"]');
+            await authenticatedPage.navigateToPage('Add');
             await authenticatedPage.waitForLoading();
 
             await settingsHelper.navigateToSettings();
@@ -587,7 +621,7 @@ test.describe('Settings Management', () => {
             await settingsHelper.setGroupName('Unsaved_Changes');
 
             // Navigate away and back
-            await authenticatedPage.page.click('[data-test-id="sidebar-dashboard"]');
+            await authenticatedPage.navigateToPage('Add');
             await authenticatedPage.waitForLoading();
 
             await settingsHelper.navigateToSettings();
@@ -682,7 +716,7 @@ test.describe('Settings Management', () => {
             await settingsHelper.waitForSuccessMessage();
 
             // Navigate to dashboard (expense form)
-            await authenticatedPage.page.click('[data-test-id="sidebar-dashboard"]');
+            await authenticatedPage.navigateToPage('Add');
             await authenticatedPage.waitForLoading();
 
             // Verify currency is pre-selected in expense form
@@ -694,14 +728,18 @@ test.describe('Settings Management', () => {
         test('should apply updated share percentages as defaults in new expenses', async ({ authenticatedPage }) => {
             const settingsHelper = new SettingsTestHelper(authenticatedPage);
 
+            // Get dynamic user IDs
+            const { currentUserId: _currentUserId, allUserIds: _allUserIds } = await settingsHelper.getDynamicUserIds();
+            const [userId1, userId2] = _allUserIds;
+            const newUser1Percentage = await getNewUserPercentage(authenticatedPage, userId1);
             // Update share percentages
-            await settingsHelper.setUserPercentage('1', '70');
-            await settingsHelper.setUserPercentage('2', '30');
+            await settingsHelper.setUserPercentage(userId1, newUser1Percentage.toString());
+            await settingsHelper.setUserPercentage(userId2, (100-newUser1Percentage).toString());
             await settingsHelper.saveAllChanges();
             await settingsHelper.waitForSuccessMessage();
 
             // Navigate to dashboard and create expense
-            await authenticatedPage.page.click('[data-test-id="sidebar-dashboard"]');
+            await authenticatedPage.navigateToPage('Add');
             await authenticatedPage.waitForLoading();
 
             // Fill expense form
@@ -721,7 +759,7 @@ test.describe('Settings Management', () => {
             await settingsHelper.waitForSuccessMessage();
 
             // Navigate to budget page
-            await authenticatedPage.page.click('[data-test-id="sidebar-budget"]');
+            await authenticatedPage.navigateToPage('Budget');
             await authenticatedPage.waitForLoading();
 
             // Verify new category appears
@@ -729,7 +767,7 @@ test.describe('Settings Management', () => {
             await expect(budgetRadio).toBeVisible({ timeout: 10000 });
 
             // Navigate to dashboard expense form
-            await authenticatedPage.page.click('[data-test-id="sidebar-dashboard"]');
+            await authenticatedPage.navigateToPage('Add');
             await authenticatedPage.waitForLoading();
 
             // Verify new category appears in expense budget selection

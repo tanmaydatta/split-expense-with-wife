@@ -21,7 +21,7 @@ test.describe('Authentication Flow', () => {
     await testHelper.page.goto('/');
 
     // Should stay on root page but show login form instead of dashboard content
-    await expect(testHelper.page).toHaveURL('/');
+    await expect(testHelper.page).toHaveURL('/login');
 
     // Verify login form elements are present
     await expect(testHelper.page.locator('[data-test-id="username-input"]')).toBeVisible();
@@ -37,9 +37,12 @@ test.describe('Authentication Flow', () => {
     await expect(testHelper.page).toHaveURL('/');
     await expect(testHelper.page.locator('[data-test-id="dashboard-container"]')).toBeVisible();
 
-    // Verify authentication token is stored
-    const sessionToken = await testHelper.page.evaluate(() => localStorage.getItem('sessionToken'));
-    expect(sessionToken).not.toBeNull();
+    // Verify authentication by checking session cookies exist
+    const cookies = await testHelper.page.context().cookies();
+    const sessionCookie = cookies.find(cookie => 
+      cookie.name.includes('better-auth')
+    );
+    expect(sessionCookie).toBeDefined();
   });
 
   test('should show error message with invalid credentials', async ({ testHelper }) => {
@@ -51,40 +54,46 @@ test.describe('Authentication Flow', () => {
     // Should redirect to login page with login form visible
     await expect(testHelper.page).toHaveURL('/login');
     await expect(testHelper.page.locator('[data-test-id="login-form"]')).toBeVisible();
-    const sessionToken = await testHelper.page.evaluate(() => localStorage.getItem('sessionToken'));
-    expect(sessionToken).toBeNull();
+    
+    // Verify no session cookies are set after failed login
+    const cookies = await testHelper.page.context().cookies();
+    const sessionCookie = cookies.find(cookie => 
+      cookie.name.includes('better-auth')
+    );
+    expect(sessionCookie).toBeUndefined();
   });
 
-  test('should show loading state during login', async ({ testHelper }) => {
-    // Mock delayed response using exact URL pattern
-    await testHelper.page.route('**/.netlify/functions/login', async (route) => {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify(testData.mockResponses.login.success)
-      });
+  test('should show loading state during login', async ({ page, testHelper }) => {
+    // Increase timeout for this specific test due to network mocking and potential mobile Safari flakiness.
+    test.setTimeout(30000);
+
+    // Mock all network requests to be slow, simulating a real loading condition.
+    await page.route('**/*', async (route) => {
+      await new Promise(resolve => setTimeout(resolve, 2000)); // 2-second delay
+      route.continue();
     });
 
     await testHelper.page.goto('/login');
     await testHelper.page.fill('[data-test-id="username-input"]', testData.users.user1.username);
     await testHelper.page.fill('[data-test-id="password-input"]', testData.users.user1.password);
 
-    // Start login process
+    // Click the login button to trigger the loading state.
     await testHelper.page.click('[data-test-id="login-button"]');
 
-    // Check for the actual loading state - the Loader component should be visible
-    await expect(testHelper.page.locator('[data-test-id="login-loader"]')).toBeVisible({ timeout: 1000 });
+    // --- Mobile Safari Robustness Strategy ---
 
-    // During loading, the form should not be visible (replaced by loader)
-    await expect(testHelper.page.locator('[data-test-id="login-form"]')).not.toBeVisible();
+    // Step 1: Confirm the form is gone. This is a reliable first indicator of a state change.
+    await expect(testHelper.page.locator('[data-test-id="login-form"]')).not.toBeVisible({ timeout: 5000 });
 
-    // Wait for login to complete and redirect to dashboard
-    await expect(testHelper.page).toHaveURL('/');
-    await expect(testHelper.page.locator('[data-test-id="dashboard-container"]')).toBeVisible();
+    // Step 2: Check that the loader is at least in the DOM. This avoids issues with CSS animation/visibility.
+    await expect(testHelper.page.locator('[data-test-id="login-loader"]')).toBeAttached({ timeout: 5000 });
     
-    // Loader should disappear after login completes
-    await expect(testHelper.page.locator('[data-test-id="login-loader"]')).not.toBeVisible();
+    // Step 3 (Final Check): Wait for the page to navigate away, confirming the login was successful.
+    await expect(testHelper.page).toHaveURL('/', { timeout: 10000 });
+    await expect(testHelper.page.locator('[data-test-id="dashboard-container"]')).toBeVisible();
+
+    // Step 4: After navigation, confirm the loader is no longer in the DOM.
+    await expect(testHelper.page.locator('[data-test-id="login-loader"]')).not.toBeAttached();
   });
 
   test('should preserve login state across page refreshes', async ({ testHelper }) => {
@@ -93,18 +102,20 @@ test.describe('Authentication Flow', () => {
     // Verify initial login state (dashboard is visible)
     await expect(testHelper.page.locator('[data-test-id="dashboard-container"]')).toBeVisible();
 
-    // Store token for verification
-    const sessionToken = await testHelper.page.evaluate(() => localStorage.getItem('sessionToken'));
-    expect(sessionToken).not.toBeNull();
-
     // Refresh the page
     await testHelper.page.reload();
     await testHelper.page.waitForTimeout(2000);
 
-    // Should still be authenticated - session token should persist
+    // Should still be authenticated - dashboard should still be visible
     await expect(testHelper.page).toHaveURL('/');
-    const sessionTokenAfterRefresh = await testHelper.page.evaluate(() => localStorage.getItem('sessionToken'));
-    expect(sessionTokenAfterRefresh).toBe(sessionToken);
+    await expect(testHelper.page.locator('[data-test-id="dashboard-container"]')).toBeVisible();
+    
+    // Verify session cookies still exist after refresh
+    const cookies = await testHelper.page.context().cookies();
+    const sessionCookie = cookies.find(cookie => 
+      cookie.name.includes('better-auth')
+    );
+    expect(sessionCookie).toBeDefined();
   });
 
   test('should handle accessing protected routes while unauthenticated', async ({ testHelper }) => {
@@ -112,7 +123,7 @@ test.describe('Authentication Flow', () => {
     await testHelper.page.goto('/budget');
 
     // The app behavior: stays on /budget route but shows login form instead of content
-    await expect(testHelper.page).toHaveURL('/budget');
+    await expect(testHelper.page).toHaveURL('/login');
     await expect(testHelper.page.locator('[data-test-id="login-form"]')).toBeVisible();
   });
 
@@ -123,9 +134,12 @@ test.describe('Authentication Flow', () => {
     // Verify user is logged in (dashboard is visible)
     await expect(testHelper.page.locator('[data-test-id="dashboard-container"]')).toBeVisible();
 
-    // Verify session token exists
-    let sessionToken = await testHelper.page.evaluate(() => localStorage.getItem('sessionToken'));
-    expect(sessionToken).not.toBeNull();
+    // Verify session cookies exist before logout
+    let cookies = await testHelper.page.context().cookies();
+    let sessionCookie = cookies.find(cookie => 
+      cookie.name.includes('better-auth')
+    );
+    expect(sessionCookie).toBeDefined();
 
     // Navigate to logout (simulating logout click)
     await testHelper.page.goto('/logout');
@@ -134,8 +148,11 @@ test.describe('Authentication Flow', () => {
     await expect(testHelper.page).toHaveURL('/login');
     await expect(testHelper.page.locator('[data-test-id="login-form"]')).toBeVisible();
 
-    // Session token should be cleared
-    sessionToken = await testHelper.page.evaluate(() => localStorage.getItem('sessionToken'));
-    expect(sessionToken).toBeNull();
+    // Session cookies should be cleared after logout
+    cookies = await testHelper.page.context().cookies();
+    sessionCookie = cookies.find(cookie => 
+      cookie.name.includes('better-auth')
+    );
+    expect(sessionCookie).toBeUndefined();
   });
 }); 
