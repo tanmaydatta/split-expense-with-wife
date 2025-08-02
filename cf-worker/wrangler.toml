@@ -40,7 +40,8 @@ enabled = true
     binding = "DB"
     database_name = "splitexpense"
     database_id = "56f19864-f964-4c28-b176-001047d58e00" 
-
+    migrations_dir = "src/db/migrations"
+    
     [env.prod.vars]
     ALLOWED_ORIGINS = "https://splitexpense.netlify.app,https://deploy-preview-5--splitexpense.netlify.app,http://localhost:3000,http://localhost:3001"
     GROUP_IDS = "1"

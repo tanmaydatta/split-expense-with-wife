@@ -16,8 +16,7 @@
 - retire netlify functions ✅
 - remove pin ✅
 - drizzle ✅
-- use better-auth
-- react query
+- use better-auth ✅
 - fix duplicate first name issue
 - multi person split
 - sessions api - d1
@@ -30,4 +29,5 @@
 - add new users
 - rate limiting
 - roles
+- react query - pagination
 - convert to dropdown if more than 4 budgets
