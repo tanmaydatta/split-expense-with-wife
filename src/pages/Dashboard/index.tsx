@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Form/Input";
+import { Select } from "@/components/Form/Select";
 import { ErrorContainer, SuccessContainer } from "@/components/MessageContainer";
 import { Loader } from "@/components/Loader";
 import { CreditDebit } from "./CreditDebit";
@@ -322,7 +323,7 @@ function Dashboard(): JSX.Element {
 
         {/* Currency */}
         <label>Currency</label>
-        <select
+        <Select
           value={currency}
           onChange={(e) => setCurrency(e.target.value)}
           className="currency-select"
@@ -336,7 +337,7 @@ function Dashboard(): JSX.Element {
           <option value="EUR">EUR</option>
           <option value="GBP">GBP</option>
           <option value="CAD">CAD</option>
-        </select>
+        </Select>
 
 
 
@@ -344,7 +345,7 @@ function Dashboard(): JSX.Element {
         {addExpense && (
           <>
             <label>Paid By</label>
-            <select
+            <Select
               value={paidBy || ""}
               onChange={(e) => setPaidBy(e.target.value)}
               className="paid-by-select"
@@ -360,7 +361,7 @@ function Dashboard(): JSX.Element {
                   {user.FirstName}
                 </option>
               ))}
-            </select>
+            </Select>
           </>
         )}
 

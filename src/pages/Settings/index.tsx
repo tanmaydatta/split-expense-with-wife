@@ -8,6 +8,7 @@ import { Card } from '@/components/Card';
 import { Button } from '@/components/Button';
 import { Input } from '@/components/Form/Input';
 import { Select } from '@/components/Form/Select';
+
 import { Loader } from '@/components/Loader';
 import { ErrorContainer, SuccessContainer } from '@/components/MessageContainer';
 import type { GroupDetailsResponse, ReduxState, UpdateGroupMetadataRequest, User } from '@shared-types';
@@ -291,7 +292,12 @@ const Settings: React.FC = () => {
               defaultCurrency: e.target.value,
               currencyDirty: e.target.value !== state.groupDetails?.metadata.defaultCurrency
             }))}
+            className="currency-select"
+            name="defaultCurrency"
             data-test-id="currency-select"
+            disabled={state.loading}
+            required
+            title="Please select a currency"
           >
             {(data?.extra?.currencies || ['USD']).map((currency: string) => (
               <option key={currency} value={currency}>

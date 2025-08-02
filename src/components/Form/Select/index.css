@@ -1,0 +1,118 @@
+/* Base styling for all select elements using this component */
+.form-select,
+.currency-select,
+.paid-by-select {
+  padding: var(--spacing-small) var(--spacing-medium);
+  border: 1px solid var(--color-secondary);
+  border-radius: var(--border-radius);
+  font-size: var(--font-size-medium);
+  font-family: var(--font-family);
+  background-color: var(--color-white);
+  color: var(--color-dark);
+  min-height: 44px;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  width: 100%;
+  box-sizing: border-box;
+  
+  /* Safari-specific fixes */
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  
+  /* Custom dropdown arrow for Safari and other browsers */
+  background-image: url('data:image/svg+xml;charset=US-ASCII,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 4 5"><path fill="%23666" d="M2 0L0 2h4zm0 5L0 3h4z"/></svg>');
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 12px;
+  padding-right: 36px; /* Make room for custom arrow */
+}
+
+/* Safari-specific targeting for additional fixes */
+@supports (-webkit-appearance: none) {
+  .form-select,
+  .currency-select,
+  .paid-by-select {
+    /* Ensure proper styling in Safari */
+    background-color: var(--color-white);
+    border: 1px solid var(--color-secondary);
+    padding-right: 40px; /* Extra space for arrow in Safari */
+  }
+}
+
+/* Webkit-specific (Safari/Chrome) dropdown arrow styling */
+.form-select::-webkit-appearance,
+.currency-select::-webkit-appearance,
+.paid-by-select::-webkit-appearance {
+  -webkit-appearance: none;
+}
+
+.form-select::-ms-expand,
+.currency-select::-ms-expand,
+.paid-by-select::-ms-expand {
+  display: none; /* Hide default arrow in IE/Edge */
+}
+
+/* Focus states */
+.form-select:focus,
+.currency-select:focus,
+.paid-by-select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+/* Validation states */
+.form-select:invalid,
+.currency-select:invalid,
+.paid-by-select:invalid {
+  border-color: var(--color-danger);
+}
+
+.form-select:valid,
+.currency-select:valid,
+.paid-by-select:valid {
+  border-color: var(--color-success);
+}
+
+.form-select:focus:invalid,
+.currency-select:focus:invalid,
+.paid-by-select:focus:invalid {
+  box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.25);
+}
+
+.form-select:focus:valid,
+.currency-select:focus:valid,
+.paid-by-select:focus:valid {
+  box-shadow: 0 0 0 2px rgba(40, 167, 69, 0.25);
+}
+
+/* Disabled state */
+.form-select:disabled,
+.currency-select:disabled,
+.paid-by-select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background-color: var(--color-light, #f8f9fa);
+}
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+  .form-select,
+  .currency-select,
+  .paid-by-select {
+    padding: var(--spacing-medium) 40px var(--spacing-medium) var(--spacing-medium); /* Maintain right padding for arrow */
+    min-height: 44px; /* Touch-friendly */
+    font-size: var(--font-size-medium);
+  }
+}
+
+/* Small mobile - prevent zoom on iOS */
+@media (max-width: 480px) {
+  .form-select,
+  .currency-select,
+  .paid-by-select {
+    font-size: 16px; /* Prevent zoom on iOS Safari */
+    padding: 12px 40px 12px 12px; /* Maintain right padding for arrow */
+  }
+}
