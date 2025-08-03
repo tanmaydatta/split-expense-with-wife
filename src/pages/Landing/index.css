@@ -516,14 +516,11 @@
   border-top: 1px solid var(--color-light);
 }
 
-/* Consistent button sizing for all landing page buttons */
-.landing-container button,
+/* Consistent button sizing for main action buttons */
 .landing-container .hero-button,
 .landing-container .hero-button-primary,
 .landing-container .hero-button-secondary,
-.landing-container .cta-button,
-.landing-container .header-button,
-.landing-header button {
+.landing-container .cta-button {
   min-height: 48px !important;
   padding: var(--spacing-medium) var(--spacing-large) !important;
   font-size: var(--font-size-medium) !important;
@@ -620,5 +617,16 @@
   .landing-container .hero-button-secondary {
     width: 100% !important;
     min-width: auto !important;
+  }
+  
+  .header-actions {
+    flex-direction: column;
+    gap: var(--spacing-small);
+  }
+  
+  .landing-container .header-button {
+    min-width: 80px !important;
+    padding: var(--spacing-small) var(--spacing-small) !important;
+    font-size: 0.8rem !important;
   }
 }
