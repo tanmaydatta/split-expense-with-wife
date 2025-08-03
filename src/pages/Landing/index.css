@@ -1,0 +1,627 @@
+@import '../../components/theme/variables.css';
+
+.landing-container {
+  min-height: 100vh;
+  background: linear-gradient(135deg, rgba(0, 123, 255, 0.2), rgba(23, 162, 184, 0.1), var(--color-light));
+  background-size: 400% 400%;
+  animation: gradientShift 15s ease infinite;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow-x: hidden;
+}
+
+.landing-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(circle at 20% 80%, rgba(0, 123, 255, 0.1) 0%, transparent 50%),
+              radial-gradient(circle at 80% 20%, rgba(23, 162, 184, 0.1) 0%, transparent 50%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.landing-header {
+  padding: var(--spacing-medium) var(--spacing-large);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(0, 123, 255, 0.2);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  position: relative;
+  z-index: 10;
+}
+
+@media (max-width: 768px) {
+  .landing-header {
+    padding: var(--spacing-medium);
+  }
+}
+
+.landing-logo {
+  margin: 0;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-info));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-size: var(--font-size-large);
+  font-weight: 700;
+  position: relative;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.landing-logo:hover {
+  transform: scale(1.05);
+  filter: brightness(1.1);
+}
+
+@media (max-width: 768px) {
+  .landing-logo {
+    font-size: var(--font-size-medium);
+  }
+}
+
+.header-actions {
+  display: flex;
+  gap: var(--spacing-medium);
+}
+
+@media (max-width: 480px) {
+  .header-actions {
+    flex-direction: column;
+    gap: var(--spacing-small);
+  }
+}
+
+/* Base header button styles - consistent sizing */
+.header-button {
+  min-width: 100px !important;
+  min-height: 40px !important;
+  padding: var(--spacing-small) var(--spacing-medium) !important;
+  font-size: 0.9rem !important;
+  font-weight: 500 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-sizing: border-box !important;
+  border-radius: var(--border-radius) !important;
+  text-decoration: none !important;
+  transition: all 0.2s ease-in-out !important;
+}
+
+/* Login button specific styling */
+.login-button {
+  background: transparent !important;
+  color: var(--color-primary) !important;
+  border: 2px solid var(--color-primary) !important;
+}
+
+.login-button:hover {
+  background: var(--color-primary) !important;
+  color: var(--color-white) !important;
+  opacity: 1 !important;
+}
+
+/* Sign up button specific styling */
+.signup-button {
+  background: var(--color-primary) !important;
+  color: var(--color-white) !important;
+  border: 2px solid var(--color-primary) !important;
+}
+
+.signup-button:hover {
+  opacity: 0.8 !important;
+}
+
+.landing-main {
+  flex: 1;
+  padding: var(--spacing-large) var(--spacing-large);
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+  position: relative;
+  z-index: 1;
+}
+
+@media (max-width: 768px) {
+  .landing-main {
+    padding: var(--spacing-large) var(--spacing-medium);
+  }
+}
+
+.hero-section {
+  text-align: center;
+  margin-bottom: var(--spacing-large);
+  position: relative;
+  padding: var(--spacing-large) 0;
+}
+
+.hero-section::before {
+  content: '💰';
+  position: absolute;
+  top: 10%;
+  left: 10%;
+  font-size: 4rem;
+  opacity: 0.1;
+  animation: float 6s ease-in-out infinite;
+  z-index: -1;
+}
+
+.hero-section::after {
+  content: '📊';
+  position: absolute;
+  bottom: 10%;
+  right: 10%;
+  font-size: 3rem;
+  opacity: 0.1;
+  animation: float 8s ease-in-out infinite reverse;
+  z-index: -1;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-20px) rotate(5deg); }
+}
+
+@media (max-width: 768px) {
+  .hero-section {
+    margin-bottom: var(--spacing-large);
+    padding: var(--spacing-large) 0;
+  }
+  
+  .hero-section::before,
+  .hero-section::after {
+    display: none;
+  }
+}
+
+.hero-title {
+  font-size: 3rem;
+  font-weight: 700;
+  color: var(--color-dark);
+  margin-bottom: var(--spacing-medium);
+  line-height: 1.1;
+  animation: slideUp 1s ease-out;
+  position: relative;
+}
+
+.hero-title-highlight {
+  background: linear-gradient(135deg, var(--color-primary), var(--color-info), var(--color-success));
+  background-size: 200% 200%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: gradientText 3s ease infinite;
+  display: inline-block;
+  position: relative;
+}
+
+.hero-title-highlight::after {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-info));
+  border-radius: 2px;
+  animation: slideWidth 2s ease-out 0.5s both;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes gradientText {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+@keyframes slideWidth {
+  from { width: 0%; }
+  to { width: 100%; }
+}
+
+@media (max-width: 768px) {
+  .hero-title {
+    font-size: 2rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .hero-title {
+    font-size: 1.75rem;
+  }
+}
+
+.hero-subtitle {
+  font-size: 1.25rem;
+  color: var(--color-secondary);
+  margin-bottom: var(--spacing-large);
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+  animation: slideUp 1s ease-out 0.3s both;
+}
+
+@media (max-width: 768px) {
+  .hero-subtitle {
+    font-size: 1.1rem;
+  }
+}
+
+.hero-cta {
+  display: flex;
+  gap: var(--spacing-medium);
+  justify-content: center;
+  animation: slideUp 1s ease-out 0.6s both;
+}
+
+@media (max-width: 480px) {
+  .hero-cta {
+    flex-direction: column;
+    align-items: center;
+  }
+}
+
+.features-section {
+  margin-bottom: var(--spacing-large);
+}
+
+.section-title {
+  text-align: center;
+  font-size: 2rem;
+  font-weight: 600;
+  color: var(--color-dark);
+  margin-bottom: var(--spacing-large);
+}
+
+@media (max-width: 768px) {
+  .section-title {
+    font-size: 1.5rem;
+  }
+}
+
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: var(--spacing-large);
+}
+
+@media (max-width: 768px) {
+  .features-grid {
+    grid-template-columns: 1fr;
+    gap: var(--spacing-medium);
+  }
+}
+
+.feature-card {
+  text-align: center;
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  position: relative;
+  overflow: hidden;
+  border: 1px solid transparent;
+  background: var(--color-white);
+  cursor: pointer;
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow-small);
+  padding: var(--spacing-medium);
+}
+
+.feature-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(0, 123, 255, 0.2), transparent);
+  transition: left 0.5s;
+}
+
+.feature-card:hover {
+  transform: translateY(-8px) scale(1.02);
+  box-shadow: 0 20px 40px rgba(0, 123, 255, 0.15), 0 15px 25px rgba(0, 0, 0, 0.1);
+  border-color: rgba(0, 123, 255, 0.3);
+}
+
+.feature-card:hover::before {
+  left: 100%;
+}
+
+.feature-card:nth-child(odd) {
+  animation: fadeInLeft 0.8s ease-out;
+}
+
+.feature-card:nth-child(even) {
+  animation: fadeInRight 0.8s ease-out;
+}
+
+@keyframes fadeInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes fadeInRight {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@media (max-width: 768px) {
+  .feature-card {
+    padding: var(--spacing-small);
+    border-radius: var(--border-radius);
+  }
+}
+
+@media (max-width: 480px) {
+  .feature-card {
+    padding: 12px;
+    margin: 0 4px;
+  }
+}
+
+.feature-icon {
+  font-size: 3rem;
+  margin-bottom: var(--spacing-medium);
+  color: var(--color-primary);
+  transition: all 0.3s ease;
+  position: relative;
+  z-index: 2;
+}
+
+.feature-card:hover .feature-icon {
+  transform: scale(1.2) rotate(5deg);
+  filter: drop-shadow(0 4px 8px rgba(0, 123, 255, 0.3));
+}
+
+.feature-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--color-dark);
+  margin-bottom: var(--spacing-small);
+}
+
+.feature-description {
+  color: var(--color-secondary);
+  line-height: 1.6;
+  margin-bottom: 0;
+}
+
+.cta-section {
+  background: linear-gradient(135deg, var(--color-primary), var(--color-info));
+  background-size: 400% 400%;
+  animation: gradientShift 8s ease infinite;
+  color: var(--color-white);
+  padding: var(--spacing-large);
+  border-radius: 20px;
+  text-align: center;
+  margin-bottom: var(--spacing-large);
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 20px 40px rgba(0, 123, 255, 0.3);
+}
+
+.cta-section::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+  animation: pulse 4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1) rotate(0deg); opacity: 0.3; }
+  50% { transform: scale(1.1) rotate(180deg); opacity: 0.1; }
+}
+
+.cta-title {
+  font-size: 2rem;
+  font-weight: 600;
+  margin-bottom: var(--spacing-medium);
+  color: var(--color-white);
+  position: relative;
+  z-index: 2;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+@media (max-width: 768px) {
+  .cta-title {
+    font-size: 1.5rem;
+  }
+}
+
+.cta-description {
+  font-size: 1.1rem;
+  margin-bottom: var(--spacing-large);
+  opacity: 0.95;
+  max-width: 500px;
+  margin-left: auto;
+  margin-right: auto;
+  position: relative;
+  z-index: 2;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.cta-button {
+  background: var(--color-white) !important;
+  color: var(--color-primary) !important;
+  font-weight: 600 !important;
+  font-size: var(--font-size-medium) !important;
+  padding: var(--spacing-medium) var(--spacing-large) !important;
+  min-height: 48px !important;
+  min-width: 140px !important;
+  position: relative;
+  z-index: 2;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2) !important;
+  border: 2px solid transparent !important;
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.cta-button:hover {
+  transform: translateY(-4px) scale(1.05) !important;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3) !important;
+  background: var(--color-light) !important;
+  border-color: var(--color-white) !important;
+  opacity: 1 !important;
+}
+
+.cta-button:active {
+  transform: translateY(-2px) scale(1.02) !important;
+}
+
+.landing-footer {
+  text-align: center;
+  padding: var(--spacing-large);
+  color: var(--color-secondary);
+  background: var(--color-white);
+  border-top: 1px solid var(--color-light);
+}
+
+/* Consistent button sizing for main action buttons */
+.landing-container .hero-button,
+.landing-container .hero-button-primary,
+.landing-container .hero-button-secondary,
+.landing-container .cta-button {
+  min-height: 48px !important;
+  padding: var(--spacing-medium) var(--spacing-large) !important;
+  font-size: var(--font-size-medium) !important;
+  font-weight: 500 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-width: 140px !important;
+  text-align: center !important;
+  box-sizing: border-box !important;
+}
+
+/* Base hero button styles - consistent sizing */
+.hero-button {
+  min-width: 140px !important;
+  min-height: 48px !important;
+  padding: var(--spacing-medium) var(--spacing-large) !important;
+  font-size: var(--font-size-medium) !important;
+  font-weight: 500 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-sizing: border-box !important;
+  border-radius: var(--border-radius) !important;
+  text-decoration: none !important;
+  transition: all 0.2s ease-in-out !important;
+}
+
+.hero-button-primary {
+  background: var(--color-primary) !important;
+  color: var(--color-white) !important;
+  border: 2px solid var(--color-primary) !important;
+}
+
+.hero-button-primary:hover {
+  opacity: 0.8 !important;
+}
+
+.hero-button-secondary {
+  background: transparent !important;
+  color: var(--color-primary) !important;
+  border: 2px solid var(--color-primary) !important;
+}
+
+.hero-button-secondary:hover {
+  background: var(--color-primary) !important;
+  color: var(--color-white) !important;
+  opacity: 1 !important;
+}
+
+/* Alternative login styling for hero buttons */
+.login-style {
+  background: transparent !important;
+  color: var(--color-primary) !important;
+  border: 2px solid var(--color-primary) !important;
+}
+
+.login-style:hover {
+  background: var(--color-primary) !important;
+  color: var(--color-white) !important;
+  opacity: 1 !important;
+}
+
+/* Mobile responsive button sizing */
+@media (max-width: 768px) {
+  .landing-container button,
+  .landing-container .hero-button,
+  .landing-container .hero-button-primary,
+  .landing-container .hero-button-secondary,
+  .landing-container .cta-button {
+    min-width: 120px !important;
+    padding: var(--spacing-medium) var(--spacing-medium) !important;
+  }
+  
+  .landing-container .header-button,
+  .landing-header button {
+    min-width: 90px !important;
+    padding: var(--spacing-small) var(--spacing-small) !important;
+    font-size: 0.85rem !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .hero-cta {
+    width: 100%;
+  }
+  
+  .hero-cta a {
+    width: 100%;
+  }
+  
+  .landing-container .hero-button,
+  .landing-container .hero-button-primary,
+  .landing-container .hero-button-secondary {
+    width: 100% !important;
+    min-width: auto !important;
+  }
+  
+  .landing-container .header-button {
+    min-width: 80px !important;
+    padding: var(--spacing-small) var(--spacing-small) !important;
+    font-size: 0.8rem !important;
+  }
+}
