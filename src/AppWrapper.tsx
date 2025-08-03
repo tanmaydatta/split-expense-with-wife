@@ -15,6 +15,7 @@ import Sidebar from "@/components/Sidebar";
 import Transactions from "@/pages/Transactions";
 import Settings from "@/pages/Settings";
 import NotFound from "@/pages/NotFound";
+import Landing from "@/pages/Landing";
 import { authClient } from "./utils/authClient";
 import { setData } from "./redux/data";
 
@@ -226,6 +227,7 @@ function AppWrapper() {
         </AppContainer>
       ) : (
         <Routes>
+          <Route path="/" element={<Landing />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignUpPage />} />
           {/* Redirect all other routes to login when unauthenticated */}
