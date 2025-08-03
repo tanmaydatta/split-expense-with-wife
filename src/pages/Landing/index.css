@@ -619,11 +619,6 @@
     min-width: auto !important;
   }
   
-  .header-actions {
-    flex-direction: column;
-    gap: var(--spacing-small);
-  }
-  
   .landing-container .header-button {
     min-width: 80px !important;
     padding: var(--spacing-small) var(--spacing-small) !important;
