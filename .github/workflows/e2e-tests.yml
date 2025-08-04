@@ -35,7 +35,7 @@ jobs:
       run: yarn build
     
     - name: Run E2E tests
-      run: yarn test:e2e src/e2e/tests/settings-management.spec.ts && yarn test:e2e src/e2e/tests/budget-management.spec.ts && yarn test:e2e src/e2e/tests/transactions-balances.spec.ts && yarn test:e2e src/e2e/tests/expense-management.spec.ts && yarn test:e2e src/e2e/tests/auth.spec.ts
+      run: yarn playwright test --project=chromium --workers=1 --reporter=list,html --trace=on  src/e2e/tests/settings-management.spec.ts && yarn playwright test --project=chromium --workers=1 --reporter=list,html --trace=on src/e2e/tests/budget-management.spec.ts && yarn playwright test --project=chromium --workers=1 --reporter=list,html --trace=on src/e2e/tests/transactions-balances.spec.ts && yarn playwright test --project=chromium --workers=1 --reporter=list,html --trace=on src/e2e/tests/expense-management.spec.ts && yarn playwright test --project=chromium --workers=1 --reporter=list,html --trace=on src/e2e/tests/auth.spec.ts
     
     - name: Upload test results
       uses: actions/upload-artifact@v4
