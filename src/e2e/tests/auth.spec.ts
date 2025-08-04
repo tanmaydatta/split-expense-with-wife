@@ -18,7 +18,7 @@ test.describe('Authentication Flow', () => {
   });
 
   test('should display login form when accessing protected route without authentication', async ({ testHelper }) => {
-    await testHelper.page.goto('/');
+    await testHelper.page.goto('/expenses');
 
     // Should stay on root page but show login form instead of dashboard content
     await expect(testHelper.page).toHaveURL('/login');
@@ -46,7 +46,7 @@ test.describe('Authentication Flow', () => {
   });
 
   test('should show error message with invalid credentials', async ({ testHelper }) => {
-    await testHelper.page.goto('/');
+    await testHelper.page.goto('/login');
     await testHelper.page.fill('[data-test-id="username-input"]', testData.users.invalidUser.username);
     await testHelper.page.fill('[data-test-id="password-input"]', testData.users.invalidUser.password);
     await testHelper.page.click('[data-test-id="login-button"]');
