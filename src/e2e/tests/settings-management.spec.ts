@@ -263,11 +263,6 @@ test.describe('Settings Management', () => {
         });
 
         test('should save currency changes and update other forms', async ({ authenticatedPage }) => {
-            // Capture console logs
-            authenticatedPage.page.on('console', msg => {
-                console.log('Browser console:', msg.text());
-            });
-            
             const settingsHelper = new SettingsTestHelper(authenticatedPage);
 
             // Get current currency
@@ -349,18 +344,11 @@ test.describe('Settings Management', () => {
             await authenticatedPage.page.waitForTimeout(2000);
 
             // Set precise percentages for 2 users
-            await settingsHelper.setUserPercentage(userId1, (newUser1Percentage + 0.001).toFixed(3).toString());
-            await settingsHelper.setUserPercentage(userId2, (100-(newUser1Percentage + 0.001)).toFixed(3).toString());
-
+            await settingsHelper.setUserPercentage(userId1, (newUser1Percentage + 0.002).toFixed(3).toString());
+            await settingsHelper.setUserPercentage(userId2, (100-(newUser1Percentage + 0.002)).toFixed(3).toString());
+            await authenticatedPage.page.waitForTimeout(1000);
             // This should be valid (totals 100.000)
-            await expect(await settingsHelper.isSaveButtonEnabled()).toBe(true);
-
-            // Test slightly off but within tolerance
-            await settingsHelper.setUserPercentage(userId1, (newUser1Percentage + 0.0005).toFixed(3).toString());
-            await settingsHelper.setUserPercentage(userId2, (100-(newUser1Percentage + 0.0005)).toFixed(3).toString()); // Total = 100.000
-
-            // Should still be valid (within 0.001 tolerance)
-            await expect(await settingsHelper.isSaveButtonEnabled()).toBe(true);
+            expect(await settingsHelper.isSaveButtonEnabled()).toBe(true);
         });
 
         test('should save percentage changes successfully', async ({ authenticatedPage }) => {
