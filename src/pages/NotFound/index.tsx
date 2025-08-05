@@ -46,36 +46,36 @@ const ButtonContainer = styled.div`
 `;
 
 function NotFound(): JSX.Element {
-  const navigate = useNavigate();
+	const navigate = useNavigate();
 
-  const handleGoHome = () => {
-    navigate("/");
-  };
+	const handleGoHome = () => {
+		navigate("/");
+	};
 
-  const handleGoBack = () => {
-    navigate(-1);
-  };
+	const handleGoBack = () => {
+		navigate(-1);
+	};
 
-  return (
-    <NotFoundContainer data-test-id="not-found-container">
-      <NotFoundCard>
-        <NotFoundTitle>404</NotFoundTitle>
-        <NotFoundSubtitle>Page Not Found</NotFoundSubtitle>
-        <NotFoundMessage>
-          Sorry, the page you are looking for doesn't exist or has been moved.
-          You can go back to the previous page or return to the home page.
-        </NotFoundMessage>
-        <ButtonContainer>
-          <Button onClick={handleGoBack} data-test-id="go-back-button">
-            Go Back
-          </Button>
-          <Button onClick={handleGoHome} data-test-id="go-home-button">
-            Go Home
-          </Button>
-        </ButtonContainer>
-      </NotFoundCard>
-    </NotFoundContainer>
-  );
+	return (
+		<NotFoundContainer data-test-id="not-found-container">
+			<NotFoundCard>
+				<NotFoundTitle>404</NotFoundTitle>
+				<NotFoundSubtitle>Page Not Found</NotFoundSubtitle>
+				<NotFoundMessage>
+					Sorry, the page you are looking for doesn't exist or has been moved.
+					You can go back to the previous page or return to the home page.
+				</NotFoundMessage>
+				<ButtonContainer>
+					<Button onClick={handleGoBack} data-test-id="go-back-button">
+						Go Back
+					</Button>
+					<Button onClick={handleGoHome} data-test-id="go-home-button">
+						Go Home
+					</Button>
+				</ButtonContainer>
+			</NotFoundCard>
+		</NotFoundContainer>
+	);
 }
 
-export default NotFound; 
+export default NotFound;

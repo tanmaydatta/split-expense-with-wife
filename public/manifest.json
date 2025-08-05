@@ -1,36 +1,36 @@
 {
-  "short_name": "Split Expense",
-  "name": "Split Expense with Wife",
-  "icons": [
-    {
-      "src": "logo192.png",
-      "type": "image/png",
-      "sizes": "192x192"
-    },
-    {
-      "src": "logo512.png",
-      "type": "image/png",
-      "sizes": "512x512"
-    }
-  ],
-  "screenshots": [
-    {
-      "src": "logo512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "form_factor": "wide",
-      "label": "Expense Tracker"
-    },
-    {
-      "src": "logo512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "form_factor": "narrow",
-      "label": "Expense Tracker"
-    }
-  ],
-  "start_url": ".",
-  "display": "standalone",
-  "theme_color": "#2196f3",
-  "background_color": "#ffffff"
+	"short_name": "Split Expense",
+	"name": "Split Expense with Wife",
+	"icons": [
+		{
+			"src": "logo192.png",
+			"type": "image/png",
+			"sizes": "192x192"
+		},
+		{
+			"src": "logo512.png",
+			"type": "image/png",
+			"sizes": "512x512"
+		}
+	],
+	"screenshots": [
+		{
+			"src": "logo512.png",
+			"sizes": "512x512",
+			"type": "image/png",
+			"form_factor": "wide",
+			"label": "Expense Tracker"
+		},
+		{
+			"src": "logo512.png",
+			"sizes": "512x512",
+			"type": "image/png",
+			"form_factor": "narrow",
+			"label": "Expense Tracker"
+		}
+	],
+	"start_url": ".",
+	"display": "standalone",
+	"theme_color": "#2196f3",
+	"background_color": "#ffffff"
 }

@@ -1,5 +1,5 @@
-import React from 'react';
-import styled, { keyframes } from 'styled-components';
+import React from "react";
+import styled, { keyframes } from "styled-components";
 
 const spin = keyframes`
   0% { transform: rotate(0deg); }
@@ -16,9 +16,9 @@ const StyledLoader = styled.div`
 `;
 
 interface LoaderProps {
-  'data-test-id'?: string;
+	"data-test-id"?: string;
 }
 
-export const Loader: React.FC<LoaderProps> = ({ 'data-test-id': testId = 'loader' }) => (
-  <StyledLoader data-test-id={testId} />
-);
+export const Loader: React.FC<LoaderProps> = ({
+	"data-test-id": testId = "loader",
+}) => <StyledLoader data-test-id={testId} />;

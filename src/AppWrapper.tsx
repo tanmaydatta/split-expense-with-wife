@@ -9,7 +9,7 @@ import { GlobalStyles } from "@/components/theme/GlobalStyles";
 import { theme } from "@/components/theme";
 import LoginPage from "@/pages/Login";
 import SignUpPage from "@/pages/SignUp";
-import Logout  from "@/Logout";
+import Logout from "@/Logout";
 import { MonthlyBudgetPage } from "@/pages/MonthlyBudgetPage";
 import Sidebar from "@/components/Sidebar";
 import Transactions from "@/pages/Transactions";
@@ -40,7 +40,7 @@ const SidebarWrapper = styled.div<{ $isOpen: boolean }>`
     left: 0;
     height: 100vh;
     z-index: 1000;
-    transform: translateX(${({ $isOpen }) => $isOpen ? '0' : '-100%'});
+    transform: translateX(${({ $isOpen }) => ($isOpen ? "0" : "-100%")});
     background: ${({ theme }) => theme.colors.dark};
     box-shadow: ${({ theme }) => theme.shadows.large};
   }
@@ -50,7 +50,7 @@ const MobileOverlay = styled.div<{ $isOpen: boolean }>`
   display: none;
   
   @media (max-width: 768px) {
-    display: ${({ $isOpen }) => $isOpen ? 'block' : 'none'};
+    display: ${({ $isOpen }) => ($isOpen ? "block" : "none")};
     position: fixed;
     top: 0;
     left: 0;
@@ -130,112 +130,115 @@ const PageContent = styled.div`
 
 // Create wrapped components outside of render to prevent recreation
 function AppWrapper() {
-  const session =  authClient.useSession();
-  const {data, error} = session;
-  console.log("session", session);
-  const isAuthenticated = data?.user != null && error === null && !session.isPending;
-  console.log("isAuthenticated", isAuthenticated, "isrefetching", (session as any).isRefetching);
-  console.log("data", data);
-  console.log("data?.user", data?.user);
-  console.log("error", error);
-  console.log("window.location.pathname", window.location.pathname);
+	const session = authClient.useSession();
+	const { data, error } = session;
+	console.log("session", session);
+	const isAuthenticated =
+		data?.user != null && error === null && !session.isPending;
+	console.log(
+		"isAuthenticated",
+		isAuthenticated,
+		"isrefetching",
+		(session as any).isRefetching,
+	);
+	console.log("data", data);
+	console.log("data?.user", data?.user);
+	console.log("error", error);
+	console.log("window.location.pathname", window.location.pathname);
 
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
-  useEffect(() => {
-    if (data) {
-      console.log("dispatching data", data);
-      store.dispatch(setData(data));
-    }
-  }, [data]);
-  
-  // Check if we're on mobile
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth <= 768);
-    };
-    
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
+	const [sidebarOpen, setSidebarOpen] = useState(false);
+	const [isMobile, setIsMobile] = useState(false);
+	useEffect(() => {
+		if (data) {
+			console.log("dispatching data", data);
+			store.dispatch(setData(data));
+		}
+	}, [data]);
 
-  // Close sidebar when clicking outside on mobile
-  const handleOverlayClick = () => {
-    setSidebarOpen(false);
-  };
+	// Check if we're on mobile
+	useEffect(() => {
+		const checkMobile = () => {
+			setIsMobile(window.innerWidth <= 768);
+		};
 
-  // Get current page title based on location
-  const getPageTitle = () => {
-    const path = window.location.pathname;
-    if (path === '/') return 'Add Expense';
-    if (path === '/expenses') return 'Expenses';
-    if (path === '/balances') return 'Balances';
-    if (path === '/budget') return 'Budget';
-    if (path.startsWith('/monthly-budget')) return 'Monthly Budget';
-    if (path === '/settings') return 'Settings';
-    if (path === '/logout') return 'Logout';
-    return 'Page Not Found'; // For 404 and unknown routes
-  };
-  // Show loading while session data is being fetched
-  if (session.isPending) {
-    console.log("loading");
-    return <div>Loading...</div>;
-  }
+		checkMobile();
+		window.addEventListener("resize", checkMobile);
+		return () => window.removeEventListener("resize", checkMobile);
+	}, []);
 
-  return (
-    <ThemeProvider theme={theme}>
-      <GlobalStyles />
-      {isAuthenticated ? (
-        <AppContainer>
-          <MobileOverlay $isOpen={sidebarOpen} onClick={handleOverlayClick} />
-          <SidebarWrapper $isOpen={sidebarOpen}>
-            <Sidebar onNavigate={() => setSidebarOpen(false)} />
-          </SidebarWrapper>
-          <MainContent $sidebarOpen={sidebarOpen}>
-            {isMobile && (
-              <MobileHeader>
-                <HamburgerButton onClick={() => setSidebarOpen(!sidebarOpen)}>
-                  <span />
-                  <span />
-                  <span />
-                </HamburgerButton>
-                <PageTitle>{getPageTitle()}</PageTitle>
-                <div style={{ width: '40px' }} /> {/* Spacer for centering */}
-              </MobileHeader>
-            )}
-            <PageContent>
-              <Routes>
-                <Route path="/" element={<Dashboard />} />
-                <Route path="/balances" element={<Balances />} />
-                <Route path="/budget" element={<Budget />} />
-                <Route
-                  path="/monthly-budget"
-                  element={<MonthlyBudgetPage />}
-                />
-                <Route
-                  path="/monthly-budget/:budgetName"
-                  element={<MonthlyBudgetPage />}
-                />
-                <Route path="/expenses" element={<Transactions />} />
-                <Route path="/settings" element={<Settings />} />
-                <Route path="/logout" element={<Logout />} />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </PageContent>
-          </MainContent>
-        </AppContainer>
-      ) : (
-        <Routes>
-          <Route path="/" element={<Landing />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/signup" element={<SignUpPage />} />
-          {/* Redirect all other routes to login when unauthenticated */}
-          <Route path="*" element={<Navigate to="/login" replace />} />
-        </Routes>
-      )}
-    </ThemeProvider>
-  );
+	// Close sidebar when clicking outside on mobile
+	const handleOverlayClick = () => {
+		setSidebarOpen(false);
+	};
+
+	// Get current page title based on location
+	const getPageTitle = () => {
+		const path = window.location.pathname;
+		if (path === "/") return "Add Expense";
+		if (path === "/expenses") return "Expenses";
+		if (path === "/balances") return "Balances";
+		if (path === "/budget") return "Budget";
+		if (path.startsWith("/monthly-budget")) return "Monthly Budget";
+		if (path === "/settings") return "Settings";
+		if (path === "/logout") return "Logout";
+		return "Page Not Found"; // For 404 and unknown routes
+	};
+	// Show loading while session data is being fetched
+	if (session.isPending) {
+		console.log("loading");
+		return <div>Loading...</div>;
+	}
+
+	return (
+		<ThemeProvider theme={theme}>
+			<GlobalStyles />
+			{isAuthenticated ? (
+				<AppContainer>
+					<MobileOverlay $isOpen={sidebarOpen} onClick={handleOverlayClick} />
+					<SidebarWrapper $isOpen={sidebarOpen}>
+						<Sidebar onNavigate={() => setSidebarOpen(false)} />
+					</SidebarWrapper>
+					<MainContent $sidebarOpen={sidebarOpen}>
+						{isMobile && (
+							<MobileHeader>
+								<HamburgerButton onClick={() => setSidebarOpen(!sidebarOpen)}>
+									<span />
+									<span />
+									<span />
+								</HamburgerButton>
+								<PageTitle>{getPageTitle()}</PageTitle>
+								<div style={{ width: "40px" }} /> {/* Spacer for centering */}
+							</MobileHeader>
+						)}
+						<PageContent>
+							<Routes>
+								<Route path="/" element={<Dashboard />} />
+								<Route path="/balances" element={<Balances />} />
+								<Route path="/budget" element={<Budget />} />
+								<Route path="/monthly-budget" element={<MonthlyBudgetPage />} />
+								<Route
+									path="/monthly-budget/:budgetName"
+									element={<MonthlyBudgetPage />}
+								/>
+								<Route path="/expenses" element={<Transactions />} />
+								<Route path="/settings" element={<Settings />} />
+								<Route path="/logout" element={<Logout />} />
+								<Route path="*" element={<NotFound />} />
+							</Routes>
+						</PageContent>
+					</MainContent>
+				</AppContainer>
+			) : (
+				<Routes>
+					<Route path="/" element={<Landing />} />
+					<Route path="/login" element={<LoginPage />} />
+					<Route path="/signup" element={<SignUpPage />} />
+					{/* Redirect all other routes to login when unauthenticated */}
+					<Route path="*" element={<Navigate to="/login" replace />} />
+				</Routes>
+			)}
+		</ThemeProvider>
+	);
 }
 
 export default AppWrapper;

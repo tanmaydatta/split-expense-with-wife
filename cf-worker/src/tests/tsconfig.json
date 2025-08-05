@@ -1,13 +1,9 @@
 {
-  "extends": "../../tsconfig.json",
-  "compilerOptions": {
-    "moduleResolution": "bundler",
-    "skipLibCheck": true,
-    "types": []
-  },
-  "include": [
-    "./**/*.ts",
-    "../types.ts",
-    "../env.d.ts"
-  ]
-} 
+	"extends": "../../tsconfig.json",
+	"compilerOptions": {
+		"moduleResolution": "bundler",
+		"skipLibCheck": true,
+		"types": []
+	},
+	"include": ["./**/*.ts", "../types.ts", "../env.d.ts"]
+}

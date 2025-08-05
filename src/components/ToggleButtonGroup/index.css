@@ -1,82 +1,82 @@
 .toggle-button-group {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
-  gap: var(--spacing-small);
-  width: 100%;
-  margin-bottom: var(--spacing-small);
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+	gap: var(--spacing-small);
+	width: 100%;
+	margin-bottom: var(--spacing-small);
 }
 
 .toggle-button {
-  padding: var(--spacing-small) var(--spacing-medium);
-  border: 1px solid var(--color-primary);
-  border-radius: var(--border-radius);
-  background-color: var(--color-white);
-  color: var(--color-primary);
-  font-size: var(--font-size-medium);
-  font-family: var(--font-main);
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  position: relative;
-  box-shadow: var(--shadow-small);
-  overflow-wrap: break-word;
-  text-align: center;
+	padding: var(--spacing-small) var(--spacing-medium);
+	border: 1px solid var(--color-primary);
+	border-radius: var(--border-radius);
+	background-color: var(--color-white);
+	color: var(--color-primary);
+	font-size: var(--font-size-medium);
+	font-family: var(--font-main);
+	font-weight: 500;
+	cursor: pointer;
+	transition: all 0.2s ease;
+	position: relative;
+	box-shadow: var(--shadow-small);
+	overflow-wrap: break-word;
+	text-align: center;
 }
 
 .toggle-button:hover {
-  background-color: var(--color-primary);
-  color: var(--color-white);
-  z-index: 1;
+	background-color: var(--color-primary);
+	color: var(--color-white);
+	z-index: 1;
 }
 
 .toggle-button.selected {
-  background-color: var(--color-primary);
-  color: var(--color-white);
-  z-index: 2;
+	background-color: var(--color-primary);
+	color: var(--color-white);
+	z-index: 2;
 }
 
 .toggle-button:focus {
-  outline: none;
-  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
-  z-index: 3;
+	outline: none;
+	box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+	z-index: 3;
 }
 
 .toggle-button:active {
-  transform: translateY(1px);
+	transform: translateY(1px);
 }
 
 /* Variant styles */
 .toggle-button-outline-primary {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
+	border-color: var(--color-primary);
+	color: var(--color-primary);
 }
 
 .toggle-button-outline-primary.selected,
 .toggle-button-outline-primary:hover {
-  background-color: var(--color-primary);
-  color: var(--color-white);
+	background-color: var(--color-primary);
+	color: var(--color-white);
 }
 
 .toggle-button-outline-success {
-  border-color: var(--color-success);
-  color: var(--color-success);
+	border-color: var(--color-success);
+	color: var(--color-success);
 }
 
 .toggle-button-outline-success.selected,
 .toggle-button-outline-success:hover {
-  background-color: var(--color-success);
-  color: var(--color-white);
+	background-color: var(--color-success);
+	color: var(--color-white);
 }
 
 /* Responsive design */
 @media (max-width: 600px) {
-  .toggle-button {
-    padding: var(--spacing-small);
-    font-size: var(--font-size-small);
-  }
-  
-  .toggle-button-group {
-    grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
-    gap: var(--spacing-extra-small);
-  }
-} 
+	.toggle-button {
+		padding: var(--spacing-small);
+		font-size: var(--font-size-small);
+	}
+
+	.toggle-button-group {
+		grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+		gap: var(--spacing-extra-small);
+	}
+}

@@ -1,13 +1,13 @@
 {
 	"$schema": "https://biomejs.dev/schemas/2.1.3/schema.json",
 	"files": {
-		"includes": ["**", "!build/**"],
+		"includes": ["**", "!build/**", "!cf-worker/dist/**"],
 		"ignoreUnknown": false
 	},
 	"vcs": {
-		"enabled": false,
+		"enabled": true,
 		"clientKind": "git",
-		"useIgnoreFile": false
+		"useIgnoreFile": true
 	},
 	"formatter": {
 		"enabled": true,

@@ -1,17 +1,17 @@
 {
-  "name": "split-expense-shared-types",
-  "version": "1.0.0",
-  "description": "Shared TypeScript types for split expense application",
-  "main": "index.ts",
-  "types": "index.ts",
-  "scripts": {
-    "build": "tsc",
-    "watch": "tsc --watch"
-  },
-  "devDependencies": {
-    "typescript": "^5.0.0"
-  },
-  "peerDependencies": {
-    "typescript": "^5.0.0"
-  }
+	"name": "split-expense-shared-types",
+	"version": "1.0.0",
+	"description": "Shared TypeScript types for split expense application",
+	"main": "index.ts",
+	"types": "index.ts",
+	"scripts": {
+		"build": "tsc",
+		"watch": "tsc --watch"
+	},
+	"devDependencies": {
+		"typescript": "^5.0.0"
+	},
+	"peerDependencies": {
+		"typescript": "^5.0.0"
+	}
 }
