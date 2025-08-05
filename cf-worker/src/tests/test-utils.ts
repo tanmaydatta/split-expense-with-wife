@@ -1,5 +1,5 @@
 import { getDb } from '../db';
-import { groups, transactions, transactionUsers, budget, userBalances, budgetTotals } from '../db/schema/schema';
+import { groups, transactions, transactionUsers, budget, userBalances, budgetTotals, scheduledActions, scheduledActionHistory } from '../db/schema/schema';
 import { user, session, account, verification } from '../db/schema/auth-schema';
 import { sql } from 'drizzle-orm';
 import { auth } from '../auth';
@@ -117,17 +117,31 @@ export async function setupDatabase(env: Env): Promise<void> {
   // Create budget totals table
   await env.DB.exec('CREATE TABLE IF NOT EXISTS budget_totals (group_id INTEGER NOT NULL, name VARCHAR(100) NOT NULL, currency VARCHAR(10) NOT NULL, total_amount REAL NOT NULL DEFAULT 0, updated_at DATETIME NOT NULL, PRIMARY KEY (group_id, name, currency))');
 
+  // Create scheduled actions tables
+  await env.DB.exec('CREATE TABLE IF NOT EXISTS scheduled_actions (id TEXT PRIMARY KEY, user_id TEXT NOT NULL, action_type TEXT NOT NULL, frequency TEXT NOT NULL, start_date TEXT NOT NULL, is_active INTEGER DEFAULT 1 NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, action_data TEXT NOT NULL, last_executed_at TEXT, next_execution_date TEXT NOT NULL, FOREIGN KEY (user_id) REFERENCES user(id) ON UPDATE no action ON DELETE no action)');
+
+  await env.DB.exec('CREATE TABLE IF NOT EXISTS scheduled_action_history (id TEXT PRIMARY KEY, scheduled_action_id TEXT NOT NULL, user_id TEXT NOT NULL, action_type TEXT NOT NULL, executed_at TEXT NOT NULL, execution_status TEXT NOT NULL, action_data TEXT NOT NULL, result_data TEXT, error_message TEXT, execution_duration_ms INTEGER, FOREIGN KEY (scheduled_action_id) REFERENCES scheduled_actions(id) ON UPDATE no action ON DELETE cascade, FOREIGN KEY (user_id) REFERENCES user(id) ON UPDATE no action ON DELETE no action)');
+
   // Create indexes for performance
   await env.DB.exec('CREATE INDEX IF NOT EXISTS user_balances_group_user_idx ON user_balances (group_id, user_id, currency)');
   await env.DB.exec('CREATE INDEX IF NOT EXISTS transaction_users_balances_idx ON transaction_users (group_id, deleted, user_id, owed_to_user_id, currency)');
   await env.DB.exec('CREATE INDEX IF NOT EXISTS budget_totals_group_name_idx ON budget_totals (group_id, name)');
+  await env.DB.exec('CREATE INDEX IF NOT EXISTS scheduled_actions_user_next_execution_idx ON scheduled_actions (user_id, next_execution_date)');
+  await env.DB.exec('CREATE INDEX IF NOT EXISTS scheduled_actions_user_active_idx ON scheduled_actions (user_id, is_active)');
+  await env.DB.exec('CREATE INDEX IF NOT EXISTS scheduled_action_history_user_executed_idx ON scheduled_action_history (user_id, executed_at)');
+  await env.DB.exec('CREATE INDEX IF NOT EXISTS scheduled_action_history_scheduled_action_idx ON scheduled_action_history (scheduled_action_id, executed_at)');
+  await env.DB.exec('CREATE INDEX IF NOT EXISTS scheduled_action_history_status_idx ON scheduled_action_history (execution_status)');
 }
 
 // Clean up database for tests
 export async function cleanupDatabase(env: Env): Promise<void> {
   const db = getDb(env);
 
-  // Clean better-auth tables first (delete child tables before parent due to foreign keys)
+  // Clean scheduled actions tables first (child before parent due to foreign keys)
+  await db.delete(scheduledActionHistory); // Child table (references scheduled_actions)
+  await db.delete(scheduledActions); // Parent table (references user)
+
+  // Clean better-auth tables (delete child tables before parent due to foreign keys)
   await db.delete(session); // Child table (references user)
   await db.delete(account); // Child table (references user)
   await db.delete(verification); // Independent table

@@ -1,0 +1,4 @@
+---
+alwaysApply: true
+---
+Always write tests when you add/update new logic or feature

@@ -1,5 +1,5 @@
 import { sqliteTable, text, integer, real, primaryKey, index, uniqueIndex } from 'drizzle-orm/sqlite-core';
-import { TransactionMetadata } from '../../../../shared-types';
+import { TransactionMetadata, ScheduledActionData, ScheduledActionResultData } from '../../../../shared-types';
 import {user, session, account, verification}  from './auth-schema';
 
 export const groups = sqliteTable('groups', {
@@ -105,7 +105,7 @@ export const scheduledActions = sqliteTable('scheduled_actions', {
   updatedAt: text('updated_at').notNull(),
 
   // Action-specific data (JSON)
-  actionData: text('action_data', { mode: 'json' }).notNull(),
+  actionData: text('action_data', { mode: 'json' }).$type<ScheduledActionData>().notNull(),
 
   // Tracking
   lastExecutedAt: text('last_executed_at'), // ISO datetime string
@@ -125,8 +125,8 @@ export const scheduledActionHistory = sqliteTable('scheduled_action_history', {
   executionStatus: text('execution_status', { enum: ['success', 'failed'] }).notNull(),
 
   // Action data and results
-  actionData: text('action_data', { mode: 'json' }).notNull(),
-  resultData: text('result_data', { mode: 'json' }), // Results if successful
+  actionData: text('action_data', { mode: 'json' }).$type<ScheduledActionData>().notNull(),
+  resultData: text('result_data', { mode: 'json' }).$type<ScheduledActionResultData>(), // Results if successful
   errorMessage: text('error_message'), // Error details if failed
 
   // Performance tracking

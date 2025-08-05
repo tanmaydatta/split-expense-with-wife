@@ -413,11 +413,24 @@ export interface TypedApiClient {
 export type Currency = 'USD' | 'EUR' | 'GBP' | 'INR';
 
 // Constants
-export const CURRENCIES = ['USD', 'EUR', 'GBP', 'INR'] as const;
+export const CURRENCIES = ['USD', 'EUR', 'GBP', 'INR', 'CAD', 'AUD', 'JPY', 'CHF', 'CNY', 'SGD'] as const;
 
 // Scheduled Actions Types
 export type ScheduledActionFrequency = 'daily' | 'weekly' | 'monthly';
 export type ScheduledActionType = 'add_expense' | 'add_budget';
+
+// Scheduled Actions Response Types
+export type CreateScheduledActionResponse = { message: string; id: string };
+export type UpdateScheduledActionResponse = { message: string };
+export type DeleteScheduledActionResponse = { message: string };
+export type ScheduledActionErrorResponse = { error: string };
+
+// Scheduled Action JSON Types
+export type ScheduledActionData = AddExpenseActionData | AddBudgetActionData;
+
+export type ScheduledActionResultData = 
+  | { message: string; transactionId?: string }
+  | null;
 
 // Action-specific data types
 export interface AddExpenseActionData {
@@ -487,7 +500,7 @@ export interface ScheduledActionHistory {
   executedAt: string; // ISO datetime
   executionStatus: 'success' | 'failed';
   actionData: AddExpenseActionData | AddBudgetActionData;
-  resultData?: any; // Results from the executed action (e.g., transaction ID)
+  resultData?: ScheduledActionResultData; // Results from the executed action
   errorMessage?: string;
   executionDurationMs?: number;
 }

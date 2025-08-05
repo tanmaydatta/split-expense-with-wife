@@ -16,6 +16,13 @@ import { handleHelloWorld } from './handlers/hello';
 import { handleCron } from './handlers/cron';
 import { handleUpdateGroupMetadata, handleGroupDetails } from './handlers/group';
 import { handleRelinkData, handlePasswordMigration } from './handlers/migration';
+import {
+  handleScheduledActionCreate,
+  handleScheduledActionList,
+  handleScheduledActionUpdate,
+  handleScheduledActionDelete,
+  handleScheduledActionHistory
+} from './handlers/scheduled-actions';
 import { auth } from './auth';
 
 export default {
@@ -77,6 +84,36 @@ export default {
 
       case 'group/metadata':
         return await handleUpdateGroupMetadata(request, env);
+
+      case 'scheduled-actions':
+        if (request.method === 'POST') {
+          return await handleScheduledActionCreate(request, env);
+        }
+        return createErrorResponse('Method not allowed', 405, request, env);
+
+      case 'scheduled-actions/list':
+        if (request.method === 'GET') {
+          return await handleScheduledActionList(request, env);
+        }
+        return createErrorResponse('Method not allowed', 405, request, env);
+
+      case 'scheduled-actions/update':
+        if (request.method === 'PUT') {
+          return await handleScheduledActionUpdate(request, env);
+        }
+        return createErrorResponse('Method not allowed', 405, request, env);
+
+      case 'scheduled-actions/delete':
+        if (request.method === 'DELETE') {
+          return await handleScheduledActionDelete(request, env);
+        }
+        return createErrorResponse('Method not allowed', 405, request, env);
+
+      case 'scheduled-actions/history':
+        if (request.method === 'GET') {
+          return await handleScheduledActionHistory(request, env);
+        }
+        return createErrorResponse('Method not allowed', 405, request, env);
 
       case 'split_new':
         return await handleSplitNew(request, env);

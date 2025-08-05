@@ -1,0 +1,4 @@
+---
+alwaysApply: true
+---
+Always use drizzle db commands instead of writing raw sql

@@ -7,6 +7,7 @@ import {
   ParsedGroup,
   GroupMetadata
 } from './types';
+import { CURRENCIES } from '../../shared-types';
 import { groups, userBalances, budgetTotals, transactionUsers } from './db/schema/schema';
 import { getDb } from './db';
 import { eq, inArray, sql, and, isNull } from 'drizzle-orm';
@@ -62,7 +63,7 @@ export async function enrichSession(session: Session, db: ReturnType<typeof getD
     group,
     usersById: usersById,
     currentUser: currentUser[0],
-    currencies: SUPPORTED_CURRENCIES
+    currencies: [...CURRENCIES]
   };
 }
 
@@ -202,12 +203,11 @@ export function isAuthorizedForBudget(session: CurrentSession, budgetName: strin
   return session.group.budgets.includes(budgetName);
 }
 
-// Supported currencies list
-export const SUPPORTED_CURRENCIES = ['USD', 'EUR', 'GBP', 'INR', 'CAD', 'AUD', 'JPY', 'CHF', 'CNY', 'SGD'];
+// Currency validation now uses CURRENCIES from shared-types
 
 // Helper function to validate currency
 export function isValidCurrency(currency: string): boolean {
-  return SUPPORTED_CURRENCIES.includes(currency);
+  return CURRENCIES.includes(currency as (typeof CURRENCIES)[number]);
 }
 
 // Helper function to validate split percentages
