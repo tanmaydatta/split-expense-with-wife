@@ -376,6 +376,26 @@ export interface ApiEndpoints {
     request: UpdateGroupMetadataRequest;
     response: UpdateGroupMetadataResponse;
   };
+  '/scheduled-actions': {
+    request: CreateScheduledActionRequest;
+    response: { message: string; id: string };
+  };
+  '/scheduled-actions/list': {
+    request: ScheduledActionListRequest;
+    response: ScheduledActionListResponse;
+  };
+  '/scheduled-actions/update': {
+    request: UpdateScheduledActionRequest;
+    response: { message: string };
+  };
+  '/scheduled-actions/delete': {
+    request: { id: string };
+    response: { message: string };
+  };
+  '/scheduled-actions/history': {
+    request: ScheduledActionHistoryListRequest;
+    response: ScheduledActionHistoryListResponse;
+  };
 }
 
 // Type-safe API client interface
@@ -393,4 +413,95 @@ export interface TypedApiClient {
 export type Currency = 'USD' | 'EUR' | 'GBP' | 'INR';
 
 // Constants
-export const CURRENCIES = ['USD', 'EUR', 'GBP', 'INR'] as const; 
+export const CURRENCIES = ['USD', 'EUR', 'GBP', 'INR'] as const;
+
+// Scheduled Actions Types
+export type ScheduledActionFrequency = 'daily' | 'weekly' | 'monthly';
+export type ScheduledActionType = 'add_expense' | 'add_budget';
+
+// Action-specific data types
+export interface AddExpenseActionData {
+  amount: number;
+  description: string;
+  currency: string; // Will be validated against supported currencies
+  paidByUserId: string; // Which user paid for the expense
+  splitPctShares: Record<string, number>; // userId -> percentage (must sum to 100)
+}
+
+export interface AddBudgetActionData {
+  amount: number;
+  description: string;
+  budgetName: string; // From available budget categories in user's group
+  currency: string; // Will be validated against supported currencies
+  type: 'Credit' | 'Debit'; // Credit adds to budget, Debit subtracts from budget
+}
+
+// Base scheduled action
+export interface ScheduledAction {
+  id: string;
+  userId: string;
+  actionType: ScheduledActionType;
+  frequency: ScheduledActionFrequency;
+  startDate: string; // ISO date
+  isActive: boolean;
+  actionData: AddExpenseActionData | AddBudgetActionData;
+  lastExecutedAt?: string;
+  nextExecutionDate: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// API request/response types
+export interface CreateScheduledActionRequest {
+  actionType: ScheduledActionType;
+  frequency: ScheduledActionFrequency;
+  startDate: string;
+  actionData: AddExpenseActionData | AddBudgetActionData;
+}
+
+export interface UpdateScheduledActionRequest {
+  id: string;
+  isActive?: boolean;
+  frequency?: ScheduledActionFrequency;
+  startDate?: string;
+  actionData?: AddExpenseActionData | AddBudgetActionData;
+}
+
+export interface ScheduledActionListRequest {
+  offset?: number;
+  limit?: number;
+}
+
+export interface ScheduledActionListResponse {
+  scheduledActions: ScheduledAction[];
+  totalCount: number;
+  hasMore: boolean;
+}
+
+// Action execution history types
+export interface ScheduledActionHistory {
+  id: string;
+  scheduledActionId: string;
+  userId: string;
+  actionType: ScheduledActionType;
+  executedAt: string; // ISO datetime
+  executionStatus: 'success' | 'failed';
+  actionData: AddExpenseActionData | AddBudgetActionData;
+  resultData?: any; // Results from the executed action (e.g., transaction ID)
+  errorMessage?: string;
+  executionDurationMs?: number;
+}
+
+export interface ScheduledActionHistoryListRequest {
+  offset?: number;
+  limit?: number;
+  scheduledActionId?: string; // Filter by specific scheduled action
+  actionType?: ScheduledActionType; // Filter by action type
+  executionStatus?: 'success' | 'failed'; // Filter by status
+}
+
+export interface ScheduledActionHistoryListResponse {
+  history: ScheduledActionHistory[];
+  totalCount: number;
+  hasMore: boolean;
+} 

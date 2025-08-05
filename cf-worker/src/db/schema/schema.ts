@@ -94,6 +94,49 @@ export const budgetTotals = sqliteTable('budget_totals', {
   index('budget_totals_group_name_idx').on(table.groupId, table.name)
 ]);
 
+export const scheduledActions = sqliteTable('scheduled_actions', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => user.id),
+  actionType: text('action_type', { enum: ['add_expense', 'add_budget'] }).notNull(),
+  frequency: text('frequency', { enum: ['daily', 'weekly', 'monthly'] }).notNull(),
+  startDate: text('start_date').notNull(), // ISO date string
+  isActive: integer('is_active', { mode: 'boolean' }).default(true).notNull(),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+
+  // Action-specific data (JSON)
+  actionData: text('action_data', { mode: 'json' }).notNull(),
+
+  // Tracking
+  lastExecutedAt: text('last_executed_at'), // ISO datetime string
+  nextExecutionDate: text('next_execution_date').notNull() // ISO date string
+}, (table) => [
+  index('scheduled_actions_user_next_execution_idx').on(table.userId, table.nextExecutionDate),
+  index('scheduled_actions_user_active_idx').on(table.userId, table.isActive)
+]);
+
+export const scheduledActionHistory = sqliteTable('scheduled_action_history', {
+  id: text('id').primaryKey(),
+  scheduledActionId: text('scheduled_action_id').notNull()
+    .references(() => scheduledActions.id, { onDelete: 'cascade' }),
+  userId: text('user_id').notNull().references(() => user.id),
+  actionType: text('action_type', { enum: ['add_expense', 'add_budget'] }).notNull(),
+  executedAt: text('executed_at').notNull(), // ISO datetime string
+  executionStatus: text('execution_status', { enum: ['success', 'failed'] }).notNull(),
+
+  // Action data and results
+  actionData: text('action_data', { mode: 'json' }).notNull(),
+  resultData: text('result_data', { mode: 'json' }), // Results if successful
+  errorMessage: text('error_message'), // Error details if failed
+
+  // Performance tracking
+  executionDurationMs: integer('execution_duration_ms') // Execution time
+}, (table) => [
+  index('scheduled_action_history_user_executed_idx').on(table.userId, table.executedAt),
+  index('scheduled_action_history_scheduled_action_idx').on(table.scheduledActionId, table.executedAt),
+  index('scheduled_action_history_status_idx').on(table.executionStatus)
+]);
+
 // Create schema object for Drizzle
 export const schema = {
   user,
@@ -105,7 +148,9 @@ export const schema = {
   transactionUsers,
   budget,
   userBalances,
-  budgetTotals
+  budgetTotals,
+  scheduledActions,
+  scheduledActionHistory
 };
 
 // Export inferred types
@@ -125,3 +170,7 @@ export type UserBalance = typeof userBalances.$inferSelect;
 export type NewUserBalance = typeof userBalances.$inferInsert;
 export type BudgetTotal = typeof budgetTotals.$inferSelect;
 export type NewBudgetTotal = typeof budgetTotals.$inferInsert;
+export type ScheduledAction = typeof scheduledActions.$inferSelect;
+export type NewScheduledAction = typeof scheduledActions.$inferInsert;
+export type ScheduledActionHistory = typeof scheduledActionHistory.$inferSelect;
+export type NewScheduledActionHistory = typeof scheduledActionHistory.$inferInsert;
