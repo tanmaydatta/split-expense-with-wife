@@ -2,6 +2,7 @@ import { env as testEnv, createExecutionContext } from 'cloudflare:test';
 // Vitest globals are available through the test environment
 import worker from '../index';
 import { setupAndCleanDatabase, createTestUserData, signInAndGetCookies, createTestRequest } from './test-utils';
+import { calculateNextExecutionDate } from '../handlers/scheduled-actions';
 import {
   CreateScheduledActionRequest,
   UpdateScheduledActionRequest,
@@ -77,12 +78,12 @@ describe('Scheduled Actions Handlers', () => {
     });
 
     it('should calculate next execution date for monthly frequency', () => {
-      // Test with start date one month ago (2024-02-15)
-      const startDate = '2024-02-15';
+      // Test with start date two months ago (2024-01-10)
+      const startDate = '2024-01-10';
 
       const nextDate = calculateNextExecutionDate(startDate, 'monthly');
-      // Should return next month: 2024-04-14 (since 2024-03-15 is "today")
-      expect(nextDate).toBe('2024-04-14');
+      // Should return next month: 2024-04-09 (since 2024-03-15 is "today")
+      expect(nextDate).toBe('2024-04-09');
     });
 
     it('should return start date if it is in the future', () => {
@@ -650,40 +651,7 @@ describe('Scheduled Actions Handlers', () => {
   });
 });
 
-// Helper functions for date calculations (since they're in the handler file)
-// We need to extract these for testing or make them importable
-function calculateNextExecutionDate(
-  startDate: string,
-  frequency: 'daily' | 'weekly' | 'monthly'
-): string {
-  const start = new Date(startDate);
-  const now = new Date();
-  now.setHours(0, 0, 0, 0); // Reset to midnight for date comparison
-
-  // If start date is in the future, return start date
-  if (start > now) {
-    return startDate;
-  }
-
-  // Calculate next execution based on frequency
-  const next = new Date(start);
-
-  while (next <= now) {
-    switch (frequency) {
-    case 'daily':
-      next.setDate(next.getDate() + 1);
-      break;
-    case 'weekly':
-      next.setDate(next.getDate() + 7);
-      break;
-    case 'monthly':
-      next.setMonth(next.getMonth() + 1);
-      break;
-    }
-  }
-
-  return next.toISOString().split('T')[0]; // Return ISO date string
-}
+// Helper functions for action data validation
 
 function validateActionData(actionType: string, actionData: AddExpenseActionData | AddBudgetActionData, userIds: string[], budgets: string[]): string | null {
   if (actionType === 'add_expense') {

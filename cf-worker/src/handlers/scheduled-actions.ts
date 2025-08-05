@@ -25,7 +25,7 @@ type ScheduledActionUpdateData = {
 };
 
 // Date utility functions
-function calculateNextExecutionDate(
+export function calculateNextExecutionDate(
   startDate: string,
   frequency: 'daily' | 'weekly' | 'monthly'
 ): string {
