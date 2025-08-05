@@ -1,4 +1,4 @@
-CREATE TABLE `scheduled_action_history` (
+CREATE TABLE IF NOT EXISTS `scheduled_action_history` (
 	`id` text PRIMARY KEY NOT NULL,
 	`scheduled_action_id` text NOT NULL,
 	`user_id` text NOT NULL,
@@ -13,10 +13,10 @@ CREATE TABLE `scheduled_action_history` (
 	FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE INDEX `scheduled_action_history_user_executed_idx` ON `scheduled_action_history` (`user_id`,`executed_at`);--> statement-breakpoint
-CREATE INDEX `scheduled_action_history_scheduled_action_idx` ON `scheduled_action_history` (`scheduled_action_id`,`executed_at`);--> statement-breakpoint
-CREATE INDEX `scheduled_action_history_status_idx` ON `scheduled_action_history` (`execution_status`);--> statement-breakpoint
-CREATE TABLE `scheduled_actions` (
+CREATE INDEX IF NOT EXISTS `scheduled_action_history_user_executed_idx` ON `scheduled_action_history` (`user_id`,`executed_at`);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS `scheduled_action_history_scheduled_action_idx` ON `scheduled_action_history` (`scheduled_action_id`,`executed_at`);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS `scheduled_action_history_status_idx` ON `scheduled_action_history` (`execution_status`);--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `scheduled_actions` (
 	`id` text PRIMARY KEY NOT NULL,
 	`user_id` text NOT NULL,
 	`action_type` text NOT NULL,
@@ -31,5 +31,5 @@ CREATE TABLE `scheduled_actions` (
 	FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE INDEX `scheduled_actions_user_next_execution_idx` ON `scheduled_actions` (`user_id`,`next_execution_date`);--> statement-breakpoint
-CREATE INDEX `scheduled_actions_user_active_idx` ON `scheduled_actions` (`user_id`,`is_active`);
+CREATE INDEX IF NOT EXISTS `scheduled_actions_user_next_execution_idx` ON `scheduled_actions` (`user_id`,`next_execution_date`);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS `scheduled_actions_user_active_idx` ON `scheduled_actions` (`user_id`,`is_active`);
