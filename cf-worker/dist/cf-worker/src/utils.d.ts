@@ -1,0 +1,136 @@
+import { CurrentSession, SplitAmount, UserBalance, BudgetTotal, Session } from "./types";
+import { getDb } from "./db";
+export declare function generateRandomId(length?: number): string;
+export declare function formatSQLiteTime(date?: Date): string;
+export declare function enrichSession(session: Session, db: ReturnType<typeof getDb>): Promise<CurrentSession>;
+export declare function withAuth(request: Request, env: Env, handler: (session: Awaited<ReturnType<typeof enrichSession>> & Session, db: ReturnType<typeof getDb>) => Promise<Response>): Promise<Response>;
+export declare function getCORSHeaders(request: Request, env: Env): Record<string, string>;
+export declare function createOptionsResponse(request: Request, env: Env): Response;
+export declare function createJsonResponse(data: unknown, status?: number, headers?: Record<string, string>, request?: Request, env?: Env): Response;
+export declare function createErrorResponse(error: string, status?: number, request?: Request, env?: Env): Response;
+export declare function addCORSHeaders(response: Response, request: Request, env: Env): Response;
+export declare function isAuthorizedForBudget(session: CurrentSession, budgetName: string): boolean;
+export declare function isValidCurrency(currency: string): boolean;
+export declare function validateSplitPercentages(splitPctShares: Record<string, number>): boolean;
+export declare function validatePaidAmounts(paidByShares: Record<string, number>, totalAmount: number): boolean;
+export declare function calculateSplitAmounts(amount: number, paidByShares: Record<string, number>, splitPctShares: Record<string, number>, currency: string): SplitAmount[];
+export declare function generateDrizzleBalanceUpdates(env: Env, splitAmounts: SplitAmount[], groupId: number, operation: "add" | "remove"): import("drizzle-orm/sqlite-core").SQLiteInsertBase<import("drizzle-orm/sqlite-core").SQLiteTableWithColumns<{
+    name: "user_balances";
+    schema: undefined;
+    columns: {
+        groupId: import("drizzle-orm/sqlite-core").SQLiteColumn<{
+            name: "group_id";
+            tableName: "user_balances";
+            dataType: "number";
+            columnType: "SQLiteInteger";
+            data: number;
+            driverParam: number;
+            notNull: true;
+            hasDefault: false;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: undefined;
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
+        userId: import("drizzle-orm/sqlite-core").SQLiteColumn<{
+            name: "user_id";
+            tableName: "user_balances";
+            dataType: "string";
+            columnType: "SQLiteText";
+            data: string;
+            driverParam: string;
+            notNull: true;
+            hasDefault: false;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: [string, ...string[]];
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {
+            length: number | undefined;
+        }>;
+        owedToUserId: import("drizzle-orm/sqlite-core").SQLiteColumn<{
+            name: "owed_to_user_id";
+            tableName: "user_balances";
+            dataType: "string";
+            columnType: "SQLiteText";
+            data: string;
+            driverParam: string;
+            notNull: true;
+            hasDefault: false;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: [string, ...string[]];
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {
+            length: number | undefined;
+        }>;
+        currency: import("drizzle-orm/sqlite-core").SQLiteColumn<{
+            name: "currency";
+            tableName: "user_balances";
+            dataType: "string";
+            columnType: "SQLiteText";
+            data: string;
+            driverParam: string;
+            notNull: true;
+            hasDefault: false;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: [string, ...string[]];
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {
+            length: 10;
+        }>;
+        balance: import("drizzle-orm/sqlite-core").SQLiteColumn<{
+            name: "balance";
+            tableName: "user_balances";
+            dataType: "number";
+            columnType: "SQLiteReal";
+            data: number;
+            driverParam: number;
+            notNull: true;
+            hasDefault: true;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: undefined;
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
+        updatedAt: import("drizzle-orm/sqlite-core").SQLiteColumn<{
+            name: "updated_at";
+            tableName: "user_balances";
+            dataType: "string";
+            columnType: "SQLiteText";
+            data: string;
+            driverParam: string;
+            notNull: true;
+            hasDefault: false;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: [string, ...string[]];
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {
+            length: number | undefined;
+        }>;
+    };
+    dialect: "sqlite";
+}>, "async", D1Result<unknown>, undefined, false, never>[];
+export declare function rebuildGroupBalances(env: Env, groupId: string): Promise<void>;
+export declare function getUserBalances(env: Env, groupId: string): Promise<UserBalance[]>;
+export declare function getBudgetTotals(env: Env, groupId: string, name: string): Promise<BudgetTotal[]>;

@@ -1,24 +1,24 @@
 module.exports = {
-  extends: [
-    'react-app',
-    'react-app/jest',
-  ],
-  rules: {
-    // Allow console statements 
-    'no-console': 'off',
-    // Handle unused variables with underscore prefix
-    '@typescript-eslint/no-unused-vars': ['warn', { 
-      argsIgnorePattern: '^_',
-      varsIgnorePattern: '^_',
-      caughtErrorsIgnorePattern: '^_'
-    }],
-    'no-unused-vars': 'off',
-  },
-  ignorePatterns: [
-    'build/**',
-    'node_modules/**',
-    'cf-worker/**',
-    'shared-types/**',
-    'public/**',
-  ],
-}; 
+	extends: ["react-app", "react-app/jest"],
+	rules: {
+		// Allow console statements
+		"no-console": "off",
+		// Handle unused variables with underscore prefix
+		"@typescript-eslint/no-unused-vars": [
+			"warn",
+			{
+				argsIgnorePattern: "^_",
+				varsIgnorePattern: "^_",
+				caughtErrorsIgnorePattern: "^_",
+			},
+		],
+		"no-unused-vars": "off",
+	},
+	ignorePatterns: [
+		"build/**",
+		"node_modules/**",
+		"cf-worker/**",
+		"shared-types/**",
+		"public/**",
+	],
+};

@@ -1,261 +1,261 @@
 .settings-container {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-large);
-  padding: var(--spacing-medium);
-  max-width: 800px;
-  margin: 0 auto;
+	display: flex;
+	flex-direction: column;
+	gap: var(--spacing-large);
+	padding: var(--spacing-medium);
+	max-width: 800px;
+	margin: 0 auto;
 }
 
 .settings-container h1 {
-  margin: 0 0 var(--spacing-medium) 0;
-  color: var(--color-dark);
-  font-size: var(--font-size-large);
+	margin: 0 0 var(--spacing-medium) 0;
+	color: var(--color-dark);
+	font-size: var(--font-size-large);
 }
 
 .settings-card {
-  padding: var(--spacing-large) !important;
+	padding: var(--spacing-large) !important;
 }
 
 .settings-card h3 {
-  margin: 0 0 var(--spacing-medium) 0;
-  color: var(--color-dark);
-  font-size: var(--font-size-medium);
-  font-weight: 600;
-  border-bottom: 1px solid var(--color-light);
-  padding-bottom: var(--spacing-small);
+	margin: 0 0 var(--spacing-medium) 0;
+	color: var(--color-dark);
+	font-size: var(--font-size-medium);
+	font-weight: 600;
+	border-bottom: 1px solid var(--color-light);
+	padding-bottom: var(--spacing-small);
 }
 
 .form-group {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-small);
-  margin-bottom: var(--spacing-medium);
+	display: flex;
+	flex-direction: column;
+	gap: var(--spacing-small);
+	margin-bottom: var(--spacing-medium);
 }
 
 .form-group label {
-  font-weight: 500;
-  color: var(--color-dark);
-  font-size: var(--font-size-medium);
+	font-weight: 500;
+	color: var(--color-dark);
+	font-size: var(--font-size-medium);
 }
 
 .form-group input,
 .form-group select {
-  width: 100%;
+	width: 100%;
 }
 
 /* Default Shares Styles */
 .shares-form {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-medium);
+	display: flex;
+	flex-direction: column;
+	gap: var(--spacing-medium);
 }
 
 .percentage-input-wrapper {
-  position: relative;
-  display: flex;
-  align-items: center;
+	position: relative;
+	display: flex;
+	align-items: center;
 }
 
 .percentage-input {
-  width: 100%;
-  padding-right: 30px !important; /* Make room for % symbol */
+	width: 100%;
+	padding-right: 30px !important; /* Make room for % symbol */
 }
 
 .percentage-symbol {
-  position: absolute;
-  right: 12px;
-  font-weight: 600;
-  color: var(--color-secondary);
-  pointer-events: none; /* Allow clicking through to the input */
-  z-index: 1;
+	position: absolute;
+	right: 12px;
+	font-weight: 600;
+	color: var(--color-secondary);
+	pointer-events: none; /* Allow clicking through to the input */
+	z-index: 1;
 }
 
 .total-percentage {
-  padding: var(--spacing-small);
-  border-radius: var(--border-radius);
-  font-weight: 600;
-  text-align: center;
-  margin-top: var(--spacing-small);
+	padding: var(--spacing-small);
+	border-radius: var(--border-radius);
+	font-weight: 600;
+	text-align: center;
+	margin-top: var(--spacing-small);
 }
 
 .total-percentage.valid {
-  background-color: rgba(40, 167, 69, 0.1);
-  color: var(--color-success);
-  border: 1px solid var(--color-success);
+	background-color: rgba(40, 167, 69, 0.1);
+	color: var(--color-success);
+	border: 1px solid var(--color-success);
 }
 
 .total-percentage.invalid {
-  background-color: rgba(220, 53, 69, 0.1);
-  color: var(--color-danger);
-  border: 1px solid var(--color-danger);
+	background-color: rgba(220, 53, 69, 0.1);
+	color: var(--color-danger);
+	border: 1px solid var(--color-danger);
 }
 
 /* Budget Manager Styles */
 .budget-manager {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-medium);
+	display: flex;
+	flex-direction: column;
+	gap: var(--spacing-medium);
 }
 
 .budget-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-small);
+	display: flex;
+	flex-direction: column;
+	gap: var(--spacing-small);
 }
 
 .budget-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: var(--spacing-small) var(--spacing-medium);
-  background: var(--color-light);
-  border-radius: var(--border-radius);
-  border: 1px solid var(--color-secondary);
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: var(--spacing-small) var(--spacing-medium);
+	background: var(--color-light);
+	border-radius: var(--border-radius);
+	border: 1px solid var(--color-secondary);
 }
 
 .budget-item span {
-  font-weight: 500;
-  color: var(--color-dark);
-  flex: 1;
+	font-weight: 500;
+	color: var(--color-dark);
+	flex: 1;
 }
 
 .remove-button {
-  background: var(--color-danger) !important;
-  color: var(--color-white) !important;
-  font-size: var(--font-size-small);
-  padding: var(--spacing-small) var(--spacing-medium) !important;
-  min-height: auto !important;
+	background: var(--color-danger) !important;
+	color: var(--color-white) !important;
+	font-size: var(--font-size-small);
+	padding: var(--spacing-small) var(--spacing-medium) !important;
+	min-height: auto !important;
 }
 
 .remove-button:hover {
-  opacity: 0.8;
+	opacity: 0.8;
 }
 
 .add-budget {
-  display: flex;
-  gap: var(--spacing-medium);
-  align-items: end;
+	display: flex;
+	gap: var(--spacing-medium);
+	align-items: end;
 }
 
 .add-budget .form-group {
-  flex: 1;
-  margin-bottom: 0;
+	flex: 1;
+	margin-bottom: 0;
 }
 
 .save-budgets {
-  margin-top: var(--spacing-medium);
-  background: var(--color-success) !important;
+	margin-top: var(--spacing-medium);
+	background: var(--color-success) !important;
 }
 
 /* Settings Actions */
 .settings-actions {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--spacing-small);
-  margin-top: var(--spacing-large);
-  padding: var(--spacing-large);
-  background: var(--color-light);
-  border-radius: var(--border-radius);
-  border: 1px solid var(--color-secondary);
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: var(--spacing-small);
+	margin-top: var(--spacing-large);
+	padding: var(--spacing-large);
+	background: var(--color-light);
+	border-radius: var(--border-radius);
+	border: 1px solid var(--color-secondary);
 }
 
 .save-all-button {
-  background: var(--color-primary) !important;
-  font-size: var(--font-size-medium);
-  padding: var(--spacing-medium) var(--spacing-large) !important;
-  min-width: 200px;
+	background: var(--color-primary) !important;
+	font-size: var(--font-size-medium);
+	padding: var(--spacing-medium) var(--spacing-large) !important;
+	min-width: 200px;
 }
 
 .save-all-button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+	opacity: 0.6;
+	cursor: not-allowed;
 }
 
 .no-changes {
-  margin: 0;
-  color: var(--color-secondary);
-  font-style: italic;
-  font-size: var(--font-size-small);
+	margin: 0;
+	color: var(--color-secondary);
+	font-style: italic;
+	font-size: var(--font-size-small);
 }
 
 .validation-error {
-  margin: 0;
-  color: var(--color-danger);
-  font-weight: 500;
-  font-size: var(--font-size-small);
+	margin: 0;
+	color: var(--color-danger);
+	font-weight: 500;
+	font-size: var(--font-size-small);
 }
 
 /* Mobile Responsive */
 @media (max-width: 768px) {
-  .settings-container {
-    padding: var(--spacing-small);
-    gap: var(--spacing-medium);
-  }
+	.settings-container {
+		padding: var(--spacing-small);
+		gap: var(--spacing-medium);
+	}
 
-  .settings-card {
-    padding: var(--spacing-medium) !important;
-  }
+	.settings-card {
+		padding: var(--spacing-medium) !important;
+	}
 
-  .settings-container h1 {
-    font-size: 1.5rem;
-    text-align: center;
-  }
+	.settings-container h1 {
+		font-size: 1.5rem;
+		text-align: center;
+	}
 
-  .add-budget {
-    flex-direction: column;
-    gap: var(--spacing-small);
-  }
+	.add-budget {
+		flex-direction: column;
+		gap: var(--spacing-small);
+	}
 
-  .add-budget .form-group {
-    width: 100%;
-  }
+	.add-budget .form-group {
+		width: 100%;
+	}
 
-  .budget-item {
-    padding: var(--spacing-small);
-  }
+	.budget-item {
+		padding: var(--spacing-small);
+	}
 
-  .remove-button {
-    font-size: 0.8rem;
-    padding: 4px 8px !important;
-  }
+	.remove-button {
+		font-size: 0.8rem;
+		padding: 4px 8px !important;
+	}
 }
 
 @media (max-width: 480px) {
-  .settings-container {
-    padding: var(--spacing-small);
-  }
+	.settings-container {
+		padding: var(--spacing-small);
+	}
 
-  .settings-card {
-    padding: var(--spacing-small) !important;
-  }
+	.settings-card {
+		padding: var(--spacing-small) !important;
+	}
 
-  .form-group {
-    margin-bottom: var(--spacing-small);
-  }
+	.form-group {
+		margin-bottom: var(--spacing-small);
+	}
 
-  .budget-item {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: var(--spacing-small);
-  }
+	.budget-item {
+		flex-direction: column;
+		align-items: flex-start;
+		gap: var(--spacing-small);
+	}
 
-  .remove-button {
-    width: 100%;
-    text-align: center;
-  }
+	.remove-button {
+		width: 100%;
+		text-align: center;
+	}
 
-  .percentage-input-wrapper {
-    flex-direction: column;
-    align-items: stretch;
-    position: relative;
-  }
+	.percentage-input-wrapper {
+		flex-direction: column;
+		align-items: stretch;
+		position: relative;
+	}
 
-  .percentage-symbol {
-    position: absolute;
-    right: 12px;
-    top: 50%;
-    transform: translateY(-50%);
-  }
-} 
+	.percentage-symbol {
+		position: absolute;
+		right: 12px;
+		top: 50%;
+		transform: translateY(-50%);
+	}
+}

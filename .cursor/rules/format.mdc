@@ -1,0 +1,4 @@
+---
+alwaysApply: true
+---
+Use biome to format changed files before committing

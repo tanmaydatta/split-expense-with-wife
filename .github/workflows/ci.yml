@@ -78,4 +78,6 @@ jobs:
     - name: Run CF Worker tests
       run: |
         cd cf-worker
-        yarn test 
+        yarn test
+      env:
+        TZ: UTC 

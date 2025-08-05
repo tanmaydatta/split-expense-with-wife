@@ -1,29 +1,36 @@
-import { env, createExecutionContext, waitOnExecutionContext } from 'cloudflare:test';
+import {
+	env,
+	createExecutionContext,
+	waitOnExecutionContext,
+} from "cloudflare:test";
 // Vitest globals are available through the test environment
-import worker from '../index';
+import worker from "../index";
 
 // Hello response type (keeping local since it's specific to the hello endpoint)
 interface HelloResponse {
-  message: string;
-  timestamp: string;
-  worker: string;
+	message: string;
+	timestamp: string;
+	worker: string;
 }
 
-describe('Hello handler', () => {
-  it('should return hello message', async () => {
-    const request = new Request('https://localhost:8787/.netlify/functions/hello', {
-      method: 'GET'
-    });
+describe("Hello handler", () => {
+	it("should return hello message", async () => {
+		const request = new Request(
+			"https://localhost:8787/.netlify/functions/hello",
+			{
+				method: "GET",
+			},
+		);
 
-    const ctx = createExecutionContext();
-    const response = await worker.fetch(request, env, ctx);
-    await waitOnExecutionContext(ctx);
+		const ctx = createExecutionContext();
+		const response = await worker.fetch(request, env, ctx);
+		await waitOnExecutionContext(ctx);
 
-    expect(response.status).toBe(200);
+		expect(response.status).toBe(200);
 
-    const json = await response.json() as HelloResponse;
-    expect(json.message).toBe('Hello from Cloudflare Worker!');
-    expect(json.timestamp).toBeDefined();
-    expect(json.worker).toBe('cf-worker');
-  });
+		const json = (await response.json()) as HelloResponse;
+		expect(json.message).toBe("Hello from Cloudflare Worker!");
+		expect(json.timestamp).toBeDefined();
+		expect(json.worker).toBe("cf-worker");
+	});
 });
