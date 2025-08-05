@@ -49,6 +49,7 @@
     "better-auth": "^1.3.4",
     "drizzle-orm": "^0.44.3",
     "eslint": "^9.31.0",
+    "ulid": "^3.0.1",
     "zod": "^3.25.76"
   },
   "packageManager": "yarn@4.5.0"
