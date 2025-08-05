@@ -76,7 +76,6 @@ export async function enrichSession(
 		.where(inArray(user.id, userIds));
 
 	const usersById: Record<string, typeof user.$inferSelect> = {};
-	// biome-ignore lint/complexity/noForEach: simple object mapping
 	// biome-ignore lint/suspicious/noAssignInExpressions: concise object assignment
 	usersInGroup.forEach((u) => (usersById[u.id] = u));
 	return {
@@ -236,7 +235,6 @@ export function addCORSHeaders(
 	const newHeaders = new Headers(response.headers);
 
 	// Add CORS headers
-	// biome-ignore lint/complexity/noForEach: simple header assignment
 	Object.entries(corsHeaders).forEach(([key, value]) => {
 		newHeaders.set(key, value);
 	});

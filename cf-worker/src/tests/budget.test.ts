@@ -1564,12 +1564,11 @@ describe("Budget Handlers", () => {
 
 			expect(json.monthlyBudgets.length).toBe(monthCount);
 
-			// All months should have 0 amounts since no budget data exists
-			// biome-ignore lint/complexity/noForEach: test assertion iteration
-			json.monthlyBudgets.forEach((budget: MonthlyBudget) => {
-				expect(budget.amounts[0].amount).toBe(0);
-				expect(budget.amounts[0].currency).toBe("USD");
-			});
+					// All months should have 0 amounts since no budget data exists
+		json.monthlyBudgets.forEach((budget: MonthlyBudget) => {
+			expect(budget.amounts[0].amount).toBe(0);
+			expect(budget.amounts[0].currency).toBe("USD");
+		});
 
 			// Check average data - should have multiple periods even with no spending data
 			expect(Array.isArray(json.averageMonthlySpend)).toBe(true);
