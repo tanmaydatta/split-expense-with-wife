@@ -469,14 +469,14 @@ describe("Group Details Handler", () => {
 			expect(responseData.metadata.defaultCurrency).toBeDefined();
 			expect(responseData.metadata.defaultShare).toBeDefined();
 
-					// Check users have required fields
-		expect(responseData.users.length).toBeGreaterThan(0);
-		responseData.users.forEach((user) => {
-			expect(user.Id).toBeDefined();
-			expect(user.FirstName).toBeDefined();
-			expect(user.LastName).toBeDefined();
-			expect(user.groupid).toBe(1);
-		});
+			// Check users have required fields
+			expect(responseData.users.length).toBeGreaterThan(0);
+			responseData.users.forEach((user) => {
+				expect(user.Id).toBeDefined();
+				expect(user.FirstName).toBeDefined();
+				expect(user.LastName).toBeDefined();
+				expect(user.groupid).toBe(1);
+			});
 		});
 
 		it("should include first_name and last_name for all users in group", async () => {
@@ -489,13 +489,13 @@ describe("Group Details Handler", () => {
 			const response = await handleGroupDetails(request, env);
 
 			expect(response.status).toBe(200);
-					const responseData = (await response.json()) as GroupDetailsResponse;
+			const responseData = (await response.json()) as GroupDetailsResponse;
 
-		responseData.users.forEach((user) => {
-			expect(typeof user.FirstName).toBe("string");
-			expect(typeof user.LastName).toBe("string");
-			expect(user.FirstName?.length).toBeGreaterThan(0);
-		});
+			responseData.users.forEach((user) => {
+				expect(typeof user.FirstName).toBe("string");
+				expect(typeof user.LastName).toBe("string");
+				expect(user.FirstName?.length).toBeGreaterThan(0);
+			});
 		});
 
 		it("should parse budgets array correctly from JSON", async () => {
