@@ -132,7 +132,7 @@ export async function handleRelinkData(request: Request, env: Env) {
 				headers: { "Content-Type": "application/json" },
 			},
 		);
-	// biome-ignore lint/suspicious/noExplicitAny: generic error handling
+		// biome-ignore lint/suspicious/noExplicitAny: generic error handling
 	} catch (error: any) {
 		console.error("MIGRATION FAILED:", error);
 		return new Response(

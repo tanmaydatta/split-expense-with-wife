@@ -47,15 +47,15 @@ describe("Scheduled Actions Handlers", () => {
 
 		beforeEach(() => {
 			// Use Vitest's built-in date mocking for consistent behavior across environments
-					// Note: vi is available globally in Vitest environment
-		// biome-ignore lint/suspicious/noExplicitAny: vitest global access
-		(globalThis as any).vi.setSystemTime(mockNow);
+			// Note: vi is available globally in Vitest environment
+			// biome-ignore lint/suspicious/noExplicitAny: vitest global access
+			(globalThis as any).vi.setSystemTime(mockNow);
 		});
 
 		afterEach(() => {
-					// Restore real time
-		// biome-ignore lint/suspicious/noExplicitAny: vitest global access
-		(globalThis as any).vi.useRealTimers();
+			// Restore real time
+			// biome-ignore lint/suspicious/noExplicitAny: vitest global access
+			(globalThis as any).vi.useRealTimers();
 		});
 
 		it("should calculate next execution date for daily frequency", () => {

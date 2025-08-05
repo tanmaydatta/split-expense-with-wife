@@ -228,31 +228,31 @@ export async function createTestUserData(
 	const authInstance = auth(env);
 	const user1 = await authInstance.api.signUpEmail({
 		body: {
-					...TEST_USERS.user1,
-		groupid: 1,
-		// biome-ignore lint/suspicious/noExplicitAny: test user type assertion
-	} as any,
+			...TEST_USERS.user1,
+			groupid: 1,
+			// biome-ignore lint/suspicious/noExplicitAny: test user type assertion
+		} as any,
 	});
 	const user2 = await authInstance.api.signUpEmail({
 		body: {
-					...TEST_USERS.user2,
-		groupid: 1,
-		// biome-ignore lint/suspicious/noExplicitAny: test user type assertion
-	} as any,
+			...TEST_USERS.user2,
+			groupid: 1,
+			// biome-ignore lint/suspicious/noExplicitAny: test user type assertion
+		} as any,
 	});
 	const user3 = await authInstance.api.signUpEmail({
 		body: {
-					...TEST_USERS.user3,
-		groupid: 1,
-		// biome-ignore lint/suspicious/noExplicitAny: test user type assertion
-	} as any,
+			...TEST_USERS.user3,
+			groupid: 1,
+			// biome-ignore lint/suspicious/noExplicitAny: test user type assertion
+		} as any,
 	});
 	const user4 = await authInstance.api.signUpEmail({
 		body: {
-					...TEST_USERS.user4,
-		groupid: 1,
-		// biome-ignore lint/suspicious/noExplicitAny: test user type assertion
-	} as any,
+			...TEST_USERS.user4,
+			groupid: 1,
+			// biome-ignore lint/suspicious/noExplicitAny: test user type assertion
+		} as any,
 	});
 
 	const db = getDb(env);

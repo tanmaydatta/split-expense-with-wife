@@ -1,5 +1,15 @@
 #!/usr/bin/env sh
 
+echo "🎨 Running Biome formatting..."
+yarn biome format --write .
+
+if [ $? -ne 0 ]; then
+  echo "❌ Biome formatting failed! Commit aborted."
+  exit 1
+fi
+
+echo "✅ Biome formatting completed!"
+
 echo "🔍 Running linting for React app..."
 yarn lint
 
@@ -11,7 +21,7 @@ fi
 echo "✅ React linting passed!"
 
 echo "🔍 Running linting in cf-worker directory..."
-cd cf-worker && yarn lint
+yarn biome lint cf-worker/src/ && cd cf-worker && yarn tsc --noEmit
 
 if [ $? -ne 0 ]; then
   echo "❌ CF Worker linting failed! Commit aborted."

@@ -30,10 +30,10 @@ describe("Better Auth Integration", () => {
 						email: "direct@example.com",
 						password: "testpassword123",
 						name: "Direct Test",
-										firstName: "Direct",
-				lastName: "Test",
-				// biome-ignore lint/suspicious/noExplicitAny: test data type assertion
-			} as any,
+						firstName: "Direct",
+						lastName: "Test",
+						// biome-ignore lint/suspicious/noExplicitAny: test data type assertion
+					} as any,
 				});
 
 				console.log("Direct API call result:", result);

@@ -48,12 +48,12 @@ export async function handleBalances(
 					),
 				);
 
-					// Create user ID to name mapping
-		const userIdToName = new Map<string, string>();
-		// biome-ignore lint/complexity/noForEach: simple map population
-		Object.values(session.usersById).forEach((user) => {
-			userIdToName.set(user.id, user.firstName || "Unknown");
-		});
+			// Create user ID to name mapping
+			const userIdToName = new Map<string, string>();
+			// biome-ignore lint/complexity/noForEach: simple map population
+			Object.values(session.usersById).forEach((user) => {
+				userIdToName.set(user.id, user.firstName || "Unknown");
+			});
 
 			console.log("userIdToName", userIdToName);
 
@@ -388,16 +388,16 @@ export async function handleBudgetMonthly(
 			// First, collect all unique currencies and find date range
 			const allCurrencies = new Set<string>();
 			let oldestDate = new Date();
-					const today = new Date();
+			const today = new Date();
 
-		// biome-ignore lint/complexity/noForEach: data processing iteration
-		monthlyData.forEach((data) => {
-			allCurrencies.add(data.currency);
-			const dataDate = new Date(data.year, data.month - 1);
-			if (dataDate < oldestDate) {
-				oldestDate = dataDate;
-			}
-		});
+			// biome-ignore lint/complexity/noForEach: data processing iteration
+			monthlyData.forEach((data) => {
+				allCurrencies.add(data.currency);
+				const dataDate = new Date(data.year, data.month - 1);
+				if (dataDate < oldestDate) {
+					oldestDate = dataDate;
+				}
+			});
 
 			// If no data, use a reasonable default (2 years back)
 			if (monthlyData.length === 0) {
@@ -473,14 +473,14 @@ export async function handleBudgetMonthly(
 					currencyTotals[currency] = 0;
 				}
 
-							// Sum up actual spending for each currency across all months in the period
-			// biome-ignore lint/complexity/noForEach: nested data aggregation
-			periodBudgets.forEach((monthData) => {
-				// biome-ignore lint/complexity/noForEach: amount summation
-				monthData.amounts.forEach((amount) => {
-					currencyTotals[amount.currency] += Math.abs(amount.amount);
+				// Sum up actual spending for each currency across all months in the period
+				// biome-ignore lint/complexity/noForEach: nested data aggregation
+				periodBudgets.forEach((monthData) => {
+					// biome-ignore lint/complexity/noForEach: amount summation
+					monthData.amounts.forEach((amount) => {
+						currencyTotals[amount.currency] += Math.abs(amount.amount);
+					});
 				});
-			});
 
 				// Create average entries for each currency
 				const currencyAverages: AverageSpendData[] = Array.from(

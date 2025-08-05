@@ -313,7 +313,10 @@ export async function handleScheduledActionList(
 	return withAuth(request, env, async (session, db) => {
 		const url = new URL(request.url);
 		const offset = Number.parseInt(url.searchParams.get("offset") || "0");
-		const limit = Math.min(Number.parseInt(url.searchParams.get("limit") || "10"), 50);
+		const limit = Math.min(
+			Number.parseInt(url.searchParams.get("limit") || "10"),
+			50,
+		);
 
 		// Get total count
 		const totalCountResult = await db
@@ -545,7 +548,10 @@ export async function handleScheduledActionHistory(
 	return withAuth(request, env, async (session, db) => {
 		const url = new URL(request.url);
 		const offset = Number.parseInt(url.searchParams.get("offset") || "0");
-		const limit = Math.min(Number.parseInt(url.searchParams.get("limit") || "10"), 50);
+		const limit = Math.min(
+			Number.parseInt(url.searchParams.get("limit") || "10"),
+			50,
+		);
 		const scheduledActionId = url.searchParams.get("scheduledActionId");
 		const actionType = url.searchParams.get("actionType");
 		const executionStatus = url.searchParams.get("executionStatus");
