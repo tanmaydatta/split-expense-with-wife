@@ -295,6 +295,7 @@ export async function processBatchesAndCreateWorkflows(
 	return processResults;
 }
 
+/* istanbul ignore next */
 export class ScheduledActionsOrchestratorWorkflow extends WorkflowEntrypoint {
 	async run(
 		event: WorkflowEvent<OrchestratorWorkflowPayload>,

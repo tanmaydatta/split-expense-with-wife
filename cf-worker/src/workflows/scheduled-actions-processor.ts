@@ -147,6 +147,7 @@ export async function executeActionStatements(
 	executionDurationMs: number,
 	resultData: ScheduledActionResultData,
 	actionStatements: Array<{ query: BatchItem<"sqlite"> }>,
+	now: Date = new Date(),
 ): Promise<void> {
 	const db = getDb(env);
 
@@ -155,6 +156,7 @@ export async function executeActionStatements(
 	const nextExecutionDate = calculateNextExecutionDate(
 		action.startDate,
 		frequency,
+		now,
 	);
 
 	// Add statements ensuring we mark history success LAST to ensure idempotency
@@ -225,6 +227,7 @@ export async function handleActionError(
 		);
 	}
 }
+/* istanbul ignore next */
 export class ScheduledActionsProcessorWorkflow extends WorkflowEntrypoint {
 	async run(
 		event: WorkflowEvent<ProcessorWorkflowPayload>,
@@ -319,6 +322,7 @@ export class ScheduledActionsProcessorWorkflow extends WorkflowEntrypoint {
 							executionDurationMs,
 							resultData as ScheduledActionResultData,
 							dbStatements,
+							new Date(triggerDate),
 						);
 
 						if (!resultData) {

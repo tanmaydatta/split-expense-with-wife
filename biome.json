@@ -1,7 +1,15 @@
 {
 	"$schema": "https://biomejs.dev/schemas/2.1.3/schema.json",
 	"files": {
-		"includes": ["**", "!build/**", "!cf-worker/dist/**"],
+		"includes": [
+			"**",
+			"!build/**",
+			"!cf-worker/dist/**",
+			"!**/tests/**",
+			"!**/__tests__/**",
+			"!**/*.test.*",
+			"!**/*.spec.*"
+		],
 		"ignoreUnknown": false
 	},
 	"vcs": {

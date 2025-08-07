@@ -1,23 +1,23 @@
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
+import { CURRENCIES } from "../../shared-types";
+import { auth } from "./auth";
+import { getDb } from "./db";
+import { user } from "./db/schema/auth-schema";
+import {
+	budgetTotals,
+	groups,
+	transactionUsers,
+	userBalances,
+} from "./db/schema/schema";
 import type {
+	BudgetTotal,
 	CurrentSession,
+	GroupMetadata,
+	ParsedGroup,
+	Session,
 	SplitAmount,
 	UserBalance,
-	BudgetTotal,
-	Session,
-	ParsedGroup,
-	GroupMetadata,
 } from "./types";
-import { CURRENCIES } from "../../shared-types";
-import {
-	groups,
-	userBalances,
-	budgetTotals,
-	transactionUsers,
-} from "./db/schema/schema";
-import { getDb } from "./db";
-import { eq, inArray, sql, and, isNull } from "drizzle-orm";
-import { auth } from "./auth";
-import { user } from "./db/schema/auth-schema";
 // Generate random ID
 export function generateRandomId(length = 16): string {
 	const chars =

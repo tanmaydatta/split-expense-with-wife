@@ -59,13 +59,15 @@ function addMonthsSafely(
 export function calculateNextExecutionDate(
 	startDate: string,
 	frequency: "daily" | "weekly" | "monthly",
+	now: Date = new Date(),
 ): string {
 	const start = new Date(startDate);
-	const now = new Date();
-	now.setUTCHours(0, 0, 0, 0); // Reset to midnight UTC for date comparison
+	// Reset to midnight UTC for date comparison based on provided "now"
+	const today = new Date(now);
+	today.setUTCHours(0, 0, 0, 0);
 
 	// If start date is in the future, return start date
-	if (start > now) {
+	if (start > today) {
 		return startDate;
 	}
 
@@ -75,7 +77,7 @@ export function calculateNextExecutionDate(
 	// Calculate next execution based on frequency
 	const next = new Date(start);
 
-	while (next <= now) {
+	while (next <= today) {
 		switch (frequency) {
 			case "daily":
 				next.setUTCDate(next.getUTCDate() + 1);

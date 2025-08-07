@@ -10,7 +10,7 @@ import type {
 	MonthlyBudget,
 } from "../../../shared-types";
 import { getDb } from "../db";
-import { budget, transactionUsers, transactions } from "../db/schema/schema";
+import { budget, transactions, transactionUsers } from "../db/schema/schema";
 import worker from "../index";
 import type { UserBalancesByUser } from "../types";
 import {

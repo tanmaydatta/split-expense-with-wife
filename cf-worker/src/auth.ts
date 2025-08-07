@@ -1,9 +1,9 @@
 import { betterAuth } from "better-auth";
-import { customSession, username } from "better-auth/plugins";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { customSession, username } from "better-auth/plugins";
 import { getDb } from "./db";
-import { enrichSession } from "./utils";
 import type { Session } from "./types";
+import { enrichSession } from "./utils";
 
 // const env = process.env as unknown as Env;
 export const auth = (env: Env): ReturnType<typeof betterAuth> =>

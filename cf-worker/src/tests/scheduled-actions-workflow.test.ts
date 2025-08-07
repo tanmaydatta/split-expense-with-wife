@@ -190,6 +190,43 @@ describe("Scheduled Actions Workflows", () => {
 			expect(pendingActions[0].isActive).toBe(true);
 		});
 
+		it("should return empty when no actions are due today", async () => {
+			const { getPendingScheduledActions } = await import(
+				"../workflows/scheduled-actions-orchestrator"
+			);
+
+			// Make the existing action not due today
+			await db
+				.update(scheduledActions)
+				.set({ nextExecutionDate: "2099-12-31" })
+				.where(eq(scheduledActions.id, testActionId));
+
+			const pending = await getPendingScheduledActions(testEnv, "2024-01-15");
+			expect(pending).toHaveLength(0);
+		});
+
+		it("should filter out actions already executed today", async () => {
+			const { getPendingScheduledActions } = await import(
+				"../workflows/scheduled-actions-orchestrator"
+			);
+			const currentDate = "2024-01-15";
+			// Mark history as success for today
+			await db.insert(scheduledActionHistory).values({
+				id: `hist_${testActionId}-${currentDate}`,
+				scheduledActionId: testActionId,
+				userId: testUserId,
+				actionType: "add_expense",
+				executedAt: `${currentDate} 08:00:00`,
+				executionStatus: "success",
+				workflowInstanceId: "wf1",
+				workflowStatus: "complete",
+				actionData: { description: "done" },
+			});
+
+			const pending = await getPendingScheduledActions(testEnv, currentDate);
+			expect(pending).toHaveLength(0);
+		});
+
 		it("should filter actions without history correctly", async () => {
 			const { filterActionsWithoutHistory } = await import(
 				"../workflows/scheduled-actions-orchestrator"
@@ -212,6 +249,37 @@ describe("Scheduled Actions Workflows", () => {
 			expect(result.actionsToProcess).toHaveLength(1);
 			expect(result.alreadyProcessedResults).toHaveLength(0);
 			expect(result.actionsToProcess[0].id).toBe(testActionId);
+		});
+
+		it("should flag already processed when success history exists", async () => {
+			const { filterActionsWithoutHistory } = await import(
+				"../workflows/scheduled-actions-orchestrator"
+			);
+			const currentDate = "2024-01-15";
+			const historyId = `hist_${testActionId}-${currentDate}`;
+			await db.insert(scheduledActionHistory).values({
+				id: historyId,
+				scheduledActionId: testActionId,
+				userId: testUserId,
+				actionType: "add_expense",
+				executedAt: `${currentDate} 01:00:00`,
+				executionStatus: "success",
+				workflowInstanceId: "wf2",
+				workflowStatus: "complete",
+				actionData: { description: "done" },
+			});
+			const pendingActions = [
+				createMockScheduledAction({ id: testActionId, userId: testUserId }),
+			];
+			const res = await filterActionsWithoutHistory(
+				testEnv,
+				pendingActions,
+				currentDate,
+			);
+			expect(res.actionsToProcess).toHaveLength(0);
+			expect(res.alreadyProcessedResults).toEqual([
+				{ actionId: testActionId, status: "already_processed" },
+			]);
 		});
 
 		it("should create batch history entries", async () => {
@@ -247,6 +315,48 @@ describe("Scheduled Actions Workflows", () => {
 			expect(historyResult).toHaveLength(1);
 			expect(historyResult[0].executionStatus).toBe("started");
 			expect(historyResult[0].workflowInstanceId).toBe(batchInstanceId);
+		});
+
+		it("should update existing history entries to started/running", async () => {
+			const { createBatchHistoryEntries } = await import(
+				"../workflows/scheduled-actions-orchestrator"
+			);
+			const currentDate = "2024-01-15";
+			const batchInstanceId = "batch-2024-01-15-9";
+			const batchActions = [
+				createMockScheduledAction({ id: testActionId, userId: testUserId }),
+			];
+			// Seed history with failed/terminated to check onConflictDoUpdate path
+			await db.insert(scheduledActionHistory).values({
+				id: `hist_${testActionId}-${currentDate}`,
+				scheduledActionId: testActionId,
+				userId: testUserId,
+				actionType: "add_expense",
+				executedAt: `${currentDate} 00:00:00`,
+				executionStatus: "failed",
+				workflowInstanceId: "old",
+				workflowStatus: "terminated",
+				actionData: { description: "old" },
+			});
+
+			const valid = await createBatchHistoryEntries(
+				testEnv,
+				batchActions,
+				batchInstanceId,
+				currentDate,
+			);
+			expect(valid).toEqual([testActionId]);
+			const hist = await db
+				.select()
+				.from(scheduledActionHistory)
+				.where(
+					eq(scheduledActionHistory.id, `hist_${testActionId}-${currentDate}`),
+				)
+				.limit(1);
+			expect(hist[0].executionStatus).toBe("started");
+			expect(hist[0].workflowStatus).toBe("running");
+			// Instance stays as previously set by design
+			expect(hist[0].workflowInstanceId).toBe("old");
 		});
 
 		it("should handle batch errors correctly", async () => {
@@ -289,6 +399,328 @@ describe("Scheduled Actions Workflows", () => {
 		});
 	});
 
+	describe("Additional Orchestrator Coverage", () => {
+		beforeEach(async () => {
+			// Ensure processor createBatch is mocked
+			// biome-ignore lint/suspicious/noExplicitAny: Test workflow mock
+			testEnv.PROCESSOR_WORKFLOW = {
+				create: vi.fn().mockResolvedValue(mockWorkflowInstance),
+				get: vi.fn().mockResolvedValue(mockWorkflowInstance),
+				createBatch: vi.fn().mockResolvedValue([{ id: "i1" }, { id: "i2" }]),
+			} as any;
+
+			// Seed three actions in DB so history inserts respect FK constraints
+			const nowIso = new Date().toISOString();
+			const seedActions: (typeof scheduledActions.$inferInsert)[] = [
+				{
+					id: "act-1",
+					userId: testUserId,
+					actionType: "add_expense",
+					frequency: "daily",
+					startDate: "2024-01-01",
+					isActive: true,
+					createdAt: nowIso,
+					updatedAt: nowIso,
+					actionData: {
+						description: "A1",
+						amount: 10,
+						currency: "GBP",
+						paidByUserId: testUserId,
+						splitPctShares: { [testUserId]: 100 },
+					},
+					lastExecutedAt: null,
+					nextExecutionDate: "2024-01-15",
+				},
+				{
+					id: "act-2",
+					userId: testUserId,
+					actionType: "add_expense",
+					frequency: "daily",
+					startDate: "2024-01-01",
+					isActive: true,
+					createdAt: nowIso,
+					updatedAt: nowIso,
+					actionData: {
+						description: "A2",
+						amount: 20,
+						currency: "GBP",
+						paidByUserId: testUserId,
+						splitPctShares: { [testUserId]: 100 },
+					},
+					lastExecutedAt: null,
+					nextExecutionDate: "2024-01-15",
+				},
+				{
+					id: "act-3",
+					userId: testUserId,
+					actionType: "add_budget",
+					frequency: "daily",
+					startDate: "2024-01-01",
+					isActive: true,
+					createdAt: nowIso,
+					updatedAt: nowIso,
+					actionData: {
+						description: "B1",
+						amount: 30,
+						currency: "GBP",
+						budgetName: "house",
+						type: "Credit" as const,
+					},
+					lastExecutedAt: null,
+					nextExecutionDate: "2024-01-15",
+				},
+			];
+			await db.insert(scheduledActions).values(seedActions);
+		});
+
+		it("should batch-create processor workflows using createBatch", async () => {
+			const { processBatchesAndCreateWorkflows } = await import(
+				"../workflows/scheduled-actions-orchestrator"
+			);
+
+			const actionsToProcess: Array<typeof scheduledActions.$inferSelect> = [
+				{
+					id: "act-1",
+					userId: testUserId,
+					actionType: "add_expense" as const,
+					frequency: "daily" as const,
+					startDate: "2024-01-01",
+					isActive: true,
+					createdAt: new Date().toISOString(),
+					updatedAt: new Date().toISOString(),
+					actionData: {
+						description: "A1",
+						amount: 10,
+						currency: "GBP",
+						paidByUserId: testUserId,
+						splitPctShares: { [testUserId]: 100 },
+					},
+					lastExecutedAt: null,
+					nextExecutionDate: "2024-01-15",
+				},
+				{
+					id: "act-2",
+					userId: testUserId,
+					actionType: "add_expense" as const,
+					frequency: "daily" as const,
+					startDate: "2024-01-01",
+					isActive: true,
+					createdAt: new Date().toISOString(),
+					updatedAt: new Date().toISOString(),
+					actionData: {
+						description: "A2",
+						amount: 20,
+						currency: "GBP",
+						paidByUserId: testUserId,
+						splitPctShares: { [testUserId]: 100 },
+					},
+					lastExecutedAt: null,
+					nextExecutionDate: "2024-01-15",
+				},
+				{
+					id: "act-3",
+					userId: testUserId,
+					actionType: "add_budget" as const,
+					frequency: "daily" as const,
+					startDate: "2024-01-01",
+					isActive: true,
+					createdAt: new Date().toISOString(),
+					updatedAt: new Date().toISOString(),
+					actionData: {
+						description: "B1",
+						amount: 30,
+						currency: "GBP",
+						budgetName: "house",
+						type: "Credit" as const,
+					},
+					lastExecutedAt: null,
+					nextExecutionDate: "2024-01-15",
+				},
+			];
+
+			const triggerDate = "2024-01-15 00:00:00";
+			const currentDate = "2024-01-15";
+
+			const results = await processBatchesAndCreateWorkflows(
+				testEnv,
+				actionsToProcess,
+				triggerDate,
+				currentDate,
+				2,
+			);
+
+			expect(testEnv.PROCESSOR_WORKFLOW.createBatch).toHaveBeenCalledTimes(1);
+			const args = (testEnv.PROCESSOR_WORKFLOW.createBatch as any).mock
+				.calls[0][0];
+			expect(Array.isArray(args)).toBe(true);
+			// Expect two batch instances for batchSize=2 and 3 actions
+			expect(args.length).toBe(2);
+			// Verify results marked started
+			expect(results.filter((r) => r.status === "started").length).toBe(3);
+		});
+
+		it("should handle errors from createBatchHistoryEntries and mark failures", async () => {
+			const orchestrator = await import(
+				"../workflows/scheduled-actions-orchestrator"
+			);
+
+			const actionsToProcess: Array<typeof scheduledActions.$inferSelect> = [
+				{
+					id: "act-Err1",
+					userId: testUserId,
+					actionType: "add_expense" as const,
+					frequency: "daily" as const,
+					startDate: "2024-01-01",
+					isActive: true,
+					createdAt: new Date().toISOString(),
+					updatedAt: new Date().toISOString(),
+					actionData: {
+						description: "A1",
+						amount: 10,
+						currency: "GBP",
+						paidByUserId: testUserId,
+						splitPctShares: { [testUserId]: 100 },
+					},
+					lastExecutedAt: null,
+					nextExecutionDate: "2024-01-15",
+				},
+			];
+
+			const results = await orchestrator.processBatchesAndCreateWorkflows(
+				testEnv,
+				actionsToProcess,
+				"2024-01-15 00:00:00",
+				"2024-01-15",
+				1,
+			);
+
+			expect(results.length).toBe(1);
+			expect(results[0].status).toBe("failed");
+			// createBatch should not be called since history creation failed
+			expect(
+				(testEnv.PROCESSOR_WORKFLOW.createBatch as any)?.mock?.calls?.length ??
+					0,
+			).toBe(0);
+		});
+
+		it("should not call createBatch when no actions to process", async () => {
+			const { processBatchesAndCreateWorkflows } = await import(
+				"../workflows/scheduled-actions-orchestrator"
+			);
+			// reset mock calls
+			if ((testEnv.PROCESSOR_WORKFLOW.createBatch as any)?.mock) {
+				(testEnv.PROCESSOR_WORKFLOW.createBatch as any).mockClear();
+			}
+			const results = await processBatchesAndCreateWorkflows(
+				testEnv,
+				[],
+				"2024-01-15 00:00:00",
+				"2024-01-15",
+				3,
+			);
+
+			expect(results).toEqual([]);
+			expect(
+				(testEnv.PROCESSOR_WORKFLOW.createBatch as any)?.mock?.calls?.length ??
+					0,
+			).toBe(0);
+		});
+	});
+
+	describe("Additional Processor Coverage", () => {
+		beforeEach(async () => {
+			// seed scheduled action and history (started)
+			const nowIso = new Date().toISOString();
+			await db.insert(scheduledActions).values({
+				id: "proc-1",
+				userId: testUserId,
+				actionType: "add_expense",
+				frequency: "monthly",
+				startDate: "2024-01-01",
+				isActive: true,
+				createdAt: nowIso,
+				updatedAt: nowIso,
+				actionData: {
+					description: "PX",
+					amount: 12,
+					currency: "GBP",
+					paidByUserId: testUserId,
+					splitPctShares: { [testUserId]: 100 },
+				},
+				nextExecutionDate: "2024-01-15",
+			});
+			await db.insert(scheduledActionHistory).values({
+				id: "hist_proc-1-2024-01-15",
+				scheduledActionId: "proc-1",
+				userId: testUserId,
+				actionType: "add_expense",
+				executedAt: "2024-01-15 10:00:00",
+				executionStatus: "started",
+				workflowInstanceId: "w1",
+				workflowStatus: "running",
+				actionData: { description: "PX" },
+			});
+		});
+
+		it("should execute action statements and mark history success with correct next date using provided now", async () => {
+			const { executeActionStatements } = await import(
+				"../workflows/scheduled-actions-processor"
+			);
+
+			const action = (
+				await db
+					.select()
+					.from(scheduledActions)
+					.where(eq(scheduledActions.id, "proc-1"))
+					.limit(1)
+			)[0]!;
+
+			// a harmless statement executed before tracking updates
+			const stmts = [
+				{
+					query: db
+						.update(scheduledActions)
+						.set({ updatedAt: "2024-01-15 10:00:01" })
+						.where(eq(scheduledActions.id, "proc-1")),
+				},
+			];
+
+			await executeActionStatements(
+				testEnv,
+				action,
+				"hist_proc-1-2024-01-15",
+				123,
+				{ message: "ok" },
+				stmts,
+				new Date("2024-01-15T00:00:00Z"),
+			);
+
+			// Verify scheduled action tracking updated and next date computed from now
+			const actionAfter = (
+				await db
+					.select()
+					.from(scheduledActions)
+					.where(eq(scheduledActions.id, "proc-1"))
+					.limit(1)
+			)[0]!;
+			expect(actionAfter.lastExecutedAt).toBeTruthy();
+			expect(actionAfter.nextExecutionDate).toBe("2024-02-01");
+
+			// Verify history success updated last with result data
+			const hist = (
+				await db
+					.select()
+					.from(scheduledActionHistory)
+					.where(eq(scheduledActionHistory.id, "hist_proc-1-2024-01-15"))
+					.limit(1)
+			)[0]!;
+			expect(hist.executionStatus).toBe("success");
+			expect(hist.workflowStatus).toBe("complete");
+			expect(hist.resultData).toEqual({ message: "ok" });
+			expect(hist.executionDurationMs).toBe(123);
+		});
+	});
+
 	describe("Processor Workflow Step Functions", () => {
 		beforeEach(async () => {
 			// Create a group for the users
@@ -298,7 +730,109 @@ describe("Scheduled Actions Workflows", () => {
 				budgets: JSON.stringify(["house", "groceries"]),
 			});
 		});
+		it("fetchActionsWithUsers throws when no matching actions", async () => {
+			const { fetchActionsWithUsers } = await import(
+				"../workflows/scheduled-actions-processor"
+			);
+			await expect(
+				fetchActionsWithUsers(testEnv, ["non-existent-id"]),
+			).rejects.toThrow(/No actions found/);
+		});
 
+		it("processBudgetAction throws when user has no groupid", async () => {
+			const { processBudgetAction } = await import(
+				"../workflows/scheduled-actions-processor"
+			);
+			const action = createMockScheduledAction({
+				id: "proc-no-group",
+				actionType: "add_budget" as const,
+				actionData: {
+					description: "Monthly house budget",
+					amount: 100,
+					currency: "GBP",
+					budgetName: "house",
+					type: "Credit",
+				},
+			});
+			// biome-ignore lint/suspicious/noExplicitAny: test
+			const userData: any = { groupid: null };
+			await expect(
+				processBudgetAction(testEnv, action, userData, "2024-01-15"),
+			).rejects.toThrow(/groupid is required/);
+		});
+
+		it("executeActionStatements works when no additional action statements are provided", async () => {
+			const { executeActionStatements } = await import(
+				"../workflows/scheduled-actions-processor"
+			);
+			// seed scheduled action and history
+			const nowIso = new Date().toISOString();
+			await db.insert(scheduledActions).values({
+				id: "proc-2",
+				userId: testUserId,
+				actionType: "add_expense",
+				frequency: "weekly",
+				startDate: "2024-01-01",
+				isActive: true,
+				createdAt: nowIso,
+				updatedAt: nowIso,
+				actionData: {
+					description: "PX2",
+					amount: 5,
+					currency: "GBP",
+					paidByUserId: testUserId,
+					splitPctShares: { [testUserId]: 100 },
+				},
+				nextExecutionDate: "2024-01-15",
+			});
+			await db.insert(scheduledActionHistory).values({
+				id: "hist_proc-2-2024-01-15",
+				scheduledActionId: "proc-2",
+				userId: testUserId,
+				actionType: "add_expense",
+				executedAt: "2024-01-15 10:00:00",
+				executionStatus: "started",
+				workflowInstanceId: "w2",
+				workflowStatus: "running",
+				actionData: { description: "PX2" },
+			});
+
+			const action = (
+				await db
+					.select()
+					.from(scheduledActions)
+					.where(eq(scheduledActions.id, "proc-2"))
+					.limit(1)
+			)[0]!;
+
+			await executeActionStatements(
+				testEnv,
+				action,
+				"hist_proc-2-2024-01-15",
+				200,
+				{ message: "ok2" },
+				[],
+				new Date("2024-01-15T00:00:00Z"),
+			);
+
+			const actionAfter = (
+				await db
+					.select()
+					.from(scheduledActions)
+					.where(eq(scheduledActions.id, "proc-2"))
+					.limit(1)
+			)[0]!;
+			expect(actionAfter.lastExecutedAt).toBeTruthy();
+			const hist = (
+				await db
+					.select()
+					.from(scheduledActionHistory)
+					.where(eq(scheduledActionHistory.id, "hist_proc-2-2024-01-15"))
+					.limit(1)
+			)[0]!;
+			expect(hist.executionStatus).toBe("success");
+			expect(hist.executionDurationMs).toBe(200);
+		});
 		it("should fetch actions with users correctly", async () => {
 			const { fetchActionsWithUsers } = await import(
 				"../workflows/scheduled-actions-processor"
@@ -311,6 +845,15 @@ describe("Scheduled Actions Workflows", () => {
 			expect(actionsResult[0].scheduled_actions.id).toBe(testActionId);
 			expect(actionsResult[0].user.id).toBe(testUserId);
 			expect(actionsResult[0].user.groupid).toBe(1);
+		});
+
+		it("fetchActionsWithUsers throws when no matching actions", async () => {
+			const { fetchActionsWithUsers } = await import(
+				"../workflows/scheduled-actions-processor"
+			);
+			await expect(
+				fetchActionsWithUsers(testEnv, ["non-existent-id"]),
+			).rejects.toThrow(/No actions found/);
 		});
 
 		it("should process expense action correctly", async () => {
@@ -357,7 +900,7 @@ describe("Scheduled Actions Workflows", () => {
 					amount: 800.0,
 					currency: "GBP",
 					budgetName: "house",
-					type: "Credit",
+					type: "Credit" as const,
 				},
 			});
 			// biome-ignore lint/suspicious/noExplicitAny: Test mock
@@ -374,6 +917,28 @@ describe("Scheduled Actions Workflows", () => {
 			expect(result.resultData).toBeDefined();
 			expect(result.resultData?.message).toContain("Budget entry created");
 			expect(result.statements.length).toBeGreaterThan(0);
+		});
+
+		it("processBudgetAction throws when user has no groupid", async () => {
+			const { processBudgetAction } = await import(
+				"../workflows/scheduled-actions-processor"
+			);
+			const action = createMockScheduledAction({
+				id: "proc-no-group",
+				actionType: "add_budget" as const,
+				actionData: {
+					description: "Monthly house budget",
+					amount: 100,
+					currency: "GBP",
+					budgetName: "house",
+					type: "Credit",
+				},
+			});
+			// biome-ignore lint/suspicious/noExplicitAny: test
+			const userData: any = { groupid: null };
+			await expect(
+				processBudgetAction(testEnv, action, userData, "2024-01-15"),
+			).rejects.toThrow(/groupid is required/);
 		});
 
 		it("should handle action errors correctly", async () => {
