@@ -3,17 +3,17 @@ import { and, eq, lte } from "drizzle-orm";
 import { ulid } from "ulid";
 
 import type {
-    AddBudgetActionData,
-    AddExpenseActionData,
+	AddBudgetActionData,
+	AddExpenseActionData,
 } from "../../../shared-types";
 import { getDb } from "../db";
 import { user } from "../db/schema/auth-schema";
 import {
-    budget,
-    groups,
-    scheduledActionHistory,
-    scheduledActions,
-    transactions,
+	budget,
+	groups,
+	scheduledActionHistory,
+	scheduledActions,
+	transactions,
 } from "../db/schema/schema";
 import { handleCron } from "../handlers/cron";
 import { formatSQLiteTime } from "../utils";
@@ -47,12 +47,12 @@ describe("Scheduled Actions Workflows", () => {
 		testEnv.ORCHESTRATOR_WORKFLOW = {
 			create: vi.fn().mockResolvedValue(mockWorkflowInstance),
 			get: vi.fn().mockResolvedValue(mockWorkflowInstance),
-		// biome-ignore lint/suspicious/noExplicitAny: Test workflow mock
+			// biome-ignore lint/suspicious/noExplicitAny: Test workflow mock
 		} as any;
 		testEnv.PROCESSOR_WORKFLOW = {
 			create: vi.fn().mockResolvedValue(mockWorkflowInstance),
 			get: vi.fn().mockResolvedValue(mockWorkflowInstance),
-		// biome-ignore lint/suspicious/noExplicitAny: Test workflow mock
+			// biome-ignore lint/suspicious/noExplicitAny: Test workflow mock
 		} as any;
 
 		// Set required environment variables for cron handler
@@ -133,10 +133,12 @@ describe("Scheduled Actions Workflows", () => {
 	});
 
 	// Helper function to create complete mock scheduled actions
-	function createMockScheduledAction(overrides: Partial<typeof scheduledActions.$inferSelect> = {}): typeof scheduledActions.$inferSelect {
+	function createMockScheduledAction(
+		overrides: Partial<typeof scheduledActions.$inferSelect> = {},
+	): typeof scheduledActions.$inferSelect {
 		const now = formatSQLiteTime(new Date());
 		const currentDate = now.split("T")[0];
-		
+
 		const defaultActionData = {
 			description: "Test expense",
 			amount: 100,
@@ -145,7 +147,7 @@ describe("Scheduled Actions Workflows", () => {
 			splitPctShares: { "test-user": 100 },
 			type: "add_expense" as const,
 		};
-		
+
 		return {
 			id: `test_action_${Date.now()}_${Math.random()}`,
 			userId: "test-user",
@@ -158,7 +160,7 @@ describe("Scheduled Actions Workflows", () => {
 			updatedAt: now,
 			lastExecutedAt: null,
 			nextExecutionDate: currentDate,
-			...overrides
+			...overrides,
 		};
 	}
 
@@ -194,10 +196,12 @@ describe("Scheduled Actions Workflows", () => {
 			);
 
 			const currentDate = "2024-01-15";
-			const pendingActions = [createMockScheduledAction({ 
-				id: testActionId,
-				userId: testUserId,
-			})];
+			const pendingActions = [
+				createMockScheduledAction({
+					id: testActionId,
+					userId: testUserId,
+				}),
+			];
 
 			const result = await filterActionsWithoutHistory(
 				testEnv,
@@ -217,10 +221,12 @@ describe("Scheduled Actions Workflows", () => {
 
 			const currentDate = "2024-01-15";
 			const batchInstanceId = "batch-2024-01-15-1";
-			const batchActions = [createMockScheduledAction({ 
-				id: testActionId,
-				userId: testUserId,
-			})];
+			const batchActions = [
+				createMockScheduledAction({
+					id: testActionId,
+					userId: testUserId,
+				}),
+			];
 
 			const validActionIds = await createBatchHistoryEntries(
 				testEnv,
@@ -250,10 +256,12 @@ describe("Scheduled Actions Workflows", () => {
 
 			const currentDate = "2024-01-15";
 			const batchInstanceId = "batch-2024-01-15-1";
-			const batchActions = [createMockScheduledAction({ 
-				id: testActionId,
-				userId: testUserId,
-			})];
+			const batchActions = [
+				createMockScheduledAction({
+					id: testActionId,
+					userId: testUserId,
+				}),
+			];
 			const error = new Error("Test batch error");
 
 			const failedResults = await handleBatchError(
@@ -481,7 +489,7 @@ describe("Scheduled Actions Workflows", () => {
 			// Execute the statements
 			const queries = result.statements.map((stmt) => stmt.query);
 			// biome-ignore lint/suspicious/noExplicitAny: Drizzle batch requires any type
-		await db.batch(queries as [any, ...any[]]);
+			await db.batch(queries as [any, ...any[]]);
 
 			// Verify transaction was created with the specified ID
 			const transactionResult = await db
@@ -520,7 +528,7 @@ describe("Scheduled Actions Workflows", () => {
 			// Execute the statements
 			const queries = result.statements.map((stmt) => stmt.query);
 			// biome-ignore lint/suspicious/noExplicitAny: Drizzle batch requires any type
-		await db.batch(queries as [any, ...any[]]);
+			await db.batch(queries as [any, ...any[]]);
 
 			// Verify budget was created with the specified ID
 			const budgetResult = await db
@@ -717,7 +725,7 @@ describe("Scheduled Actions Workflows", () => {
 
 			const queries = allStatements.map((stmt) => stmt.query);
 			// biome-ignore lint/suspicious/noExplicitAny: Drizzle batch requires any type
-		await db.batch(queries as [any, ...any[]]);
+			await db.batch(queries as [any, ...any[]]);
 
 			// Step 5: Verify the complete workflow result
 			const transactionResult = await db
@@ -826,7 +834,7 @@ describe("Scheduled Actions Workflows", () => {
 
 			const queries = allStatements.map((stmt) => stmt.query);
 			// biome-ignore lint/suspicious/noExplicitAny: Drizzle batch requires any type
-		await db.batch(queries as [any, ...any[]]);
+			await db.batch(queries as [any, ...any[]]);
 
 			// Verify results
 			const budgetEntryResult = await db

@@ -1,26 +1,26 @@
 import { eq, inArray, sql } from "drizzle-orm";
 import type { BatchItem } from "drizzle-orm/batch";
 import type {
-    AddExpenseActionData,
-    BudgetRequest,
-    ScheduledActionResultData,
-    SplitRequest,
+	AddExpenseActionData,
+	BudgetRequest,
+	ScheduledActionResultData,
+	SplitRequest,
 } from "../../../shared-types";
 import type { getDb } from "../db";
 import { user } from "../db/schema/auth-schema";
 import {
-    budget,
-    budgetTotals,
-    transactions,
-    transactionUsers,
+	budget,
+	budgetTotals,
+	transactions,
+	transactionUsers,
 } from "../db/schema/schema";
 import {
-    calculateSplitAmounts,
-    formatSQLiteTime,
-    generateDrizzleBalanceUpdates,
-    isValidCurrency,
-    validatePaidAmounts,
-    validateSplitPercentages,
+	calculateSplitAmounts,
+	formatSQLiteTime,
+	generateDrizzleBalanceUpdates,
+	isValidCurrency,
+	validatePaidAmounts,
+	validateSplitPercentages,
 } from "../utils";
 
 type DbInstance = ReturnType<typeof getDb>;
@@ -225,7 +225,10 @@ export async function createSplitTransactionStatements(
 	db: DbInstance,
 	env: Env,
 	transactionId: string,
-): Promise<{ resultData: ScheduledActionResultData; statements: QueryStatement[] }> {
+): Promise<{
+	resultData: ScheduledActionResultData;
+	statements: QueryStatement[];
+}> {
 	// Convert AddExpenseActionData to SplitRequest format
 	const splitRequest: SplitRequest = {
 		amount: expenseData.amount,
@@ -258,7 +261,10 @@ export async function createBudgetEntryStatements(
 	budgetRequest: BudgetRequest,
 	db: DbInstance,
 	budgetId: string,
-): Promise<{ resultData: ScheduledActionResultData; statements: QueryStatement[] }> {
+): Promise<{
+	resultData: ScheduledActionResultData;
+	statements: QueryStatement[];
+}> {
 	// Validate currency
 	if (!isValidCurrency(budgetRequest.currency)) {
 		throw new Error(`Invalid currency: ${budgetRequest.currency}`);
@@ -340,7 +346,10 @@ export async function createBudgetEntryStatementsForScheduledAction(
 	budgetRequest: BudgetRequest,
 	db: DbInstance,
 	budgetId: string,
-): Promise<{ resultData: ScheduledActionResultData; statements: QueryStatement[] }> {
+): Promise<{
+	resultData: ScheduledActionResultData;
+	statements: QueryStatement[];
+}> {
 	// Use the generic function with the provided budget ID
 	return await createBudgetEntryStatements(budgetRequest, db, budgetId);
 }

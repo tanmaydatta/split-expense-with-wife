@@ -83,7 +83,7 @@ async function triggerScheduledActionsOrchestrator(env: Env) {
 	const id = `orchestrator-${triggerDate.split("T")[0]}-${Date.now()}`;
 	try {
 		// Simply trigger the orchestrator workflow - it handles everything else
-		 await env.ORCHESTRATOR_WORKFLOW.create({
+		await env.ORCHESTRATOR_WORKFLOW.create({
 			id: id,
 			params: { triggerDate },
 		});

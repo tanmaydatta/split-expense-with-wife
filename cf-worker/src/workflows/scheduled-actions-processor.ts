@@ -52,10 +52,12 @@ export interface ProcessorResult {
 export async function fetchActionsWithUsers(
 	env: Env,
 	actionIds: string[],
-): Promise<Array<{
-	scheduled_actions: ScheduledActionSelect;
-	user: UserSelect;
-}>> {
+): Promise<
+	Array<{
+		scheduled_actions: ScheduledActionSelect;
+		user: UserSelect;
+	}>
+> {
 	const db = getDb(env);
 
 	// Fetch all actions and their users
@@ -77,7 +79,10 @@ export async function processExpenseAction(
 	action: ScheduledActionSelect,
 	userData: UserSelect,
 	currentDate: string,
-): Promise<{ resultData: ScheduledActionResultData; statements: Array<{ query: BatchItem<"sqlite"> }> }> {
+): Promise<{
+	resultData: ScheduledActionResultData;
+	statements: Array<{ query: BatchItem<"sqlite"> }>;
+}> {
 	const db = getDb(env);
 	const expenseData = action.actionData as AddExpenseActionData;
 	const transactionId = generateDeterministicTransactionId(
@@ -104,7 +109,10 @@ export async function processBudgetAction(
 	action: ScheduledActionSelect,
 	userData: UserSelect,
 	currentDate: string,
-): Promise<{ resultData: ScheduledActionResultData; statements: Array<{ query: BatchItem<"sqlite"> }> }> {
+): Promise<{
+	resultData: ScheduledActionResultData;
+	statements: Array<{ query: BatchItem<"sqlite"> }>;
+}> {
 	if (!userData.groupid) {
 		throw new Error("User groupid is required");
 	}
@@ -236,7 +244,7 @@ export async function processScheduledActionsBatch(
 
 		try {
 			let resultData: ScheduledActionResultData;
-								let dbStatements: Array<{ query: BatchItem<"sqlite"> }> = [];
+			let dbStatements: Array<{ query: BatchItem<"sqlite"> }> = [];
 
 			// Execute the specific action type
 			switch (action.actionType) {
@@ -362,12 +370,12 @@ export class ScheduledActionsProcessorWorkflow extends WorkflowEntrypoint {
 
 			try {
 				let resultData: ScheduledActionResultData;
-									let dbStatements: Array<{ query: BatchItem<"sqlite"> }> = [];
+				let dbStatements: Array<{ query: BatchItem<"sqlite"> }> = [];
 
 				// Execute the specific action type
 				switch (action.actionType) {
 					case "add_expense": {
-						const expenseResult = await step.do(
+						const expenseResult = (await step.do(
 							`process-expense-${action.id}`,
 							async () => {
 								return await processExpenseAction(
@@ -377,14 +385,17 @@ export class ScheduledActionsProcessorWorkflow extends WorkflowEntrypoint {
 									currentDate,
 								);
 							},
-						) as { resultData: ScheduledActionResultData; statements: Array<{ query: BatchItem<"sqlite"> }> };
+						)) as {
+							resultData: ScheduledActionResultData;
+							statements: Array<{ query: BatchItem<"sqlite"> }>;
+						};
 						resultData = expenseResult.resultData;
 						dbStatements = expenseResult.statements;
 						break;
 					}
 
 					case "add_budget": {
-						const budgetResult = await step.do(
+						const budgetResult = (await step.do(
 							`process-budget-${action.id}`,
 							async () => {
 								return await processBudgetAction(
@@ -394,7 +405,10 @@ export class ScheduledActionsProcessorWorkflow extends WorkflowEntrypoint {
 									currentDate,
 								);
 							},
-						) as { resultData: ScheduledActionResultData; statements: Array<{ query: BatchItem<"sqlite"> }> };
+						)) as {
+							resultData: ScheduledActionResultData;
+							statements: Array<{ query: BatchItem<"sqlite"> }>;
+						};
 						resultData = budgetResult.resultData;
 						dbStatements = budgetResult.statements;
 						break;

@@ -86,9 +86,9 @@ export async function filterActionsWithoutHistory(
 	env: Env,
 	pendingActions: ScheduledActionSelect[],
 	currentDate: string,
-): Promise<{ 
-	actionsToProcess: ScheduledActionSelect[]; 
-	alreadyProcessedResults: Array<{ actionId: string; status: string }> 
+): Promise<{
+	actionsToProcess: ScheduledActionSelect[];
+	alreadyProcessedResults: Array<{ actionId: string; status: string }>;
 }> {
 	const db = getDb(env);
 	const actionsToProcess = [];
@@ -210,7 +210,15 @@ export async function processBatchesAndCreateWorkflows(
 	triggerDate: string,
 	currentDate: string,
 	batchSize: number = 10,
-): Promise<Array<{ actionId: string; status: string; workflowInstanceId?: string; batchNumber?: number; error?: string }>> {
+): Promise<
+	Array<{
+		actionId: string;
+		status: string;
+		workflowInstanceId?: string;
+		batchNumber?: number;
+		error?: string;
+	}>
+> {
 	const processResults = [];
 	const workflowInstances = [];
 
