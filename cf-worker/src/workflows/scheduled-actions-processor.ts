@@ -267,7 +267,10 @@ export class ScheduledActionsProcessorWorkflow extends WorkflowEntrypoint {
 								.where(eq(scheduledActionHistory.id, historyId))
 								.limit(1);
 							if (existing.length > 0 && existing[0].status === "success") {
-								return { resultData: { message: "Already executed" }, executionDurationMs: 0 } as {
+								return {
+									resultData: { message: "Already executed" },
+									executionDurationMs: 0,
+								} as {
 									resultData: ScheduledActionResultData;
 									executionDurationMs: number;
 								};
