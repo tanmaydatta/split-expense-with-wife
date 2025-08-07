@@ -43,8 +43,8 @@ enabled = true
 
 
 
-[triggers]
-crons = [ "0 0 * * *" ]  # Daily at midnight UTC for scheduled actions
+#[triggers]
+#crons = [ "0 0 * * *" ]  # Daily at midnight UTC for scheduled actions
 
 [env.prod]
     [[env.prod.d1_databases]]
@@ -59,6 +59,16 @@ crons = [ "0 0 * * *" ]  # Daily at midnight UTC for scheduled actions
     BASE_URL = "https://splitexpense.tanmaydatta.workers.dev/auth"
     AUTH_TRUSTED_ORIGINS = ["https://splitexpense.tanmaydatta.workers.dev"]
     LOCAL = false
+
+    [[env.prod.workflows]]
+    binding = "ORCHESTRATOR_WORKFLOW"
+    class_name = "ScheduledActionsOrchestratorWorkflow"
+    name = "scheduled-actions-orchestrator"
+
+    [[env.prod.workflows]]
+    binding = "PROCESSOR_WORKFLOW"
+    class_name = "ScheduledActionsProcessorWorkflow"
+    name = "scheduled-actions-processor"
 
 
 
@@ -75,3 +85,14 @@ crons = [ "0 0 * * *" ]  # Daily at midnight UTC for scheduled actions
     BASE_URL = "https://splitexpense-dev.tanmaydatta.workers.dev/auth"
     AUTH_TRUSTED_ORIGINS = ["https://splitexpense-dev.tanmaydatta.workers.dev"]
     LOCAL = false
+
+    [[env.dev.workflows]]
+    binding = "ORCHESTRATOR_WORKFLOW"
+    class_name = "ScheduledActionsOrchestratorWorkflow"
+    name = "scheduled-actions-orchestrator"
+
+    [[env.dev.workflows]]
+    binding = "PROCESSOR_WORKFLOW"
+    class_name = "ScheduledActionsProcessorWorkflow"
+    name = "scheduled-actions-processor"
+

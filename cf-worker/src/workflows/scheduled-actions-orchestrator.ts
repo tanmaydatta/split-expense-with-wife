@@ -101,7 +101,12 @@ export async function filterActionsWithoutHistory(
 		const existingHistory = await db
 			.select()
 			.from(scheduledActionHistory)
-			.where(eq(scheduledActionHistory.id, historyId))
+			.where(
+				and(
+					eq(scheduledActionHistory.id, historyId),
+					eq(scheduledActionHistory.executionStatus, "success"),
+				),
+			)
 			.limit(1);
 
 		if (existingHistory.length > 0) {
@@ -140,7 +145,14 @@ export async function createBatchHistoryEntries(
 		actionData: action.actionData,
 	}));
 
-	await db.insert(scheduledActionHistory).values(historyEntries);
+	await db.insert(scheduledActionHistory).values(historyEntries).onConflictDoUpdate({
+		target: scheduledActionHistory.id,
+		set: {
+			executionStatus: "started",
+			workflowStatus: "running",
+		},
+	},
+	);
 
 	console.log(`Created ${historyEntries.length} history entries for batch`);
 
@@ -226,7 +238,7 @@ export async function processBatchesAndCreateWorkflows(
 	for (let i = 0; i < actionsToProcess.length; i += batchSize) {
 		const batchActions = actionsToProcess.slice(i, i + batchSize);
 		const batchNumber = Math.floor(i / batchSize) + 1;
-		const batchInstanceId = `batch-${currentDate}-${batchNumber}`;
+		const batchInstanceId = `batch-${currentDate}-${batchNumber}-${Date.now()}`;
 
 		try {
 			const validActionIds = await createBatchHistoryEntries(
@@ -281,88 +293,13 @@ export async function processBatchesAndCreateWorkflows(
 	return processResults;
 }
 
-export async function orchestrateScheduledActions(
-	env: Env,
-	triggerDate: string,
-): Promise<OrchestratorResult> {
-	const currentDate = triggerDate.split("T")[0];
-
-	console.log(`Starting scheduled actions orchestration for ${currentDate}`);
-
-	// Step 1: Get all pending actions for the date
-	const pendingActions = await getPendingScheduledActions(env, currentDate);
-
-	if (pendingActions.length === 0) {
-		console.log("No pending actions to process");
-		return {
-			totalProcessed: 0,
-			succeeded: 0,
-			failed: 0,
-			started: 0,
-			stillRunning: 0,
-			results: [],
-		};
-	}
-
-	// Step 2: Filter out actions that already have history entries
-	const { actionsToProcess, alreadyProcessedResults } =
-		await filterActionsWithoutHistory(env, pendingActions, currentDate);
-
-	if (actionsToProcess.length === 0) {
-		console.log("No actions need processing");
-		return {
-			totalProcessed: alreadyProcessedResults.length,
-			succeeded: 0,
-			failed: 0,
-			started: 0,
-			stillRunning: 0,
-			results: alreadyProcessedResults,
-		};
-	}
-
-	// Step 3: Process actions in batches and create workflows
-	const batchResults = await processBatchesAndCreateWorkflows(
-		env,
-		actionsToProcess,
-		triggerDate,
-		currentDate,
-	);
-
-	// Combine all results
-	const allResults = [...alreadyProcessedResults, ...batchResults];
-
-	// Summary
-	const totalProcessed = allResults.length;
-	const succeeded = allResults.filter(
-		(r) => r.status === "completed" || r.status === "already_completed",
-	).length;
-	const failed = allResults.filter((r) => r.status === "failed").length;
-	const started = allResults.filter((r) => r.status === "started").length;
-	const stillRunning = allResults.filter(
-		(r) => r.status === "still_running",
-	).length;
-
-	console.log(
-		`Orchestration completed: ${totalProcessed} total, ${succeeded} succeeded, ${failed} failed, ${started} started, ${stillRunning} still running`,
-	);
-
-	return {
-		totalProcessed,
-		succeeded,
-		failed,
-		started,
-		stillRunning,
-		results: allResults,
-	};
-}
-
 export class ScheduledActionsOrchestratorWorkflow extends WorkflowEntrypoint {
 	async run(
 		event: WorkflowEvent<OrchestratorWorkflowPayload>,
 		step: WorkflowStep,
 	) {
 		const { triggerDate } = event.payload;
-		const currentDate = triggerDate.split("T")[0];
+		const currentDate = triggerDate.split(" ")[0];
 
 		console.log(`Starting scheduled actions orchestration for ${currentDate}`);
 

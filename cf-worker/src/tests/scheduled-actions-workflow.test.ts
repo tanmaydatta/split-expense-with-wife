@@ -3,17 +3,17 @@ import { and, eq, lte } from "drizzle-orm";
 import { ulid } from "ulid";
 
 import type {
-	AddBudgetActionData,
-	AddExpenseActionData,
+    AddBudgetActionData,
+    AddExpenseActionData,
 } from "../../../shared-types";
 import { getDb } from "../db";
 import { user } from "../db/schema/auth-schema";
 import {
-	budget,
-	groups,
-	scheduledActionHistory,
-	scheduledActions,
-	transactions,
+    budget,
+    groups,
+    scheduledActionHistory,
+    scheduledActions,
+    transactions,
 } from "../db/schema/schema";
 import { handleCron } from "../handlers/cron";
 import { formatSQLiteTime } from "../utils";
@@ -108,8 +108,8 @@ describe("Scheduled Actions Workflows", () => {
 				id: expect.stringMatching(/^orchestrator-\d{4}-\d{2}-\d{2}-\d+$/),
 				params: {
 					triggerDate: expect.stringMatching(
-						/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/,
-					),
+                        /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/,
+                      ),
 				},
 			});
 		});

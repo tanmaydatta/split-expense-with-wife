@@ -1,16 +1,16 @@
+import { and, count, desc, eq } from "drizzle-orm";
 import { ulid } from "ulid";
-import { eq, and, desc, count } from "drizzle-orm";
-import { scheduledActions, scheduledActionHistory } from "../db/schema/schema";
-import { withAuth } from "../utils";
 import {
-	type CreateScheduledActionRequest,
-	type UpdateScheduledActionRequest,
-	type ScheduledActionListResponse,
-	type ScheduledActionHistoryListResponse,
-	type AddExpenseActionData,
 	type AddBudgetActionData,
+	type AddExpenseActionData,
+	type CreateScheduledActionRequest,
 	CURRENCIES,
+	type ScheduledActionHistoryListResponse,
+	type ScheduledActionListResponse,
+	type UpdateScheduledActionRequest,
 } from "../../../shared-types";
+import { scheduledActionHistory, scheduledActions } from "../db/schema/schema";
+import { formatSQLiteTime, withAuth } from "../utils";
 
 // The database now returns properly typed JSON, so we don't need custom row types
 
@@ -274,7 +274,7 @@ export async function handleScheduledActionCreate(
 			body.startDate,
 			body.frequency,
 		);
-		const now = new Date().toISOString();
+		const now = formatSQLiteTime();
 
 		// Create scheduled action
 		const actionId = ulid();
@@ -392,7 +392,7 @@ export async function handleScheduledActionUpdate(
 
 		// Build update object
 		const updateData: ScheduledActionUpdateData = {
-			updatedAt: new Date().toISOString(),
+			updatedAt: formatSQLiteTime(),
 		};
 
 		if (body.isActive !== undefined) {

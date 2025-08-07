@@ -157,31 +157,30 @@ export async function executeActionStatements(
 		frequency,
 	);
 
-	// Add statement to update the scheduled action tracking
-	const allStatements = [
-		...actionStatements,
+    // Add statements ensuring we FIRST mark the action history as success
+    const allStatements = [
+        ...actionStatements,
 		{
-			query: db
-				.update(scheduledActions)
-				.set({
-					lastExecutedAt: formatSQLiteTime(),
-					nextExecutionDate,
-					updatedAt: formatSQLiteTime(),
-				})
-				.where(eq(scheduledActions.id, action.id)),
-		},
-		{
-			query: db
-				.update(scheduledActionHistory)
-				.set({
-					executionStatus: "success",
-					workflowStatus: "complete",
-					resultData,
-					executionDurationMs,
-				})
-				.where(eq(scheduledActionHistory.id, historyId)),
-		},
-	];
+            query: db
+                .update(scheduledActionHistory)
+                .set({
+                    executionStatus: "success",
+                    resultData,
+                    executionDurationMs,
+                })
+                .where(eq(scheduledActionHistory.id, historyId)),
+        },
+        {
+            query: db
+                .update(scheduledActions)
+                .set({
+                    lastExecutedAt: formatSQLiteTime(),
+                    nextExecutionDate,
+                    updatedAt: formatSQLiteTime(),
+                })
+                .where(eq(scheduledActions.id, action.id)),
+        },
+    ];
 
 	// Execute all statements in a transaction for this action
 	if (allStatements.length > 0) {
@@ -197,6 +196,12 @@ export async function handleActionError(
 	error: Error,
 	executionDurationMs: number,
 ): Promise<void> {
+	console.log("handleActionError", {
+		actionId,
+		historyId,
+		error,
+		executionDurationMs,
+	});
 	const db = getDb(env);
 	const errorMessage = error.message;
 
@@ -218,128 +223,6 @@ export async function handleActionError(
 		);
 	}
 }
-
-export async function processScheduledActionsBatch(
-	env: Env,
-	triggerDate: string,
-	actionIds: string[],
-	batchNumber: number,
-): Promise<ProcessorResult> {
-	const startTime = Date.now();
-	const currentDate = triggerDate.split("T")[0];
-
-	console.log(
-		`Processing batch ${batchNumber} with ${actionIds.length} actions: ${actionIds.join(", ")}`,
-	);
-
-	const results: ActionExecutionResult[] = [];
-
-	// Fetch all actions and their users
-	const actionsResult = await fetchActionsWithUsers(env, actionIds);
-
-	// Process each action
-	for (const { scheduled_actions: action, user: userData } of actionsResult) {
-		const actionStartTime = Date.now();
-		const historyId = `hist_${action.id}-${currentDate}`;
-
-		try {
-			let resultData: ScheduledActionResultData;
-			let dbStatements: Array<{ query: BatchItem<"sqlite"> }> = [];
-
-			// Execute the specific action type
-			switch (action.actionType) {
-				case "add_expense": {
-					const expenseResult = await processExpenseAction(
-						env,
-						action,
-						userData,
-						currentDate,
-					);
-					resultData = expenseResult.resultData;
-					dbStatements = expenseResult.statements;
-					break;
-				}
-
-				case "add_budget": {
-					const budgetResult = await processBudgetAction(
-						env,
-						action,
-						userData,
-						currentDate,
-					);
-					resultData = budgetResult.resultData;
-					dbStatements = budgetResult.statements;
-					break;
-				}
-
-				default:
-					throw new Error(`Unknown action type: ${action.actionType}`);
-			}
-
-			const executionDurationMs = Date.now() - actionStartTime;
-
-			// Execute all database statements
-			await executeActionStatements(
-				env,
-				action,
-				historyId,
-				executionDurationMs,
-				resultData,
-				dbStatements,
-			);
-
-			results.push({
-				actionId: action.id,
-				success: true,
-				resultData,
-				executionDurationMs,
-			});
-
-			console.log(
-				`Successfully processed action ${action.id} in ${executionDurationMs}ms`,
-			);
-		} catch (error) {
-			console.error(`Failed to process action ${action.id}:`, error);
-			const errorMessage =
-				error instanceof Error ? error.message : "Unknown error";
-			const executionDurationMs = Date.now() - actionStartTime;
-
-			// Handle the error
-			await handleActionError(
-				env,
-				action.id,
-				historyId,
-				error as Error,
-				executionDurationMs,
-			);
-
-			results.push({
-				actionId: action.id,
-				success: false,
-				errorMessage,
-				executionDurationMs,
-			});
-		}
-	}
-
-	const totalDuration = Date.now() - startTime;
-	const succeeded = results.filter((r) => r.success).length;
-	const failed = results.filter((r) => !r.success).length;
-
-	console.log(
-		`Completed batch ${batchNumber}: ${succeeded} succeeded, ${failed} failed in ${totalDuration}ms`,
-	);
-
-	return {
-		batchNumber,
-		totalProcessed: results.length,
-		succeeded,
-		failed,
-		totalDurationMs: totalDuration,
-		results,
-	};
-}
-
 export class ScheduledActionsProcessorWorkflow extends WorkflowEntrypoint {
 	async run(
 		event: WorkflowEvent<ProcessorWorkflowPayload>,
@@ -347,7 +230,7 @@ export class ScheduledActionsProcessorWorkflow extends WorkflowEntrypoint {
 	) {
 		const { triggerDate, actionIds, batchNumber } = event.payload;
 		const startTime = Date.now();
-		const currentDate = triggerDate.split("T")[0];
+		const currentDate = triggerDate.split(" ")[0];
 
 		console.log(
 			`Processing batch ${batchNumber} with ${actionIds.length} actions: ${actionIds.join(", ")}`,
@@ -365,72 +248,69 @@ export class ScheduledActionsProcessorWorkflow extends WorkflowEntrypoint {
 
 		// Step 2: Process each action
 		for (const { scheduled_actions: action, user: userData } of actionsResult) {
-			const actionStartTime = Date.now();
 			const historyId = `hist_${action.id}-${currentDate}`;
+			const actionStartTime = Date.now();
 
 			try {
-				let resultData: ScheduledActionResultData;
-				let dbStatements: Array<{ query: BatchItem<"sqlite"> }> = [];
+				const { resultData, executionDurationMs } = (await step.do(
+					`process-and-execute-${action.id}`,
+					async () => {
+						const innerStartTime = Date.now();
+						let resultData: ScheduledActionResultData | undefined;
+						let dbStatements: Array<{ query: BatchItem<"sqlite"> }> = [];
 
-				// Execute the specific action type
-				switch (action.actionType) {
-					case "add_expense": {
-						const expenseResult = (await step.do(
-							`process-expense-${action.id}`,
-							async () => {
-								return await processExpenseAction(
+						// Build statements and compute result data
+						switch (action.actionType) {
+							case "add_expense": {
+								const expenseResult = await processExpenseAction(
 									this.env as Env,
 									action,
 									userData,
 									currentDate,
 								);
-							},
-						)) as {
-							resultData: ScheduledActionResultData;
-							statements: Array<{ query: BatchItem<"sqlite"> }>;
-						};
-						resultData = expenseResult.resultData;
-						dbStatements = expenseResult.statements;
-						break;
-					}
+								resultData = expenseResult.resultData;
+								dbStatements = expenseResult.statements;
+								break;
+							}
 
-					case "add_budget": {
-						const budgetResult = (await step.do(
-							`process-budget-${action.id}`,
-							async () => {
-								return await processBudgetAction(
+							case "add_budget": {
+								const budgetResult = await processBudgetAction(
 									this.env as Env,
 									action,
 									userData,
 									currentDate,
 								);
-							},
-						)) as {
-							resultData: ScheduledActionResultData;
-							statements: Array<{ query: BatchItem<"sqlite"> }>;
-						};
-						resultData = budgetResult.resultData;
-						dbStatements = budgetResult.statements;
-						break;
-					}
+								resultData = budgetResult.resultData;
+								dbStatements = budgetResult.statements;
+								break;
+							}
 
-					default:
-						throw new Error(`Unknown action type: ${action.actionType}`);
-				}
+							default:
+								throw new Error(`Unknown action type: ${action.actionType}`);
+						}
 
-				const executionDurationMs = Date.now() - actionStartTime;
+						const executionDurationMs = Date.now() - innerStartTime;
 
-				// Execute all database statements
-				await step.do(`execute-statements-${action.id}`, async () => {
-					await executeActionStatements(
-						this.env as Env,
-						action,
-						historyId,
-						executionDurationMs,
-						resultData,
-						dbStatements,
-					);
-				});
+						// Execute statements within the same step to avoid serialization
+						await executeActionStatements(
+							this.env as Env,
+							action,
+							historyId,
+							executionDurationMs,
+							resultData as ScheduledActionResultData,
+							dbStatements,
+						);
+
+						if (!resultData) {
+							throw new Error("No result data generated for action execution");
+						}
+
+						return { resultData, executionDurationMs };
+					},
+				)) as {
+					resultData: ScheduledActionResultData;
+					executionDurationMs: number;
+				};
 
 				results.push({
 					actionId: action.id,
@@ -446,10 +326,10 @@ export class ScheduledActionsProcessorWorkflow extends WorkflowEntrypoint {
 				console.error(`Failed to process action ${action.id}:`, error);
 				const errorMessage =
 					error instanceof Error ? error.message : "Unknown error";
-				const executionDurationMs = Date.now() - actionStartTime;
 
-				// Handle the error
+				// Handle the error within its own step (no non-serializable values)
 				await step.do(`handle-error-${action.id}`, async () => {
+					const executionDurationMs = Date.now() - actionStartTime;
 					await handleActionError(
 						this.env as Env,
 						action.id,
@@ -463,7 +343,7 @@ export class ScheduledActionsProcessorWorkflow extends WorkflowEntrypoint {
 					actionId: action.id,
 					success: false,
 					errorMessage,
-					executionDurationMs,
+					executionDurationMs: Date.now() - actionStartTime,
 				});
 			}
 		}

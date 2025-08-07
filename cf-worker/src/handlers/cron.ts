@@ -77,10 +77,10 @@ export async function handleCron(env: Env, cron: string) {
 }
 
 async function triggerScheduledActionsOrchestrator(env: Env) {
-	const triggerDate = new Date().toISOString();
+	const triggerDate = formatSQLiteTime();
 
 	console.log(`Triggering scheduled actions orchestrator for ${triggerDate}`);
-	const id = `orchestrator-${triggerDate.split("T")[0]}-${Date.now()}`;
+	const id = `orchestrator-${triggerDate.split(" ")[0]}-${Date.now()}`;
 	try {
 		// Simply trigger the orchestrator workflow - it handles everything else
 		await env.ORCHESTRATOR_WORKFLOW.create({
