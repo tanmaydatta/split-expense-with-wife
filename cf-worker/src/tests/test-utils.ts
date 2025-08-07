@@ -1,17 +1,17 @@
-import { getDb } from "../db";
-import {
-	groups,
-	transactions,
-	transactionUsers,
-	budget,
-	userBalances,
-	budgetTotals,
-	scheduledActions,
-	scheduledActionHistory,
-} from "../db/schema/schema";
-import { user, session, account, verification } from "../db/schema/auth-schema";
 import { sql } from "drizzle-orm";
 import { auth } from "../auth";
+import { getDb } from "../db";
+import { account, session, user, verification } from "../db/schema/auth-schema";
+import {
+	budget,
+	budgetTotals,
+	groups,
+	scheduledActionHistory,
+	scheduledActions,
+	transactions,
+	transactionUsers,
+	userBalances,
+} from "../db/schema/schema";
 
 // Test user credentials that can be reused across tests
 const TEST_USERS = {
@@ -128,7 +128,7 @@ export async function setupDatabase(env: Env): Promise<void> {
 
 	// Create legacy tables (for backward compatibility during migration)
 	await env.DB.exec(
-		"CREATE TABLE IF NOT EXISTS budget (id INTEGER PRIMARY KEY AUTOINCREMENT, description VARCHAR(100) NOT NULL, added_time DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL, price VARCHAR(100), amount REAL NOT NULL, name VARCHAR(100) NOT NULL, deleted DATETIME DEFAULT NULL, groupid INTEGER NOT NULL DEFAULT 1, currency VARCHAR(10) DEFAULT 'GBP' NOT NULL)",
+		"CREATE TABLE IF NOT EXISTS budget (id INTEGER PRIMARY KEY AUTOINCREMENT, budget_id VARCHAR(100), description VARCHAR(100) NOT NULL, added_time DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL, price VARCHAR(100), amount REAL NOT NULL, name VARCHAR(100) NOT NULL, deleted DATETIME DEFAULT NULL, groupid INTEGER NOT NULL DEFAULT 1, currency VARCHAR(10) DEFAULT 'GBP' NOT NULL)",
 	);
 	await env.DB.exec(
 		"CREATE TABLE IF NOT EXISTS groups (groupid INTEGER PRIMARY KEY AUTOINCREMENT, group_name VARCHAR(50) NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, userids VARCHAR(1000), budgets VARCHAR(1000), metadata TEXT)",
@@ -162,7 +162,7 @@ export async function setupDatabase(env: Env): Promise<void> {
 	);
 
 	await env.DB.exec(
-		"CREATE TABLE IF NOT EXISTS scheduled_action_history (id TEXT PRIMARY KEY, scheduled_action_id TEXT NOT NULL, user_id TEXT NOT NULL, action_type TEXT NOT NULL, executed_at TEXT NOT NULL, execution_status TEXT NOT NULL, action_data TEXT NOT NULL, result_data TEXT, error_message TEXT, execution_duration_ms INTEGER, FOREIGN KEY (scheduled_action_id) REFERENCES scheduled_actions(id) ON UPDATE no action ON DELETE cascade, FOREIGN KEY (user_id) REFERENCES user(id) ON UPDATE no action ON DELETE no action)",
+		"CREATE TABLE IF NOT EXISTS scheduled_action_history (id TEXT PRIMARY KEY, scheduled_action_id TEXT NOT NULL, user_id TEXT NOT NULL, action_type TEXT NOT NULL, executed_at TEXT NOT NULL, execution_status TEXT NOT NULL, workflow_instance_id TEXT, workflow_status TEXT, action_data TEXT NOT NULL, result_data TEXT, error_message TEXT, execution_duration_ms INTEGER, FOREIGN KEY (scheduled_action_id) REFERENCES scheduled_actions(id) ON UPDATE no action ON DELETE cascade, FOREIGN KEY (user_id) REFERENCES user(id) ON UPDATE no action ON DELETE no action)",
 	);
 
 	// Create indexes for performance
@@ -190,35 +190,43 @@ export async function setupDatabase(env: Env): Promise<void> {
 	await env.DB.exec(
 		"CREATE INDEX IF NOT EXISTS scheduled_action_history_status_idx ON scheduled_action_history (execution_status)",
 	);
+	await env.DB.exec(
+		"CREATE INDEX IF NOT EXISTS scheduled_action_history_workflow_instance_idx ON scheduled_action_history (workflow_instance_id)",
+	);
 }
 
-// Clean up database for tests
-export async function cleanupDatabase(env: Env): Promise<void> {
+// Complete database cleanup - ensures total isolation between tests
+export async function completeCleanupDatabase(env: Env): Promise<void> {
 	const db = getDb(env);
-
-	// Clean scheduled actions tables first (child before parent due to foreign keys)
-	await db.delete(scheduledActionHistory); // Child table (references scheduled_actions)
-	await db.delete(scheduledActions); // Parent table (references user)
-
-	// Clean better-auth tables (delete child tables before parent due to foreign keys)
-	await db.delete(session); // Child table (references user)
-	await db.delete(account); // Child table (references user)
-	await db.delete(verification); // Independent table
-	await db.delete(user); // Parent table
-
-	// Clean legacy tables
+	// Delete data from all tables in reverse order of creation/dependency
+	await db.delete(scheduledActionHistory);
+	await db.delete(scheduledActions);
+	await db.delete(session); // Delete sessions before users
+	await db.delete(account);
+	await db.delete(verification);
+	await db.delete(user);
+	await db.delete(budgetTotals);
+	await db.delete(userBalances);
 	await db.delete(transactionUsers);
 	await db.delete(transactions);
 	await db.delete(budget);
 	await db.delete(groups);
-	await db.delete(userBalances);
-	await db.delete(budgetTotals);
+
+	// Reset autoincrement sequence for tables that have it
+	try {
+		await db.run(
+			sql`DELETE FROM sqlite_sequence WHERE name IN ('budget', 'groups', 'transactions')`,
+		);
+	} catch (_error) {
+		// Ignore if sqlite_sequence doesn't exist (e.g., first run)
+	}
 }
 
 // Setup and clean database for testing - convenience function
 export async function setupAndCleanDatabase(env: Env): Promise<void> {
+	// This function is now simplified to just set up the database.
+	// Cleanup is handled by completeCleanupDatabase in beforeEach.
 	await setupDatabase(env);
-	await cleanupDatabase(env);
 }
 
 // Create test user and group data
@@ -226,51 +234,67 @@ export async function createTestUserData(
 	env: Env,
 ): Promise<Record<string, Record<string, string>>> {
 	const authInstance = auth(env);
-	const user1 = await authInstance.api.signUpEmail({
-		body: {
-			...TEST_USERS.user1,
-			groupid: 1,
-			// biome-ignore lint/suspicious/noExplicitAny: test user type assertion
-		} as any,
-	});
-	const user2 = await authInstance.api.signUpEmail({
-		body: {
-			...TEST_USERS.user2,
-			groupid: 1,
-			// biome-ignore lint/suspicious/noExplicitAny: test user type assertion
-		} as any,
-	});
-	const user3 = await authInstance.api.signUpEmail({
-		body: {
-			...TEST_USERS.user3,
-			groupid: 1,
-			// biome-ignore lint/suspicious/noExplicitAny: test user type assertion
-		} as any,
-	});
-	const user4 = await authInstance.api.signUpEmail({
-		body: {
-			...TEST_USERS.user4,
-			groupid: 1,
-			// biome-ignore lint/suspicious/noExplicitAny: test user type assertion
-		} as any,
-	});
+	const emails = [
+		generateEmail(),
+		generateEmail(),
+		generateEmail(),
+		generateEmail(),
+	];
+	try {
+		const user1 = await authInstance.api.signUpEmail({
+			body: {
+				...TEST_USERS.user1,
+				groupid: 1,
+				email: emails[0],
+				// biome-ignore lint/suspicious/noExplicitAny: test user type assertion
+			} as any,
+		});
+		const user2 = await authInstance.api.signUpEmail({
+			body: {
+				...TEST_USERS.user2,
+				groupid: 1,
+				email: emails[1],
+				// biome-ignore lint/suspicious/noExplicitAny: test user type assertion
+			} as any,
+		});
+		const user3 = await authInstance.api.signUpEmail({
+			body: {
+				...TEST_USERS.user3,
+				groupid: 1,
+				email: emails[2],
+				// biome-ignore lint/suspicious/noExplicitAny: test user type assertion
+			} as any,
+		});
+		const user4 = await authInstance.api.signUpEmail({
+			body: {
+				...TEST_USERS.user4,
+				groupid: 1,
+				email: emails[3],
+				// biome-ignore lint/suspicious/noExplicitAny: test user type assertion
+			} as any,
+		});
 
-	const db = getDb(env);
+		const db = getDb(env);
 
-	await db.insert(groups).values({
-		groupid: 1,
-		groupName: "Test Group",
-		userids: `["${user1.user.id}", "${user2.user.id}", "${user3.user.id}", "${user4.user.id}"]`,
-		budgets: '["house", "food"]',
-		metadata: `{"defaultShare": {"${user1.user.id}": 25, "${user2.user.id}": 25, "${user3.user.id}": 25, "${user4.user.id}": 25}, "defaultCurrency": "USD"}`,
-	});
+		await db.insert(groups).values({
+			groupid: 1,
+			groupName: "Test Group",
+			userids: `["${user1.user.id}", "${user2.user.id}", "${user3.user.id}", "${user4.user.id}"]`,
+			budgets: '["house", "food"]',
+			metadata: `{"defaultShare": {"${user1.user.id}": 25, "${user2.user.id}": 25, "${user3.user.id}": 25, "${user4.user.id}": 25}, "defaultCurrency": "USD"}`,
+		});
 
-	return {
-		user1: { ...TEST_USERS.user1, id: user1.user.id },
-		user2: { ...TEST_USERS.user2, id: user2.user.id },
-		user3: { ...TEST_USERS.user3, id: user3.user.id },
-		user4: { ...TEST_USERS.user4, id: user4.user.id },
-	};
+		return {
+			user1: { ...TEST_USERS.user1, id: user1.user.id, email: emails[0] },
+			user2: { ...TEST_USERS.user2, id: user2.user.id, email: emails[1] },
+			user3: { ...TEST_USERS.user3, id: user3.user.id, email: emails[2] },
+			user4: { ...TEST_USERS.user4, id: user4.user.id, email: emails[3] },
+		};
+	} catch (error) {
+		console.error("Failed to create test user data:", error);
+		// biome-ignore lint/suspicious/noExplicitAny: custom error class
+		throw new (Error as any)("Failed to create user", { cause: error });
+	}
 }
 
 // Populate materialized tables for balance calculation
@@ -346,4 +370,7 @@ export async function signInAndGetCookies(
 	}
 
 	return setCookieHeaders;
+}
+function generateEmail() {
+	return `testuser${Math.floor(Math.random() * 1000000)}@example.com`;
 }

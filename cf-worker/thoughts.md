@@ -73,3 +73,10 @@ Routing now keys on `(group_id, created_at)`.
 
 ---
 This strategy keeps every live shard comfortably below the 10 GB cap, requires only minor code changes, and avoids expensive bulk migrations. 
+
+
+
+
+
+llama image parsing
+'{ "messages": [{ "role": "system", "content": "You are a friendly assistant. Always reply in concise answers" },{ "role": "user", "content": [{"type": "image_url", "image_url": {"url": "https://www.thesun.co.uk/wp-content/uploads/2024/05/crystal-clear-absolute-bargain-say-902334098.jpg?w=1880"}},{"type":"text", "text":"Image should be a receipt. If it is a receipt, return the merchant name and the total amount paid. If not a receipt, then say Not a receipt. Just respond with what is asked"}] }], "response_format":{"type": "json_object"}, "guided_json":{"type":"object","properties":{"merchant_name":{"type":"string","description":"Name of the merchant"},"amount":{"type":"number","description":"Transaction amount"}},"required":["merchant_name","amount"]}}'

@@ -1,13 +1,13 @@
-import { createJsonResponse, createErrorResponse, withAuth } from "../utils";
+import { eq } from "drizzle-orm";
 import type {
 	GroupDetailsResponse,
+	GroupMetadata,
 	UpdateGroupMetadataRequest,
 	UpdateGroupMetadataResponse,
 	User,
-	GroupMetadata,
 } from "../../../shared-types";
 import { groups } from "../db/schema/schema";
-import { eq } from "drizzle-orm";
+import { createErrorResponse, createJsonResponse, withAuth } from "../utils";
 
 // Handle getting group details
 export async function handleGroupDetails(
@@ -277,7 +277,6 @@ export async function handleUpdateGroupMetadata(
 		if (body.budgets !== undefined) {
 			updates.budgets = JSON.stringify(body.budgets);
 		}
-
 		// Update group using Drizzle
 		if (Object.keys(updates).length > 0) {
 			await db

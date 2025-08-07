@@ -14,5 +14,10 @@ declare module "cloudflare:test" {
 			env?: Env,
 			ctx?: ExecutionContext,
 		): Promise<Response>;
+		scheduled(
+			controller: ScheduledController,
+			env?: Env,
+			ctx?: ExecutionContext,
+		): Promise<void>;
 	};
 }

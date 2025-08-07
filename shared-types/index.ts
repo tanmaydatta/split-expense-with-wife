@@ -440,6 +440,7 @@ export type ScheduledActionData = AddExpenseActionData | AddBudgetActionData;
 export type ScheduledActionResultData = {
 	message: string;
 	transactionId?: string;
+	budgetId?: string;
 } | null;
 
 // Action-specific data types
@@ -508,7 +509,7 @@ export interface ScheduledActionHistory {
 	userId: string;
 	actionType: ScheduledActionType;
 	executedAt: string; // ISO datetime
-	executionStatus: "success" | "failed";
+	executionStatus: "success" | "failed" | "started";
 	actionData: AddExpenseActionData | AddBudgetActionData;
 	resultData?: ScheduledActionResultData; // Results from the executed action
 	errorMessage?: string;
@@ -520,7 +521,7 @@ export interface ScheduledActionHistoryListRequest {
 	limit?: number;
 	scheduledActionId?: string; // Filter by specific scheduled action
 	actionType?: ScheduledActionType; // Filter by action type
-	executionStatus?: "success" | "failed"; // Filter by status
+	executionStatus?: "success" | "failed" | "started"; // Filter by status
 }
 
 export interface ScheduledActionHistoryListResponse {

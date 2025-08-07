@@ -1,8 +1,8 @@
+import { and, eq } from "drizzle-orm";
 import { getDb } from "../db";
-import { eq, and } from "drizzle-orm";
-import { groups, transactionUsers, userBalances } from "../db/schema/schema";
 import { account } from "../db/schema/auth-schema";
-import { createJsonResponse, createErrorResponse } from "../utils";
+import { groups, transactionUsers, userBalances } from "../db/schema/schema";
+import { createErrorResponse, createJsonResponse } from "../utils";
 
 // ID mapping from old integer IDs to new better-auth string IDs
 const idMap = [
@@ -132,14 +132,15 @@ export async function handleRelinkData(request: Request, env: Env) {
 				headers: { "Content-Type": "application/json" },
 			},
 		);
-		// biome-ignore lint/suspicious/noExplicitAny: generic error handling
-	} catch (error: any) {
+	} catch (error) {
 		console.error("MIGRATION FAILED:", error);
+		const errorMessage = error instanceof Error ? error.message : String(error);
+		const errorStack = error instanceof Error ? error.stack : undefined;
 		return new Response(
 			JSON.stringify({
 				error: "Migration failed",
-				message: error.message,
-				stack: error.stack,
+				message: errorMessage,
+				stack: errorStack,
 			}),
 			{
 				status: 500,

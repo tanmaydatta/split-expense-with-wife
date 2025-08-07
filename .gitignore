@@ -60,6 +60,7 @@ schema.pg.sql
 /cf-worker/.wrangler/
 /cf-worker/*.sql
 /cf-worker/dist/
+/cf-worker/coverage/
 
 # Playwright
 node_modules/

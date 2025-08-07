@@ -1,18 +1,18 @@
 import {
+	index,
+	integer,
+	primaryKey,
+	real,
 	sqliteTable,
 	text,
-	integer,
-	real,
-	primaryKey,
-	index,
 	uniqueIndex,
 } from "drizzle-orm/sqlite-core";
 import type {
-	TransactionMetadata,
 	ScheduledActionData,
 	ScheduledActionResultData,
+	TransactionMetadata,
 } from "../../../../shared-types";
-import { user, session, account, verification } from "./auth-schema";
+import { account, session, user, verification } from "./auth-schema";
 
 export const groups = sqliteTable("groups", {
 	groupid: integer("groupid").primaryKey({ autoIncrement: true }),
@@ -103,6 +103,7 @@ export const budget = sqliteTable(
 	"budget",
 	{
 		id: integer("id").primaryKey({ autoIncrement: true }),
+		budgetId: text("budget_id", { length: 100 }), // For deterministic creation in scheduled actions
 		description: text("description", { length: 100 }).notNull(),
 		addedTime: text("added_time").notNull().default("CURRENT_TIMESTAMP"),
 		price: text("price", { length: 100 }),
@@ -136,6 +137,7 @@ export const budget = sqliteTable(
 		index("budget_amount_idx").on(table.amount),
 		index("budget_name_added_time_idx").on(table.name, table.addedTime),
 		index("budget_added_time_idx").on(table.addedTime),
+		index("budget_budget_id_idx").on(table.budgetId),
 	],
 );
 
@@ -237,8 +239,14 @@ export const scheduledActionHistory = sqliteTable(
 		}).notNull(),
 		executedAt: text("executed_at").notNull(), // ISO datetime string
 		executionStatus: text("execution_status", {
-			enum: ["success", "failed"],
+			enum: ["started", "success", "failed"],
 		}).notNull(),
+
+		// Workflow tracking
+		workflowInstanceId: text("workflow_instance_id"), // Instance ID for workflow tracking
+		workflowStatus: text("workflow_status", {
+			enum: ["running", "complete", "paused", "terminated", "unknown"],
+		}), // Cloudflare Workflow status
 
 		// Action data and results
 		actionData: text("action_data", { mode: "json" })
@@ -262,6 +270,14 @@ export const scheduledActionHistory = sqliteTable(
 			table.executedAt,
 		),
 		index("scheduled_action_history_status_idx").on(table.executionStatus),
+		index("scheduled_action_history_workflow_instance_idx").on(
+			table.workflowInstanceId,
+		),
+		// Unique constraint for action + date to prevent duplicate executions
+		index("scheduled_action_history_action_date_unique_idx").on(
+			table.scheduledActionId,
+			table.executedAt,
+		),
 	],
 );
 

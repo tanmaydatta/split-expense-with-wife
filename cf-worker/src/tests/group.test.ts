@@ -1,29 +1,35 @@
 /// <reference types="vitest" />
 import { env } from "cloudflare:test";
 // Vitest globals are available through the test environment
-import {
-	handleUpdateGroupMetadata,
-	handleGroupDetails,
-} from "../handlers/group";
-import {
-	setupAndCleanDatabase,
-	createTestUserData,
-	createMockRequest,
-	signInAndGetCookies,
-} from "./test-utils";
-import { getDb } from "../db";
-import { groups } from "../db/schema/schema";
 import { eq } from "drizzle-orm";
 import type {
+	GroupDetailsResponse,
 	UpdateGroupMetadataRequest,
 	UpdateGroupMetadataResponse,
-	GroupDetailsResponse,
 } from "../../../shared-types";
+import { getDb } from "../db";
+import { groups } from "../db/schema/schema";
+import {
+	handleGroupDetails,
+	handleUpdateGroupMetadata,
+} from "../handlers/group";
+import {
+	completeCleanupDatabase,
+	createMockRequest,
+	createTestUserData,
+	setupAndCleanDatabase,
+	signInAndGetCookies,
+} from "./test-utils";
 
 describe("Group Metadata Handler", () => {
 	let TEST_USERS: Record<string, Record<string, string>>;
-	beforeEach(async () => {
+	beforeAll(async () => {
 		await setupAndCleanDatabase(env);
+	});
+
+	beforeEach(async () => {
+		// Clean the database completely before each test
+		await completeCleanupDatabase(env);
 		TEST_USERS = await createTestUserData(env);
 	});
 
@@ -440,8 +446,13 @@ describe("Group Metadata Handler", () => {
 
 describe("Group Details Handler", () => {
 	let TEST_USERS: Record<string, Record<string, string>>;
-	beforeEach(async () => {
+	beforeAll(async () => {
 		await setupAndCleanDatabase(env);
+	});
+
+	beforeEach(async () => {
+		// Clean the database completely before each test
+		await completeCleanupDatabase(env);
 		TEST_USERS = await createTestUserData(env);
 	});
 
@@ -556,8 +567,13 @@ describe("Group Details Handler", () => {
 
 describe("Extended Group Metadata Handler", () => {
 	let TEST_USERS: Record<string, Record<string, string>>;
-	beforeEach(async () => {
+	beforeAll(async () => {
 		await setupAndCleanDatabase(env);
+	});
+
+	beforeEach(async () => {
+		// Clean the database completely before each test
+		await completeCleanupDatabase(env);
 		TEST_USERS = await createTestUserData(env);
 	});
 
