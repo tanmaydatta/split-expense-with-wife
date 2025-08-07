@@ -157,30 +157,32 @@ export async function executeActionStatements(
 		frequency,
 	);
 
-    // Add statements ensuring we FIRST mark the action history as success
-    const allStatements = [
-        ...actionStatements,
+	// Add statements ensuring we FIRST mark the action history as success
+	const allStatements = [
+		...actionStatements,
 		{
-            query: db
-                .update(scheduledActionHistory)
-                .set({
-                    executionStatus: "success",
-                    resultData,
-                    executionDurationMs,
-                })
-                .where(eq(scheduledActionHistory.id, historyId)),
-        },
-        {
-            query: db
-                .update(scheduledActions)
-                .set({
-                    lastExecutedAt: formatSQLiteTime(),
-                    nextExecutionDate,
-                    updatedAt: formatSQLiteTime(),
-                })
-                .where(eq(scheduledActions.id, action.id)),
-        },
-    ];
+			query: db
+				.update(scheduledActionHistory)
+				.set({
+					executionStatus: "success",
+					workflowStatus: "complete",
+					errorMessage: null,
+					resultData,
+					executionDurationMs,
+				})
+				.where(eq(scheduledActionHistory.id, historyId)),
+		},
+		{
+			query: db
+				.update(scheduledActions)
+				.set({
+					lastExecutedAt: formatSQLiteTime(),
+					nextExecutionDate,
+					updatedAt: formatSQLiteTime(),
+				})
+				.where(eq(scheduledActions.id, action.id)),
+		},
+	];
 
 	// Execute all statements in a transaction for this action
 	if (allStatements.length > 0) {
@@ -328,7 +330,7 @@ export class ScheduledActionsProcessorWorkflow extends WorkflowEntrypoint {
 					error instanceof Error ? error.message : "Unknown error";
 
 				// Handle the error within its own step (no non-serializable values)
-				await step.do(`handle-error-${action.id}`, async () => {
+				await step.do(`handle-error-${action.id}-${batchNumber}`, async () => {
 					const executionDurationMs = Date.now() - actionStartTime;
 					await handleActionError(
 						this.env as Env,

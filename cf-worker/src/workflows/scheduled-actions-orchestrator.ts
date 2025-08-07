@@ -145,14 +145,16 @@ export async function createBatchHistoryEntries(
 		actionData: action.actionData,
 	}));
 
-	await db.insert(scheduledActionHistory).values(historyEntries).onConflictDoUpdate({
-		target: scheduledActionHistory.id,
-		set: {
-			executionStatus: "started",
-			workflowStatus: "running",
-		},
-	},
-	);
+	await db
+		.insert(scheduledActionHistory)
+		.values(historyEntries)
+		.onConflictDoUpdate({
+			target: scheduledActionHistory.id,
+			set: {
+				executionStatus: "started",
+				workflowStatus: "running",
+			},
+		});
 
 	console.log(`Created ${historyEntries.length} history entries for batch`);
 
