@@ -157,9 +157,19 @@ export async function executeActionStatements(
 		frequency,
 	);
 
-	// Add statements ensuring we FIRST mark the action history as success
+	// Add statements ensuring we mark history success LAST to ensure idempotency
 	const allStatements = [
 		...actionStatements,
+		{
+			query: db
+				.update(scheduledActions)
+				.set({
+					lastExecutedAt: formatSQLiteTime(),
+					nextExecutionDate,
+					updatedAt: formatSQLiteTime(),
+				})
+				.where(eq(scheduledActions.id, action.id)),
+		},
 		{
 			query: db
 				.update(scheduledActionHistory)
@@ -171,16 +181,6 @@ export async function executeActionStatements(
 					executionDurationMs,
 				})
 				.where(eq(scheduledActionHistory.id, historyId)),
-		},
-		{
-			query: db
-				.update(scheduledActions)
-				.set({
-					lastExecutedAt: formatSQLiteTime(),
-					nextExecutionDate,
-					updatedAt: formatSQLiteTime(),
-				})
-				.where(eq(scheduledActions.id, action.id)),
 		},
 	];
 
@@ -258,6 +258,21 @@ export class ScheduledActionsProcessorWorkflow extends WorkflowEntrypoint {
 					`process-and-execute-${action.id}`,
 					async () => {
 						const innerStartTime = Date.now();
+						// Idempotency guard: if this action's history is already success for today, return
+						{
+							const db = getDb(this.env as Env);
+							const existing = await db
+								.select({ status: scheduledActionHistory.executionStatus })
+								.from(scheduledActionHistory)
+								.where(eq(scheduledActionHistory.id, historyId))
+								.limit(1);
+							if (existing.length > 0 && existing[0].status === "success") {
+								return { resultData: { message: "Already executed" }, executionDurationMs: 0 } as {
+									resultData: ScheduledActionResultData;
+									executionDurationMs: number;
+								};
+							}
+						}
 						let resultData: ScheduledActionResultData | undefined;
 						let dbStatements: Array<{ query: BatchItem<"sqlite"> }> = [];
 
