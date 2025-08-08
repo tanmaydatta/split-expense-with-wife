@@ -197,6 +197,5 @@ export default {
 // Export workflow classes for Cloudflare Workflows
 export {
 	ScheduledActionsOrchestratorWorkflow,
-	ScheduledActionsProcessorWorkflow
+	ScheduledActionsProcessorWorkflow,
 };
-

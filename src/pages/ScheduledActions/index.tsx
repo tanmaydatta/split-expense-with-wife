@@ -3,8 +3,8 @@ import { Card } from "@/components/Card";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Pencil, Plus, Trash } from "@/components/Icons";
 import {
-    useDeleteScheduledAction,
-    useScheduledActionsList,
+	useDeleteScheduledAction,
+	useScheduledActionsList,
 } from "@/hooks/useScheduledActions";
 import React from "react";
 import { useNavigate } from "react-router-dom";

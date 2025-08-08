@@ -2,19 +2,19 @@ import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { Input } from "@/components/Form/Input";
 import {
-  ButtonRow,
-  FormContainer,
-  SplitPercentageContainer,
-  SplitPercentageInputContainer,
+	ButtonRow,
+	FormContainer,
+	SplitPercentageContainer,
+	SplitPercentageInputContainer,
 } from "@/components/Form/Layout";
 import { Select } from "@/components/Form/Select";
 import {
-  ErrorContainer,
-  SuccessContainer,
+	ErrorContainer,
+	SuccessContainer,
 } from "@/components/MessageContainer";
 import {
-  ToggleButton,
-  ToggleButtonGroup,
+	ToggleButton,
+	ToggleButtonGroup,
 } from "@/components/ToggleButtonGroup";
 import { useCreateScheduledAction } from "@/hooks/useScheduledActions";
 import { CreditDebit } from "@/pages/Dashboard/CreditDebit";
@@ -23,10 +23,10 @@ import { useForm, useStore } from "@tanstack/react-form";
 import React, { useMemo } from "react";
 import { useSelector } from "react-redux";
 import type {
-  AddExpenseActionData,
-  AuthenticatedUser,
-  CreateScheduledActionRequest,
-  ReduxState,
+	AddExpenseActionData,
+	AuthenticatedUser,
+	CreateScheduledActionRequest,
+	ReduxState,
 } from "split-expense-shared-types";
 import { CreateScheduledActionSchema } from "split-expense-shared-types";
 
@@ -130,24 +130,24 @@ export const ScheduledActionsManager: React.FC<
 		(s) => (s.values as any)?.actionData?.paidByUserId || "",
 	);
 
-  // Keep currency synced with group's default currency when it changes
+	// Keep currency synced with group's default currency when it changes
 	React.useEffect(() => {
-    if (!initialValues) {
-      form.setFieldValue("actionData.currency", defaultCurrency);
-      // Initialize default split percentages from group metadata if available
-      const defaultShare = session?.extra?.group?.metadata?.defaultShare as
-        | Record<string, number>
-        | undefined;
-      if (defaultShare && Object.keys(defaultShare).length > 0) {
-        Object.entries(defaultShare).forEach(([userId, pct]) => {
-          form.setFieldValue(
-            `actionData.splitPctShares.${userId}` as any,
-            pct as any,
-          );
-        });
-      }
-    }
-  }, [defaultCurrency, session, form, initialValues]);
+		if (!initialValues) {
+			form.setFieldValue("actionData.currency", defaultCurrency);
+			// Initialize default split percentages from group metadata if available
+			const defaultShare = session?.extra?.group?.metadata?.defaultShare as
+				| Record<string, number>
+				| undefined;
+			if (defaultShare && Object.keys(defaultShare).length > 0) {
+				Object.entries(defaultShare).forEach(([userId, pct]) => {
+					form.setFieldValue(
+						`actionData.splitPctShares.${userId}` as any,
+						pct as any,
+					);
+				});
+			}
+		}
+	}, [defaultCurrency, session, form, initialValues]);
 
 	return (
 		<div data-test-id="scheduled-actions-manager">

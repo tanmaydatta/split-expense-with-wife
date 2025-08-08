@@ -5,6 +5,7 @@ import {
     useScheduledActionDetails,
     useUpdateScheduledAction,
 } from "@/hooks/useScheduledActions";
+import { scrollToTop } from "@/utils/scroll";
 import React, { useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import type { ScheduledAction } from "split-expense-shared-types";
@@ -72,6 +73,7 @@ const ScheduledActionEditPage: React.FC = () => {
                             actionData: val.actionData as any,
                         } as any);
                         await refetch();
+                        scrollToTop();
                     }}
                 />
             )}
