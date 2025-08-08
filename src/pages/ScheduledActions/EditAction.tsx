@@ -2,8 +2,8 @@ import { Button } from "@/components/Button";
 import { ArrowLeft } from "@/components/Icons";
 import ScheduledActionsManager from "@/components/ScheduledActionsManager";
 import {
-    useScheduledActionDetails,
-    useUpdateScheduledAction,
+	useScheduledActionDetails,
+	useUpdateScheduledAction,
 } from "@/hooks/useScheduledActions";
 import { scrollToTop } from "@/utils/scroll";
 import React, { useMemo } from "react";
