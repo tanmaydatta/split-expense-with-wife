@@ -1,4 +1,5 @@
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
+import type { z } from "zod";
 import { CURRENCIES } from "../../shared-types";
 import { auth } from "./auth";
 import { getDb } from "./db";
@@ -222,7 +223,110 @@ export function createErrorResponse(
 	request?: Request,
 	env?: Env,
 ): Response {
-	return createJsonResponse({ error }, status, {}, request, env);
+	return createJsonResponse(
+		{ error, statusCode: status },
+		status,
+		{},
+		request,
+		env,
+	);
+}
+
+// Create a local structural type for Zod issues to avoid deprecated ZodIssue
+type ZIssue = {
+	code: string;
+	message: string;
+	path?: Array<string | number>;
+	errors?: ZIssue[][];
+};
+
+// Extract all individual issues from nested union errors
+function isInvalidUnionIssue(
+	issue: ZIssue,
+): issue is ZIssue & { errors: ZIssue[][] } {
+	return issue.code === "invalid_union" && Array.isArray(issue.errors);
+}
+
+function flattenZodIssues(issues: ZIssue[]): ZIssue[] {
+	const flattened: ZIssue[] = [];
+
+	for (const issue of issues) {
+		if (isInvalidUnionIssue(issue)) {
+			for (const unionError of issue.errors) {
+				flattened.push(...flattenZodIssues(unionError));
+			}
+		} else {
+			flattened.push(issue);
+		}
+	}
+
+	return flattened;
+}
+
+// Convert a ZodError into a human-readable string and log full details
+export function formatZodError(error: unknown): string {
+	// Check if it's a ZodError by looking for the issues property
+	if (
+		error &&
+		typeof error === "object" &&
+		"issues" in (error as { issues: unknown })
+	) {
+		const zodError = error as z.ZodError;
+
+		// Log full error details for debugging
+		console.error(
+			"Zod validation error:",
+			JSON.stringify(zodError.issues, null, 2),
+		);
+
+		// Flatten all nested union issues
+		const allIssues = flattenZodIssues(zodError.issues as unknown as ZIssue[]);
+
+		// Create user-friendly messages
+		const userMessages = allIssues.map((issue) => {
+			const path = issue.path?.join(".") || "";
+
+			// Convert technical field names to user-friendly ones
+			const friendlyPath = path
+				.replace("actionData.", "")
+				.replace("paidByUserId", "paid by user")
+				.replace("splitPctShares", "split percentages")
+				.replace("budgetName", "budget name")
+				.replace("startDate", "start date")
+				.replace("actionType", "action type");
+
+			// Simplify common error messages
+			const message = issue.message;
+			if (
+				message.includes("Invalid input: expected") &&
+				message.includes("received undefined")
+			) {
+				if (friendlyPath) {
+					return `${friendlyPath} is required`;
+				}
+				return "Required field is missing";
+			}
+			if (message.includes("user not in group")) {
+				return "Selected user is not in your group";
+			}
+			if (message.includes("not available in group")) {
+				return "Selected budget is not available";
+			}
+
+			return friendlyPath ? `${friendlyPath}: ${message}` : message;
+		});
+
+		// De-duplicate and return first few messages
+		const unique = Array.from(new Set(userMessages)).filter(Boolean);
+		const result = unique.slice(0, 3).join(". ");
+
+		// If we couldn't create meaningful messages, return a generic one
+		return result || "Please check your input and try again";
+	}
+
+	// Log other errors too
+	console.error("Non-Zod validation error:", error);
+	return error instanceof Error ? error.message : "Invalid input";
 }
 
 // Add CORS headers to any response

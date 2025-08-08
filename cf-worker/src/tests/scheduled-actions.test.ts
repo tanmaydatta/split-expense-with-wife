@@ -8,14 +8,16 @@ import {
 	type CreateScheduledActionResponse,
 	CURRENCIES,
 	type DeleteScheduledActionResponse,
+	ScheduledAction,
 	type ScheduledActionErrorResponse,
 	type ScheduledActionHistoryListResponse,
 	type ScheduledActionListResponse,
 	type UpdateScheduledActionRequest,
 	type UpdateScheduledActionResponse,
 } from "../../../shared-types";
+import { auth } from "../auth";
 import { getDb } from "../db";
-import { scheduledActionHistory, scheduledActions } from "../db/schema/schema";
+import { groups, scheduledActionHistory, scheduledActions } from "../db/schema/schema";
 import { calculateNextExecutionDate } from "../handlers/scheduled-actions";
 import worker from "../index";
 import {
@@ -27,6 +29,35 @@ import {
 } from "./test-utils";
 
 const env = testEnv as unknown as Env;
+
+async function createUserInNewGroup(env: Env): Promise<{ id: string; email: string; cookies: string }> {
+	const authInstance = auth(env);
+	const rand = Math.floor(Math.random() * 1000000);
+	const email = `outsider${rand}@example.com`;
+	const password = "testpass";
+	const groupid = 1000 + rand; // ensure different from default group 1
+	const signupRes = await authInstance.api.signUpEmail({
+		body: {
+			email,
+			password,
+			name: "Outsider",
+			firstName: "Out",
+			lastName: "Sider",
+			groupid,
+			// biome-ignore lint/suspicious/noExplicitAny: test payload
+		} as any,
+	});
+	const db = getDb(env);
+	await db.insert(groups).values({
+		groupid,
+		groupName: `Other Group ${groupid}`,
+		userids: `["${signupRes.user.id}"]`,
+		budgets: "[\"house\"]",
+		metadata: `{"defaultShare": {"${signupRes.user.id}": 100}, "defaultCurrency": "USD"}`,
+	});
+	const cookies = await signInAndGetCookies(env, email, password);
+	return { id: signupRes.user.id, email, cookies };
+}
 
 describe("Scheduled Actions Handlers", () => {
 	let TEST_USERS: Record<string, Record<string, string>>;
@@ -344,7 +375,7 @@ describe("Scheduled Actions Handlers", () => {
 
 			expect(response.status).toBe(400);
 			const result = (await response.json()) as ScheduledActionErrorResponse;
-			expect(result.error).toBe("Missing required fields");
+			expect(result.error).toContain("required"); // User-friendly message should mention required fields
 		});
 
 		it("should reject creation with invalid action type", async () => {
@@ -369,7 +400,7 @@ describe("Scheduled Actions Handlers", () => {
 
 			expect(response.status).toBe(400);
 			const result = (await response.json()) as ScheduledActionErrorResponse;
-			expect(result.error).toBe("Invalid action type");
+			expect(result.error).toContain("required"); // User-friendly message should mention required fields
 		});
 
 		it("should reject creation when user is not authenticated", async () => {
@@ -492,7 +523,7 @@ describe("Scheduled Actions Handlers", () => {
 			expect(result.hasMore).toBe(true);
 		});
 
-		it("should return empty list for user with no scheduled actions", async () => {
+		it("should return list for other user in the same group", async () => {
 			const otherUserCookies = await signInAndGetCookies(
 				env,
 				TEST_USERS.user2.email,
@@ -513,9 +544,24 @@ describe("Scheduled Actions Handlers", () => {
 			expect(response.status).toBe(200);
 			const result: ScheduledActionListResponse = await response.json();
 
-			expect(result.scheduledActions).toHaveLength(0);
-			expect(result.totalCount).toBe(0);
+			expect(result.scheduledActions).toHaveLength(2);
+			expect(result.totalCount).toBe(2);
 			expect(result.hasMore).toBe(false);
+		});
+
+		it("should not allow user from another group to see list (empty)", async () => {
+			const outsider = await createUserInNewGroup(env);
+			const request = createTestRequest(
+				"scheduled-actions/list",
+				"GET",
+				undefined,
+				outsider.cookies,
+			);
+			const response = await worker.fetch(request, env, createExecutionContext());
+			expect(response.status).toBe(200);
+			const result: ScheduledActionListResponse = await response.json();
+			expect(result.totalCount).toBe(0);
+			expect(result.scheduledActions).toHaveLength(0);
 		});
 	});
 
@@ -632,7 +678,7 @@ describe("Scheduled Actions Handlers", () => {
 			expect(result.error).toBe("Scheduled action not found");
 		});
 
-		it("should reject update by different user", async () => {
+		it("should allow update by different user in same group", async () => {
 			const otherUserCookies = await signInAndGetCookies(
 				env,
 				TEST_USERS.user2.email,
@@ -655,6 +701,26 @@ describe("Scheduled Actions Handlers", () => {
 				createExecutionContext(),
 			);
 
+			expect(response.status).toBe(200);
+			const db = getDb(env);
+			const actions = await db
+				.select()
+				.from(scheduledActions)
+				.where(eq(scheduledActions.id, actionId));
+			expect(actions[0].isActive).toBe(false);
+		});
+
+		it("should reject update by user from another group", async () => {
+			const outsider = await createUserInNewGroup(env);
+			const updateRequest: UpdateScheduledActionRequest = {
+				id: actionId,
+				isActive: false,
+			};
+			const response = await worker.fetch(
+				createTestRequest("scheduled-actions/update", "PUT", updateRequest, outsider.cookies),
+				env,
+				createExecutionContext(),
+			);
 			expect(response.status).toBe(404);
 			const result = (await response.json()) as ScheduledActionErrorResponse;
 			expect(result.error).toBe("Scheduled action not found");
@@ -737,7 +803,7 @@ describe("Scheduled Actions Handlers", () => {
 			expect(result.error).toBe("Scheduled action not found");
 		});
 
-		it("should reject deletion by different user", async () => {
+		it("should allow deletion by different user in same group", async () => {
 			const otherUserCookies = await signInAndGetCookies(
 				env,
 				TEST_USERS.user2.email,
@@ -757,6 +823,23 @@ describe("Scheduled Actions Handlers", () => {
 				createExecutionContext(),
 			);
 
+			expect(response.status).toBe(200);
+			const db = getDb(env);
+			const actions = await db
+				.select()
+				.from(scheduledActions)
+				.where(eq(scheduledActions.id, actionId));
+			expect(actions).toHaveLength(0);
+		});
+
+		it("should reject deletion by user from another group", async () => {
+			const outsider = await createUserInNewGroup(env);
+			const deleteRequest = { id: actionId };
+			const response = await worker.fetch(
+				createTestRequest("scheduled-actions/delete", "DELETE", deleteRequest, outsider.cookies),
+				env,
+				createExecutionContext(),
+			);
 			expect(response.status).toBe(404);
 			const result = (await response.json()) as ScheduledActionErrorResponse;
 			expect(result.error).toBe("Scheduled action not found");
@@ -789,6 +872,85 @@ describe("Scheduled Actions Handlers", () => {
 					splitPctShares: { [TEST_USERS.user1.id]: 100 },
 				},
 				nextExecutionDate: "2024-01-01",
+			});
+
+			describe("handleScheduledActionDetails", () => {
+				let actionId: string;
+				beforeEach(async () => {
+					const db = getDb(env);
+					actionId = ulid();
+					const now = "2024-03-15T10:30:00.000Z";
+					await db.insert(scheduledActions).values({
+						id: actionId,
+						userId: TEST_USERS.user1.id,
+						actionType: "add_expense",
+						frequency: "weekly",
+						startDate: "2024-01-01",
+						isActive: true,
+						createdAt: now,
+						updatedAt: now,
+						actionData: {
+							amount: 100,
+							description: "Weekly groceries",
+							currency: "USD",
+							paidByUserId: TEST_USERS.user1.id,
+							splitPctShares: { [TEST_USERS.user1.id]: 100 },
+						},
+						nextExecutionDate: "2024-01-01",
+					});
+				});
+
+				it("returns action details for any user in group", async () => {
+					const request = createTestRequest(
+						`scheduled-actions/details?id=${actionId}`,
+						"GET",
+						undefined,
+						userCookies,
+					);
+					const response = await worker.fetch(request, env, createExecutionContext());
+					expect(response.status).toBe(200);
+					const result = (await response.json()) as ScheduledAction;
+					expect(result.id).toBe(actionId);
+					expect(result.actionData.description).toBe("Weekly groceries");
+
+					const otherUserCookies = await signInAndGetCookies(
+						env,
+						TEST_USERS.user2.email,
+						TEST_USERS.user2.password,
+					);
+					const response2 = await worker.fetch(
+						createTestRequest(`scheduled-actions/details?id=${actionId}`, "GET", undefined, otherUserCookies),
+						env,
+						createExecutionContext(),
+					);
+					expect(response2.status).toBe(200);
+				});
+
+				it("returns 404 for non-existent action", async () => {
+					const otherUserCookies = await signInAndGetCookies(
+						env,
+						TEST_USERS.user2.email,
+						TEST_USERS.user2.password,
+					);
+					const request = createTestRequest(
+						`scheduled-actions/details?id=does-not-exist`,
+						"GET",
+						undefined,
+						otherUserCookies,
+					);
+					const response = await worker.fetch(request, env, createExecutionContext());
+					expect(response.status).toBe(404);
+				});
+
+				it("should return 404 when user from another group requests details", async () => {
+					const outsider = await createUserInNewGroup(env);
+					const response = await worker.fetch(
+						createTestRequest(`scheduled-actions/details?id=${actionId}`, "GET", undefined, outsider.cookies),
+						env,
+						createExecutionContext(),
+					);
+					expect(response.status).toBe(404);
+				});
 			});
 
 			// Create some history entries
@@ -832,7 +994,7 @@ describe("Scheduled Actions Handlers", () => {
 
 		it("should return scheduled action history for authenticated user", async () => {
 			const request = createTestRequest(
-				"scheduled-actions/history",
+				`scheduled-actions/history?scheduledActionId=${actionId}`,
 				"GET",
 				undefined,
 				userCookies,
@@ -844,7 +1006,7 @@ describe("Scheduled Actions Handlers", () => {
 			);
 
 			expect(response.status).toBe(200);
-			const result: ScheduledActionHistoryListResponse = await response.json();
+			const result = (await response.json()) as ScheduledActionHistoryListResponse;
 
 			expect(result.history).toHaveLength(2);
 			expect(result.totalCount).toBe(2);
@@ -855,7 +1017,7 @@ describe("Scheduled Actions Handlers", () => {
 			expect(result.history[0].resultData).toBeTypeOf("object");
 		});
 
-		it("should filter history by scheduled action ID", async () => {
+		it("should filter history by scheduled action ID and allow group users", async () => {
 			const request = createTestRequest(
 				`scheduled-actions/history?scheduledActionId=${actionId}`,
 				"GET",
@@ -869,17 +1031,43 @@ describe("Scheduled Actions Handlers", () => {
 			);
 
 			expect(response.status).toBe(200);
-			const result: ScheduledActionHistoryListResponse = await response.json();
+			const result = (await response.json()) as ScheduledActionHistoryListResponse;
 
 			expect(result.history).toHaveLength(2);
 			expect(
 				result.history.every((h) => h.scheduledActionId === actionId),
 			).toBe(true);
+			// Now call as other user in same group and expect same data
+			const otherUserCookies = await signInAndGetCookies(
+				env,
+				TEST_USERS.user2.email,
+				TEST_USERS.user2.password,
+			);
+			const response2 = await worker.fetch(
+				createTestRequest(`scheduled-actions/history?scheduledActionId=${actionId}`, "GET", undefined, otherUserCookies),
+				env,
+				createExecutionContext(),
+			);
+			expect(response2.status).toBe(200);
+		});
+
+		it("should not allow history access by user from another group", async () => {
+			const outsider = await createUserInNewGroup(env);
+			const response = await worker.fetch(
+				createTestRequest(`scheduled-actions/history?scheduledActionId=${actionId}`, "GET", undefined, outsider.cookies),
+				env,
+				createExecutionContext(),
+			);
+			// Handler returns 200 with empty list because query is restricted to group userIds
+			expect(response.status).toBe(200);
+			const result = (await response.json()) as ScheduledActionHistoryListResponse;
+			expect(result.totalCount).toBe(0);
+			expect(result.history).toHaveLength(0);
 		});
 
 		it("should filter history by execution status", async () => {
 			const request = createTestRequest(
-				"scheduled-actions/history?executionStatus=success",
+				`scheduled-actions/history?executionStatus=success&scheduledActionId=${actionId}`,
 				"GET",
 				undefined,
 				userCookies,
@@ -899,7 +1087,7 @@ describe("Scheduled Actions Handlers", () => {
 
 		it("should support pagination in history", async () => {
 			const request = createTestRequest(
-				"scheduled-actions/history?limit=1&offset=0",
+				`scheduled-actions/history?limit=1&offset=0&scheduledActionId=${actionId}`,
 				"GET",
 				undefined,
 				userCookies,

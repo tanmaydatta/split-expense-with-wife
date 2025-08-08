@@ -14,6 +14,9 @@
 		"@planetscale/database": "^1.11.0",
 		"@popperjs/core": "^2.11.8",
 		"@reduxjs/toolkit": "^2.0.1",
+		"@tanstack/react-form": "^1.19.0",
+		"@tanstack/react-query": "^5.84.1",
+		"@tanstack/zod-form-adapter": "^0.42.1",
 		"@testing-library/dom": "^8.20.1",
 		"@testing-library/jest-dom": "^5.16.5",
 		"@testing-library/react": "^13.4.0",
@@ -55,7 +58,8 @@
 		"workbox-range-requests": "^7.3.0",
 		"workbox-routing": "^7.3.0",
 		"workbox-strategies": "^7.3.0",
-		"workbox-streams": "^7.3.0"
+		"workbox-streams": "^7.3.0",
+		"zod": "^4.0.0"
 	},
 	"scripts": {
 		"start": "craco start",

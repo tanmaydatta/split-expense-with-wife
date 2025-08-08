@@ -1,13 +1,13 @@
-import React, { useState, useEffect } from "react";
-import { useSelector } from "react-redux";
-import { typedApi } from "@/utils/api";
-import { setData } from "@/redux/data";
-import { store } from "@/redux/store";
-import { scrollToTop } from "@/utils/scroll";
-import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
+import { Card } from "@/components/Card";
 import { Input } from "@/components/Form/Input";
 import { Select } from "@/components/Form/Select";
+import { setData } from "@/redux/data";
+import { store } from "@/redux/store";
+import { typedApi } from "@/utils/api";
+import { scrollToTop } from "@/utils/scroll";
+import React, { useEffect, useState } from "react";
+import { useSelector } from "react-redux";
 
 import { Loader } from "@/components/Loader";
 import {
@@ -19,7 +19,7 @@ import type {
 	ReduxState,
 	UpdateGroupMetadataRequest,
 	User,
-} from "@shared-types";
+} from "split-expense-shared-types";
 import "./index.css";
 
 interface SettingsState {

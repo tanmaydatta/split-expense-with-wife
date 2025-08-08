@@ -1,16 +1,28 @@
-import { and, count, desc, eq } from "drizzle-orm";
+import { and, count, desc, eq, inArray } from "drizzle-orm";
 import { ulid } from "ulid";
+import { z } from "zod";
 import {
 	type AddBudgetActionData,
+	AddBudgetActionSchema,
 	type AddExpenseActionData,
+	AddExpenseActionSchema,
 	type CreateScheduledActionRequest,
 	CURRENCIES,
 	type ScheduledActionHistoryListResponse,
+	ScheduledActionHistoryQuerySchema,
+	ScheduledActionListQuerySchema,
 	type ScheduledActionListResponse,
 	type UpdateScheduledActionRequest,
+	UpdateScheduledActionSchema,
 } from "../../../shared-types";
 import { scheduledActionHistory, scheduledActions } from "../db/schema/schema";
-import { formatSQLiteTime, withAuth } from "../utils";
+import {
+	createErrorResponse,
+	createJsonResponse,
+	formatSQLiteTime,
+	formatZodError,
+	withAuth,
+} from "../utils";
 
 // The database now returns properly typed JSON, so we don't need custom row types
 
@@ -96,106 +108,81 @@ export function calculateNextExecutionDate(
 	return next.toISOString().split("T")[0]; // Return ISO date string
 }
 
-// Validation functions
-function validateActionData(
-	actionType: string,
-	actionData: AddExpenseActionData | AddBudgetActionData,
-	userIds: string[],
-	budgets: string[],
-): string | null {
-	if (actionType === "add_expense") {
-		const data = actionData as AddExpenseActionData;
+// Build runtime Zod schemas with group-aware rules
+function buildActionDataSchemas(userIds: string[], budgets: string[]) {
+	const currencySchema = z
+		.string()
+		.refine((c) => CURRENCIES.includes(c as (typeof CURRENCIES)[number]), {
+			message: `Invalid currency. Supported: ${CURRENCIES.join(", ")}`,
+		});
 
-		// Validate required fields
-		if (
-			!data.amount ||
-			!data.description ||
-			!data.currency ||
-			!data.paidByUserId ||
-			!data.splitPctShares
-		) {
-			return "Missing required fields for expense action";
-		}
-
-		// Validate amount
-		if (typeof data.amount !== "number" || data.amount <= 0) {
-			return "Amount must be a positive number";
-		}
-
-		// Validate currency
-		if (!CURRENCIES.includes(data.currency as (typeof CURRENCIES)[number])) {
-			return `Invalid currency. Supported: ${CURRENCIES.join(", ")}`;
-		}
-
-		// Validate paidByUserId
+	const ExpenseValid = AddExpenseActionSchema.extend({
+		currency: currencySchema,
+	}).superRefine((data, ctx) => {
 		if (!userIds.includes(data.paidByUserId)) {
-			return "Invalid paidByUserId - user not in group";
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				message: "Invalid paidByUserId - user not in group",
+				path: ["paidByUserId"],
+			});
 		}
-
-		// Validate split percentages
-		const splitUsers = Object.keys(data.splitPctShares);
-		const splitPercentages = Object.values(data.splitPctShares);
-
-		// Check all split users are in group
-		for (const userId of splitUsers) {
+		for (const userId of Object.keys(data.splitPctShares)) {
 			if (!userIds.includes(userId)) {
-				return "Invalid user in split shares - not in group";
+				ctx.addIssue({
+					code: z.ZodIssueCode.custom,
+					message: "Invalid user in split shares - not in group",
+					path: ["splitPctShares", userId],
+				});
 			}
 		}
+	});
 
-		// Check percentages are valid numbers
-		for (const percentage of splitPercentages) {
-			if (
-				typeof percentage !== "number" ||
-				percentage < 0 ||
-				percentage > 100
-			) {
-				return "Split percentages must be between 0 and 100";
-			}
-		}
+	const BudgetValid = AddBudgetActionSchema.extend({
+		currency: currencySchema,
+		budgetName: z.string().refine((name) => budgets.includes(name), {
+			message: "Invalid budget name - not available in group",
+		}),
+	});
 
-		// Check percentages sum to 100
-		const total = splitPercentages.reduce((sum, pct) => sum + pct, 0);
-		if (Math.abs(total - 100) > 0.01) {
-			return "Split percentages must sum to exactly 100%";
-		}
-	} else if (actionType === "add_budget") {
-		const data = actionData as AddBudgetActionData;
-
-		// Validate required fields
-		if (
-			!data.amount ||
-			!data.description ||
-			!data.budgetName ||
-			!data.currency ||
-			!data.type
-		) {
-			return "Missing required fields for budget action";
-		}
-
-		// Validate amount
-		if (typeof data.amount !== "number" || data.amount <= 0) {
-			return "Amount must be a positive number";
-		}
-
-		// Validate currency
-		if (!CURRENCIES.includes(data.currency as (typeof CURRENCIES)[number])) {
-			return `Invalid currency. Supported: ${CURRENCIES.join(", ")}`;
-		}
-
-		// Validate budget name
-		if (!budgets.includes(data.budgetName)) {
-			return "Invalid budget name - not available in group";
-		}
-
-		// Validate type
-		if (!["Credit", "Debit"].includes(data.type)) {
-			return "Budget type must be either Credit or Debit";
-		}
-	}
-
-	return null; // No validation errors
+	return { ExpenseValid, BudgetValid } as const;
 }
+
+function buildCreateActionSchema(userIds: string[], budgets: string[]) {
+	const { ExpenseValid, BudgetValid } = buildActionDataSchemas(
+		userIds,
+		budgets,
+	);
+	const BaseCommon = {
+		frequency: z.union([
+			z.literal("daily"),
+			z.literal("weekly"),
+			z.literal("monthly"),
+		]),
+		startDate: z
+			.string()
+			.regex(/^\d{4}-\d{2}-\d{2}$/)
+			.refine((v) => !Number.isNaN(Date.parse(v)), {
+				message: "Invalid start date format",
+			}),
+	} as const;
+
+	return z.union([
+		z.object({
+			actionType: z.literal("add_expense"),
+			...BaseCommon,
+			actionData: ExpenseValid,
+		}),
+		z.object({
+			actionType: z.literal("add_budget"),
+			...BaseCommon,
+			actionData: BudgetValid,
+		}),
+	]);
+}
+
+// Common param/body schemas
+const IdParamSchema = z.object({ id: z.string().min(1) });
+const DeleteBodySchema = z.object({ id: z.string().min(1) });
 
 // CRUD Operations
 export async function handleScheduledActionCreate(
@@ -203,73 +190,31 @@ export async function handleScheduledActionCreate(
 	env: Env,
 ): Promise<Response> {
 	return withAuth(request, env, async (session, db) => {
-		const body: CreateScheduledActionRequest = await request.json();
-		// Validate input
-		if (
-			!body.actionType ||
-			!body.frequency ||
-			!body.startDate ||
-			!body.actionData
-		) {
-			return new Response(
-				JSON.stringify({ error: "Missing required fields" }),
-				{
-					status: 400,
-					headers: { "Content-Type": "application/json" },
-				},
-			);
-		}
+		const json = (await request.json()) as CreateScheduledActionRequest;
 
-		// Validate action type
-		if (!["add_expense", "add_budget"].includes(body.actionType)) {
-			return new Response(JSON.stringify({ error: "Invalid action type" }), {
-				status: 400,
-				headers: { "Content-Type": "application/json" },
-			});
-		}
-
-		// Validate frequency
-		if (!["daily", "weekly", "monthly"].includes(body.frequency)) {
-			return new Response(JSON.stringify({ error: "Invalid frequency" }), {
-				status: 400,
-				headers: { "Content-Type": "application/json" },
-			});
-		}
-
-		// Validate start date
-		const startDate = new Date(body.startDate);
-		if (Number.isNaN(startDate.getTime())) {
-			return new Response(
-				JSON.stringify({ error: "Invalid start date format" }),
-				{
-					status: 400,
-					headers: { "Content-Type": "application/json" },
-				},
-			);
-		}
+		// All validation handled by Zod schema below
 
 		// Get group info for validation
 		const group = session.group;
 		if (!group) {
-			return new Response(JSON.stringify({ error: "User not in a group" }), {
-				status: 400,
-				headers: { "Content-Type": "application/json" },
-			});
+			return createErrorResponse("User not in a group", 400, request, env);
 		}
 
-		// Validate action data
-		const validationError = validateActionData(
-			body.actionType,
-			body.actionData,
+		// Parse request strictly with Zod (no manual any checks)
+		const parsed = buildCreateActionSchema(
 			group.userids,
 			group.budgets,
-		);
-		if (validationError) {
-			return new Response(JSON.stringify({ error: validationError }), {
-				status: 400,
-				headers: { "Content-Type": "application/json" },
-			});
+		).safeParse(json as unknown);
+		if (!parsed.success) {
+			return createErrorResponse(
+				formatZodError(parsed.error),
+				400,
+				request,
+				env,
+			);
 		}
+		const body: CreateScheduledActionRequest = parsed.data;
+		// group and actionData already validated by schema
 
 		// Calculate next execution date
 		const nextExecutionDate = calculateNextExecutionDate(
@@ -295,15 +240,12 @@ export async function handleScheduledActionCreate(
 
 		await db.insert(scheduledActions).values(newAction);
 
-		return new Response(
-			JSON.stringify({
-				message: "Scheduled action created successfully",
-				id: actionId,
-			}),
-			{
-				status: 201,
-				headers: { "Content-Type": "application/json" },
-			},
+		return createJsonResponse(
+			{ message: "Scheduled action created successfully", id: actionId },
+			201,
+			{},
+			request,
+			env,
 		);
 	});
 }
@@ -313,18 +255,30 @@ export async function handleScheduledActionList(
 	env: Env,
 ): Promise<Response> {
 	return withAuth(request, env, async (session, db) => {
+		const group = session.group;
+		if (!group) {
+			return createErrorResponse("User not in a group", 400, request, env);
+		}
 		const url = new URL(request.url);
-		const offset = Number.parseInt(url.searchParams.get("offset") || "0");
-		const limit = Math.min(
-			Number.parseInt(url.searchParams.get("limit") || "10"),
-			50,
-		);
+		const parseQuery = ScheduledActionListQuerySchema.safeParse({
+			offset: url.searchParams.get("offset") ?? "0",
+			limit: url.searchParams.get("limit") ?? "10",
+		});
+		if (!parseQuery.success) {
+			return createErrorResponse(
+				formatZodError(parseQuery.error),
+				400,
+				request,
+				env,
+			);
+		}
+		const { offset, limit } = parseQuery.data;
 
 		// Get total count
 		const totalCountResult = await db
 			.select({ count: count() })
 			.from(scheduledActions)
-			.where(eq(scheduledActions.userId, session.user.id));
+			.where(inArray(scheduledActions.userId, group.userids));
 
 		const totalCount = totalCountResult[0]?.count || 0;
 
@@ -332,7 +286,7 @@ export async function handleScheduledActionList(
 		const actions = await db
 			.select()
 			.from(scheduledActions)
-			.where(eq(scheduledActions.userId, session.user.id))
+			.where(inArray(scheduledActions.userId, group.userids))
 			.orderBy(desc(scheduledActions.createdAt))
 			.limit(limit)
 			.offset(offset);
@@ -349,10 +303,7 @@ export async function handleScheduledActionList(
 			hasMore: offset + limit < totalCount,
 		};
 
-		return new Response(JSON.stringify(response), {
-			status: 200,
-			headers: { "Content-Type": "application/json" },
-		});
+		return createJsonResponse(response, 200, {}, request, env);
 	});
 }
 
@@ -361,14 +312,23 @@ export async function handleScheduledActionUpdate(
 	env: Env,
 ): Promise<Response> {
 	return withAuth(request, env, async (session, db) => {
-		const body: UpdateScheduledActionRequest = await request.json();
-
-		if (!body.id) {
-			return new Response(JSON.stringify({ error: "Missing action ID" }), {
-				status: 400,
-				headers: { "Content-Type": "application/json" },
-			});
+		const group = session.group;
+		if (!group) {
+			return createErrorResponse("User not in a group", 400, request, env);
 		}
+		const json = (await request.json()) as unknown;
+		const parsed = UpdateScheduledActionSchema.safeParse(json);
+		if (!parsed.success) {
+			return createErrorResponse(
+				formatZodError(parsed.error),
+				400,
+				request,
+				env,
+			);
+		}
+		const body: UpdateScheduledActionRequest = parsed.data;
+
+		// ID validation handled by Zod schema
 
 		// Check if action exists and belongs to user
 		const existingAction = await db
@@ -377,18 +337,17 @@ export async function handleScheduledActionUpdate(
 			.where(
 				and(
 					eq(scheduledActions.id, body.id),
-					eq(scheduledActions.userId, session.user.id),
+					inArray(scheduledActions.userId, group.userids),
 				),
 			)
 			.limit(1);
 
 		if (existingAction.length === 0) {
-			return new Response(
-				JSON.stringify({ error: "Scheduled action not found" }),
-				{
-					status: 404,
-					headers: { "Content-Type": "application/json" },
-				},
+			return createErrorResponse(
+				"Scheduled action not found",
+				404,
+				request,
+				env,
 			);
 		}
 
@@ -402,26 +361,12 @@ export async function handleScheduledActionUpdate(
 		}
 
 		if (body.frequency) {
-			if (!["daily", "weekly", "monthly"].includes(body.frequency)) {
-				return new Response(JSON.stringify({ error: "Invalid frequency" }), {
-					status: 400,
-					headers: { "Content-Type": "application/json" },
-				});
-			}
+			// Frequency validation handled by Zod schema
 			updateData.frequency = body.frequency;
 		}
 
 		if (body.startDate) {
-			const startDate = new Date(body.startDate);
-			if (Number.isNaN(startDate.getTime())) {
-				return new Response(
-					JSON.stringify({ error: "Invalid start date format" }),
-					{
-						status: 400,
-						headers: { "Content-Type": "application/json" },
-					},
-				);
-			}
+			// Start date validation handled by Zod schema
 			updateData.startDate = body.startDate;
 		}
 
@@ -429,27 +374,30 @@ export async function handleScheduledActionUpdate(
 			// Get group info for validation
 			const group = session.group;
 			if (!group) {
-				return new Response(JSON.stringify({ error: "User not in a group" }), {
-					status: 400,
-					headers: { "Content-Type": "application/json" },
-				});
+				return createErrorResponse("User not in a group", 400, request, env);
 			}
 
-			// Validate action data
-			const validationError = validateActionData(
-				existingAction[0].actionType,
-				body.actionData,
+			// Validate action data via runtime Zod
+			const { ExpenseValid, BudgetValid } = buildActionDataSchemas(
 				group.userids,
 				group.budgets,
 			);
-			if (validationError) {
-				return new Response(JSON.stringify({ error: validationError }), {
-					status: 400,
-					headers: { "Content-Type": "application/json" },
-				});
+			const actionParsed =
+				existingAction[0].actionType === "add_expense"
+					? ExpenseValid.safeParse(body.actionData)
+					: BudgetValid.safeParse(body.actionData);
+			if (!actionParsed.success) {
+				return createErrorResponse(
+					formatZodError(actionParsed.error),
+					400,
+					request,
+					env,
+				);
 			}
 
-			updateData.actionData = body.actionData;
+			updateData.actionData = actionParsed.data as
+				| AddExpenseActionData
+				| AddBudgetActionData;
 		}
 
 		// Recalculate next execution date if frequency or start date changed
@@ -469,18 +417,16 @@ export async function handleScheduledActionUpdate(
 			.where(
 				and(
 					eq(scheduledActions.id, body.id),
-					eq(scheduledActions.userId, session.user.id),
+					inArray(scheduledActions.userId, group.userids),
 				),
 			);
 
-		return new Response(
-			JSON.stringify({
-				message: "Scheduled action updated successfully",
-			}),
-			{
-				status: 200,
-				headers: { "Content-Type": "application/json" },
-			},
+		return createJsonResponse(
+			{ message: "Scheduled action updated successfully" },
+			200,
+			{},
+			request,
+			env,
 		);
 	});
 }
@@ -490,14 +436,21 @@ export async function handleScheduledActionDelete(
 	env: Env,
 ): Promise<Response> {
 	return withAuth(request, env, async (session, db) => {
-		const body: { id: string } = await request.json();
-
-		if (!body.id) {
-			return new Response(JSON.stringify({ error: "Missing action ID" }), {
-				status: 400,
-				headers: { "Content-Type": "application/json" },
-			});
+		const group = session.group;
+		if (!group) {
+			return createErrorResponse("User not in a group", 400, request, env);
 		}
+		const json = (await request.json()) as unknown;
+		const parsed = DeleteBodySchema.safeParse(json);
+		if (!parsed.success) {
+			return createErrorResponse(
+				formatZodError(parsed.error),
+				400,
+				request,
+				env,
+			);
+		}
+		const body = parsed.data;
 
 		// Check if action exists and belongs to user
 		const existingAction = await db
@@ -506,18 +459,17 @@ export async function handleScheduledActionDelete(
 			.where(
 				and(
 					eq(scheduledActions.id, body.id),
-					eq(scheduledActions.userId, session.user.id),
+					inArray(scheduledActions.userId, group.userids),
 				),
 			)
 			.limit(1);
 
 		if (existingAction.length === 0) {
-			return new Response(
-				JSON.stringify({ error: "Scheduled action not found" }),
-				{
-					status: 404,
-					headers: { "Content-Type": "application/json" },
-				},
+			return createErrorResponse(
+				"Scheduled action not found",
+				404,
+				request,
+				env,
 			);
 		}
 
@@ -527,18 +479,16 @@ export async function handleScheduledActionDelete(
 			.where(
 				and(
 					eq(scheduledActions.id, body.id),
-					eq(scheduledActions.userId, session.user.id),
+					inArray(scheduledActions.userId, group.userids),
 				),
 			);
 
-		return new Response(
-			JSON.stringify({
-				message: "Scheduled action deleted successfully",
-			}),
-			{
-				status: 200,
-				headers: { "Content-Type": "application/json" },
-			},
+		return createJsonResponse(
+			{ message: "Scheduled action deleted successfully" },
+			200,
+			{},
+			request,
+			env,
 		);
 	});
 }
@@ -548,37 +498,44 @@ export async function handleScheduledActionHistory(
 	env: Env,
 ): Promise<Response> {
 	return withAuth(request, env, async (session, db) => {
+		const group = session.group;
+		if (!group) {
+			return createErrorResponse("User not in a group", 400, request, env);
+		}
 		const url = new URL(request.url);
-		const offset = Number.parseInt(url.searchParams.get("offset") || "0");
-		const limit = Math.min(
-			Number.parseInt(url.searchParams.get("limit") || "10"),
-			50,
-		);
-		const scheduledActionId = url.searchParams.get("scheduledActionId");
-		const actionType = url.searchParams.get("actionType");
-		const executionStatus = url.searchParams.get("executionStatus");
+		const parseQuery = ScheduledActionHistoryQuerySchema.safeParse({
+			offset: url.searchParams.get("offset") ?? "0",
+			limit: url.searchParams.get("limit") ?? "10",
+			scheduledActionId: url.searchParams.get("scheduledActionId") ?? undefined,
+			executionStatus: url.searchParams.get("executionStatus") ?? undefined,
+		});
+		if (!parseQuery.success) {
+			return createErrorResponse(
+				formatZodError(parseQuery.error),
+				400,
+				request,
+				env,
+			);
+		}
+		const { offset, limit, scheduledActionId, executionStatus } =
+			parseQuery.data;
 
 		// Build where conditions
-		const conditions = [eq(scheduledActionHistory.userId, session.user.id)];
+		const conditions = [inArray(scheduledActionHistory.userId, group.userids)];
 
 		if (scheduledActionId) {
 			conditions.push(
 				eq(scheduledActionHistory.scheduledActionId, scheduledActionId),
 			);
 		}
-		if (actionType && ["add_expense", "add_budget"].includes(actionType)) {
-			conditions.push(
-				eq(
-					scheduledActionHistory.actionType,
-					actionType as "add_expense" | "add_budget",
-				),
-			);
-		}
-		if (executionStatus && ["success", "failed"].includes(executionStatus)) {
+		if (
+			executionStatus &&
+			["success", "failed", "started"].includes(executionStatus)
+		) {
 			conditions.push(
 				eq(
 					scheduledActionHistory.executionStatus,
-					executionStatus as "success" | "failed",
+					executionStatus as "success" | "failed" | "started",
 				),
 			);
 		}
@@ -613,9 +570,91 @@ export async function handleScheduledActionHistory(
 			hasMore: offset + limit < totalCount,
 		};
 
-		return new Response(JSON.stringify(response), {
-			status: 200,
-			headers: { "Content-Type": "application/json" },
-		});
+		return createJsonResponse(response, 200, {}, request, env);
+	});
+}
+
+export async function handleScheduledActionDetails(
+	request: Request,
+	env: Env,
+): Promise<Response> {
+	return withAuth(request, env, async (session, db) => {
+		const group = session.group;
+		if (!group) {
+			return createErrorResponse("User not in a group", 400, request, env);
+		}
+		const url = new URL(request.url);
+		const parsed = IdParamSchema.safeParse({ id: url.searchParams.get("id") });
+		if (!parsed.success) {
+			return createErrorResponse(
+				formatZodError(parsed.error),
+				400,
+				request,
+				env,
+			);
+		}
+		const { id } = parsed.data;
+
+		const rows = await db
+			.select()
+			.from(scheduledActions)
+			.where(
+				and(
+					eq(scheduledActions.id, id),
+					inArray(scheduledActions.userId, group.userids),
+				),
+			)
+			.limit(1);
+
+		if (rows.length === 0) {
+			return createErrorResponse(
+				"Scheduled action not found",
+				404,
+				request,
+				env,
+			);
+		}
+
+		return createJsonResponse(rows[0], 200, {}, request, env);
+	});
+}
+
+export async function handleScheduledActionHistoryDetails(
+	request: Request,
+	env: Env,
+): Promise<Response> {
+	return withAuth(request, env, async (session, db) => {
+		const group = session.group;
+		if (!group) {
+			return createErrorResponse("User not in a group", 400, request, env);
+		}
+		const url = new URL(request.url);
+		const parsed = IdParamSchema.safeParse({ id: url.searchParams.get("id") });
+		if (!parsed.success) {
+			return createErrorResponse(
+				formatZodError(parsed.error),
+				400,
+				request,
+				env,
+			);
+		}
+		const { id } = parsed.data;
+
+		const rows = await db
+			.select()
+			.from(scheduledActionHistory)
+			.where(
+				and(
+					eq(scheduledActionHistory.id, id),
+					inArray(scheduledActionHistory.userId, group.userids),
+				),
+			)
+			.limit(1);
+
+		if (rows.length === 0) {
+			return createErrorResponse("History entry not found", 404, request, env);
+		}
+
+		return createJsonResponse(rows[0], 200, {}, request, env);
 	});
 }

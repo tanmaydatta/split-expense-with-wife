@@ -1,23 +1,28 @@
-import { Route, Routes, Navigate } from "react-router-dom";
-import { ThemeProvider } from "styled-components";
-import styled from "styled-components";
-import { useState, useEffect } from "react";
-import Dashboard from "@/pages/Dashboard";
+import Sidebar from "@/components/Sidebar";
+import { theme } from "@/components/theme";
+import { GlobalStyles } from "@/components/theme/GlobalStyles";
+import Logout from "@/Logout";
 import Balances from "@/pages/Balances";
 import { Budget } from "@/pages/Budget";
-import { GlobalStyles } from "@/components/theme/GlobalStyles";
-import { theme } from "@/components/theme";
-import LoginPage from "@/pages/Login";
-import SignUpPage from "@/pages/SignUp";
-import Logout from "@/Logout";
-import { MonthlyBudgetPage } from "@/pages/MonthlyBudgetPage";
-import Sidebar from "@/components/Sidebar";
-import Transactions from "@/pages/Transactions";
-import Settings from "@/pages/Settings";
-import NotFound from "@/pages/NotFound";
+import Dashboard from "@/pages/Dashboard";
 import Landing from "@/pages/Landing";
-import { authClient } from "./utils/authClient";
+import LoginPage from "@/pages/Login";
+import { MonthlyBudgetPage } from "@/pages/MonthlyBudgetPage";
+import NotFound from "@/pages/NotFound";
+import ScheduledActionsPage from "@/pages/ScheduledActions";
+import ActionHistoryPage from "@/pages/ScheduledActions/ActionHistory";
+import ScheduledActionEditPage from "@/pages/ScheduledActions/EditAction";
+import HistoryRunDetailsPage from "@/pages/ScheduledActions/HistoryRunDetails";
+// TODO: add a HistoryRunDetails page when available
+import NewActionPage from "@/pages/ScheduledActions/NewAction";
+import Settings from "@/pages/Settings";
+import SignUpPage from "@/pages/SignUp";
+import Transactions from "@/pages/Transactions";
+import { useEffect, useState } from "react";
+import { Navigate, Route, Routes } from "react-router-dom";
+import styled, { ThemeProvider } from "styled-components";
 import { setData } from "./redux/data";
+import { authClient } from "./utils/authClient";
 
 import { store } from "./redux/store";
 // import { Loader } from "./components/Loader";
@@ -180,6 +185,7 @@ function AppWrapper() {
 		if (path === "/budget") return "Budget";
 		if (path.startsWith("/monthly-budget")) return "Monthly Budget";
 		if (path === "/settings") return "Settings";
+		if (path === "/scheduled-actions") return "Scheduled Actions";
 		if (path === "/logout") return "Logout";
 		return "Page Not Found"; // For 404 and unknown routes
 	};
@@ -222,6 +228,26 @@ function AppWrapper() {
 								/>
 								<Route path="/expenses" element={<Transactions />} />
 								<Route path="/settings" element={<Settings />} />
+								<Route
+									path="/scheduled-actions"
+									element={<ScheduledActionsPage />}
+								/>
+								<Route
+									path="/scheduled-actions/new"
+									element={<NewActionPage />}
+								/>
+								<Route
+									path="/scheduled-actions/:id"
+									element={<ActionHistoryPage />}
+								/>
+								<Route
+									path="/scheduled-actions/history/run/:historyId"
+									element={<HistoryRunDetailsPage />}
+								/>
+								<Route
+									path="/scheduled-actions/:id/edit"
+									element={<ScheduledActionEditPage />}
+								/>
 								<Route path="/logout" element={<Logout />} />
 								<Route path="*" element={<NotFound />} />
 							</Routes>

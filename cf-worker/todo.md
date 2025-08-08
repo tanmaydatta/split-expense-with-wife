@@ -21,9 +21,11 @@
 - multi person split
 - sessions api - d1
 - schedule actions
+    - when we update the action, make sure start date cannot be changed
     - skip next date
     - set next date
     - run now
+- confirmation dialog on delete
 - scan receipt
 - full text search
 - transaction/add

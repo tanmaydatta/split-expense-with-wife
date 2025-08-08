@@ -20,7 +20,9 @@ import {
 import {
 	handleScheduledActionCreate,
 	handleScheduledActionDelete,
+	handleScheduledActionDetails,
 	handleScheduledActionHistory,
+	handleScheduledActionHistoryDetails,
 	handleScheduledActionList,
 	handleScheduledActionUpdate,
 } from "./handlers/scheduled-actions";
@@ -114,7 +116,7 @@ export default {
 					return createErrorResponse("Method not allowed", 405, request, env);
 
 				case "scheduled-actions/update":
-					if (request.method === "PUT") {
+					if (request.method === "PUT" || request.method === "POST") {
 						return await handleScheduledActionUpdate(request, env);
 					}
 					return createErrorResponse("Method not allowed", 405, request, env);
@@ -128,6 +130,18 @@ export default {
 				case "scheduled-actions/history":
 					if (request.method === "GET") {
 						return await handleScheduledActionHistory(request, env);
+					}
+					return createErrorResponse("Method not allowed", 405, request, env);
+
+				case "scheduled-actions/history/details":
+					if (request.method === "GET") {
+						return await handleScheduledActionHistoryDetails(request, env);
+					}
+					return createErrorResponse("Method not allowed", 405, request, env);
+
+				case "scheduled-actions/details":
+					if (request.method === "GET") {
+						return await handleScheduledActionDetails(request, env);
 					}
 					return createErrorResponse("Method not allowed", 405, request, env);
 

@@ -1,9 +1,9 @@
-import React from "react";
-import { getCurrencySymbol } from "@/utils/currency";
 import { Card } from "@/components/Card";
-import { Trash, Calendar, CardText } from "@/components/Icons";
+import { Calendar, CardText, Trash } from "@/components/Icons";
+import { getCurrencySymbol } from "@/utils/currency";
 import { dateToFullStr } from "@/utils/date";
-import { BudgetEntry } from "@shared-types";
+import React from "react";
+import type { BudgetEntry } from "split-expense-shared-types";
 import "./BudgetCard.css";
 
 interface BudgetCardProps {

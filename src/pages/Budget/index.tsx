@@ -1,23 +1,23 @@
-import { useCallback, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { AmountGrid } from "@/components/AmountGrid";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { Loader } from "@/components/Loader";
-import { AmountGrid } from "@/components/AmountGrid";
 import {
 	ErrorContainer,
 	SuccessContainer,
 } from "@/components/MessageContainer";
-import BudgetTable from "./BudgetTable";
 import { SelectBudget } from "@/SelectBudget";
 import { ApiError, typedApi } from "@/utils/api";
+import { useCallback, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
-	BudgetListRequest,
-	BudgetTotalRequest,
 	BudgetDeleteRequest,
 	BudgetEntry,
+	BudgetListRequest,
 	BudgetTotal,
-} from "@shared-types";
+	BudgetTotalRequest,
+} from "split-expense-shared-types";
+import BudgetTable from "./BudgetTable";
 import "./index.css";
 
 export const Budget: React.FC = () => {

@@ -2,11 +2,14 @@
 	"name": "split-expense-shared-types",
 	"version": "1.0.0",
 	"description": "Shared TypeScript types for split expense application",
-	"main": "index.ts",
-	"types": "index.ts",
+	"main": "dist/index.js",
+	"types": "dist/index.d.ts",
 	"scripts": {
 		"build": "tsc",
 		"watch": "tsc --watch"
+	},
+	"dependencies": {
+		"zod": "^4.0.0"
 	},
 	"devDependencies": {
 		"typescript": "^5.0.0"

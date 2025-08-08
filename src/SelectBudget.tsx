@@ -1,9 +1,9 @@
-import { ReduxState } from "@shared-types";
+import { useSelector } from "react-redux";
+import type { ReduxState } from "split-expense-shared-types";
 import {
 	ToggleButton,
 	ToggleButtonGroup,
 } from "./components/ToggleButtonGroup";
-import { useSelector } from "react-redux";
 
 interface SelectBudgetProps {
 	budget: string;

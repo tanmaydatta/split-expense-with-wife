@@ -52,8 +52,9 @@
 		"@types/node": "^24.1.0",
 		"better-auth": "^1.3.4",
 		"drizzle-orm": "^0.44.3",
+		"split-expense-shared-types": "workspace:*",
 		"ulid": "^3.0.1",
-		"zod": "^3.25.76"
+		"zod": "^4.0.0"
 	},
 	"packageManager": "yarn@4.5.0"
 }
