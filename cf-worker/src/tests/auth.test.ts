@@ -1,16 +1,20 @@
 import { env } from "cloudflare:test";
 // Vitest globals are available through the test environment
-import { cleanupDatabase, setupDatabase } from "./test-utils";
-import { getDb } from "../db";
-import { user } from "../db/schema/auth-schema";
 import { eq } from "drizzle-orm";
 import { auth } from "../auth";
+import { getDb } from "../db";
+import { user } from "../db/schema/auth-schema";
+import { completeCleanupDatabase, setupAndCleanDatabase } from "./test-utils";
 
 describe("Better Auth Integration", () => {
 	let authInstance: ReturnType<typeof auth>;
+	beforeAll(async () => {
+		await setupAndCleanDatabase(env);
+	});
+
 	beforeEach(async () => {
-		await setupDatabase(env);
-		await cleanupDatabase(env);
+		// Clean the database completely before each test
+		await completeCleanupDatabase(env);
 		authInstance = auth(env);
 	});
 

@@ -1,6 +1,6 @@
 import {
-	env,
 	createExecutionContext,
+	env,
 	waitOnExecutionContext,
 } from "cloudflare:test";
 // Vitest globals are available through the test environment

@@ -1,29 +1,30 @@
-import { env as testEnv, createExecutionContext } from "cloudflare:test";
-import worker from "../index";
-import {
-	setupAndCleanDatabase,
-	createTestUserData,
-	signInAndGetCookies,
-	createTestRequest,
-} from "./test-utils";
-import { calculateNextExecutionDate } from "../handlers/scheduled-actions";
-import {
-	type CreateScheduledActionRequest,
-	type UpdateScheduledActionRequest,
-	type ScheduledActionListResponse,
-	type ScheduledActionHistoryListResponse,
-	type AddExpenseActionData,
-	type AddBudgetActionData,
-	type CreateScheduledActionResponse,
-	type UpdateScheduledActionResponse,
-	type DeleteScheduledActionResponse,
-	type ScheduledActionErrorResponse,
-	CURRENCIES,
-} from "../../../shared-types";
-import { getDb } from "../db";
-import { scheduledActions, scheduledActionHistory } from "../db/schema/schema";
+import { createExecutionContext, env as testEnv } from "cloudflare:test";
 import { eq } from "drizzle-orm";
 import { ulid } from "ulid";
+import {
+	type AddBudgetActionData,
+	type AddExpenseActionData,
+	type CreateScheduledActionRequest,
+	type CreateScheduledActionResponse,
+	CURRENCIES,
+	type DeleteScheduledActionResponse,
+	type ScheduledActionErrorResponse,
+	type ScheduledActionHistoryListResponse,
+	type ScheduledActionListResponse,
+	type UpdateScheduledActionRequest,
+	type UpdateScheduledActionResponse,
+} from "../../../shared-types";
+import { getDb } from "../db";
+import { scheduledActionHistory, scheduledActions } from "../db/schema/schema";
+import { calculateNextExecutionDate } from "../handlers/scheduled-actions";
+import worker from "../index";
+import {
+	completeCleanupDatabase,
+	createTestRequest,
+	createTestUserData,
+	setupAndCleanDatabase,
+	signInAndGetCookies,
+} from "./test-utils";
 
 const env = testEnv as unknown as Env;
 
@@ -31,8 +32,13 @@ describe("Scheduled Actions Handlers", () => {
 	let TEST_USERS: Record<string, Record<string, string>>;
 	let userCookies: string;
 
-	beforeEach(async () => {
+	beforeAll(async () => {
 		await setupAndCleanDatabase(env);
+	});
+
+	beforeEach(async () => {
+		// Clean the database completely before each test
+		await completeCleanupDatabase(env);
 		TEST_USERS = await createTestUserData(env);
 		userCookies = await signInAndGetCookies(
 			env,

@@ -1,24 +1,25 @@
 import {
-	env as testEnv,
 	createExecutionContext,
+	env as testEnv,
 	waitOnExecutionContext,
 } from "cloudflare:test";
 // Vitest globals are available through the test environment
-import worker from "../index";
-import {
-	setupAndCleanDatabase,
-	createTestUserData,
-	populateMaterializedTables,
-	signInAndGetCookies,
-} from "./test-utils";
 import type {
+	AverageSpendPeriod,
 	BudgetMonthlyResponse,
 	MonthlyBudget,
-	AverageSpendPeriod,
 } from "../../../shared-types";
-import type { UserBalancesByUser } from "../types";
 import { getDb } from "../db";
-import { budget, transactionUsers, transactions } from "../db/schema/schema";
+import { budget, transactions, transactionUsers } from "../db/schema/schema";
+import worker from "../index";
+import type { UserBalancesByUser } from "../types";
+import {
+	completeCleanupDatabase,
+	createTestUserData,
+	populateMaterializedTables,
+	setupAndCleanDatabase,
+	signInAndGetCookies,
+} from "./test-utils";
 
 // Type aliases for API responses
 type BudgetTotalResponse = Array<{ currency: string; amount: number }>;
@@ -27,8 +28,13 @@ const env = testEnv as unknown as Env;
 
 describe("Budget Handlers", () => {
 	let TEST_USERS: Record<string, Record<string, string>>;
-	beforeEach(async () => {
+	beforeAll(async () => {
 		await setupAndCleanDatabase(env);
+	});
+
+	beforeEach(async () => {
+		// Clean the database completely before each test
+		await completeCleanupDatabase(env);
 		TEST_USERS = await createTestUserData(env);
 	});
 
@@ -1196,8 +1202,8 @@ describe("Budget Handlers", () => {
 			await waitOnExecutionContext(ctx);
 
 			expect(response.status).toBe(200);
-			const json = (await response.json()) as UserBalancesByUser;
-			expect(json.message).toBe("200");
+			const json = (await response.json()) as { message: string };
+			expect(json.message).toBe("Budget entry created successfully");
 		});
 
 		it("should return 401 if not authorized for budget", async () => {

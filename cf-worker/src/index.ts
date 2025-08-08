@@ -1,8 +1,4 @@
-import {
-	createOptionsResponse,
-	createErrorResponse,
-	addCORSHeaders,
-} from "./utils";
+import { auth } from "./auth";
 import {
 	handleBalances,
 	handleBudget,
@@ -11,29 +7,35 @@ import {
 	handleBudgetMonthly,
 	handleBudgetTotal,
 } from "./handlers/budget";
-import {
-	handleSplitNew,
-	handleSplitDelete,
-	handleTransactionsList,
-} from "./handlers/split";
-import { handleHelloWorld } from "./handlers/hello";
 import { handleCron } from "./handlers/cron";
 import {
-	handleUpdateGroupMetadata,
 	handleGroupDetails,
+	handleUpdateGroupMetadata,
 } from "./handlers/group";
+import { handleHelloWorld } from "./handlers/hello";
 import {
-	handleRelinkData,
 	handlePasswordMigration,
+	handleRelinkData,
 } from "./handlers/migration";
 import {
 	handleScheduledActionCreate,
-	handleScheduledActionList,
-	handleScheduledActionUpdate,
 	handleScheduledActionDelete,
 	handleScheduledActionHistory,
+	handleScheduledActionList,
+	handleScheduledActionUpdate,
 } from "./handlers/scheduled-actions";
-import { auth } from "./auth";
+import {
+	handleSplitDelete,
+	handleSplitNew,
+	handleTransactionsList,
+} from "./handlers/split";
+import {
+	addCORSHeaders,
+	createErrorResponse,
+	createOptionsResponse,
+} from "./utils";
+import { ScheduledActionsOrchestratorWorkflow } from "./workflows/scheduled-actions-orchestrator";
+import { ScheduledActionsProcessorWorkflow } from "./workflows/scheduled-actions-processor";
 
 export default {
 	async fetch(
@@ -176,4 +178,10 @@ export default {
 	): Promise<void> {
 		ctx.waitUntil(handleCron(env, controller.cron));
 	},
+};
+
+// Export workflow classes for Cloudflare Workflows
+export {
+	ScheduledActionsOrchestratorWorkflow,
+	ScheduledActionsProcessorWorkflow,
 };

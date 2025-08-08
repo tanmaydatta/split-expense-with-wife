@@ -1,23 +1,25 @@
-import {
-	createJsonResponse,
-	createErrorResponse,
-	withAuth,
-	formatSQLiteTime,
-	isAuthorizedForBudget,
-	getBudgetTotals,
-} from "../utils";
+import { and, desc, eq, gte, isNull, lt, sql } from "drizzle-orm";
+import { ulid } from "ulid";
 import type {
-	BudgetRequest,
-	BudgetListRequest,
-	BudgetDeleteRequest,
-	BudgetMonthlyRequest,
-	BudgetTotalRequest,
-	BudgetMonthlyResponse,
-	AverageSpendPeriod,
 	AverageSpendData,
+	AverageSpendPeriod,
+	BudgetDeleteRequest,
+	BudgetListRequest,
+	BudgetMonthlyRequest,
+	BudgetMonthlyResponse,
+	BudgetRequest,
+	BudgetTotalRequest,
 } from "../../../shared-types";
-import { budget, userBalances, budgetTotals } from "../db/schema/schema";
-import { eq, and, desc, lt, isNull, gte, sql } from "drizzle-orm";
+import { budget, budgetTotals, userBalances } from "../db/schema/schema";
+import {
+	createErrorResponse,
+	createJsonResponse,
+	formatSQLiteTime,
+	getBudgetTotals,
+	isAuthorizedForBudget,
+	withAuth,
+} from "../utils";
+import { createBudgetEntryStatements } from "../utils/scheduled-action-execution";
 
 // Handle balances
 export async function handleBalances(
@@ -119,52 +121,45 @@ export async function handleBudget(
 				return createErrorResponse("Unauthorized", 401, request, env);
 			}
 
-			const currentTime = formatSQLiteTime();
-			const currency = body.currency || "GBP";
-
-			// Prepare Drizzle statements for batch operation
-			const budgetInsert = db.insert(budget).values({
-				description: body.description,
-				amount: body.amount,
-				name: body.name,
-				currency: currency,
+			// Set currency default
+			const budgetRequest = {
+				...body,
+				currency: body.currency || "GBP",
 				groupid: session.group.groupid,
-				addedTime: currentTime,
-			});
+			};
 
-			const budgetTotalUpsert = db
-				.insert(budgetTotals)
-				.values({
-					groupId: session.group.groupid,
-					name: body.name,
-					currency: currency,
-					totalAmount: body.amount,
-					updatedAt: currentTime,
-				})
-				.onConflictDoUpdate({
-					target: [
-						budgetTotals.groupId,
-						budgetTotals.name,
-						budgetTotals.currency,
-					],
-					set: {
-						totalAmount: sql`${budgetTotals.totalAmount} + ${body.amount}`,
-						updatedAt: currentTime,
+			try {
+				// Generate unique budget ID using ULID for regular handler
+				const budgetId = ulid();
+
+				// Use the reusable utility function
+				const result = await createBudgetEntryStatements(
+					budgetRequest,
+					db,
+					budgetId,
+				);
+
+				// Execute all statements in a single batch
+				if (result.statements.length > 0) {
+					const queries = result.statements.map((stmt) => stmt.query);
+					await db.batch([queries[0], ...queries.slice(1)]);
+				}
+
+				return createJsonResponse(
+					{
+						message: "Budget entry created successfully",
 					},
-				});
-
-			// Execute both statements using Drizzle batch
-			await db.batch([budgetInsert, budgetTotalUpsert]);
-
-			return createJsonResponse(
-				{
-					message: "200",
-				},
-				200,
-				{},
-				request,
-				env,
-			);
+					200,
+					{},
+					request,
+					env,
+				);
+			} catch (error) {
+				console.error("Budget creation error:", error);
+				const errorMessage =
+					error instanceof Error ? error.message : "Unknown error";
+				return createErrorResponse(errorMessage, 400, request, env);
+			}
 		});
 	} catch (error) {
 		console.error("Budget creation error:", error);

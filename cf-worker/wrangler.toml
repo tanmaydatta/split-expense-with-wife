@@ -3,6 +3,17 @@ main = "src/index.ts"
 compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
 
+# Cloudflare Workflows configuration
+[[workflows]]
+binding = "ORCHESTRATOR_WORKFLOW"
+class_name = "ScheduledActionsOrchestratorWorkflow"
+name = "scheduled-actions-orchestrator"
+
+[[workflows]]
+binding = "PROCESSOR_WORKFLOW"
+class_name = "ScheduledActionsProcessorWorkflow"
+name = "scheduled-actions-processor"
+
 # Static assets configuration for Single Page Application
 [assets]
 directory = "../build"
@@ -33,7 +44,7 @@ enabled = true
 
 
 #[triggers]
-#crons = [ "0 0 1 * *" ]
+#crons = [ "0 0 * * *" ]  # Daily at midnight UTC for scheduled actions
 
 [env.prod]
     [[env.prod.d1_databases]]
@@ -48,6 +59,16 @@ enabled = true
     BASE_URL = "https://splitexpense.tanmaydatta.workers.dev/auth"
     AUTH_TRUSTED_ORIGINS = ["https://splitexpense.tanmaydatta.workers.dev"]
     LOCAL = false
+
+    [[env.prod.workflows]]
+    binding = "ORCHESTRATOR_WORKFLOW"
+    class_name = "ScheduledActionsOrchestratorWorkflow"
+    name = "scheduled-actions-orchestrator"
+
+    [[env.prod.workflows]]
+    binding = "PROCESSOR_WORKFLOW"
+    class_name = "ScheduledActionsProcessorWorkflow"
+    name = "scheduled-actions-processor"
 
 
 
@@ -64,3 +85,14 @@ enabled = true
     BASE_URL = "https://splitexpense-dev.tanmaydatta.workers.dev/auth"
     AUTH_TRUSTED_ORIGINS = ["https://splitexpense-dev.tanmaydatta.workers.dev"]
     LOCAL = false
+
+    [[env.dev.workflows]]
+    binding = "ORCHESTRATOR_WORKFLOW"
+    class_name = "ScheduledActionsOrchestratorWorkflow"
+    name = "scheduled-actions-orchestrator"
+
+    [[env.dev.workflows]]
+    binding = "PROCESSOR_WORKFLOW"
+    class_name = "ScheduledActionsProcessorWorkflow"
+    name = "scheduled-actions-processor"
+

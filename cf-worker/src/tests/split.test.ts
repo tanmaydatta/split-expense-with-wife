@@ -1,24 +1,25 @@
 import {
-	env,
 	createExecutionContext,
+	env,
 	waitOnExecutionContext,
 } from "cloudflare:test";
 // Vitest globals are available through the test environment
-import worker from "../index";
-import {
-	setupAndCleanDatabase,
-	createTestUserData,
-	createTestRequest,
-	signInAndGetCookies,
-} from "./test-utils";
-import { getDb } from "../db";
-import { groups, transactions, transactionUsers } from "../db/schema/schema";
 import { eq } from "drizzle-orm";
 import type {
-	ErrorResponse,
 	ApiEndpoints,
+	ErrorResponse,
 	TransactionsListResponse,
 } from "../../../shared-types";
+import { getDb } from "../db";
+import { groups, transactions, transactionUsers } from "../db/schema/schema";
+import worker from "../index";
+import {
+	completeCleanupDatabase,
+	createTestRequest,
+	createTestUserData,
+	setupAndCleanDatabase,
+	signInAndGetCookies,
+} from "./test-utils";
 
 // Type aliases for API responses
 type SplitCreateResponse = ApiEndpoints["/split_new"]["response"];
@@ -29,8 +30,13 @@ type SplitDeleteResponse = ApiEndpoints["/split_delete"]["response"];
 describe("Split handlers", () => {
 	let TEST_USERS: Record<string, Record<string, string>>;
 
-	beforeEach(async () => {
+	beforeAll(async () => {
 		await setupAndCleanDatabase(env);
+	});
+
+	beforeEach(async () => {
+		// Clean the database completely before each test
+		await completeCleanupDatabase(env);
 		TEST_USERS = await createTestUserData(env);
 	});
 

@@ -1,16 +1,16 @@
+import { and, count, desc, eq } from "drizzle-orm";
 import { ulid } from "ulid";
-import { eq, and, desc, count } from "drizzle-orm";
-import { scheduledActions, scheduledActionHistory } from "../db/schema/schema";
-import { withAuth } from "../utils";
 import {
-	type CreateScheduledActionRequest,
-	type UpdateScheduledActionRequest,
-	type ScheduledActionListResponse,
-	type ScheduledActionHistoryListResponse,
-	type AddExpenseActionData,
 	type AddBudgetActionData,
+	type AddExpenseActionData,
+	type CreateScheduledActionRequest,
 	CURRENCIES,
+	type ScheduledActionHistoryListResponse,
+	type ScheduledActionListResponse,
+	type UpdateScheduledActionRequest,
 } from "../../../shared-types";
+import { scheduledActionHistory, scheduledActions } from "../db/schema/schema";
+import { formatSQLiteTime, withAuth } from "../utils";
 
 // The database now returns properly typed JSON, so we don't need custom row types
 
@@ -59,13 +59,15 @@ function addMonthsSafely(
 export function calculateNextExecutionDate(
 	startDate: string,
 	frequency: "daily" | "weekly" | "monthly",
+	now: Date = new Date(),
 ): string {
 	const start = new Date(startDate);
-	const now = new Date();
-	now.setUTCHours(0, 0, 0, 0); // Reset to midnight UTC for date comparison
+	// Reset to midnight UTC for date comparison based on provided "now"
+	const today = new Date(now);
+	today.setUTCHours(0, 0, 0, 0);
 
 	// If start date is in the future, return start date
-	if (start > now) {
+	if (start > today) {
 		return startDate;
 	}
 
@@ -75,7 +77,7 @@ export function calculateNextExecutionDate(
 	// Calculate next execution based on frequency
 	const next = new Date(start);
 
-	while (next <= now) {
+	while (next <= today) {
 		switch (frequency) {
 			case "daily":
 				next.setUTCDate(next.getUTCDate() + 1);
@@ -274,7 +276,7 @@ export async function handleScheduledActionCreate(
 			body.startDate,
 			body.frequency,
 		);
-		const now = new Date().toISOString();
+		const now = formatSQLiteTime();
 
 		// Create scheduled action
 		const actionId = ulid();
@@ -392,7 +394,7 @@ export async function handleScheduledActionUpdate(
 
 		// Build update object
 		const updateData: ScheduledActionUpdateData = {
-			updatedAt: new Date().toISOString(),
+			updatedAt: formatSQLiteTime(),
 		};
 
 		if (body.isActive !== undefined) {

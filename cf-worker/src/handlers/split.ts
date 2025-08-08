@@ -1,24 +1,21 @@
-import {
-	createJsonResponse,
-	createErrorResponse,
-	withAuth,
-	formatSQLiteTime,
-	calculateSplitAmounts,
-	validateSplitPercentages,
-	validatePaidAmounts,
-	isValidCurrency,
-	generateDrizzleBalanceUpdates,
-	generateRandomId,
-} from "../utils";
+import { and, desc, eq, inArray, isNull } from "drizzle-orm";
+import { ulid } from "ulid";
 import type {
-	SplitRequest,
 	SplitDeleteRequest,
+	SplitRequest,
 	TransactionsListRequest,
 	TransactionUser,
 } from "../../../shared-types";
-import { transactions, transactionUsers } from "../db/schema/schema";
-import { eq, and, desc, isNull, inArray } from "drizzle-orm";
 import { user } from "../db/schema/auth-schema";
+import { transactions, transactionUsers } from "../db/schema/schema";
+import {
+	createErrorResponse,
+	createJsonResponse,
+	formatSQLiteTime,
+	generateDrizzleBalanceUpdates,
+	withAuth,
+} from "../utils";
+import { createSplitTransactionFromRequest } from "../utils/scheduled-action-execution";
 
 // Handle new split (direct database creation without Splitwise)
 export async function handleSplitNew(
@@ -33,124 +30,40 @@ export async function handleSplitNew(
 			if (!session.group) {
 				return createErrorResponse("Unauthorized", 401, request, env);
 			}
-			const currentGroup = session.group;
+
 			const body = (await request.json()) as SplitRequest;
 
-			// Validate currency
-			if (!isValidCurrency(body.currency)) {
-				return createErrorResponse("Invalid currency", 400, request, env);
-			}
+			// Generate unique transaction ID using ULID for regular handler
+			const transactionId = ulid();
 
-			// Validate split percentages
-			if (!validateSplitPercentages(body.splitPctShares)) {
-				return createErrorResponse(
-					"Split percentages must add up to 100%",
-					400,
-					request,
+			try {
+				// Use the reusable utility function
+				const result = await createSplitTransactionFromRequest(
+					body,
+					session.group.groupid,
+					db,
 					env,
+					transactionId,
 				);
-			}
 
-			// Validate paid amounts
-			if (!validatePaidAmounts(body.paidByShares, body.amount)) {
-				return createErrorResponse(
-					"Paid amounts must add up to total amount",
-					400,
-					request,
-					env,
-				);
-			}
-
-			// Generate unique transaction ID
-			const transactionId = generateRandomId(16);
-			const createdAt = formatSQLiteTime();
-
-			// Calculate split amounts
-			const splitAmounts = calculateSplitAmounts(
-				body.amount,
-				body.paidByShares,
-				body.splitPctShares,
-				body.currency,
-			);
-
-			// Create metadata object matching production format
-			const owedAmounts: Record<string, number> = {};
-			const owedToAmounts: Record<string, number> = {};
-			const paidByShares: Record<string, number> = {};
-
-			// Transform paidByShares to use first names instead of user IDs
-			for (const [userId, amount] of Object.entries(body.paidByShares)) {
-				const userName =
-					session.usersById[userId]?.firstName || `User${userId}`;
-				paidByShares[userName] = amount;
-			}
-
-			// Calculate owedAmounts based on split percentages (each person's total share)
-			for (const [userId, splitPct] of Object.entries(body.splitPctShares)) {
-				const userName =
-					session.usersById[userId]?.firstName || `User${userId}`;
-				owedAmounts[userName] =
-					Math.round(((body.amount * splitPct) / 100) * 100) / 100;
-			}
-
-			// Calculate owedToAmounts (net amounts owed to each person)
-			for (const [userId, paidAmount] of Object.entries(body.paidByShares)) {
-				const userName =
-					session.usersById[userId]?.firstName || `User${userId}`;
-				const owedAmount = owedAmounts[userName] || 0;
-				const netOwed = paidAmount - owedAmount;
-
-				if (netOwed > 0.001) {
-					// Only include if person is owed money (with small tolerance for rounding)
-					owedToAmounts[userName] = Math.round(netOwed * 100) / 100;
+				// Execute all statements in a single batch
+				if (result.statements.length > 0) {
+					const queries = result.statements.map((stmt) => stmt.query);
+					await db.batch([queries[0], ...queries.slice(1)]);
 				}
+
+				const response = {
+					message: "Transaction created successfully",
+					transactionId: result.transactionId,
+				};
+
+				return createJsonResponse(response, 200, {}, request, env);
+			} catch (error) {
+				console.error("Split transaction error:", error);
+				const errorMessage =
+					error instanceof Error ? error.message : "Unknown error";
+				return createErrorResponse(errorMessage, 400, request, env);
 			}
-
-			const metadata = {
-				paidByShares,
-				owedAmounts,
-				owedToAmounts,
-			};
-
-			// Prepare all statements for single batch operation
-			const transactionInsert = db.insert(transactions).values({
-				transactionId: transactionId,
-				description: body.description,
-				amount: body.amount,
-				currency: body.currency,
-				groupId: session.group.groupid,
-				createdAt: createdAt,
-				metadata: metadata,
-			});
-
-			const userInserts = splitAmounts.map((split) =>
-				db.insert(transactionUsers).values({
-					transactionId: transactionId,
-					userId: split.user_id,
-					amount: split.amount,
-					owedToUserId: split.owed_to_user_id,
-					currency: split.currency,
-					groupId: currentGroup.groupid,
-				}),
-			);
-
-			// Generate balance updates using Drizzle
-			const balanceUpdates = generateDrizzleBalanceUpdates(
-				env,
-				splitAmounts,
-				session.group.groupid,
-				"add",
-			);
-
-			// Execute all statements in a single batch
-			await db.batch([transactionInsert, ...userInserts, ...balanceUpdates]);
-
-			const response = {
-				message: "Transaction created successfully",
-				transactionId: transactionId,
-			};
-
-			return createJsonResponse(response, 200, {}, request, env);
 		});
 	} catch (error) {
 		console.error("Split new error:", error);

@@ -21,6 +21,9 @@
 - multi person split
 - sessions api - d1
 - schedule actions
+    - skip next date
+    - set next date
+    - run now
 - scan receipt
 - full text search
 - transaction/add

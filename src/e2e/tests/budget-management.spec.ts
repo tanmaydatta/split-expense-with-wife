@@ -1,4 +1,4 @@
-import { test, expect } from "../fixtures/setup";
+import { expect, test } from "../fixtures/setup";
 import { testData } from "../fixtures/test-data";
 
 // Helper functions for budget operations
