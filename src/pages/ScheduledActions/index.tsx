@@ -1,9 +1,10 @@
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
-import { Plus, Trash } from "@/components/Icons";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { Pencil, Plus, Trash } from "@/components/Icons";
 import {
-    useDeleteScheduledAction,
-    useScheduledActionsList,
+	useDeleteScheduledAction,
+	useScheduledActionsList,
 } from "@/hooks/useScheduledActions";
 import React from "react";
 import { useNavigate } from "react-router-dom";
@@ -87,6 +88,12 @@ const Separator = styled.span`
   color: #9ca3af;
 `;
 
+const RightActions = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+`;
+
 const IconButton = styled.span`
   cursor: pointer;
   display: inline-flex;
@@ -95,113 +102,149 @@ const IconButton = styled.span`
 `;
 
 const ScheduledActionsPage: React.FC = () => {
-    const navigate = useNavigate();
-    const { data, isLoading, isError } = useScheduledActionsList();
-    const deleteAction = useDeleteScheduledAction();
+	const navigate = useNavigate();
+	const { data, isLoading, isError } = useScheduledActionsList();
+	const deleteAction = useDeleteScheduledAction();
 
-    const actions: ScheduledAction[] = (data as any)?.scheduledActions || [];
+	const actions: ScheduledAction[] = (data as any)?.scheduledActions || [];
 
-    return (
-        <div className="settings-container" data-test-id="scheduled-actions-page">
-            <PageHeader>
-                <HeaderTitle>Scheduled Actions</HeaderTitle>
-                <StyledIconButton onClick={() => navigate("/scheduled-actions/new")}>
-                    <Plus size={14} color="#1e40af" />
-                    Add Action
-                </StyledIconButton>
-            </PageHeader>
+	const [confirmOpen, setConfirmOpen] = React.useState(false);
+	const [pendingDeleteId, setPendingDeleteId] = React.useState<string | null>(
+		null,
+	);
 
-            {isLoading && (
-                <Card className="settings-card">
-                    <div>Loading...</div>
-                </Card>
-            )}
-            {isError && (
-                <Card className="settings-card">
-                    <div>Failed to load scheduled actions</div>
-                </Card>
-            )}
+	const requestDelete = (id: string) => {
+		setPendingDeleteId(id);
+		setConfirmOpen(true);
+	};
 
-            {!isLoading && !isError && actions.length === 0 && (
-                <Card className="settings-card">
-                    <div>No scheduled actions yet.</div>
-                </Card>
-            )}
+	const confirmDelete = () => {
+		if (pendingDeleteId) {
+			deleteAction.mutate({ id: pendingDeleteId });
+		}
+		setConfirmOpen(false);
+		setPendingDeleteId(null);
+	};
 
-            {!isLoading && !isError && actions.length > 0 && (
-                <ActionsGrid>
-                    {actions.map((sa) => (
-                        <Card
-                            key={sa.id}
-                            className="settings-card"
-                            data-test-id={`sa-item-${sa.id}`}
-                        >
-                            <CardRow>
-                                <LeftSection
-                                    onClick={() =>
-                                        navigate(`/scheduled-actions/${sa.id}`, { state: sa })
-                                    }
-                                >
-                                    <StatusDot
-                                        $active={sa.isActive}
-                                        aria-label={sa.isActive ? "Active" : "Inactive"}
-                                        title={sa.isActive ? "Active" : "Inactive"}
-                                    />
-                                    <div>
-                                        <TitleText>{sa.actionData.description}</TitleText>
-                                        <Subtext>
-                                            <span
-                                                style={{
-                                                    textTransform: "uppercase",
-                                                    letterSpacing: 0.3 as unknown as number,
-                                                }}
-                                            >
-                                                {sa.frequency}
-                                            </span>
-                                            <Separator>•</Separator>
-                                            <span>
-                                                {sa.actionType === "add_expense"
-                                                    ? "Add Expense"
-                                                    : "Add to Budget"}
-                                            </span>
-                                            <Separator>•</Separator>
-                                            <span>Next: {sa.nextExecutionDate}</span>
-                                        </Subtext>
-                                    </div>
-                                </LeftSection>
-                                <IconButton
-                                    onClick={() => {
-                                        // Confirmation dialog before deleting
-                                        // eslint-disable-next-line no-alert
-                                        if (
-                                            window.confirm(
-                                                "Are you sure you want to delete this scheduled action?",
-                                            )
-                                        ) {
-                                            deleteAction.mutate({ id: sa.id });
-                                        }
-                                    }}
-                                    data-test-id={`sa-delete-${sa.id}`}
-                                    aria-label="Delete"
-                                    title="Delete"
-                                >
-                                    <Trash size={18} color="#dc2626" />
-                                </IconButton>
-                                <IconButton
-                                    onClick={() => navigate(`/scheduled-actions/${sa.id}/edit`, { state: sa })}
-                                    data-test-id={`sa-edit-${sa.id}`}
-                                    aria-label="Edit"
-                                    title="Edit"
-                                >
-                                    <span style={{ fontSize: 12, color: "#1e40af" }}>Edit</span>
-                                </IconButton>
-                            </CardRow>
-                        </Card>
-                    ))}
-                </ActionsGrid>
-            )}
-        </div>
-    );
+	const cancelDelete = () => {
+		setConfirmOpen(false);
+		setPendingDeleteId(null);
+	};
+
+	return (
+		<div className="settings-container" data-test-id="scheduled-actions-page">
+			<PageHeader>
+				<HeaderTitle>Scheduled Actions</HeaderTitle>
+				<StyledIconButton onClick={() => navigate("/scheduled-actions/new")}>
+					<Plus size={14} color="#1e40af" />
+					Add Action
+				</StyledIconButton>
+			</PageHeader>
+
+			{isLoading && (
+				<Card className="settings-card">
+					<div>Loading...</div>
+				</Card>
+			)}
+			{isError && (
+				<Card className="settings-card">
+					<div>Failed to load scheduled actions</div>
+				</Card>
+			)}
+
+			{!isLoading && !isError && actions.length === 0 && (
+				<Card className="settings-card">
+					<div>No scheduled actions yet.</div>
+				</Card>
+			)}
+
+			{!isLoading && !isError && actions.length > 0 && (
+				<ActionsGrid>
+					{actions.map((sa) => (
+						<Card
+							key={sa.id}
+							className="settings-card"
+							data-test-id={`sa-item-${sa.id}`}
+						>
+							<CardRow>
+								<LeftSection
+									onClick={() =>
+										navigate(`/scheduled-actions/${sa.id}`, { state: sa })
+									}
+								>
+									<StatusDot
+										$active={sa.isActive}
+										aria-label={sa.isActive ? "Active" : "Inactive"}
+										title={sa.isActive ? "Active" : "Inactive"}
+									/>
+									<div>
+										<TitleText>{sa.actionData.description}</TitleText>
+										<Subtext>
+											<span
+												style={{
+													textTransform: "uppercase",
+													letterSpacing: 0.3 as unknown as number,
+												}}
+											>
+												{sa.frequency}
+											</span>
+											<Separator>•</Separator>
+											<span>
+												{sa.actionType === "add_expense"
+													? "Add Expense"
+													: "Add to Budget"}
+											</span>
+											<Separator>•</Separator>
+											<span>Next: {sa.nextExecutionDate}</span>
+										</Subtext>
+									</div>
+								</LeftSection>
+								<RightActions>
+									<IconButton
+										onClick={() =>
+											navigate(`/scheduled-actions/${sa.id}/edit`, {
+												state: sa,
+											})
+										}
+										data-test-id={`sa-edit-${sa.id}`}
+										aria-label="Edit"
+										title="Edit"
+									>
+										<Pencil size={18} color="#1e40af" outline />
+									</IconButton>
+									<IconButton
+										onClick={() => requestDelete(sa.id)}
+										data-test-id={`sa-delete-${sa.id}`}
+										aria-label="Delete"
+										title="Delete"
+									>
+										<Trash size={18} color="#dc2626" />
+									</IconButton>
+								</RightActions>
+							</CardRow>
+							{confirmOpen && (
+								<ConfirmDialog
+									open={confirmOpen}
+									title="Delete action?"
+									message="This will permanently delete the scheduled action. This cannot be undone."
+									confirmText="Delete"
+									cancelText="Cancel"
+									onConfirm={confirmDelete}
+									onCancel={cancelDelete}
+								/>
+							)}
+						</Card>
+					))}
+				</ActionsGrid>
+			)}
+		</div>
+	);
 };
 
 export default ScheduledActionsPage;
+// Render global confirm dialog
+// Keeping it outside component return would break hooks; instead, append here:
+// eslint-disable-next-line react/no-unstable-nested-components
+export const ScheduledActionsPageWithDialogs: React.FC = () => {
+	return <ScheduledActionsPage />;
+};

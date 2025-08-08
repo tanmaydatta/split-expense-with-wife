@@ -12,13 +12,13 @@ const ActionHistoryPage: React.FC = () => {
 	const { id } = useParams<{ id: string }>();
 	const { data: details } = useScheduledActionDetails(id);
 	const action = details as ScheduledAction | undefined;
-  const Header = styled.div`
+	const Header = styled.div`
     display: flex;
     align-items: center;
     gap: 8px;
     margin-bottom: 16px;
   `;
-  const BackButton = styled(Button)`
+	const BackButton = styled(Button)`
     background: white;
     color: #1e40af;
     border: 1px solid #e5e7eb;
@@ -29,29 +29,32 @@ const ActionHistoryPage: React.FC = () => {
     align-items: center;
     gap: 6px;
   `;
-  const Title = styled.h3`
+	const Title = styled.h3`
     margin: 0;
   `;
-  const Description = styled.div`
+	const Description = styled.div`
     margin-bottom: 16px;
     font-weight: 600;
     font-size: 18px;
     color: #111827;
   `;
 
-  return (
-    <div className="settings-container" data-test-id="scheduled-actions-history">
-      <Header>
-        <BackButton onClick={() => navigate(-1)}>
-          <ArrowLeft size={14} color="#1e40af" />
-          Back
-        </BackButton>
-        <Title>Action History</Title>
-      </Header>
-      {action && <Description>{action.actionData.description}</Description>}
-      <ScheduledActionsHistory scheduledActionId={id} />
-    </div>
-  );
+	return (
+		<div
+			className="settings-container"
+			data-test-id="scheduled-actions-history"
+		>
+			<Header>
+				<BackButton onClick={() => navigate(-1)}>
+					<ArrowLeft size={14} color="#1e40af" />
+					Back
+				</BackButton>
+				<Title>Action History</Title>
+			</Header>
+			{action && <Description>{action.actionData.description}</Description>}
+			<ScheduledActionsHistory scheduledActionId={id} />
+		</div>
+	);
 };
 
 export default ActionHistoryPage;

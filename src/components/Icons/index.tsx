@@ -7,6 +7,7 @@ interface IconProps {
 	className?: string;
 	style?: React.CSSProperties;
 	onClick?: (e: React.MouseEvent) => void;
+	outline?: boolean;
 	[key: string]: any; // Allow any additional props like data-test-id
 }
 
@@ -221,6 +222,38 @@ export const ArrowLeft: React.FC<IconProps> = ({
 		<path
 			fillRule="evenodd"
 			d="M15 8a.5.5 0 0 1-.5.5H3.707l3.147 3.146a.5.5 0 0 1-.708.708l-4-4a.5.5 0 0 1 0-.708l4-4a.5.5 0 1 1 .708.708L3.707 7.5H14.5A.5.5 0 0 1 15 8z"
+		/>
+	</svg>
+);
+
+export const Pencil: React.FC<IconProps> = ({
+	size = 16,
+	color = "currentColor",
+	className = "",
+	style,
+	onClick,
+	outline = false,
+	...additionalProps
+}) => (
+	<svg
+		width={size}
+		height={size}
+		className={`icon icon-pencil ${className}`}
+		viewBox="0 0 16 16"
+		aria-label="Edit"
+		style={style}
+		onClick={onClick}
+		role={onClick ? "button" : undefined}
+		tabIndex={onClick ? 0 : undefined}
+		{...additionalProps}
+	>
+		<path
+			d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-9.5 9.5a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l9.5-9.5zM11.207 2 14 4.793 13.293 5.5 10.5 2.707 11.207 2zM9.793 3.414 12.586 6.207 5 13.793V11h-2.793l7.586-7.586z"
+			fill={outline ? "none" : color}
+			stroke={outline ? color : undefined}
+			strokeWidth={outline ? 1.5 : undefined}
+			strokeLinejoin={outline ? "round" : undefined}
+			strokeLinecap={outline ? "round" : undefined}
 		/>
 	</svg>
 );
