@@ -1,4 +1,5 @@
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
+import type { z } from "zod";
 import { CURRENCIES } from "../../shared-types";
 import { auth } from "./auth";
 import { getDb } from "./db";
@@ -217,12 +218,30 @@ export function createJsonResponse(
 
 // Create error response
 export function createErrorResponse(
-	error: string,
-	status = 500,
-	request?: Request,
-	env?: Env,
+  error: string,
+  status = 500,
+  request?: Request,
+  env?: Env,
 ): Response {
-	return createJsonResponse({ error }, status, {}, request, env);
+  return createJsonResponse({ error, statusCode: status }, status, {}, request, env);
+}
+
+// Convert a ZodError into a concise, user-friendly string
+export function formatZodError(error: unknown): string {
+  if (error && typeof error === "object" && "errors" in (error as { errors: unknown })) {
+    const zodError = error as z.ZodError;
+    // Build readable messages like "paidByUserId: Invalid paidByUserId - user not in group"
+    const messages = zodError.issues.map((issue) => {
+      const path = issue.path?.join(".") || "";
+      return path ? `${path}: ${issue.message}` : issue.message;
+    });
+    // De-duplicate and join
+    const unique = Array.from(new Set(messages)).filter(Boolean);
+    // Return first 5 messages to keep it short
+    return unique.slice(0, 5).join("; ");
+  }
+  // Fallback to string
+  return error instanceof Error ? error.message : "Invalid input";
 }
 
 // Add CORS headers to any response

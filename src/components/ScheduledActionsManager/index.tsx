@@ -2,19 +2,19 @@ import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { Input } from "@/components/Form/Input";
 import {
-	ButtonRow,
-	FormContainer,
-	SplitPercentageContainer,
-	SplitPercentageInputContainer,
+  ButtonRow,
+  FormContainer,
+  SplitPercentageContainer,
+  SplitPercentageInputContainer,
 } from "@/components/Form/Layout";
 import { Select } from "@/components/Form/Select";
 import {
-	ErrorContainer,
-	SuccessContainer,
+  ErrorContainer,
+  SuccessContainer,
 } from "@/components/MessageContainer";
 import {
-	ToggleButton,
-	ToggleButtonGroup,
+  ToggleButton,
+  ToggleButtonGroup,
 } from "@/components/ToggleButtonGroup";
 import { useCreateScheduledAction } from "@/hooks/useScheduledActions";
 import { CreditDebit } from "@/pages/Dashboard/CreditDebit";
@@ -23,10 +23,10 @@ import { useForm, useStore } from "@tanstack/react-form";
 import React, { useMemo } from "react";
 import { useSelector } from "react-redux";
 import type {
-	AddExpenseActionData,
-	AuthenticatedUser,
-	CreateScheduledActionRequest,
-	ReduxState,
+  AddExpenseActionData,
+  AuthenticatedUser,
+  CreateScheduledActionRequest,
+  ReduxState,
 } from "split-expense-shared-types";
 import { CreateScheduledActionSchema } from "split-expense-shared-types";
 
@@ -53,7 +53,10 @@ export const ScheduledActionsManager: React.FC<
 		const usersById = session?.extra?.usersById || {};
 		return Object.values(usersById || {});
 	}, [session]);
-	const budgets: string[] = session?.extra?.group?.budgets || [];
+  const budgets: string[] = useMemo(
+    () => session?.extra?.group?.budgets || [],
+    [session],
+  );
 	const currencies: string[] = useMemo(
 		() => session?.extra?.currencies || ["USD"],
 		[session],
@@ -148,6 +151,90 @@ export const ScheduledActionsManager: React.FC<
 			}
 		}
 	}, [defaultCurrency, session, form, initialValues]);
+
+  // Read commonly used fields from the form store
+  const currentAmount = useStore(
+    form.store,
+    (s) => (s.values as any)?.actionData?.amount ?? 0,
+  );
+  const currentDescription = useStore(
+    form.store,
+    (s) => (s.values as any)?.actionData?.description ?? "",
+  );
+  const currentCurrency = useStore(
+    form.store,
+    (s) => (s.values as any)?.actionData?.currency ?? defaultCurrency,
+  );
+  const existingSplits = useStore(
+    form.store,
+    (s) => (s.values as any)?.actionData?.splitPctShares,
+  );
+  const existingPaidBy = useStore(
+    form.store,
+    (s) => (s.values as any)?.actionData?.paidByUserId,
+  );
+  const existingBudget = useStore(
+    form.store,
+    (s) => (s.values as any)?.actionData?.budgetName,
+  );
+  const existingType = useStore(
+    form.store,
+    (s) => (s.values as any)?.actionData?.type,
+  );
+
+  // Ensure actionData shape matches actionType so payload is valid
+  React.useEffect(() => {
+    if (actionType === "add_expense") {
+      // Set expense-specific fields
+      form.setFieldValue("actionData.amount" as any, currentAmount as any);
+      form.setFieldValue(
+        "actionData.description" as any,
+        currentDescription as any,
+      );
+      form.setFieldValue("actionData.currency" as any, currentCurrency as any);
+      form.setFieldValue(
+        "actionData.paidByUserId" as any,
+        (existingPaidBy as any) ?? "",
+      );
+      form.setFieldValue(
+        "actionData.splitPctShares" as any,
+        (existingSplits as any) ?? ({} as any),
+      );
+      // Clear budget-only fields
+      form.setFieldValue("actionData.budgetName" as any, undefined as any);
+      form.setFieldValue("actionData.type" as any, undefined as any);
+    } else if (actionType === "add_budget") {
+      // Set budget-specific fields
+      form.setFieldValue("actionData.amount" as any, currentAmount as any);
+      form.setFieldValue(
+        "actionData.description" as any,
+        currentDescription as any,
+      );
+      form.setFieldValue("actionData.currency" as any, currentCurrency as any);
+      form.setFieldValue(
+        "actionData.budgetName" as any,
+        ((existingBudget as any) ?? (budgets[0] || "")) as any,
+      );
+      form.setFieldValue(
+        "actionData.type" as any,
+        ((existingType as any) ?? ("Credit" as any)) as any,
+      );
+      // Clear expense-only fields so backend schema validates
+      form.setFieldValue("actionData.paidByUserId" as any, undefined as any);
+      form.setFieldValue("actionData.splitPctShares" as any, undefined as any);
+    }
+  }, [
+    actionType,
+    currentAmount,
+    currentDescription,
+    currentCurrency,
+    existingSplits,
+    existingPaidBy,
+    existingBudget,
+    existingType,
+    budgets,
+    form,
+  ]);
 
 	return (
 		<div data-test-id="scheduled-actions-manager">

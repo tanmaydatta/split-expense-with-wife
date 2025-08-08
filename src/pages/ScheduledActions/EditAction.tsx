@@ -33,52 +33,52 @@ const Title = styled.h3`
 `;
 
 const ScheduledActionEditPage: React.FC = () => {
-    const navigate = useNavigate();
-    const { id } = useParams<{ id: string }>();
-    const { data: details, refetch } = useScheduledActionDetails(id);
-    const update = useUpdateScheduledAction();
+	const navigate = useNavigate();
+	const { id } = useParams<{ id: string }>();
+	const { data: details, refetch } = useScheduledActionDetails(id);
+	const update = useUpdateScheduledAction();
 
-    const action = details as ScheduledAction | undefined;
+	const action = details as ScheduledAction | undefined;
 
-    const initialValues = useMemo(() => {
-        if (!action) return undefined;
-        return {
-            id: action.id,
-            actionType: action.actionType,
-            frequency: action.frequency,
-            startDate: action.startDate,
-            actionData: action.actionData as any,
-        };
-    }, [action]);
+	const initialValues = useMemo(() => {
+		if (!action) return undefined;
+		return {
+			id: action.id,
+			actionType: action.actionType,
+			frequency: action.frequency,
+			startDate: action.startDate,
+			actionData: action.actionData as any,
+		};
+	}, [action]);
 
-    return (
-        <div className="settings-container" data-test-id="scheduled-actions-edit">
-            <Header>
-                <BackButton onClick={() => navigate(-1)}>
-                    <ArrowLeft size={14} color="#1e40af" />
-                    Back
-                </BackButton>
-                <Title>Edit Scheduled Action</Title>
-            </Header>
-            {initialValues && (
-                <ScheduledActionsManager
-                    mode="edit"
-                    initialValues={initialValues}
-                    submitLabel="Save"
-                    onSubmit={async (val) => {
-                        await update.mutateAsync({
-                            id: initialValues.id!,
-                            frequency: val.frequency,
-                            startDate: val.startDate,
-                            actionData: val.actionData as any,
-                        } as any);
-                        await refetch();
-                        scrollToTop();
-                    }}
-                />
-            )}
-        </div>
-    );
+	return (
+		<div className="settings-container" data-test-id="scheduled-actions-edit">
+			<Header>
+				<BackButton onClick={() => navigate(-1)}>
+					<ArrowLeft size={14} color="#1e40af" />
+					Back
+				</BackButton>
+				<Title>Edit Scheduled Action</Title>
+			</Header>
+			{initialValues && (
+				<ScheduledActionsManager
+					mode="edit"
+					initialValues={initialValues}
+					submitLabel="Save"
+					onSubmit={async (val) => {
+						await update.mutateAsync({
+							id: initialValues.id!,
+							frequency: val.frequency,
+							startDate: val.startDate,
+							actionData: val.actionData as any,
+						} as any);
+						await refetch();
+						scrollToTop();
+					}}
+				/>
+			)}
+		</div>
+	);
 };
 
 export default ScheduledActionEditPage;

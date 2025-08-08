@@ -20,6 +20,7 @@ import {
 	createErrorResponse,
 	createJsonResponse,
 	formatSQLiteTime,
+	formatZodError,
 	withAuth,
 } from "../utils";
 
@@ -202,12 +203,12 @@ export async function handleScheduledActionCreate(
 		}
 
 		// Parse request strictly with Zod (no manual any checks)
-		const parsed = buildCreateActionSchema(
+        const parsed = buildCreateActionSchema(
 			group.userids,
 			group.budgets,
 		).safeParse(json as unknown);
 		if (!parsed.success) {
-			return createErrorResponse(parsed.error.message, 400, request, env);
+            return createErrorResponse(formatZodError(parsed.error), 400, request, env);
 		}
 		const body: CreateScheduledActionRequest = parsed.data;
 		// group and actionData already validated by schema
@@ -260,9 +261,9 @@ export async function handleScheduledActionList(
 			offset: url.searchParams.get("offset") ?? "0",
 			limit: url.searchParams.get("limit") ?? "10",
 		});
-		if (!parseQuery.success) {
-			return createErrorResponse(parseQuery.error.message, 400, request, env);
-		}
+        if (!parseQuery.success) {
+            return createErrorResponse(formatZodError(parseQuery.error), 400, request, env);
+        }
 		const { offset, limit } = parseQuery.data;
 
 		// Get total count
@@ -308,10 +309,10 @@ export async function handleScheduledActionUpdate(
 			return createErrorResponse("User not in a group", 400, request, env);
 		}
 		const json = (await request.json()) as unknown;
-		const parsed = UpdateScheduledActionSchema.safeParse(json);
-		if (!parsed.success) {
-			return createErrorResponse(parsed.error.message, 400, request, env);
-		}
+        const parsed = UpdateScheduledActionSchema.safeParse(json);
+        if (!parsed.success) {
+            return createErrorResponse(formatZodError(parsed.error), 400, request, env);
+        }
 		const body: UpdateScheduledActionRequest = parsed.data;
 
 		if (!body.id) {
@@ -384,14 +385,14 @@ export async function handleScheduledActionUpdate(
 				existingAction[0].actionType === "add_expense"
 					? ExpenseValid.safeParse(body.actionData)
 					: BudgetValid.safeParse(body.actionData);
-			if (!actionParsed.success) {
-				return createErrorResponse(
-					actionParsed.error.message,
-					400,
-					request,
-					env,
-				);
-			}
+            if (!actionParsed.success) {
+                return createErrorResponse(
+                    formatZodError(actionParsed.error),
+                    400,
+                    request,
+                    env,
+                );
+            }
 
 			updateData.actionData = actionParsed.data as
 				| AddExpenseActionData
@@ -506,9 +507,9 @@ export async function handleScheduledActionHistory(
 			scheduledActionId: url.searchParams.get("scheduledActionId") ?? undefined,
 			executionStatus: url.searchParams.get("executionStatus") ?? undefined,
 		});
-		if (!parseQuery.success) {
-			return createErrorResponse(parseQuery.error.message, 400, request, env);
-		}
+        if (!parseQuery.success) {
+            return createErrorResponse(formatZodError(parseQuery.error), 400, request, env);
+        }
 		const { offset, limit, scheduledActionId, executionStatus } =
 			parseQuery.data;
 
