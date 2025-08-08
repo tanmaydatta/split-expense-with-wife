@@ -2,31 +2,33 @@ import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { Input } from "@/components/Form/Input";
 import {
-	ButtonRow,
-	FormContainer,
-	SplitPercentageContainer,
-	SplitPercentageInputContainer,
+  ButtonRow,
+  FormContainer,
+  SplitPercentageContainer,
+  SplitPercentageInputContainer,
 } from "@/components/Form/Layout";
 import { Select } from "@/components/Form/Select";
 import {
-	ErrorContainer,
-	SuccessContainer,
+  ErrorContainer,
+  SuccessContainer,
 } from "@/components/MessageContainer";
 import {
-	ToggleButton,
-	ToggleButtonGroup,
+  ToggleButton,
+  ToggleButtonGroup,
 } from "@/components/ToggleButtonGroup";
 import { useCreateScheduledAction } from "@/hooks/useScheduledActions";
 import { CreditDebit } from "@/pages/Dashboard/CreditDebit";
 import { SelectBudget } from "@/SelectBudget";
+import { scrollToTop } from "@/utils/scroll";
 import { useForm, useStore } from "@tanstack/react-form";
 import React, { useMemo } from "react";
 import { useSelector } from "react-redux";
 import type {
-	AddExpenseActionData,
-	AuthenticatedUser,
-	CreateScheduledActionRequest,
-	ReduxState,
+  AddBudgetActionData,
+  AddExpenseActionData,
+  AuthenticatedUser,
+  CreateScheduledActionRequest,
+  ReduxState,
 } from "split-expense-shared-types";
 import { CreateScheduledActionSchema } from "split-expense-shared-types";
 
@@ -66,6 +68,23 @@ export const ScheduledActionsManager: React.FC<
 		return groupDefault || currencies[0] || "USD";
 	}, [session, currencies]);
 
+	// Derive group default splits and default payer for initial values
+	const groupDefaultShare = useMemo(() => {
+		return (session?.extra?.group?.metadata?.defaultShare || {}) as Record<
+			string,
+			number
+		>;
+	}, [session]);
+	const defaultPayer = useMemo(() => {
+		const entries = Object.entries(groupDefaultShare) as Array<
+			[string, number]
+		>;
+		if (entries.length > 0) {
+			return entries.sort((a, b) => b[1] - a[1])[0][0];
+		}
+		return session?.extra?.currentUser?.id || "";
+	}, [groupDefaultShare, session]);
+
 	// Compute today's date in local timezone as YYYY-MM-DD for the date input
 	const todayAsLocalISODate = useMemo(() => {
 		const now = new Date();
@@ -84,8 +103,8 @@ export const ScheduledActionsManager: React.FC<
 				amount: 0,
 				description: "",
 				currency: defaultCurrency,
-				paidByUserId: "",
-				splitPctShares: {},
+				paidByUserId: defaultPayer,
+				splitPctShares: groupDefaultShare,
 			} as AddExpenseActionData,
 		},
 		validators: {
@@ -105,6 +124,7 @@ export const ScheduledActionsManager: React.FC<
 						: "Scheduled action created successfully",
 				);
 				setError("");
+				scrollToTop();
 			} catch (e: any) {
 				setError(
 					e?.errorMessage ||
@@ -112,6 +132,8 @@ export const ScheduledActionsManager: React.FC<
 						`Failed to ${mode === "edit" ? "update" : "create"} scheduled action`,
 				);
 				setSuccess("");
+				// Scroll to top on error as well
+				scrollToTop();
 			}
 		},
 	});
@@ -136,18 +158,38 @@ export const ScheduledActionsManager: React.FC<
 	// Keep currency synced with group's default currency when it changes
 	React.useEffect(() => {
 		if (!initialValues) {
-			form.setFieldValue("actionData.currency", defaultCurrency);
-			// Initialize default split percentages from group metadata if available
+			form.setFieldValue("actionData.currency", defaultCurrency as any);
+			// Initialize default split percentages from group metadata if not already set
 			const defaultShare = session?.extra?.group?.metadata?.defaultShare as
 				| Record<string, number>
 				| undefined;
-			if (defaultShare && Object.keys(defaultShare).length > 0) {
-				Object.entries(defaultShare).forEach(([userId, pct]) => {
-					form.setFieldValue(
-						`actionData.splitPctShares.${userId}` as any,
-						pct as any,
-					);
-				});
+			const currentSplits = form.getFieldValue("actionData.splitPctShares") as
+				| Record<string, number>
+				| undefined;
+			const hasSplits = currentSplits && Object.keys(currentSplits).length > 0;
+			if (!hasSplits && defaultShare && Object.keys(defaultShare).length > 0) {
+				form.setFieldValue(
+					"actionData.splitPctShares" as any,
+					defaultShare as Record<string, number> as any,
+				);
+			}
+
+			// Initialize paidByUserId from group defaults (highest share) or current user
+			const currentPaidBy = form.getFieldValue("actionData.paidByUserId") as
+				| string
+				| undefined;
+			if (!currentPaidBy) {
+				let defaultPayer = session?.extra?.currentUser?.id || "";
+				if (defaultShare && Object.keys(defaultShare).length > 0) {
+					const top = (
+						Object.entries(defaultShare) as Array<[userId: string, pct: number]>
+					).sort((a, b) => b[1] - a[1])[0];
+					if (top?.[0]) defaultPayer = top[0];
+				}
+				form.setFieldValue(
+					"actionData.paidByUserId" as any,
+					defaultPayer as string as any,
+				);
 			}
 		}
 	}, [defaultCurrency, session, form, initialValues]);
@@ -165,14 +207,7 @@ export const ScheduledActionsManager: React.FC<
 		form.store,
 		(s) => (s.values as any)?.actionData?.currency ?? defaultCurrency,
 	);
-	const existingSplits = useStore(
-		form.store,
-		(s) => (s.values as any)?.actionData?.splitPctShares,
-	);
-	const existingPaidBy = useStore(
-		form.store,
-		(s) => (s.values as any)?.actionData?.paidByUserId,
-	);
+
 	const existingBudget = useStore(
 		form.store,
 		(s) => (s.values as any)?.actionData?.budgetName,
@@ -185,55 +220,42 @@ export const ScheduledActionsManager: React.FC<
 	// Ensure actionData shape matches actionType so payload is valid
 	React.useEffect(() => {
 		if (actionType === "add_expense") {
-			// Set expense-specific fields
-			form.setFieldValue("actionData.amount" as any, currentAmount as any);
-			form.setFieldValue(
-				"actionData.description" as any,
-				currentDescription as any,
-			);
-			form.setFieldValue("actionData.currency" as any, currentCurrency as any);
-			form.setFieldValue(
-				"actionData.paidByUserId" as any,
-				(existingPaidBy as any) ?? "",
-			);
-			form.setFieldValue(
-				"actionData.splitPctShares" as any,
-				(existingSplits as any) ?? ({} as any),
-			);
-			// Clear budget-only fields
-			form.setFieldValue("actionData.budgetName" as any, undefined as any);
-			form.setFieldValue("actionData.type" as any, undefined as any);
+			// Build expense-specific actionData atomically
+			const currentPaid =
+				(form.getFieldValue("actionData.paidByUserId") as string | undefined) ??
+				defaultPayer;
+			const splitsNow =
+				(form.getFieldValue("actionData.splitPctShares") as
+					| Record<string, number>
+					| undefined) ?? groupDefaultShare;
+			form.setFieldValue("actionData", {
+				amount: currentAmount,
+				description: currentDescription,
+				currency: currentCurrency,
+				paidByUserId: currentPaid,
+				splitPctShares: splitsNow,
+			} as AddExpenseActionData);
 		} else if (actionType === "add_budget") {
-			// Set budget-specific fields
-			form.setFieldValue("actionData.amount" as any, currentAmount as any);
-			form.setFieldValue(
-				"actionData.description" as any,
-				currentDescription as any,
-			);
-			form.setFieldValue("actionData.currency" as any, currentCurrency as any);
-			form.setFieldValue(
-				"actionData.budgetName" as any,
-				((existingBudget as any) ?? (budgets[0] || "")) as any,
-			);
-			form.setFieldValue(
-				"actionData.type" as any,
-				((existingType as any) ?? ("Credit" as any)) as any,
-			);
-			// Clear expense-only fields so backend schema validates
-			form.setFieldValue("actionData.paidByUserId" as any, undefined as any);
-			form.setFieldValue("actionData.splitPctShares" as any, undefined as any);
+			// Build budget-specific actionData atomically and clear expense-only fields
+			form.setFieldValue("actionData", {
+				amount: currentAmount,
+				description: currentDescription,
+				currency: currentCurrency,
+				budgetName: (existingBudget as string) ?? (budgets[0] || ""),
+				type: (existingType as any) ?? ("Credit" as any),
+			} as AddBudgetActionData);
 		}
 	}, [
 		actionType,
 		currentAmount,
 		currentDescription,
 		currentCurrency,
-		existingSplits,
-		existingPaidBy,
 		existingBudget,
 		existingType,
 		budgets,
 		form,
+		defaultPayer,
+		groupDefaultShare,
 	]);
 
 	return (
@@ -263,9 +285,13 @@ export const ScheduledActionsManager: React.FC<
 							<ToggleButtonGroup
 								name="scheduled-action-type"
 								value={String(field.state.value ?? "add_expense")}
-								onChange={(val) => field.handleChange(val as any)}
+								onChange={(val) => {
+									if (mode === "edit") return; // prevent changing type in edit
+									field.handleChange(val as any);
+								}}
 								data-test-id="sa-action-type-toggle"
 								style={{ width: "100%", marginBottom: 8 }}
+								disabled={mode === "edit"}
 							>
 								<ToggleButton
 									value="add_expense"
