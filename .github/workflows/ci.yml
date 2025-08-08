@@ -38,7 +38,6 @@ jobs:
       with:
         node-version: '22.16.0'
         cache: 'yarn'
-        cache-dependency-path: 'cf-worker/yarn.lock'
     
     - name: Install CF Worker dependencies
       run: |
