@@ -1,9 +1,9 @@
-import React from "react";
-import getSymbolFromCurrency from "currency-symbol-map";
 import { Card } from "@/components/Card";
 import { ArrowDownUp, Calendar, CardText, Coin, XLg } from "@/components/Icons";
 import { dateToFullStr } from "@/utils/date";
-import type { FrontendTransaction } from "@shared-types";
+import getSymbolFromCurrency from "currency-symbol-map";
+import React from "react";
+import type { FrontendTransaction } from "split-expense-shared-types";
 import "./TransactionCard.css";
 
 interface TransactionCardProps {

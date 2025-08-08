@@ -1,3 +1,6 @@
+import { Card } from "@/components/Card";
+import { SelectBudget } from "@/SelectBudget";
+import { typedApi } from "@/utils/api";
 import getSymbolFromCurrency from "currency-symbol-map";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -12,11 +15,7 @@ import {
 	XAxis,
 	YAxis,
 } from "recharts";
-import { Card } from "@/components/Card";
-import { SelectBudget } from "@/SelectBudget";
-import type { MonthlyBudget } from "@shared-types";
-import { typedApi } from "@/utils/api";
-import { BudgetMonthlyResponse } from "@shared-types";
+import type { BudgetMonthlyResponse, MonthlyBudget } from "split-expense-shared-types";
 import "./index.css";
 
 interface ChartDataPoint {

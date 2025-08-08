@@ -1,5 +1,5 @@
-import axios, { AxiosInstance, AxiosResponse, AxiosError } from "axios";
-import { ApiEndpoints, TypedApiClient, ErrorResponse } from "@shared-types";
+import axios, { AxiosError, AxiosInstance, AxiosResponse } from "axios";
+import type { ApiEndpoints, ErrorResponse, TypedApiClient } from "split-expense-shared-types";
 
 // Custom error class for API errors that includes the ErrorResponse
 export class ApiError extends Error {
@@ -79,6 +79,19 @@ class TypeSafeApiClient implements TypedApiClient {
 		try {
 			const response: AxiosResponse<ApiEndpoints[K]["response"]> =
 				await apiInstance.get(endpoint as string);
+			return response.data;
+		} catch (error) {
+			return this.handleError(error);
+		}
+	}
+
+  async delete<K extends keyof ApiEndpoints>(
+    endpoint: K,
+    data?: ApiEndpoints[K]["request"],
+  ): Promise<ApiEndpoints[K]["response"]> {
+		try {
+      const response: AxiosResponse<ApiEndpoints[K]["response"]> =
+        await apiInstance.delete(endpoint as string, { data });
 			return response.data;
 		} catch (error) {
 			return this.handleError(error);

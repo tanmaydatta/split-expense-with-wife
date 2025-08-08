@@ -387,7 +387,7 @@ export interface ApiEndpoints {
 		response: { message: string };
 	};
 	"/scheduled-actions/delete": {
-		request: { id: string };
+    request: ScheduledActionDeleteRequest;
 		response: { message: string };
 	};
 	"/scheduled-actions/history": {
@@ -491,6 +491,10 @@ export interface UpdateScheduledActionRequest {
 	actionData?: AddExpenseActionData | AddBudgetActionData;
 }
 
+export interface ScheduledActionDeleteRequest {
+  id: string;
+}
+
 export interface ScheduledActionListRequest {
 	offset?: number;
 	limit?: number;
@@ -521,7 +525,7 @@ export interface ScheduledActionHistoryListRequest {
 	limit?: number;
 	scheduledActionId?: string; // Filter by specific scheduled action
 	actionType?: ScheduledActionType; // Filter by action type
-	executionStatus?: "success" | "failed" | "started"; // Filter by status
+  executionStatus?: "success" | "failed" | "started"; // Filter by status
 }
 
 export interface ScheduledActionHistoryListResponse {
@@ -529,3 +533,83 @@ export interface ScheduledActionHistoryListResponse {
 	totalCount: number;
 	hasMore: boolean;
 }
+
+// ============================
+// Zod Schemas (shared)
+// ============================
+import { z } from "zod";
+
+export const AddExpenseActionSchema = z.object({
+  amount: z.number().positive(),
+  description: z.string().min(2).max(100),
+  currency: z.string(),
+  paidByUserId: z.string().min(1),
+  splitPctShares: z
+    .record(z.string(), z.number())
+    .refine(
+      (shares) =>
+        Math.abs(Object.values(shares).reduce((a, b) => a + b, 0) - 100) < 0.01,
+      { message: "Split percentages must total 100%" },
+    ),
+});
+
+export const AddBudgetActionSchema = z.object({
+  amount: z.number().positive(),
+  description: z.string().min(2).max(100),
+  budgetName: z.string().min(1),
+  currency: z.string(),
+  type: z.union([z.literal("Credit"), z.literal("Debit")]),
+});
+
+export const CreateScheduledActionSchema = z.object({
+  actionType: z.union([z.literal("add_expense"), z.literal("add_budget")]),
+  frequency: z.union([z.literal("daily"), z.literal("weekly"), z.literal("monthly")]),
+  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  actionData: z.union([AddExpenseActionSchema, AddBudgetActionSchema]),
+});
+
+export const UpdateScheduledActionSchema = z.object({
+  id: z.string().min(1),
+  isActive: z.boolean().optional(),
+  frequency: z
+    .union([z.literal("daily"), z.literal("weekly"), z.literal("monthly")])
+    .optional(),
+  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  actionData: z.union([AddExpenseActionSchema, AddBudgetActionSchema]).optional(),
+});
+
+export const ScheduledActionListQuerySchema = z.object({
+  offset: z
+    .coerce.number()
+    .int()
+    .catch(0)
+    .transform((n: number) => (n < 0 ? 0 : n)),
+  limit: z
+    .coerce.number()
+    .int()
+    .catch(10)
+    .transform((n: number) => (n < 1 ? 10 : n > 50 ? 50 : n)),
+});
+
+export const ScheduledActionHistoryQuerySchema = z.object({
+  offset: z
+    .coerce.number()
+    .int()
+    .catch(0)
+    .transform((n: number) => (n < 0 ? 0 : n)),
+  limit: z
+    .coerce.number()
+    .int()
+    .catch(10)
+    .transform((n: number) => (n < 1 ? 10 : n > 50 ? 50 : n)),
+  scheduledActionId: z.string().min(1),
+  executionStatus: z
+    .union([z.literal("success"), z.literal("failed"), z.literal("started")])
+    .optional(),
+});
+
+// Export types inferred from schemas
+export type CreateScheduledActionInput = z.infer<typeof CreateScheduledActionSchema>;
+export type UpdateScheduledActionInput = z.infer<typeof UpdateScheduledActionSchema>;
+export type ScheduledActionListQuery = z.infer<typeof ScheduledActionListQuerySchema>;
+export type ScheduledActionHistoryQuery = z.infer<typeof ScheduledActionHistoryQuerySchema>;

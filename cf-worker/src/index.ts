@@ -20,7 +20,9 @@ import {
 import {
 	handleScheduledActionCreate,
 	handleScheduledActionDelete,
+	handleScheduledActionDetails,
 	handleScheduledActionHistory,
+	handleScheduledActionHistoryDetails,
 	handleScheduledActionList,
 	handleScheduledActionUpdate,
 } from "./handlers/scheduled-actions";
@@ -131,6 +133,18 @@ export default {
 					}
 					return createErrorResponse("Method not allowed", 405, request, env);
 
+				case "scheduled-actions/history/details":
+					if (request.method === "GET") {
+						return await handleScheduledActionHistoryDetails(request, env);
+					}
+					return createErrorResponse("Method not allowed", 405, request, env);
+
+				case "scheduled-actions/details":
+					if (request.method === "GET") {
+						return await handleScheduledActionDetails(request, env);
+					}
+					return createErrorResponse("Method not allowed", 405, request, env);
+
 				case "split_new":
 					return await handleSplitNew(request, env);
 
@@ -183,5 +197,6 @@ export default {
 // Export workflow classes for Cloudflare Workflows
 export {
 	ScheduledActionsOrchestratorWorkflow,
-	ScheduledActionsProcessorWorkflow,
+	ScheduledActionsProcessorWorkflow
 };
+

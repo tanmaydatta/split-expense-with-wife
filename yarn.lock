@@ -4563,6 +4563,91 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@tanstack/form-core@npm:0.42.1":
+  version: 0.42.1
+  resolution: "@tanstack/form-core@npm:0.42.1"
+  dependencies:
+    "@tanstack/store": "npm:^0.7.0"
+  checksum: 10c0/8f5621b21bc764dc97aca7c364010d7357b4127950540d5c45c931bd072cd8577a4c7d2257c1ea93c9139dc21e776ff7d0c6df5dae6563eae0e22e541a901ecd
+  languageName: node
+  linkType: hard
+
+"@tanstack/form-core@npm:1.19.0":
+  version: 1.19.0
+  resolution: "@tanstack/form-core@npm:1.19.0"
+  dependencies:
+    "@tanstack/store": "npm:^0.7.2"
+  checksum: 10c0/e906abcc596fecae6be09cabb9043609e31111098ab3e4eb3fb0c57cc58e8bf6d195b7a99dac95726d8271dae9073c48e4020bbdc41e6325c12f5f560bab3edc
+  languageName: node
+  linkType: hard
+
+"@tanstack/query-core@npm:5.83.1":
+  version: 5.83.1
+  resolution: "@tanstack/query-core@npm:5.83.1"
+  checksum: 10c0/3eeacf678fcf9803585f1be74979548a33c7f659b8d5f33c1e3b3834ef3b9f3401070b2e2d38bbaa9c6e5a3c359baaa3828078e38007b7c99fb8c9f1e3911142
+  languageName: node
+  linkType: hard
+
+"@tanstack/react-form@npm:^1.19.0":
+  version: 1.19.0
+  resolution: "@tanstack/react-form@npm:1.19.0"
+  dependencies:
+    "@tanstack/form-core": "npm:1.19.0"
+    "@tanstack/react-store": "npm:^0.7.3"
+    decode-formdata: "npm:^0.9.0"
+    devalue: "npm:^5.1.1"
+  peerDependencies:
+    "@tanstack/react-start": ^1.130.10
+    react: ^17.0.0 || ^18.0.0 || ^19.0.0
+  peerDependenciesMeta:
+    "@tanstack/react-start":
+      optional: true
+  checksum: 10c0/1fbdd64a7a52b84a1495df847823b7808c9abf1f181b91bc0e3dc7404c2bb345153ae45e21c1fe305395bf0069dd8eb055be58c31a60010c05364b737dda06c1
+  languageName: node
+  linkType: hard
+
+"@tanstack/react-query@npm:^5.84.1":
+  version: 5.84.1
+  resolution: "@tanstack/react-query@npm:5.84.1"
+  dependencies:
+    "@tanstack/query-core": "npm:5.83.1"
+  peerDependencies:
+    react: ^18 || ^19
+  checksum: 10c0/a57fed2e6f3c7a42309383e03056f1ff1506ad5fdc8d20a1a6a945006442e71871dfd5eac6e90fb8a506036b2e8a2a5463fa0f5bed826de170aa5926a4728f99
+  languageName: node
+  linkType: hard
+
+"@tanstack/react-store@npm:^0.7.3":
+  version: 0.7.3
+  resolution: "@tanstack/react-store@npm:0.7.3"
+  dependencies:
+    "@tanstack/store": "npm:0.7.2"
+    use-sync-external-store: "npm:^1.5.0"
+  peerDependencies:
+    react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
+    react-dom: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
+  checksum: 10c0/3487bdf25d43e52f2230f195c4e9266c270af44acbaa7665b87d7d1d809560aa1e84cef8065b0acbe3ca5745a616cd2be3d7bab69c06de6ff57e8eef88ee8499
+  languageName: node
+  linkType: hard
+
+"@tanstack/store@npm:0.7.2, @tanstack/store@npm:^0.7.0, @tanstack/store@npm:^0.7.2":
+  version: 0.7.2
+  resolution: "@tanstack/store@npm:0.7.2"
+  checksum: 10c0/7b9764d156365d0a65b8be87fc67dcad16a45dd260b43e7c90162b39a940a1c764701e6b5f9e5e1e34ec77c86348332db343c658901f67972119d6f1ddf58f1f
+  languageName: node
+  linkType: hard
+
+"@tanstack/zod-form-adapter@npm:^0.42.1":
+  version: 0.42.1
+  resolution: "@tanstack/zod-form-adapter@npm:0.42.1"
+  dependencies:
+    "@tanstack/form-core": "npm:0.42.1"
+  peerDependencies:
+    zod: ^3.x
+  checksum: 10c0/bdf3c93f18548cc8c228a871119443783c214f265d95b384edc92fd418a8ab16096ee37a8a06d3f66ab40f2f6f66ddcc90a0f5220bd9e00b0d007638abaa3e73
+  languageName: node
+  linkType: hard
+
 "@testing-library/dom@npm:^8.20.1, @testing-library/dom@npm:^8.5.0":
   version: 8.20.1
   resolution: "@testing-library/dom@npm:8.20.1"
@@ -8426,6 +8511,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"decode-formdata@npm:^0.9.0":
+  version: 0.9.0
+  resolution: "decode-formdata@npm:0.9.0"
+  checksum: 10c0/8db0a57a14d4d98d4951fbdb7def91c5a5342f75b5274523e7ac56f6d9b39bb4e8f5ec616eb4fc0b501ef717084a86e63e450722a3a865313558977716c074a0
+  languageName: node
+  linkType: hard
+
 "decompress-response@npm:^6.0.0":
   version: 6.0.0
   resolution: "decompress-response@npm:6.0.0"
@@ -8624,6 +8716,13 @@ __metadata:
   version: 4.3.3
   resolution: "devalue@npm:4.3.3"
   checksum: 10c0/f7217b6fa631b2e7f56697d3354645d2f028f0c0734fa6e09462e7889082da08e57a3504cb208b6b80ec79a3f249f4f9289064fd59c7bc419c9c8cd0592201f7
+  languageName: node
+  linkType: hard
+
+"devalue@npm:^5.1.1":
+  version: 5.1.1
+  resolution: "devalue@npm:5.1.1"
+  checksum: 10c0/f6717a856fd54216959abd341cb189e47a9b37d72d8419e055ae77567ff4ed0fb683b1ffb6a71067f645adae5991bffabe6468a3e2385937bff49273e71c1f51
   languageName: node
   linkType: hard
 
@@ -17368,6 +17467,7 @@ __metadata:
   resolution: "split-expense-shared-types@workspace:shared-types"
   dependencies:
     typescript: "npm:^5.0.0"
+    zod: "npm:^4.0.0"
   peerDependencies:
     typescript: ^5.0.0
   languageName: unknown
@@ -17388,11 +17488,12 @@ __metadata:
     better-sqlite3: "npm:^12.2.0"
     drizzle-kit: "npm:^0.31.4"
     drizzle-orm: "npm:^0.44.3"
+    split-expense-shared-types: "workspace:*"
     typescript: "npm:^5.3.3"
     ulid: "npm:^3.0.1"
     vitest: "npm:^3.2.4"
     wrangler: "npm:^4.26.0"
-    zod: "npm:^3.25.76"
+    zod: "npm:^4.0.0"
   languageName: unknown
   linkType: soft
 
@@ -18726,7 +18827,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"use-sync-external-store@npm:^1.4.0":
+"use-sync-external-store@npm:^1.4.0, use-sync-external-store@npm:^1.5.0":
   version: 1.5.0
   resolution: "use-sync-external-store@npm:1.5.0"
   peerDependencies:
@@ -19034,6 +19135,9 @@ __metadata:
     "@playwright/test": "npm:^1.54.1"
     "@popperjs/core": "npm:^2.11.8"
     "@reduxjs/toolkit": "npm:^2.0.1"
+    "@tanstack/react-form": "npm:^1.19.0"
+    "@tanstack/react-query": "npm:^5.84.1"
+    "@tanstack/zod-form-adapter": "npm:^0.42.1"
     "@testing-library/dom": "npm:^8.20.1"
     "@testing-library/jest-dom": "npm:^5.16.5"
     "@testing-library/react": "npm:^13.4.0"
@@ -19095,6 +19199,7 @@ __metadata:
     workbox-streams: "npm:^7.3.0"
     workbox-webpack-plugin: "npm:^7.3.0"
     wrangler: "npm:^4.26.0"
+    zod: "npm:^4.0.0"
   languageName: unknown
   linkType: soft
 
@@ -20159,10 +20264,17 @@ __metadata:
   languageName: node
   linkType: hard
 
-"zod@npm:^3.22.3, zod@npm:^3.22.5, zod@npm:^3.23.8, zod@npm:^3.25.76":
+"zod@npm:^3.22.3, zod@npm:^3.22.5, zod@npm:^3.23.8":
   version: 3.25.76
   resolution: "zod@npm:3.25.76"
   checksum: 10c0/5718ec35e3c40b600316c5b4c5e4976f7fee68151bc8f8d90ec18a469be9571f072e1bbaace10f1e85cf8892ea12d90821b200e980ab46916a6166a4260a983c
+  languageName: node
+  linkType: hard
+
+"zod@npm:^4.0.0":
+  version: 4.0.15
+  resolution: "zod@npm:4.0.15"
+  checksum: 10c0/c4d5b0c6668fe32fb6040d713d75dbf65e2e46cb68c77755b7b66426e8583d5dacf49a44f90beb6b12aa1aa2545cc0d3c186e368711021e11dd3c1f0addb9100
   languageName: node
   linkType: hard
 

@@ -1,15 +1,4 @@
-import getSymbolFromCurrency from "currency-symbol-map";
-import React, { useCallback, useEffect, useState } from "react";
-import { useSelector } from "react-redux";
-import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/Button";
-import { Loader } from "@/components/Loader";
-import {
-	ErrorContainer,
-	SuccessContainer,
-} from "@/components/MessageContainer";
-import { Table, TableWrapper } from "@/components/Table";
-import { TransactionCard } from "@/components/TransactionCard";
 import {
 	ArrowDownUp,
 	Calendar,
@@ -18,17 +7,28 @@ import {
 	Trash,
 	XLg,
 } from "@/components/Icons";
-import { dateToFullStr } from "@/utils/date";
+import { Loader } from "@/components/Loader";
+import {
+	ErrorContainer,
+	SuccessContainer,
+} from "@/components/MessageContainer";
+import { Table, TableWrapper } from "@/components/Table";
+import { TransactionCard } from "@/components/TransactionCard";
 import { ApiError, typedApi } from "@/utils/api";
+import { dateToFullStr } from "@/utils/date";
+import getSymbolFromCurrency from "currency-symbol-map";
+import React, { useCallback, useEffect, useState } from "react";
+import { useSelector } from "react-redux";
+import { useNavigate } from "react-router-dom";
 import type {
 	FrontendTransaction,
-	TransactionsListRequest,
-	TransactionsListResponse,
+	ReduxState,
 	SplitDeleteRequest,
 	TransactionMetadata,
+	TransactionsListRequest,
+	TransactionsListResponse,
 	TransactionUser,
-	ReduxState,
-} from "@shared-types";
+} from "split-expense-shared-types";
 import "./index.css";
 
 const TransactionList: React.FC<{

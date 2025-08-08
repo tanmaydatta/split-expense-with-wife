@@ -1,23 +1,24 @@
-import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Form/Input";
+import { ButtonRow, FormContainer, SplitPercentageContainer, SplitPercentageInputContainer } from "@/components/Form/Layout";
 import { Select } from "@/components/Form/Select";
+import { Loader } from "@/components/Loader";
 import {
 	ErrorContainer,
 	SuccessContainer,
 } from "@/components/MessageContainer";
-import { Loader } from "@/components/Loader";
-import { CreditDebit } from "./CreditDebit";
 import { SelectBudget } from "@/SelectBudget";
-import { typedApi, ApiError } from "@/utils/api";
+import { ApiError, typedApi } from "@/utils/api";
 import { scrollToTop } from "@/utils/scroll";
+import { useCallback, useEffect, useState } from "react";
 import type {
-	BudgetRequest,
-	SplitNewRequest,
-	ReduxState,
-	DashboardUser,
 	ApiOperationResponses,
-} from "@shared-types";
+	BudgetRequest,
+	DashboardUser,
+	ReduxState,
+	SplitNewRequest,
+} from "split-expense-shared-types";
+import { CreditDebit } from "./CreditDebit";
 import "./index.css";
 
 import { useSelector } from "react-redux";
@@ -265,9 +266,9 @@ function Dashboard(): JSX.Element {
 		return <Loader />;
 	}
 
-	return (
-		<div className="dashboard-container" data-test-id="dashboard-container">
-			<form className="form-container" data-test-id="expense-form">
+  return (
+    <div className="dashboard-container" data-test-id="dashboard-container">
+      <FormContainer data-test-id="expense-form">
 				{/* Error Container */}
 				{error && (
 					<ErrorContainer message={error} onClose={() => setError("")} />
@@ -298,7 +299,7 @@ function Dashboard(): JSX.Element {
 					title="Please enter a description between 2-100 characters"
 				/>
 
-				<label>Amount</label>
+        <label>Amount</label>
 				<Input
 					type="number"
 					placeholder="Enter amount"
@@ -315,30 +316,30 @@ function Dashboard(): JSX.Element {
 				/>
 
 				{/* Split percentage - only show if Add Expense is selected */}
-				{addExpense && (
-					<div className="split-percentage-container">
-						{users.map((u: DashboardUser, _i: number) => (
-							<div key={u.Id} className="split-percentage-input-container">
-								<label>{u.FirstName}</label>
-								<Input
-									type="number"
-									placeholder="Percentage"
-									data-test-id={`percentage-input-${u.Id}`}
-									step="0.01"
-									min="0"
-									max="100"
-									value={u.percentage?.toString() || ""}
-									onChange={(e) =>
-										updateUserPercentage(u.Id, parseFloat(e.target.value) || 0)
-									}
-									disabled={loading}
-									required={addExpense}
-									title="Please enter a percentage between 0-100"
-								/>
-							</div>
-						))}
-					</div>
-				)}
+        {addExpense && (
+          <SplitPercentageContainer>
+            {users.map((u: DashboardUser, _i: number) => (
+              <SplitPercentageInputContainer key={u.Id}>
+                <label>{u.FirstName}</label>
+                <Input
+                  type="number"
+                  placeholder="Percentage"
+                  data-test-id={`percentage-input-${u.Id}`}
+                  step="0.01"
+                  min="0"
+                  max="100"
+                  value={u.percentage?.toString() || ""}
+                  onChange={(e) =>
+                    updateUserPercentage(u.Id, parseFloat(e.target.value) || 0)
+                  }
+                  disabled={loading}
+                  required={addExpense}
+                  title="Please enter a percentage between 0-100"
+                />
+              </SplitPercentageInputContainer>
+            ))}
+          </SplitPercentageContainer>
+        )}
 
 				{/* Currency */}
 				<label>Currency</label>
@@ -426,7 +427,7 @@ function Dashboard(): JSX.Element {
 				</div>
 
 				{/* Single submit button */}
-				<div className="button-container">
+        <ButtonRow>
 					<Button
 						type="submit"
 						data-test-id="submit-button"
@@ -444,8 +445,8 @@ function Dashboard(): JSX.Element {
 					>
 						{loading ? "Processing..." : "Submit"}
 					</Button>
-				</div>
-			</form>
+        </ButtonRow>
+      </FormContainer>
 		</div>
 	);
 }

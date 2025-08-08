@@ -1,9 +1,9 @@
-import { getCurrencySymbol } from "@/utils/currency";
+import { BudgetCard } from "@/components/BudgetCard";
 import { Trash } from "@/components/Icons";
 import { Table, TableWrapper } from "@/components/Table";
-import { BudgetCard } from "@/components/BudgetCard";
+import { getCurrencySymbol } from "@/utils/currency";
 import { dateToFullStr } from "@/utils/date";
-import { BudgetEntry } from "@shared-types";
+import type { BudgetEntry } from "split-expense-shared-types";
 
 interface Props {
 	entries: BudgetEntry[]; // TODO: change to BudgetEntry[]

@@ -24,6 +24,7 @@
     - skip next date
     - set next date
     - run now
+- confirmation dialog on delete
 - scan receipt
 - full text search
 - transaction/add

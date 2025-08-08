@@ -1,6 +1,6 @@
-import { FullAuthSession } from "@shared-types";
 import { useSelector } from "react-redux";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
+import type { FullAuthSession } from "split-expense-shared-types";
 import styled from "styled-components";
 
 const SidebarContainer = styled.div`
@@ -97,6 +97,13 @@ function Sidebar({ onNavigate }: SidebarProps): JSX.Element {
 			>
 				Monthly Budget
 			</SidebarItem>
+      <SidebarItem
+        $active={isActive("/scheduled-actions")}
+        onClick={() => handleNavigate("/scheduled-actions")}
+        data-test-id="sidebar-scheduled-actions"
+      >
+        Scheduled Actions
+      </SidebarItem>
 			<SidebarItem
 				$active={isActive("/settings")}
 				onClick={() => handleNavigate("/settings")}
