@@ -16,15 +16,15 @@ const root = ReactDOM.createRoot(
 );
 root.render(
 	<React.StrictMode>
-    <BrowserRouter>
-      <Provider store={store}>
-        <PersistGate loading={null} persistor={persistor}>
-          <QueryClientProvider client={queryClient}>
-            <AppWrapper />
-          </QueryClientProvider>
-        </PersistGate>
-      </Provider>
-    </BrowserRouter>
+		<BrowserRouter>
+			<Provider store={store}>
+				<PersistGate loading={null} persistor={persistor}>
+					<QueryClientProvider client={queryClient}>
+						<AppWrapper />
+					</QueryClientProvider>
+				</PersistGate>
+			</Provider>
+		</BrowserRouter>
 	</React.StrictMode>,
 );
 

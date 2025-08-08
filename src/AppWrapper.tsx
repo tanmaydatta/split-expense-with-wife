@@ -181,8 +181,8 @@ function AppWrapper() {
 		if (path === "/balances") return "Balances";
 		if (path === "/budget") return "Budget";
 		if (path.startsWith("/monthly-budget")) return "Monthly Budget";
-        if (path === "/settings") return "Settings";
-        if (path === "/scheduled-actions") return "Scheduled Actions";
+		if (path === "/settings") return "Settings";
+		if (path === "/scheduled-actions") return "Scheduled Actions";
 		if (path === "/logout") return "Logout";
 		return "Page Not Found"; // For 404 and unknown routes
 	};
@@ -224,10 +224,19 @@ function AppWrapper() {
 									element={<MonthlyBudgetPage />}
 								/>
 								<Route path="/expenses" element={<Transactions />} />
-                <Route path="/settings" element={<Settings />} />
-                <Route path="/scheduled-actions" element={<ScheduledActionsPage />} />
-                <Route path="/scheduled-actions/new" element={<NewActionPage />} />
-                <Route path="/scheduled-actions/:id" element={<ActionHistoryPage />} />
+								<Route path="/settings" element={<Settings />} />
+								<Route
+									path="/scheduled-actions"
+									element={<ScheduledActionsPage />}
+								/>
+								<Route
+									path="/scheduled-actions/new"
+									element={<NewActionPage />}
+								/>
+								<Route
+									path="/scheduled-actions/:id"
+									element={<ActionHistoryPage />}
+								/>
 								<Route path="/logout" element={<Logout />} />
 								<Route path="*" element={<NotFound />} />
 							</Routes>

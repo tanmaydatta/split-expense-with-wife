@@ -16,7 +16,12 @@ import {
 	UpdateScheduledActionSchema,
 } from "../../../shared-types";
 import { scheduledActionHistory, scheduledActions } from "../db/schema/schema";
-import { createErrorResponse, createJsonResponse, formatSQLiteTime, withAuth } from "../utils";
+import {
+	createErrorResponse,
+	createJsonResponse,
+	formatSQLiteTime,
+	withAuth,
+} from "../utils";
 
 // The database now returns properly typed JSON, so we don't need custom row types
 
@@ -133,18 +138,19 @@ function buildActionDataSchemas(userIds: string[], budgets: string[]) {
 
 	const BudgetValid = AddBudgetActionSchema.extend({
 		currency: currencySchema,
-		budgetName: z
-			.string()
-			.refine((name) => budgets.includes(name), {
-				message: "Invalid budget name - not available in group",
-			}),
+		budgetName: z.string().refine((name) => budgets.includes(name), {
+			message: "Invalid budget name - not available in group",
+		}),
 	});
 
 	return { ExpenseValid, BudgetValid } as const;
 }
 
 function buildCreateActionSchema(userIds: string[], budgets: string[]) {
-	const { ExpenseValid, BudgetValid } = buildActionDataSchemas(userIds, budgets);
+	const { ExpenseValid, BudgetValid } = buildActionDataSchemas(
+		userIds,
+		budgets,
+	);
 	const BaseCommon = {
 		frequency: z.union([
 			z.literal("daily"),
@@ -196,7 +202,10 @@ export async function handleScheduledActionCreate(
 		}
 
 		// Parse request strictly with Zod (no manual any checks)
-		const parsed = buildCreateActionSchema(group.userids, group.budgets).safeParse(json as unknown);
+		const parsed = buildCreateActionSchema(
+			group.userids,
+			group.budgets,
+		).safeParse(json as unknown);
 		if (!parsed.success) {
 			return createErrorResponse(parsed.error.message, 400, request, env);
 		}
@@ -314,12 +323,20 @@ export async function handleScheduledActionUpdate(
 			.select()
 			.from(scheduledActions)
 			.where(
-				and(eq(scheduledActions.id, body.id), inArray(scheduledActions.userId, group.userids)),
+				and(
+					eq(scheduledActions.id, body.id),
+					inArray(scheduledActions.userId, group.userids),
+				),
 			)
 			.limit(1);
 
 		if (existingAction.length === 0) {
-			return createErrorResponse("Scheduled action not found", 404, request, env);
+			return createErrorResponse(
+				"Scheduled action not found",
+				404,
+				request,
+				env,
+			);
 		}
 
 		// Build update object
@@ -341,7 +358,12 @@ export async function handleScheduledActionUpdate(
 		if (body.startDate) {
 			const startDate = new Date(body.startDate);
 			if (Number.isNaN(startDate.getTime())) {
-				return createErrorResponse("Invalid start date format", 400, request, env);
+				return createErrorResponse(
+					"Invalid start date format",
+					400,
+					request,
+					env,
+				);
 			}
 			updateData.startDate = body.startDate;
 		}
@@ -354,15 +376,26 @@ export async function handleScheduledActionUpdate(
 			}
 
 			// Validate action data via runtime Zod
-			const { ExpenseValid, BudgetValid } = buildActionDataSchemas(group.userids, group.budgets);
-			const actionParsed = existingAction[0].actionType === "add_expense"
-				? ExpenseValid.safeParse(body.actionData)
-				: BudgetValid.safeParse(body.actionData);
+			const { ExpenseValid, BudgetValid } = buildActionDataSchemas(
+				group.userids,
+				group.budgets,
+			);
+			const actionParsed =
+				existingAction[0].actionType === "add_expense"
+					? ExpenseValid.safeParse(body.actionData)
+					: BudgetValid.safeParse(body.actionData);
 			if (!actionParsed.success) {
-				return createErrorResponse(actionParsed.error.message, 400, request, env);
+				return createErrorResponse(
+					actionParsed.error.message,
+					400,
+					request,
+					env,
+				);
 			}
 
-			updateData.actionData = actionParsed.data as AddExpenseActionData | AddBudgetActionData;
+			updateData.actionData = actionParsed.data as
+				| AddExpenseActionData
+				| AddBudgetActionData;
 		}
 
 		// Recalculate next execution date if frequency or start date changed
@@ -386,7 +419,13 @@ export async function handleScheduledActionUpdate(
 				),
 			);
 
-		return createJsonResponse({ message: "Scheduled action updated successfully" }, 200, {}, request, env);
+		return createJsonResponse(
+			{ message: "Scheduled action updated successfully" },
+			200,
+			{},
+			request,
+			env,
+		);
 	});
 }
 
@@ -415,12 +454,20 @@ export async function handleScheduledActionDelete(
 			.select()
 			.from(scheduledActions)
 			.where(
-				and(eq(scheduledActions.id, body.id), inArray(scheduledActions.userId, group.userids)),
+				and(
+					eq(scheduledActions.id, body.id),
+					inArray(scheduledActions.userId, group.userids),
+				),
 			)
 			.limit(1);
 
 		if (existingAction.length === 0) {
-			return createErrorResponse("Scheduled action not found", 404, request, env);
+			return createErrorResponse(
+				"Scheduled action not found",
+				404,
+				request,
+				env,
+			);
 		}
 
 		// Delete the action (cascade will handle history)
@@ -433,7 +480,13 @@ export async function handleScheduledActionDelete(
 				),
 			);
 
-		return createJsonResponse({ message: "Scheduled action deleted successfully" }, 200, {}, request, env);
+		return createJsonResponse(
+			{ message: "Scheduled action deleted successfully" },
+			200,
+			{},
+			request,
+			env,
+		);
 	});
 }
 
@@ -456,7 +509,8 @@ export async function handleScheduledActionHistory(
 		if (!parseQuery.success) {
 			return createErrorResponse(parseQuery.error.message, 400, request, env);
 		}
-		const { offset, limit, scheduledActionId, executionStatus } = parseQuery.data;
+		const { offset, limit, scheduledActionId, executionStatus } =
+			parseQuery.data;
 
 		// Build where conditions
 		const conditions = [inArray(scheduledActionHistory.userId, group.userids)];
@@ -466,7 +520,10 @@ export async function handleScheduledActionHistory(
 				eq(scheduledActionHistory.scheduledActionId, scheduledActionId),
 			);
 		}
-		if (executionStatus && ["success", "failed", "started"].includes(executionStatus)) {
+		if (
+			executionStatus &&
+			["success", "failed", "started"].includes(executionStatus)
+		) {
 			conditions.push(
 				eq(
 					scheduledActionHistory.executionStatus,
@@ -527,11 +584,21 @@ export async function handleScheduledActionDetails(
 		const rows = await db
 			.select()
 			.from(scheduledActions)
-			.where(and(eq(scheduledActions.id, id), inArray(scheduledActions.userId, group.userids)))
+			.where(
+				and(
+					eq(scheduledActions.id, id),
+					inArray(scheduledActions.userId, group.userids),
+				),
+			)
 			.limit(1);
 
 		if (rows.length === 0) {
-			return createErrorResponse("Scheduled action not found", 404, request, env);
+			return createErrorResponse(
+				"Scheduled action not found",
+				404,
+				request,
+				env,
+			);
 		}
 
 		return createJsonResponse(rows[0], 200, {}, request, env);
@@ -556,7 +623,12 @@ export async function handleScheduledActionHistoryDetails(
 		const rows = await db
 			.select()
 			.from(scheduledActionHistory)
-			.where(and(eq(scheduledActionHistory.id, id), inArray(scheduledActionHistory.userId, group.userids)))
+			.where(
+				and(
+					eq(scheduledActionHistory.id, id),
+					inArray(scheduledActionHistory.userId, group.userids),
+				),
+			)
 			.limit(1);
 
 		if (rows.length === 0) {

@@ -438,7 +438,6 @@ const Settings: React.FC = () => {
 				</div>
 			</Card>
 
-
 			{/* Single Submit Button */}
 			<div className="settings-actions" data-test-id="settings-actions">
 				<Button

@@ -1,6 +1,11 @@
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Form/Input";
-import { ButtonRow, FormContainer, SplitPercentageContainer, SplitPercentageInputContainer } from "@/components/Form/Layout";
+import {
+	ButtonRow,
+	FormContainer,
+	SplitPercentageContainer,
+	SplitPercentageInputContainer,
+} from "@/components/Form/Layout";
 import { Select } from "@/components/Form/Select";
 import { Loader } from "@/components/Loader";
 import {
@@ -266,9 +271,9 @@ function Dashboard(): JSX.Element {
 		return <Loader />;
 	}
 
-  return (
-    <div className="dashboard-container" data-test-id="dashboard-container">
-      <FormContainer data-test-id="expense-form">
+	return (
+		<div className="dashboard-container" data-test-id="dashboard-container">
+			<FormContainer data-test-id="expense-form">
 				{/* Error Container */}
 				{error && (
 					<ErrorContainer message={error} onClose={() => setError("")} />
@@ -299,7 +304,7 @@ function Dashboard(): JSX.Element {
 					title="Please enter a description between 2-100 characters"
 				/>
 
-        <label>Amount</label>
+				<label>Amount</label>
 				<Input
 					type="number"
 					placeholder="Enter amount"
@@ -316,30 +321,30 @@ function Dashboard(): JSX.Element {
 				/>
 
 				{/* Split percentage - only show if Add Expense is selected */}
-        {addExpense && (
-          <SplitPercentageContainer>
-            {users.map((u: DashboardUser, _i: number) => (
-              <SplitPercentageInputContainer key={u.Id}>
-                <label>{u.FirstName}</label>
-                <Input
-                  type="number"
-                  placeholder="Percentage"
-                  data-test-id={`percentage-input-${u.Id}`}
-                  step="0.01"
-                  min="0"
-                  max="100"
-                  value={u.percentage?.toString() || ""}
-                  onChange={(e) =>
-                    updateUserPercentage(u.Id, parseFloat(e.target.value) || 0)
-                  }
-                  disabled={loading}
-                  required={addExpense}
-                  title="Please enter a percentage between 0-100"
-                />
-              </SplitPercentageInputContainer>
-            ))}
-          </SplitPercentageContainer>
-        )}
+				{addExpense && (
+					<SplitPercentageContainer>
+						{users.map((u: DashboardUser, _i: number) => (
+							<SplitPercentageInputContainer key={u.Id}>
+								<label>{u.FirstName}</label>
+								<Input
+									type="number"
+									placeholder="Percentage"
+									data-test-id={`percentage-input-${u.Id}`}
+									step="0.01"
+									min="0"
+									max="100"
+									value={u.percentage?.toString() || ""}
+									onChange={(e) =>
+										updateUserPercentage(u.Id, parseFloat(e.target.value) || 0)
+									}
+									disabled={loading}
+									required={addExpense}
+									title="Please enter a percentage between 0-100"
+								/>
+							</SplitPercentageInputContainer>
+						))}
+					</SplitPercentageContainer>
+				)}
 
 				{/* Currency */}
 				<label>Currency</label>
@@ -427,7 +432,7 @@ function Dashboard(): JSX.Element {
 				</div>
 
 				{/* Single submit button */}
-        <ButtonRow>
+				<ButtonRow>
 					<Button
 						type="submit"
 						data-test-id="submit-button"
@@ -445,8 +450,8 @@ function Dashboard(): JSX.Element {
 					>
 						{loading ? "Processing..." : "Submit"}
 					</Button>
-        </ButtonRow>
-      </FormContainer>
+				</ButtonRow>
+			</FormContainer>
 		</div>
 	);
 }

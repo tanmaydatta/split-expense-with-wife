@@ -173,51 +173,54 @@ export const ArrowDownUp: React.FC<IconProps> = ({
 );
 
 export const Plus: React.FC<IconProps> = ({
-    size = 16,
-    color = "currentColor",
-    className = "",
-    style,
-    onClick,
-    ...additionalProps
+	size = 16,
+	color = "currentColor",
+	className = "",
+	style,
+	onClick,
+	...additionalProps
 }) => (
-    <svg
-        width={size}
-        height={size}
-        fill={color}
-        className={`icon icon-plus ${className}`}
-        viewBox="0 0 16 16"
-        aria-label="Add"
-        style={style}
-        onClick={onClick}
-        role={onClick ? "button" : undefined}
-        tabIndex={onClick ? 0 : undefined}
-        {...additionalProps}
-    >
-        <path d="M8 1a.5.5 0 0 1 .5.5V7.5H14.5a.5.5 0 0 1 0 1H8.5V14.5a.5.5 0 0 1-1 0V8.5H1.5a.5.5 0 0 1 0-1H7.5V1.5A.5.5 0 0 1 8 1z" />
-    </svg>
+	<svg
+		width={size}
+		height={size}
+		fill={color}
+		className={`icon icon-plus ${className}`}
+		viewBox="0 0 16 16"
+		aria-label="Add"
+		style={style}
+		onClick={onClick}
+		role={onClick ? "button" : undefined}
+		tabIndex={onClick ? 0 : undefined}
+		{...additionalProps}
+	>
+		<path d="M8 1a.5.5 0 0 1 .5.5V7.5H14.5a.5.5 0 0 1 0 1H8.5V14.5a.5.5 0 0 1-1 0V8.5H1.5a.5.5 0 0 1 0-1H7.5V1.5A.5.5 0 0 1 8 1z" />
+	</svg>
 );
 
 export const ArrowLeft: React.FC<IconProps> = ({
-    size = 16,
-    color = "currentColor",
-    className = "",
-    style,
-    onClick,
-    ...additionalProps
+	size = 16,
+	color = "currentColor",
+	className = "",
+	style,
+	onClick,
+	...additionalProps
 }) => (
-    <svg
-        width={size}
-        height={size}
-        fill={color}
-        className={`icon icon-arrow-left ${className}`}
-        viewBox="0 0 16 16"
-        aria-label="Back"
-        style={style}
-        onClick={onClick}
-        role={onClick ? "button" : undefined}
-        tabIndex={onClick ? 0 : undefined}
-        {...additionalProps}
-    >
-        <path fillRule="evenodd" d="M15 8a.5.5 0 0 1-.5.5H3.707l3.147 3.146a.5.5 0 0 1-.708.708l-4-4a.5.5 0 0 1 0-.708l4-4a.5.5 0 1 1 .708.708L3.707 7.5H14.5A.5.5 0 0 1 15 8z" />
-    </svg>
+	<svg
+		width={size}
+		height={size}
+		fill={color}
+		className={`icon icon-arrow-left ${className}`}
+		viewBox="0 0 16 16"
+		aria-label="Back"
+		style={style}
+		onClick={onClick}
+		role={onClick ? "button" : undefined}
+		tabIndex={onClick ? 0 : undefined}
+		{...additionalProps}
+	>
+		<path
+			fillRule="evenodd"
+			d="M15 8a.5.5 0 0 1-.5.5H3.707l3.147 3.146a.5.5 0 0 1-.708.708l-4-4a.5.5 0 0 1 0-.708l4-4a.5.5 0 1 1 .708.708L3.707 7.5H14.5A.5.5 0 0 1 15 8z"
+		/>
+	</svg>
 );

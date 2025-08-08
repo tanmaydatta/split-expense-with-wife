@@ -15,7 +15,10 @@ import {
 	XAxis,
 	YAxis,
 } from "recharts";
-import type { BudgetMonthlyResponse, MonthlyBudget } from "split-expense-shared-types";
+import type {
+	BudgetMonthlyResponse,
+	MonthlyBudget,
+} from "split-expense-shared-types";
 import "./index.css";
 
 interface ChartDataPoint {
