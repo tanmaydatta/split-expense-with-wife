@@ -1,5 +1,4 @@
-import { Button } from "@/components/Button";
-import { ArrowLeft } from "@/components/Icons";
+import BackButton from "@/components/BackButton";
 import ScheduledActionsHistory from "@/components/ScheduledActionsHistory";
 import { useScheduledActionDetails } from "@/hooks/useScheduledActions";
 import React from "react";
@@ -18,17 +17,7 @@ const ActionHistoryPage: React.FC = () => {
     gap: 8px;
     margin-bottom: 16px;
   `;
-	const BackButton = styled(Button)`
-    background: white;
-    color: #1e40af;
-    border: 1px solid #e5e7eb;
-    padding: 6px 10px;
-    min-height: 32px;
-    font-size: 14px;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-  `;
+	// Reused BackButton component
 	const Title = styled.h3`
     margin: 0;
   `;
@@ -45,10 +34,7 @@ const ActionHistoryPage: React.FC = () => {
 			data-test-id="scheduled-actions-history"
 		>
 			<Header>
-				<BackButton onClick={() => navigate(-1)}>
-					<ArrowLeft size={14} color="#1e40af" />
-					Back
-				</BackButton>
+				<BackButton onClick={() => navigate(-1)} />
 				<Title>Action History</Title>
 			</Header>
 			{action && <Description>{action.actionData.description}</Description>}

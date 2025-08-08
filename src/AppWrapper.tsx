@@ -12,6 +12,8 @@ import NotFound from "@/pages/NotFound";
 import ScheduledActionsPage from "@/pages/ScheduledActions";
 import ActionHistoryPage from "@/pages/ScheduledActions/ActionHistory";
 import ScheduledActionEditPage from "@/pages/ScheduledActions/EditAction";
+import HistoryRunDetailsPage from "@/pages/ScheduledActions/HistoryRunDetails";
+// TODO: add a HistoryRunDetails page when available
 import NewActionPage from "@/pages/ScheduledActions/NewAction";
 import Settings from "@/pages/Settings";
 import SignUpPage from "@/pages/SignUp";
@@ -237,6 +239,10 @@ function AppWrapper() {
 								<Route
 									path="/scheduled-actions/:id"
 									element={<ActionHistoryPage />}
+								/>
+								<Route
+									path="/scheduled-actions/history/run/:historyId"
+									element={<HistoryRunDetailsPage />}
 								/>
 								<Route
 									path="/scheduled-actions/:id/edit"

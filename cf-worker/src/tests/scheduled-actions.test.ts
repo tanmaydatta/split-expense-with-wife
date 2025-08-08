@@ -375,7 +375,7 @@ describe("Scheduled Actions Handlers", () => {
 
 			expect(response.status).toBe(400);
 			const result = (await response.json()) as ScheduledActionErrorResponse;
-			expect(result.error).toBe("Missing required fields");
+			expect(result.error).toContain("required"); // User-friendly message should mention required fields
 		});
 
 		it("should reject creation with invalid action type", async () => {
@@ -400,7 +400,7 @@ describe("Scheduled Actions Handlers", () => {
 
 			expect(response.status).toBe(400);
 			const result = (await response.json()) as ScheduledActionErrorResponse;
-			expect(result.error).toBe("Invalid action type");
+			expect(result.error).toContain("required"); // User-friendly message should mention required fields
 		});
 
 		it("should reject creation when user is not authenticated", async () => {

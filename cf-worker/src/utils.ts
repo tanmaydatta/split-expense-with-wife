@@ -232,25 +232,100 @@ export function createErrorResponse(
 	);
 }
 
-// Convert a ZodError into a concise, user-friendly string
+// Create a local structural type for Zod issues to avoid deprecated ZodIssue
+type ZIssue = {
+	code: string;
+	message: string;
+	path?: Array<string | number>;
+	errors?: ZIssue[][];
+};
+
+// Extract all individual issues from nested union errors
+function isInvalidUnionIssue(
+	issue: ZIssue,
+): issue is ZIssue & { errors: ZIssue[][] } {
+	return issue.code === "invalid_union" && Array.isArray(issue.errors);
+}
+
+function flattenZodIssues(issues: ZIssue[]): ZIssue[] {
+	const flattened: ZIssue[] = [];
+
+	for (const issue of issues) {
+		if (isInvalidUnionIssue(issue)) {
+			for (const unionError of issue.errors) {
+				flattened.push(...flattenZodIssues(unionError));
+			}
+		} else {
+			flattened.push(issue);
+		}
+	}
+
+	return flattened;
+}
+
+// Convert a ZodError into a human-readable string and log full details
 export function formatZodError(error: unknown): string {
+	// Check if it's a ZodError by looking for the issues property
 	if (
 		error &&
 		typeof error === "object" &&
-		"errors" in (error as { errors: unknown })
+		"issues" in (error as { issues: unknown })
 	) {
 		const zodError = error as z.ZodError;
-		// Build readable messages like "paidByUserId: Invalid paidByUserId - user not in group"
-		const messages = zodError.issues.map((issue) => {
+
+		// Log full error details for debugging
+		console.error(
+			"Zod validation error:",
+			JSON.stringify(zodError.issues, null, 2),
+		);
+
+		// Flatten all nested union issues
+		const allIssues = flattenZodIssues(zodError.issues as unknown as ZIssue[]);
+
+		// Create user-friendly messages
+		const userMessages = allIssues.map((issue) => {
 			const path = issue.path?.join(".") || "";
-			return path ? `${path}: ${issue.message}` : issue.message;
+
+			// Convert technical field names to user-friendly ones
+			const friendlyPath = path
+				.replace("actionData.", "")
+				.replace("paidByUserId", "paid by user")
+				.replace("splitPctShares", "split percentages")
+				.replace("budgetName", "budget name")
+				.replace("startDate", "start date")
+				.replace("actionType", "action type");
+
+			// Simplify common error messages
+			const message = issue.message;
+			if (
+				message.includes("Invalid input: expected") &&
+				message.includes("received undefined")
+			) {
+				if (friendlyPath) {
+					return `${friendlyPath} is required`;
+				}
+				return "Required field is missing";
+			}
+			if (message.includes("user not in group")) {
+				return "Selected user is not in your group";
+			}
+			if (message.includes("not available in group")) {
+				return "Selected budget is not available";
+			}
+
+			return friendlyPath ? `${friendlyPath}: ${message}` : message;
 		});
-		// De-duplicate and join
-		const unique = Array.from(new Set(messages)).filter(Boolean);
-		// Return first 5 messages to keep it short
-		return unique.slice(0, 5).join("; ");
+
+		// De-duplicate and return first few messages
+		const unique = Array.from(new Set(userMessages)).filter(Boolean);
+		const result = unique.slice(0, 3).join(". ");
+
+		// If we couldn't create meaningful messages, return a generic one
+		return result || "Please check your input and try again";
 	}
-	// Fallback to string
+
+	// Log other errors too
+	console.error("Non-Zod validation error:", error);
 	return error instanceof Error ? error.message : "Invalid input";
 }
 

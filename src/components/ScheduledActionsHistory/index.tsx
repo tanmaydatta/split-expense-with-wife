@@ -1,15 +1,59 @@
+import { Card } from "@/components/Card";
 import { useScheduledActionHistory } from "@/hooks/useScheduledActions";
+import { dateToFullStr } from "@/utils/date";
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import type {
 	ScheduledActionHistory,
 	ScheduledActionHistoryListResponse,
 } from "split-expense-shared-types";
+import styled from "styled-components";
 
 type Props = {
 	scheduledActionId?: string;
 	executionStatus?: "success" | "failed" | "started";
 };
+
+const List = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+`;
+
+const Row = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+`;
+
+const StatusDot = styled.span<{ $status: "success" | "failed" | "started" }>`
+  width: 10px;
+  height: 10px;
+  border-radius: 9999px;
+  background-color: ${({ $status }) =>
+		$status === "success"
+			? "#16a34a"
+			: $status === "failed"
+				? "#dc2626"
+				: "#f59e0b"};
+  flex-shrink: 0;
+`;
+
+const TitleText = styled.div`
+  font-size: 14px;
+  color: #111827;
+  font-weight: 600;
+`;
+
+const Subtext = styled.div`
+  font-size: 12px;
+  color: #4b5563;
+`;
+
+const Separator = styled.span`
+  margin: 0 6px;
+  color: #9ca3af;
+`;
 
 const ScheduledActionsHistory: React.FC<Props> = ({
 	scheduledActionId,
@@ -31,32 +75,38 @@ const ScheduledActionsHistory: React.FC<Props> = ({
 			{isLoading && <div>Loading...</div>}
 			{isError && <div>Failed to load history</div>}
 			{!isLoading && !isError && data && list.length === 0 && (
-				<div>No history yet.</div>
+				<Card className="settings-card">
+					<div>No history yet.</div>
+				</Card>
 			)}
 			{!isLoading && !isError && list.length > 0 && (
-				<ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+				<List>
 					{list.map((h: ScheduledActionHistory) => (
-						<li
+						<Card
 							key={h.id}
-							style={{
-								padding: "8px 0",
-								borderBottom: "1px solid #eee",
-								cursor: "pointer",
-							}}
-							onClick={() => navigate(`/scheduled-actions/history/${h.id}`)}
+							className="settings-card"
+							onClick={() => navigate(`/scheduled-actions/history/run/${h.id}`)}
 							data-test-id={`sa-history-item-${h.id}`}
+							style={{ cursor: "pointer" }}
 						>
-							<div style={{ fontSize: 14, color: "#111827" }}>
-								{h.executedAt}
-							</div>
-							<div style={{ fontSize: 12, color: "#4b5563" }}>
-								{h.actionType}{" "}
-								<span style={{ margin: "0 6px", color: "#9ca3af" }}>•</span>{" "}
-								{h.executionStatus}
-							</div>
-						</li>
+							<Row>
+								<StatusDot $status={h.executionStatus} />
+								<div>
+									<TitleText>
+										{dateToFullStr(new Date(h.executedAt.replace(" ", "T")))}
+									</TitleText>
+									<Subtext>
+										Last run
+										<Separator>•</Separator>
+										Type: {h.actionType}
+										<Separator>•</Separator>
+										Status: {h.executionStatus}
+									</Subtext>
+								</div>
+							</Row>
+						</Card>
 					))}
-				</ul>
+				</List>
 			)}
 		</div>
 	);

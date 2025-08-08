@@ -180,6 +180,10 @@ function buildCreateActionSchema(userIds: string[], budgets: string[]) {
 	]);
 }
 
+// Common param/body schemas
+const IdParamSchema = z.object({ id: z.string().min(1) });
+const DeleteBodySchema = z.object({ id: z.string().min(1) });
+
 // CRUD Operations
 export async function handleScheduledActionCreate(
 	request: Request,
@@ -188,13 +192,7 @@ export async function handleScheduledActionCreate(
 	return withAuth(request, env, async (session, db) => {
 		const json = (await request.json()) as CreateScheduledActionRequest;
 
-		// Backward-compatible explicit checks to satisfy existing tests
-		if (!json?.startDate || !json?.actionData) {
-			return createErrorResponse("Missing required fields", 400, request, env);
-		}
-		if (!(["add_expense", "add_budget"] as const).includes(json?.actionType)) {
-			return createErrorResponse("Invalid action type", 400, request, env);
-		}
+		// All validation handled by Zod schema below
 
 		// Get group info for validation
 		const group = session.group;
@@ -330,9 +328,7 @@ export async function handleScheduledActionUpdate(
 		}
 		const body: UpdateScheduledActionRequest = parsed.data;
 
-		if (!body.id) {
-			return createErrorResponse("Missing action ID", 400, request, env);
-		}
+		// ID validation handled by Zod schema
 
 		// Check if action exists and belongs to user
 		const existingAction = await db
@@ -365,22 +361,12 @@ export async function handleScheduledActionUpdate(
 		}
 
 		if (body.frequency) {
-			if (!["daily", "weekly", "monthly"].includes(body.frequency)) {
-				return createErrorResponse("Invalid frequency", 400, request, env);
-			}
+			// Frequency validation handled by Zod schema
 			updateData.frequency = body.frequency;
 		}
 
 		if (body.startDate) {
-			const startDate = new Date(body.startDate);
-			if (Number.isNaN(startDate.getTime())) {
-				return createErrorResponse(
-					"Invalid start date format",
-					400,
-					request,
-					env,
-				);
-			}
+			// Start date validation handled by Zod schema
 			updateData.startDate = body.startDate;
 		}
 
@@ -455,15 +441,16 @@ export async function handleScheduledActionDelete(
 			return createErrorResponse("User not in a group", 400, request, env);
 		}
 		const json = (await request.json()) as unknown;
-		const id = (json as { id?: unknown })?.id;
-		if (typeof id !== "string" || id.length === 0) {
-			return createErrorResponse("Missing action ID", 400, request, env);
+		const parsed = DeleteBodySchema.safeParse(json);
+		if (!parsed.success) {
+			return createErrorResponse(
+				formatZodError(parsed.error),
+				400,
+				request,
+				env,
+			);
 		}
-		const body: { id: string } = { id };
-
-		if (!body.id) {
-			return createErrorResponse("Missing action ID", 400, request, env);
-		}
+		const body = parsed.data;
 
 		// Check if action exists and belongs to user
 		const existingAction = await db
@@ -597,10 +584,16 @@ export async function handleScheduledActionDetails(
 			return createErrorResponse("User not in a group", 400, request, env);
 		}
 		const url = new URL(request.url);
-		const id = url.searchParams.get("id") || "";
-		if (!id) {
-			return createErrorResponse("Missing action ID", 400, request, env);
+		const parsed = IdParamSchema.safeParse({ id: url.searchParams.get("id") });
+		if (!parsed.success) {
+			return createErrorResponse(
+				formatZodError(parsed.error),
+				400,
+				request,
+				env,
+			);
 		}
+		const { id } = parsed.data;
 
 		const rows = await db
 			.select()
@@ -636,10 +629,16 @@ export async function handleScheduledActionHistoryDetails(
 			return createErrorResponse("User not in a group", 400, request, env);
 		}
 		const url = new URL(request.url);
-		const id = url.searchParams.get("id") || "";
-		if (!id) {
-			return createErrorResponse("Missing history ID", 400, request, env);
+		const parsed = IdParamSchema.safeParse({ id: url.searchParams.get("id") });
+		if (!parsed.success) {
+			return createErrorResponse(
+				formatZodError(parsed.error),
+				400,
+				request,
+				env,
+			);
 		}
+		const { id } = parsed.data;
 
 		const rows = await db
 			.select()
