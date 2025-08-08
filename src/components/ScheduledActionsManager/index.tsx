@@ -2,19 +2,19 @@ import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { Input } from "@/components/Form/Input";
 import {
-  ButtonRow,
-  FormContainer,
-  SplitPercentageContainer,
-  SplitPercentageInputContainer,
+	ButtonRow,
+	FormContainer,
+	SplitPercentageContainer,
+	SplitPercentageInputContainer,
 } from "@/components/Form/Layout";
 import { Select } from "@/components/Form/Select";
 import {
-  ErrorContainer,
-  SuccessContainer,
+	ErrorContainer,
+	SuccessContainer,
 } from "@/components/MessageContainer";
 import {
-  ToggleButton,
-  ToggleButtonGroup,
+	ToggleButton,
+	ToggleButtonGroup,
 } from "@/components/ToggleButtonGroup";
 import { useCreateScheduledAction } from "@/hooks/useScheduledActions";
 import { CreditDebit } from "@/pages/Dashboard/CreditDebit";
@@ -24,11 +24,11 @@ import { useForm, useStore } from "@tanstack/react-form";
 import React, { useMemo } from "react";
 import { useSelector } from "react-redux";
 import type {
-  AddBudgetActionData,
-  AddExpenseActionData,
-  AuthenticatedUser,
-  CreateScheduledActionRequest,
-  ReduxState,
+	AddBudgetActionData,
+	AddExpenseActionData,
+	AuthenticatedUser,
+	CreateScheduledActionRequest,
+	ReduxState,
 } from "split-expense-shared-types";
 import { CreateScheduledActionSchema } from "split-expense-shared-types";
 

@@ -4,7 +4,7 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Pencil, Plus, Trash } from "@/components/Icons";
 import {
 	useDeleteScheduledAction,
-	useScheduledActionsList,
+	useInfiniteScheduledActionsList,
 } from "@/hooks/useScheduledActions";
 import React from "react";
 import { useNavigate } from "react-router-dom";
@@ -103,10 +103,36 @@ const IconButton = styled.span`
 
 const ScheduledActionsPage: React.FC = () => {
 	const navigate = useNavigate();
-	const { data, isLoading, isError } = useScheduledActionsList();
+	const {
+		data,
+		isLoading,
+		isError,
+		fetchNextPage,
+		hasNextPage,
+		isFetchingNextPage,
+	} = useInfiniteScheduledActionsList(10);
 	const deleteAction = useDeleteScheduledAction();
 
-	const actions: ScheduledAction[] = (data as any)?.scheduledActions || [];
+	const actions: ScheduledAction[] =
+		data?.pages.flatMap((p) => p.scheduledActions) ?? [];
+
+	const sentinelRef = React.useRef<HTMLDivElement | null>(null);
+
+	React.useEffect(() => {
+		if (!sentinelRef.current) return;
+		const el = sentinelRef.current;
+		const observer = new IntersectionObserver(
+			(entries) => {
+				const entry = entries[0];
+				if (entry.isIntersecting && hasNextPage && !isFetchingNextPage) {
+					fetchNextPage();
+				}
+			},
+			{ root: null, rootMargin: "0px", threshold: 1.0 },
+		);
+		observer.observe(el);
+		return () => observer.unobserve(el);
+	}, [fetchNextPage, hasNextPage, isFetchingNextPage]);
 
 	const [confirmOpen, setConfirmOpen] = React.useState(false);
 	const [pendingDeleteId, setPendingDeleteId] = React.useState<string | null>(
@@ -235,6 +261,12 @@ const ScheduledActionsPage: React.FC = () => {
 							)}
 						</Card>
 					))}
+					<div ref={sentinelRef} data-test-id="sa-infinite-sentinel" />
+					{isFetchingNextPage && (
+						<Card className="settings-card">
+							<div>Loading more...</div>
+						</Card>
+					)}
 				</ActionsGrid>
 			)}
 		</div>

@@ -1,5 +1,10 @@
 import apiInstance, { typedApi } from "@/utils/api";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+	useInfiniteQuery,
+	useMutation,
+	useQuery,
+	useQueryClient,
+} from "@tanstack/react-query";
 import type {
 	CreateScheduledActionRequest,
 	ScheduledActionHistoryListRequest,
@@ -11,6 +16,30 @@ export function useScheduledActionsList() {
 	return useQuery({
 		queryKey: ["scheduled-actions", "list"],
 		queryFn: async () => typedApi.get("/scheduled-actions/list"),
+	});
+}
+
+export function useInfiniteScheduledActionsList(limit: number = 25) {
+	return useInfiniteQuery({
+		queryKey: ["scheduled-actions", "list", "infinite", limit],
+		initialPageParam: 0 as number, // offset
+		queryFn: async ({ pageParam }) => {
+			const params = new URLSearchParams();
+			params.set("offset", String(pageParam));
+			params.set("limit", String(limit));
+			const resp = await apiInstance.get<
+				import("split-expense-shared-types").ScheduledActionListResponse
+			>(`/scheduled-actions/list?${params.toString()}`);
+			return resp.data;
+		},
+		getNextPageParam: (lastPage, allPages) => {
+			if (!lastPage.hasMore) return undefined;
+			const accumulated = allPages.reduce(
+				(sum, p) => sum + p.scheduledActions.length,
+				0,
+			);
+			return accumulated;
+		},
 	});
 }
 
