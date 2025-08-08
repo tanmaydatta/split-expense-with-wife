@@ -115,11 +115,11 @@ export default {
 					}
 					return createErrorResponse("Method not allowed", 405, request, env);
 
-                case "scheduled-actions/update":
-                    if (request.method === "PUT" || request.method === "POST") {
-                        return await handleScheduledActionUpdate(request, env);
-                    }
-                    return createErrorResponse("Method not allowed", 405, request, env);
+				case "scheduled-actions/update":
+					if (request.method === "PUT" || request.method === "POST") {
+						return await handleScheduledActionUpdate(request, env);
+					}
+					return createErrorResponse("Method not allowed", 405, request, env);
 
 				case "scheduled-actions/delete":
 					if (request.method === "DELETE") {
