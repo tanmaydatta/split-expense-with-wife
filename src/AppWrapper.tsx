@@ -11,6 +11,7 @@ import { MonthlyBudgetPage } from "@/pages/MonthlyBudgetPage";
 import NotFound from "@/pages/NotFound";
 import ScheduledActionsPage from "@/pages/ScheduledActions";
 import ActionHistoryPage from "@/pages/ScheduledActions/ActionHistory";
+import ScheduledActionEditPage from "@/pages/ScheduledActions/EditAction";
 import NewActionPage from "@/pages/ScheduledActions/NewAction";
 import Settings from "@/pages/Settings";
 import SignUpPage from "@/pages/SignUp";
@@ -236,6 +237,10 @@ function AppWrapper() {
 								<Route
 									path="/scheduled-actions/:id"
 									element={<ActionHistoryPage />}
+								/>
+								<Route
+									path="/scheduled-actions/:id/edit"
+									element={<ScheduledActionEditPage />}
 								/>
 								<Route path="/logout" element={<Logout />} />
 								<Route path="*" element={<NotFound />} />

@@ -2,19 +2,19 @@ import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { Input } from "@/components/Form/Input";
 import {
-	ButtonRow,
-	FormContainer,
-	SplitPercentageContainer,
-	SplitPercentageInputContainer,
+  ButtonRow,
+  FormContainer,
+  SplitPercentageContainer,
+  SplitPercentageInputContainer,
 } from "@/components/Form/Layout";
 import { Select } from "@/components/Form/Select";
 import {
-	ErrorContainer,
-	SuccessContainer,
+  ErrorContainer,
+  SuccessContainer,
 } from "@/components/MessageContainer";
 import {
-	ToggleButton,
-	ToggleButtonGroup,
+  ToggleButton,
+  ToggleButtonGroup,
 } from "@/components/ToggleButtonGroup";
 import { useCreateScheduledAction } from "@/hooks/useScheduledActions";
 import { CreditDebit } from "@/pages/Dashboard/CreditDebit";
@@ -23,13 +23,32 @@ import { useForm, useStore } from "@tanstack/react-form";
 import React, { useMemo } from "react";
 import { useSelector } from "react-redux";
 import type {
-	AuthenticatedUser,
-	CreateScheduledActionRequest,
-	ReduxState,
+  AddExpenseActionData,
+  AuthenticatedUser,
+  CreateScheduledActionRequest,
+  ReduxState,
 } from "split-expense-shared-types";
 import { CreateScheduledActionSchema } from "split-expense-shared-types";
 
-export const ScheduledActionsManager: React.FC = () => {
+type ScheduledActionsManagerProps = {
+  mode?: "create" | "edit";
+  initialValues?: {
+    id?: string;
+    actionType: "add_expense" | "add_budget";
+    frequency: "daily" | "weekly" | "monthly";
+    startDate: string;
+    actionData: any;
+  };
+  onSubmit?: (values: CreateScheduledActionRequest) => Promise<void>;
+  submitLabel?: string;
+};
+
+export const ScheduledActionsManager: React.FC<ScheduledActionsManagerProps> = ({
+  mode = "create",
+  initialValues,
+  onSubmit,
+  submitLabel,
+}) => {
 	const createAction = useCreateScheduledAction();
 
 	const session = useSelector((state: ReduxState) => state.value);
@@ -56,32 +75,42 @@ export const ScheduledActionsManager: React.FC = () => {
 		return `${year}-${month}-${day}`;
 	}, []);
 
-	const form = useForm({
-		defaultValues: {
-			actionType: "add_expense",
-			frequency: "daily",
-			startDate: todayAsLocalISODate,
-			actionData: {
-				amount: 0,
-				description: "",
-				currency: defaultCurrency,
-				paidByUserId: "",
-				splitPctShares: {},
-			} as any,
-		},
+  const form = useForm({
+    defaultValues: initialValues ?? {
+      actionType: "add_expense",
+      frequency: "daily",
+      startDate: todayAsLocalISODate,
+      actionData: {
+        amount: 0,
+        description: "",
+        currency: defaultCurrency,
+        paidByUserId: "",
+        splitPctShares: {},
+      } as AddExpenseActionData,
+    },
 		validators: {
 			onMount: CreateScheduledActionSchema,
 			onChange: CreateScheduledActionSchema,
 		},
-		onSubmit: async ({ value }) => {
+    onSubmit: async ({ value }) => {
 			try {
-				await createAction.mutateAsync(value as CreateScheduledActionRequest);
-				setSuccess("Scheduled action created successfully");
+        if (onSubmit) {
+          await onSubmit(value as CreateScheduledActionRequest);
+        } else {
+          await createAction.mutateAsync(value as CreateScheduledActionRequest);
+        }
+        setSuccess(
+          mode === "edit"
+            ? "Scheduled action updated successfully"
+            : "Scheduled action created successfully",
+        );
 				setError("");
 			} catch (e: any) {
-				setError(
-					e?.errorMessage || e?.message || "Failed to create scheduled action",
-				);
+        setError(
+          e?.errorMessage ||
+            e?.message ||
+            `Failed to ${mode === "edit" ? "update" : "create"} scheduled action`,
+        );
 				setSuccess("");
 			}
 		},
@@ -104,9 +133,11 @@ export const ScheduledActionsManager: React.FC = () => {
 		(s) => (s.values as any)?.actionData?.paidByUserId || "",
 	);
 
-	// Keep currency synced with group's default currency when it changes
+  // Keep currency synced with group's default currency when it changes
 	React.useEffect(() => {
-		form.setFieldValue("actionData.currency", defaultCurrency);
+    if (!initialValues) {
+      form.setFieldValue("actionData.currency", defaultCurrency);
+    }
 		// Initialize default split percentages from group metadata if available
 		const defaultShare = session?.extra?.group?.metadata?.defaultShare as
 			| Record<string, number>
@@ -119,7 +150,7 @@ export const ScheduledActionsManager: React.FC = () => {
 				);
 			});
 		}
-	}, [defaultCurrency, session, form]);
+  }, [defaultCurrency, session, form, initialValues]);
 
 	return (
 		<div data-test-id="scheduled-actions-manager">
@@ -406,7 +437,7 @@ export const ScheduledActionsManager: React.FC = () => {
 					)}
 
 					<ButtonRow>
-						<Button
+            <Button
 							type="submit"
 							data-test-id="sa-submit"
 							disabled={
@@ -416,9 +447,9 @@ export const ScheduledActionsManager: React.FC = () => {
 								(actionType === "add_expense" && !paidByUserId)
 							}
 						>
-							{createAction.isPending || isSubmitting
-								? "Creating..."
-								: "Create"}
+              {createAction.isPending || isSubmitting
+                ? mode === "edit" ? "Saving..." : "Creating..."
+                : submitLabel ?? (mode === "edit" ? "Save" : "Create")}
 						</Button>
 					</ButtonRow>
 				</FormContainer>

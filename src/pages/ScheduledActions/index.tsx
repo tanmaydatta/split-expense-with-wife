@@ -2,8 +2,8 @@ import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { Plus, Trash } from "@/components/Icons";
 import {
-	useDeleteScheduledAction,
-	useScheduledActionsList,
+    useDeleteScheduledAction,
+    useScheduledActionsList,
 } from "@/hooks/useScheduledActions";
 import React from "react";
 import { useNavigate } from "react-router-dom";
@@ -90,108 +90,118 @@ const Separator = styled.span`
 const IconButton = styled.span`
   cursor: pointer;
   display: inline-flex;
+  align-items: center;
+  gap: 12px;
 `;
 
 const ScheduledActionsPage: React.FC = () => {
-	const navigate = useNavigate();
-	const { data, isLoading, isError } = useScheduledActionsList();
-	const deleteAction = useDeleteScheduledAction();
+    const navigate = useNavigate();
+    const { data, isLoading, isError } = useScheduledActionsList();
+    const deleteAction = useDeleteScheduledAction();
 
-	const actions: ScheduledAction[] = (data as any)?.scheduledActions || [];
+    const actions: ScheduledAction[] = (data as any)?.scheduledActions || [];
 
-	return (
-		<div className="settings-container" data-test-id="scheduled-actions-page">
-			<PageHeader>
-				<HeaderTitle>Scheduled Actions</HeaderTitle>
-				<StyledIconButton onClick={() => navigate("/scheduled-actions/new")}>
-					<Plus size={14} color="#1e40af" />
-					Add Action
-				</StyledIconButton>
-			</PageHeader>
+    return (
+        <div className="settings-container" data-test-id="scheduled-actions-page">
+            <PageHeader>
+                <HeaderTitle>Scheduled Actions</HeaderTitle>
+                <StyledIconButton onClick={() => navigate("/scheduled-actions/new")}>
+                    <Plus size={14} color="#1e40af" />
+                    Add Action
+                </StyledIconButton>
+            </PageHeader>
 
-			{isLoading && (
-				<Card className="settings-card">
-					<div>Loading...</div>
-				</Card>
-			)}
-			{isError && (
-				<Card className="settings-card">
-					<div>Failed to load scheduled actions</div>
-				</Card>
-			)}
+            {isLoading && (
+                <Card className="settings-card">
+                    <div>Loading...</div>
+                </Card>
+            )}
+            {isError && (
+                <Card className="settings-card">
+                    <div>Failed to load scheduled actions</div>
+                </Card>
+            )}
 
-			{!isLoading && !isError && actions.length === 0 && (
-				<Card className="settings-card">
-					<div>No scheduled actions yet.</div>
-				</Card>
-			)}
+            {!isLoading && !isError && actions.length === 0 && (
+                <Card className="settings-card">
+                    <div>No scheduled actions yet.</div>
+                </Card>
+            )}
 
-			{!isLoading && !isError && actions.length > 0 && (
-				<ActionsGrid>
-					{actions.map((sa) => (
-						<Card
-							key={sa.id}
-							className="settings-card"
-							data-test-id={`sa-item-${sa.id}`}
-						>
-							<CardRow>
-								<LeftSection
-									onClick={() =>
-										navigate(`/scheduled-actions/${sa.id}`, { state: sa })
-									}
-								>
-									<StatusDot
-										$active={sa.isActive}
-										aria-label={sa.isActive ? "Active" : "Inactive"}
-										title={sa.isActive ? "Active" : "Inactive"}
-									/>
-									<div>
-										<TitleText>{sa.actionData.description}</TitleText>
-										<Subtext>
-											<span
-												style={{
-													textTransform: "uppercase",
-													letterSpacing: 0.3 as unknown as number,
-												}}
-											>
-												{sa.frequency}
-											</span>
-											<Separator>•</Separator>
-											<span>
-												{sa.actionType === "add_expense"
-													? "Add Expense"
-													: "Add to Budget"}
-											</span>
-											<Separator>•</Separator>
-											<span>Next: {sa.nextExecutionDate}</span>
-										</Subtext>
-									</div>
-								</LeftSection>
-								<IconButton
-									onClick={() => {
-										// Confirmation dialog before deleting
-										// eslint-disable-next-line no-alert
-										if (
-											window.confirm(
-												"Are you sure you want to delete this scheduled action?",
-											)
-										) {
-											deleteAction.mutate({ id: sa.id });
-										}
-									}}
-									data-test-id={`sa-delete-${sa.id}`}
-									aria-label="Delete"
-									title="Delete"
-								>
-									<Trash size={18} color="#dc2626" />
-								</IconButton>
-							</CardRow>
-						</Card>
-					))}
-				</ActionsGrid>
-			)}
-		</div>
-	);
+            {!isLoading && !isError && actions.length > 0 && (
+                <ActionsGrid>
+                    {actions.map((sa) => (
+                        <Card
+                            key={sa.id}
+                            className="settings-card"
+                            data-test-id={`sa-item-${sa.id}`}
+                        >
+                            <CardRow>
+                                <LeftSection
+                                    onClick={() =>
+                                        navigate(`/scheduled-actions/${sa.id}`, { state: sa })
+                                    }
+                                >
+                                    <StatusDot
+                                        $active={sa.isActive}
+                                        aria-label={sa.isActive ? "Active" : "Inactive"}
+                                        title={sa.isActive ? "Active" : "Inactive"}
+                                    />
+                                    <div>
+                                        <TitleText>{sa.actionData.description}</TitleText>
+                                        <Subtext>
+                                            <span
+                                                style={{
+                                                    textTransform: "uppercase",
+                                                    letterSpacing: 0.3 as unknown as number,
+                                                }}
+                                            >
+                                                {sa.frequency}
+                                            </span>
+                                            <Separator>•</Separator>
+                                            <span>
+                                                {sa.actionType === "add_expense"
+                                                    ? "Add Expense"
+                                                    : "Add to Budget"}
+                                            </span>
+                                            <Separator>•</Separator>
+                                            <span>Next: {sa.nextExecutionDate}</span>
+                                        </Subtext>
+                                    </div>
+                                </LeftSection>
+                                <IconButton
+                                    onClick={() => {
+                                        // Confirmation dialog before deleting
+                                        // eslint-disable-next-line no-alert
+                                        if (
+                                            window.confirm(
+                                                "Are you sure you want to delete this scheduled action?",
+                                            )
+                                        ) {
+                                            deleteAction.mutate({ id: sa.id });
+                                        }
+                                    }}
+                                    data-test-id={`sa-delete-${sa.id}`}
+                                    aria-label="Delete"
+                                    title="Delete"
+                                >
+                                    <Trash size={18} color="#dc2626" />
+                                </IconButton>
+                                <IconButton
+                                    onClick={() => navigate(`/scheduled-actions/${sa.id}/edit`, { state: sa })}
+                                    data-test-id={`sa-edit-${sa.id}`}
+                                    aria-label="Edit"
+                                    title="Edit"
+                                >
+                                    <span style={{ fontSize: 12, color: "#1e40af" }}>Edit</span>
+                                </IconButton>
+                            </CardRow>
+                        </Card>
+                    ))}
+                </ActionsGrid>
+            )}
+        </div>
+    );
 };
 
 export default ScheduledActionsPage;
