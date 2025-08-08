@@ -240,7 +240,7 @@ export async function processBatchesAndCreateWorkflows(
 	for (let i = 0; i < actionsToProcess.length; i += batchSize) {
 		const batchActions = actionsToProcess.slice(i, i + batchSize);
 		const batchNumber = Math.floor(i / batchSize) + 1;
-		const batchInstanceId = `batch-${currentDate}-${batchNumber}-${Date.now()}`;
+		const batchInstanceId = `batch-${currentDate}-${batchNumber}-${Date.now()}-${actionsToProcess[i].id}`;
 
 		try {
 			const validActionIds = await createBatchHistoryEntries(
