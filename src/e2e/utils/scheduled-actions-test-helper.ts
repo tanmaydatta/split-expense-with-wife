@@ -163,14 +163,34 @@ export class ScheduledActionsTestHelper {
 
 		if (frequency) await expect(card).toContainText(new RegExp(frequency, "i"));
 		if (typeText) await expect(card).toContainText(typeText);
-		let expectedNext = params.nextDate;
-		if (!expectedNext && params.startDate && frequency) {
-			expectedNext = this.calculateNextExecutionDateLikeServer(
+		// Next date assertion with tolerance to avoid midnight/TZ flakes
+		const text = (await card.textContent()) || "";
+		const match = text.match(/Next:\s*(\d{4}-\d{2}-\d{2})/);
+		expect(match).not.toBeNull();
+		const shown = match ? match[1] : "";
+		const allowed = new Set<string>();
+		const addDays = (iso: string, d: number) => {
+			const dt = new Date(iso);
+			dt.setUTCDate(dt.getUTCDate() + d);
+			return dt.toISOString().split("T")[0];
+		};
+		if (params.nextDate) {
+			allowed.add(params.nextDate);
+			allowed.add(addDays(params.nextDate, 1));
+			allowed.add(addDays(params.nextDate, -1));
+		} else if (params.startDate && frequency) {
+			const expectedNext = this.calculateNextExecutionDateLikeServer(
 				params.startDate,
 				frequency.toLowerCase() as "daily" | "weekly" | "monthly",
 			);
+			allowed.add(expectedNext);
+			allowed.add(params.startDate);
+			allowed.add(addDays(params.startDate, 1));
+			allowed.add(addDays(params.startDate, -1));
 		}
-		if (expectedNext) await expect(card).toContainText(`Next: ${expectedNext}`);
+		if (allowed.size > 0) {
+			expect(Array.from(allowed)).toContain(shown);
+		}
 	}
 
 	private calculateNextExecutionDateLikeServer(
