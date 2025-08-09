@@ -1,280 +1,133 @@
-import type {
-    ScheduledAction,
-    ScheduledActionHistory,
-} from "split-expense-shared-types";
 import { expect, test } from "../fixtures/setup";
+import {
+  getCurrentCurrencyFromSettings,
+  getCurrentUserPercentages,
+} from "../utils/expense-test-helper";
+import { ScheduledActionsTestHelper } from "../utils/scheduled-actions-test-helper";
 
 test.describe("Scheduled Actions", () => {
-  test.beforeEach(async ({ authenticatedPage }) => {
-    const { page } = authenticatedPage;
+  // No request mocking. Use real backend like other e2e suites.
 
-    // In-memory store for mocked API
-    const actions: ScheduledAction[] = [];
-    const historyByActionId = new Map<string, ScheduledActionHistory[]>();
-
-    function nowIsoDateTime(): string {
-      const d = new Date();
-      const pad = (n: number) => String(n).padStart(2, "0");
-      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-    }
-
-    function todayIsoDate(): string {
-      const d = new Date();
-      const pad = (n: number) => String(n).padStart(2, "0");
-      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-    }
-
-    // Utility to fulfill JSON
-    const fulfillJson = (route: any, body: unknown, status = 200) =>
-      route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
-
-    await page.route("**/.netlify/functions/scheduled-actions*", async (route) => {
-      const request = route.request();
-      const url = new URL(request.url());
-      const path = url.pathname.replace("/.netlify/functions/", "");
-      const method = request.method();
-
-      if (path === "scheduled-actions" && method === "POST") {
-        const body = (await request.postDataJSON()) as any;
-        const id = `sa_${Math.random().toString(36).slice(2, 10)}`;
-        const createdAt = nowIsoDateTime().replace("T", " ");
-        const nextExecutionDate = body.startDate || todayIsoDate();
-        const newAction: ScheduledAction = {
-          id,
-          userId: "u1",
-          actionType: body.actionType,
-          frequency: body.frequency,
-          startDate: body.startDate,
-          isActive: true,
-          actionData: body.actionData,
-          nextExecutionDate,
-          createdAt,
-          updatedAt: createdAt,
-        };
-        actions.unshift(newAction);
-        return fulfillJson(route, { message: "Scheduled action created successfully", id });
-      }
-
-      if (path === "scheduled-actions/list" && method === "GET") {
-        return fulfillJson(route, {
-          scheduledActions: actions,
-          totalCount: actions.length,
-          hasMore: false,
-        });
-      }
-
-      if (path === "scheduled-actions/update" && (method === "POST" || method === "PUT")) {
-        const body = (await request.postDataJSON()) as any;
-        const idx = actions.findIndex((a) => a.id === body.id);
-        if (idx >= 0) {
-          actions[idx] = {
-            ...actions[idx],
-            ...("frequency" in body ? { frequency: body.frequency } : {}),
-            ...("startDate" in body ? { startDate: body.startDate } : {}),
-            ...("isActive" in body ? { isActive: body.isActive } : {}),
-            ...("actionData" in body && body.actionData ? { actionData: body.actionData } : {}),
-            updatedAt: nowIsoDateTime().replace("T", " "),
-          } as ScheduledAction;
-        }
-        return fulfillJson(route, { message: "Updated" });
-      }
-
-      if (path === "scheduled-actions/delete" && method === "DELETE") {
-        const body = (await request.postDataJSON()) as any;
-        const idx = actions.findIndex((a) => a.id === body.id);
-        if (idx >= 0) actions.splice(idx, 1);
-        return fulfillJson(route, { message: "Deleted" });
-      }
-
-      if (path === "scheduled-actions/details" && method === "GET") {
-        const id = url.searchParams.get("id");
-        const action = actions.find((a) => a.id === id);
-        if (!action) return fulfillJson(route, { error: "Not found" }, 404);
-        return fulfillJson(route, action);
-      }
-
-      if (path === "scheduled-actions/history" && method === "GET") {
-        const scheduledActionId = url.searchParams.get("scheduledActionId") || "";
-        const list = historyByActionId.get(scheduledActionId) || [];
-        return fulfillJson(route, { history: list, totalCount: list.length, hasMore: false });
-      }
-
-      if (path === "scheduled-actions/history/details" && method === "GET") {
-        const historyId = url.searchParams.get("id");
-        let found: ScheduledActionHistory | undefined;
-        for (const items of Array.from(historyByActionId.values())) {
-          found = items.find((h) => h.id === historyId);
-          if (found) break;
-        }
-        if (!found) return fulfillJson(route, { error: "Not found" }, 404);
-        return fulfillJson(route, found);
-      }
-
-      return route.continue();
+  test("create expense action and see it in list", async ({ authenticatedPage }) => {
+    const helper = new ScheduledActionsTestHelper(authenticatedPage);
+    const startDate = await helper.createExpenseAction({
+      description: "Morning coffee subscription",
+      amount: "9.99",
+    });
+    await helper.gotoListPage();
+    await helper.expectActionCardVisible({
+      description: "Morning coffee subscription",
+      containsText: "Add Expense",
+    });
+    // Verify meta: default frequency daily and next date equals chosen start date
+    await helper.expectActionCardMeta({
+      description: "Morning coffee subscription",
+      frequency: "daily",
+      typeText: "Add Expense",
+      nextDate: startDate,
     });
   });
 
-  test("create expense action and see it in list", async ({ authenticatedPage }) => {
-    const { page } = authenticatedPage;
-    await page.goto("/scheduled-actions/new");
-    await expect(page.getByTestId("scheduled-actions-new")).toBeVisible();
-
-    // Ensure expense mode
-    await page.getByTestId("sa-action-expense").click();
-
-    // Fill fields
-    await page.getByTestId("sa-exp-description").fill("Morning coffee subscription");
-    await page.getByTestId("sa-exp-amount").fill("9.99");
-
-    // Select first available paidBy option if present
-    const paidBySelect = page.getByTestId("sa-exp-paid-by");
-    if (await paidBySelect.count()) {
-      const firstVal = await paidBySelect.locator("option").nth(1).getAttribute("value");
-      if (firstVal) await paidBySelect.selectOption(firstVal);
-    }
-
-    // Submit
-    await page.getByTestId("sa-submit").click();
-    await expect(page.getByTestId("success-container")).toBeVisible();
-
-    // Navigate to list and verify card
-    await page.goto("/scheduled-actions");
-    await expect(page.getByTestId("scheduled-actions-page")).toBeVisible();
-    await expect(page.locator(".settings-card").filter({ hasText: "Morning coffee subscription" })).toBeVisible();
-    await expect(page.locator(".settings-card").filter({ hasText: "Add Expense" })).toBeVisible();
-  });
-
   test("create budget action and see it in list", async ({ authenticatedPage }) => {
-    const { page } = authenticatedPage;
-    await page.goto("/scheduled-actions/new");
-
-    await page.getByTestId("sa-action-budget").click();
-    await page.getByTestId("sa-bud-description").fill("Monthly house credit");
-    await page.getByTestId("sa-bud-amount").fill("200");
-    await page.getByTestId("sa-bud-currency").selectOption({ label: (await page.getByTestId("sa-bud-currency").locator("option").first().textContent()) || "USD" });
-
-    // Select first budget if available
-    const firstBudget = page.locator('[data-test-id^="budget-radio-"]').first();
-    if (await firstBudget.count()) await firstBudget.click();
-
-    await page.getByTestId("sa-submit").click();
-    await expect(page.getByTestId("success-container")).toBeVisible();
-
-    await page.goto("/scheduled-actions");
-    await expect(page.locator(".settings-card").filter({ hasText: "Monthly house credit" })).toBeVisible();
-    await expect(page.locator(".settings-card").filter({ hasText: "Add to Budget" })).toBeVisible();
+    const helper = new ScheduledActionsTestHelper(authenticatedPage);
+    const startDate = await helper.createBudgetAction({
+      description: "Monthly house credit",
+      amount: "200",
+    });
+    await helper.gotoListPage();
+    await helper.expectActionCardVisible({
+      description: "Monthly house credit",
+      containsText: "Add to Budget",
+    });
+    await helper.expectActionCardMeta({
+      description: "Monthly house credit",
+      frequency: "daily",
+      typeText: "Add to Budget",
+      nextDate: startDate,
+    });
   });
 
   test("edit an action's frequency and amount", async ({ authenticatedPage }) => {
-    const { page } = authenticatedPage;
+    const helper = new ScheduledActionsTestHelper(authenticatedPage);
+    await helper.createExpenseAction({ description: "Gym membership", amount: 50 });
+    await helper.openEditForAction("Gym membership");
+    await helper.changeFrequencyWeekly();
+    await helper.changeExpenseAmount(55);
+    await helper.submitAndConfirmSuccess();
 
-    // Create one action via UI first
-    await page.goto("/scheduled-actions/new");
-    await page.getByTestId("sa-action-expense").click();
-    await page.getByTestId("sa-exp-description").fill("Gym membership");
-    await page.getByTestId("sa-exp-amount").fill("50");
-    await page.getByTestId("sa-submit").click();
-    await expect(page.getByTestId("success-container")).toBeVisible();
-
-    // Go to list and open edit
-    await page.goto("/scheduled-actions");
-    const card = page.locator(".settings-card").filter({ hasText: "Gym membership" });
-    await expect(card).toBeVisible();
-    // Click edit icon in this card
-    await card.locator('[data-test-id^="sa-edit-"]').click();
-
-    await expect(page.getByTestId("scheduled-actions-edit")).toBeVisible();
-    // Change frequency to weekly
-    await page.getByTestId("sa-frequency-weekly").click();
-    // Change amount
-    await page.getByTestId("sa-exp-amount").fill("55");
-    await page.getByTestId("sa-submit").click();
-    await expect(page.getByTestId("success-container")).toBeVisible();
-
-    // Back to list and expect frequency text shows weekly
-    await page.goto("/scheduled-actions");
-    const updated = page.locator(".settings-card").filter({ hasText: "Gym membership" });
-    await expect(updated).toBeVisible();
-    await expect(updated.locator("div")).toContainText("WEEKLY");
+    await helper.gotoListPage();
+    await helper.expectActionCardVisible({ description: "Gym membership", containsText: "WEEKLY" });
   });
 
   test("delete flow: cancel then confirm", async ({ authenticatedPage }) => {
-    const { page } = authenticatedPage;
-
-    // Create an action
-    await page.goto("/scheduled-actions/new");
-    await page.getByTestId("sa-exp-description").fill("To be deleted");
-    await page.getByTestId("sa-exp-amount").fill("10");
-    await page.getByTestId("sa-submit").click();
-    await expect(page.getByTestId("success-container")).toBeVisible();
-
-    await page.goto("/scheduled-actions");
-    const card = page.locator(".settings-card").filter({ hasText: "To be deleted" });
-    await expect(card).toBeVisible();
-
-    // Cancel delete
-    await card.locator('[data-test-id^="sa-delete-"]').click();
-    await expect(page.locator('[data-test-id="confirm-dialog"]')).toBeVisible();
-    await page.getByText("Cancel").click();
-    await expect(card).toBeVisible();
-
-    // Confirm delete
-    await card.locator('[data-test-id^="sa-delete-"]').click();
-    await page.getByText("Delete").click();
-    await expect(page.locator(".settings-card").filter({ hasText: "To be deleted" })).toHaveCount(0);
+    const helper = new ScheduledActionsTestHelper(authenticatedPage);
+    await helper.createExpenseAction({ description: "To be deleted", amount: 10 });
+    await helper.deleteAction("To be deleted", { confirm: false });
+    await helper.deleteAction("To be deleted", { confirm: true });
   });
 
   test("validation: submit disabled on invalid fields and split mismatch", async ({ authenticatedPage }) => {
-    const { page } = authenticatedPage;
-    await page.goto("/scheduled-actions/new");
+    await authenticatedPage.page.goto("/scheduled-actions/new");
 
     // Expense mode
-    await page.getByTestId("sa-action-expense").click();
-    await page.getByTestId("sa-exp-description").fill("a"); // too short
-    await page.getByTestId("sa-exp-amount").fill("0"); // not positive
+    await authenticatedPage.page.getByTestId("sa-action-expense").click();
+    await authenticatedPage.page.getByTestId("sa-exp-description").fill("a"); // too short
+    await authenticatedPage.page.getByTestId("sa-exp-amount").fill("0"); // not positive
 
     // Try to change one split to break total = 100
-    const anySplit = page.locator('[data-test-id^="sa-exp-split-"]').first();
+    const anySplit = authenticatedPage.page.locator('[data-test-id^="sa-exp-split-"]').first();
     if (await anySplit.count()) {
       await anySplit.fill("10");
     }
 
-    await expect(page.getByTestId("sa-submit")).toBeDisabled();
+    await expect(authenticatedPage.page.getByTestId("sa-submit")).toBeDisabled();
 
     // Fix inputs to valid
-    await page.getByTestId("sa-exp-description").fill("Valid desc");
-    await page.getByTestId("sa-exp-amount").fill("1");
+    await authenticatedPage.page.getByTestId("sa-exp-description").fill("Valid desc");
+    await authenticatedPage.page.getByTestId("sa-exp-amount").fill("1");
   });
 
   test("history page and run details navigation (UI only)", async ({ authenticatedPage }) => {
-    const { page } = authenticatedPage;
+    const helper = new ScheduledActionsTestHelper(authenticatedPage);
+    await helper.createExpenseAction({ description: "Has history", amount: 5 });
+    await helper.openHistoryForAction("Has history");
 
-    // Create an action to have an ID
-    await page.goto("/scheduled-actions/new");
-    await page.getByTestId("sa-exp-description").fill("Has history");
-    await page.getByTestId("sa-exp-amount").fill("5");
-    await page.getByTestId("sa-submit").click();
-    await expect(page.getByTestId("success-container")).toBeVisible();
+    // Also navigate to a made-up run details id to ensure page renders gracefully
+    const actionId = (await helper.getActionIdFromCard("Has history")) || "noid";
+    await authenticatedPage.page.goto(
+      `/scheduled-actions/history/run/hist_${actionId}-2024-01-01`,
+    );
+    await expect(
+      authenticatedPage.page.getByTestId("sa-history-run"),
+    ).toBeVisible();
+  });
 
-    // Go to list and click the card to go to history page
-    await page.goto("/scheduled-actions");
-    const card = page.locator(".settings-card").filter({ hasText: "Has history" });
-    await expect(card).toBeVisible();
+  test("new action defaults match group defaults", async ({ authenticatedPage }) => {
+    const helper = new ScheduledActionsTestHelper(authenticatedPage);
+    const expectedPercentages = await getCurrentUserPercentages(authenticatedPage);
+    const expectedCurrency = await getCurrentCurrencyFromSettings(authenticatedPage);
 
-    // Extract the dynamic id from edit button test-id (sa-edit-<id>) to construct history mocks automatically
-    const editBtn = card.locator('[data-test-id^="sa-edit-"]');
-    const editTestId = await editBtn.getAttribute("data-test-id");
-    const actionId = editTestId?.replace("sa-edit-", "") || "";
+    await helper.gotoNewActionPage();
 
-    // Inject mock history for this action by navigating to history (routes set in beforeEach will serve it)
-    // Click left section to navigate to history page
-    await card.locator("div").first().click();
-    await expect(page.getByTestId("scheduled-actions-history")).toBeVisible();
+    // Verify default currency
+    await expect(
+      authenticatedPage.page.locator('[data-test-id="sa-exp-currency"]'),
+    ).toHaveValue(expectedCurrency);
 
-    // Because our beforeEach handler returns empty history by default, navigate directly to run details should show failure to load
-    // Instead, manually request details page with a made-up id to assert error UI is handled gracefully
-    await page.goto(`/scheduled-actions/history/run/hist_${actionId}-2024-01-01`);
-    await expect(page.getByTestId("sa-history-run")).toBeVisible();
+    // Verify default paidBy is the highest share user
+    const [topUserId] = Object.entries(expectedPercentages)
+      .map(([uid, pct]) => [uid, parseFloat(pct) || 0] as const)
+      .sort((a, b) => b[1] - a[1])[0];
+    await expect(
+      authenticatedPage.page.locator('[data-test-id="sa-exp-paid-by"]'),
+    ).toHaveValue(String(topUserId));
+
+    // Verify split inputs per user
+    for (const [uid, pct] of Object.entries(expectedPercentages)) {
+      await expect(
+        authenticatedPage.page.locator(`[data-test-id="sa-exp-split-${uid}"]`),
+      ).toHaveValue(String(pct));
+    }
   });
 });
 

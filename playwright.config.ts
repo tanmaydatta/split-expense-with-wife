@@ -41,6 +41,8 @@ export default defineConfig({
 			process.env.PLAYWRIGHT_BASE_URL ||
 			"https://splitexpense-dev.tanmaydatta.workers.dev",
 		serviceWorkers: "block",
+		// Our app uses data-test-id for selectors; align Playwright's getByTestId
+		testIdAttribute: "data-test-id",
 		/* Longer action timeout for CI */
 		actionTimeout: process.env.CI ? 30 * 1000 : 20 * 1000,
 
