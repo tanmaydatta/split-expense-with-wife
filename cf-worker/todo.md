@@ -21,7 +21,7 @@
 - multi person split
 - sessions api - d1
 - schedule actions
-    - when we update the action, make sure start date cannot be changed
+    - set action as inactive
     - skip next date
     - set next date
     - run now

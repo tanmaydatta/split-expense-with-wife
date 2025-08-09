@@ -89,10 +89,10 @@ enabled = true
     [[env.dev.workflows]]
     binding = "ORCHESTRATOR_WORKFLOW"
     class_name = "ScheduledActionsOrchestratorWorkflow"
-    name = "scheduled-actions-orchestrator"
+    name = "scheduled-actions-orchestrator-dev"
 
     [[env.dev.workflows]]
     binding = "PROCESSOR_WORKFLOW"
     class_name = "ScheduledActionsProcessorWorkflow"
-    name = "scheduled-actions-processor"
+    name = "scheduled-actions-processor-dev"
 
