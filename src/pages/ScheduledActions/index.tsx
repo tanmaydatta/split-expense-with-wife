@@ -1,15 +1,16 @@
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
-import { Pencil, Plus, Trash } from "@/components/Icons";
+import { Pause, Pencil, Play, Plus, Trash } from "@/components/Icons";
 import {
 	useDeleteScheduledAction,
 	useInfiniteScheduledActionsList,
+	useUpdateScheduledAction,
 } from "@/hooks/useScheduledActions";
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import type { ScheduledAction } from "split-expense-shared-types";
-import styled from "styled-components";
+import styled, { useTheme } from "styled-components";
 
 const HeaderTitle = styled.h3`
   margin: 0;
@@ -21,9 +22,9 @@ const HeaderTitle = styled.h3`
 `;
 
 const StyledIconButton = styled(Button)`
-  background: white;
-  color: #1e40af;
-  border: 1px solid #e5e7eb;
+  background: ${({ theme }) => theme.colors.white};
+  color: ${({ theme }) => theme.colors.primary};
+  border: 1px solid ${({ theme }) => theme.colors.light};
   padding: 8px 12px;
   min-height: 36px;
   font-size: 15px;
@@ -68,7 +69,7 @@ const StatusDot = styled.span<{ $active: boolean }>`
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background-color: ${(p) => (p.$active ? "#16a34a" : "#dc2626")};
+  background-color: ${(p) => (p.$active ? p.theme.colors.success : p.theme.colors.danger)};
   box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.03);
   flex: 0 0 auto;
 `;
@@ -80,12 +81,12 @@ const TitleText = styled.div`
 
 const Subtext = styled.div`
   font-size: 12px;
-  color: #4b5563;
+  color: ${({ theme }) => theme.colors.secondary};
 `;
 
 const Separator = styled.span`
   margin: 0 6px;
-  color: #9ca3af;
+  color: ${({ theme }) => theme.colors.secondary};
 `;
 
 const RightActions = styled.div`
@@ -112,6 +113,8 @@ const ScheduledActionsPage: React.FC = () => {
 		isFetchingNextPage,
 	} = useInfiniteScheduledActionsList(10);
 	const deleteAction = useDeleteScheduledAction();
+	const updateAction = useUpdateScheduledAction();
+	const [busyId, setBusyId] = React.useState<string | null>(null);
 
 	const actions: ScheduledAction[] =
 		data?.pages.flatMap((p) => p.scheduledActions) ?? [];
@@ -157,12 +160,14 @@ const ScheduledActionsPage: React.FC = () => {
 		setPendingDeleteId(null);
 	};
 
+	const theme = useTheme();
+
 	return (
 		<div className="settings-container" data-test-id="scheduled-actions-page">
 			<PageHeader>
 				<HeaderTitle>Scheduled Actions</HeaderTitle>
 				<StyledIconButton onClick={() => navigate("/scheduled-actions/new")}>
-					<Plus size={14} color="#1e40af" />
+					<Plus size={14} color={theme.colors.primary} />
 					Add Action
 				</StyledIconButton>
 			</PageHeader>
@@ -191,6 +196,11 @@ const ScheduledActionsPage: React.FC = () => {
 							key={sa.id}
 							className="settings-card"
 							data-test-id={`sa-item-${sa.id}`}
+							style={
+								busyId === sa.id
+									? { opacity: 0.6, pointerEvents: "none" }
+									: undefined
+							}
 						>
 							<CardRow>
 								<LeftSection
@@ -227,6 +237,37 @@ const ScheduledActionsPage: React.FC = () => {
 								</LeftSection>
 								<RightActions>
 									<IconButton
+										onClick={async () => {
+											if (busyId) return;
+											setBusyId(sa.id);
+											try {
+												await updateAction.mutateAsync({
+													id: sa.id,
+													isActive: !sa.isActive,
+												});
+											} finally {
+												setBusyId(null);
+											}
+										}}
+										data-test-id={`sa-toggle-${sa.id}`}
+										aria-label={
+											sa.isActive ? "Deactivate action" : "Activate action"
+										}
+										title={
+											sa.isActive ? "Deactivate action" : "Activate action"
+										}
+									>
+										{busyId === sa.id ? (
+											<span aria-busy="true" style={{ opacity: 0.6 }}>
+												•••
+											</span>
+										) : sa.isActive ? (
+											<Pause size={18} color={theme.colors.danger} />
+										) : (
+											<Play size={18} color={theme.colors.success} />
+										)}
+									</IconButton>
+									<IconButton
 										onClick={() =>
 											navigate(`/scheduled-actions/${sa.id}/edit`, {
 												state: sa,
@@ -236,7 +277,7 @@ const ScheduledActionsPage: React.FC = () => {
 										aria-label="Edit"
 										title="Edit"
 									>
-										<Pencil size={18} color="#1e40af" outline />
+										<Pencil size={18} color={theme.colors.primary} outline />
 									</IconButton>
 									<IconButton
 										onClick={() => requestDelete(sa.id)}
@@ -244,7 +285,7 @@ const ScheduledActionsPage: React.FC = () => {
 										aria-label="Delete"
 										title="Delete"
 									>
-										<Trash size={18} color="#dc2626" />
+										<Trash size={18} color={theme.colors.danger} />
 									</IconButton>
 								</RightActions>
 							</CardRow>

@@ -156,43 +156,61 @@ export const ScheduledActionsManager: React.FC<
 	);
 
 	// Keep currency synced with group's default currency when it changes
-	React.useEffect(() => {
-		if (!initialValues) {
-			form.setFieldValue("actionData.currency", defaultCurrency as any);
-			// Initialize default split percentages from group metadata if not already set
-			const defaultShare = session?.extra?.group?.metadata?.defaultShare as
-				| Record<string, number>
-				| undefined;
-			const currentSplits = form.getFieldValue("actionData.splitPctShares") as
-				| Record<string, number>
-				| undefined;
-			const hasSplits = currentSplits && Object.keys(currentSplits).length > 0;
-			if (!hasSplits && defaultShare && Object.keys(defaultShare).length > 0) {
-				form.setFieldValue(
-					"actionData.splitPctShares" as any,
-					defaultShare as Record<string, number> as any,
-				);
-			}
+	// Helpers to keep effects flat and readable
+	const getDefaultShare = React.useCallback(() => {
+		return (session?.extra?.group?.metadata?.defaultShare || undefined) as
+			| Record<string, number>
+			| undefined;
+	}, [session]);
 
-			// Initialize paidByUserId from group defaults (highest share) or current user
-			const currentPaidBy = form.getFieldValue("actionData.paidByUserId") as
-				| string
-				| undefined;
-			if (!currentPaidBy) {
-				let defaultPayer = session?.extra?.currentUser?.id || "";
-				if (defaultShare && Object.keys(defaultShare).length > 0) {
-					const top = (
-						Object.entries(defaultShare) as Array<[userId: string, pct: number]>
-					).sort((a, b) => b[1] - a[1])[0];
-					if (top?.[0]) defaultPayer = top[0];
-				}
-				form.setFieldValue(
-					"actionData.paidByUserId" as any,
-					defaultPayer as string as any,
-				);
-			}
+	const applyDefaultSplitsIfMissing = React.useCallback(() => {
+		const defaultShare = getDefaultShare();
+		const currentSplits = form.getFieldValue("actionData.splitPctShares") as
+			| Record<string, number>
+			| undefined;
+		const hasSplits = currentSplits && Object.keys(currentSplits).length > 0;
+		if (hasSplits || !defaultShare || Object.keys(defaultShare).length === 0) {
+			return;
 		}
-	}, [defaultCurrency, session, form, initialValues]);
+		form.setFieldValue(
+			"actionData.splitPctShares" as any,
+			defaultShare as Record<string, number> as any,
+		);
+	}, [form, getDefaultShare]);
+
+	const applyDefaultPaidByIfMissing = React.useCallback(() => {
+		const currentPaidBy = form.getFieldValue("actionData.paidByUserId") as
+			| string
+			| undefined;
+		if (currentPaidBy) return;
+
+		let payer = session?.extra?.currentUser?.id || "";
+		const defaultShare = getDefaultShare();
+		if (defaultShare && Object.keys(defaultShare).length > 0) {
+			const topShare = (
+				Object.entries(defaultShare) as Array<[string, number]>
+			).sort((a, b) => b[1] - a[1])[0];
+			if (topShare?.[0]) payer = topShare[0];
+		}
+		form.setFieldValue(
+			"actionData.paidByUserId" as any,
+			payer as string as any,
+		);
+	}, [form, getDefaultShare, session]);
+
+	React.useEffect(() => {
+		if (initialValues) return;
+		form.setFieldValue("actionData.currency", defaultCurrency as any as any);
+		applyDefaultSplitsIfMissing();
+		applyDefaultPaidByIfMissing();
+	}, [
+		defaultCurrency,
+		session,
+		form,
+		initialValues,
+		applyDefaultSplitsIfMissing,
+		applyDefaultPaidByIfMissing,
+	]);
 
 	// Read commonly used fields from the form store
 	const currentAmount = useStore(

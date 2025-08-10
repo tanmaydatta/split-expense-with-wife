@@ -100,6 +100,60 @@ export const MonthlyBudgetPage: React.FC = () => {
 		setCurrency(newCurrency);
 	};
 
+	const computeTargetMonths = useCallback(
+		(range: TimeRange, periods: Array<{ periodMonths: number }>): number => {
+			switch (range) {
+				case "6M":
+					return 6;
+				case "1Y":
+					return 12;
+				case "2Y":
+					return 24;
+				case "All":
+					return periods.length > 0
+						? Math.max(...periods.map((p) => p.periodMonths))
+						: 6;
+				default:
+					return 6;
+			}
+		},
+		[],
+	);
+
+	const findAverageForCurrency = useCallback(
+		(
+			periods: Array<{
+				periodMonths: number;
+				averages: Array<{ currency: string; averageMonthlySpend: number }>;
+			}>,
+			targetMonths: number,
+			curr: string,
+		): number | null => {
+			const target = periods.find((p) => p.periodMonths === targetMonths);
+			if (!target) return null;
+			const avg = target.averages.find((a) => a.currency === curr);
+			return avg ? avg.averageMonthlySpend : null;
+		},
+		[],
+	);
+
+	const findFallbackAverageForCurrency = useCallback(
+		(
+			periods: Array<{
+				periodMonths: number;
+				averages: Array<{ currency: string; averageMonthlySpend: number }>;
+			}>,
+			curr: string,
+		): number | null => {
+			for (const p of periods) {
+				const avg = p.averages.find((a) => a.currency === curr);
+				if (avg) return avg.averageMonthlySpend;
+			}
+			return null;
+		},
+		[],
+	);
+
 	const fetchMonthlyData = useCallback(async () => {
 		setLoading(true);
 		try {
@@ -184,69 +238,36 @@ export const MonthlyBudgetPage: React.FC = () => {
 
 			setChartData(processedData);
 
-			// Find the appropriate average based on timeRange and primary currency
-			let averageFound = false;
-			let targetMonths: number;
-
-			switch (timeRange) {
-				case "6M":
-					targetMonths = 6;
-					break;
-				case "1Y":
-					targetMonths = 12;
-					break;
-				case "2Y":
-					targetMonths = 24;
-					break;
-				case "All":
-					// For 'All', use the highest period available
-					targetMonths = Math.max(
-						...response.averageMonthlySpend.map((p) => p.periodMonths),
-					);
-					break;
-				default:
-					targetMonths = 6;
-			}
-
-			// Find the average for the target number of months and selected currency
-			const targetPeriod = response.averageMonthlySpend.find(
-				(period) => period.periodMonths === targetMonths,
+			const targetMonths = computeTargetMonths(
+				timeRange,
+				response.averageMonthlySpend,
 			);
-			if (targetPeriod) {
-				const currencyAverage = targetPeriod.averages.find(
-					(avg) => avg.currency === currentCurrency,
+			const directAvg = findAverageForCurrency(
+				response.averageMonthlySpend,
+				targetMonths,
+				currentCurrency,
+			);
+			const fallbackAvg =
+				directAvg ??
+				findFallbackAverageForCurrency(
+					response.averageMonthlySpend,
+					currentCurrency,
 				);
-				if (currencyAverage) {
-					setAverageExpense(Math.abs(currencyAverage.averageMonthlySpend));
-					averageFound = true;
-				}
-			}
-
-			// Fallback: find the closest available period for the selected currency
-			if (!averageFound && response.averageMonthlySpend.length > 0) {
-				for (const period of response.averageMonthlySpend) {
-					const currencyAverage = period.averages.find(
-						(avg) => avg.currency === currentCurrency,
-					);
-					if (currencyAverage) {
-						setAverageExpense(Math.abs(currencyAverage.averageMonthlySpend));
-						averageFound = true;
-						break;
-					}
-				}
-			}
-
-			// Final fallback
-			if (!averageFound) {
-				setAverageExpense(0);
-			}
+			setAverageExpense(Math.abs(fallbackAvg ?? 0));
 		} catch (e: any) {
 			console.log(e);
 			// Note: 401 errors are now handled globally by API interceptor
 		} finally {
 			setLoading(false);
 		}
-	}, [budget, timeRange, selectedCurrency]);
+	}, [
+		budget,
+		timeRange,
+		selectedCurrency,
+		computeTargetMonths,
+		findAverageForCurrency,
+		findFallbackAverageForCurrency,
+	]);
 
 	useEffect(() => {
 		fetchMonthlyData();
