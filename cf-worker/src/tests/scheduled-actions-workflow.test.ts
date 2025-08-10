@@ -71,7 +71,7 @@ describe("Scheduled Actions Workflows", () => {
 			updatedAt: new Date(),
 		});
 
-		// Create test scheduled action
+		// Create test scheduled action (active)
 		testActionId = ulid();
 		const expenseActionData: AddExpenseActionData = {
 			description: "Test recurring expense",
@@ -188,6 +188,21 @@ describe("Scheduled Actions Workflows", () => {
 			expect(pendingActions).toHaveLength(1);
 			expect(pendingActions[0].id).toBe(testActionId);
 			expect(pendingActions[0].isActive).toBe(true);
+		});
+
+		it("should exclude inactive actions from pending list", async () => {
+			const { getPendingScheduledActions } = await import(
+				"../workflows/scheduled-actions-orchestrator"
+			);
+			// Mark existing action inactive
+			await db
+				.update(scheduledActions)
+				.set({ isActive: false })
+				.where(eq(scheduledActions.id, testActionId));
+
+			const currentDate = "2024-01-15";
+			const pending = await getPendingScheduledActions(testEnv, currentDate);
+			expect(pending).toHaveLength(0);
 		});
 
 		it("should return empty when no actions are due today", async () => {

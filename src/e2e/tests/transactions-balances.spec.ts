@@ -1,4 +1,4 @@
-import { test, expect } from "../fixtures/setup";
+import { expect, test } from "../fixtures/setup";
 import {
 	ExpenseTestHelper,
 	getCurrentUserPercentages,
@@ -12,6 +12,99 @@ class TransactionBalanceTestHelper {
 	constructor(private authenticatedPage: TestHelper) {
 		this.expenseHelper = new ExpenseTestHelper(authenticatedPage);
 	}
+
+  // Helpers to reduce nesting depth
+  private async isEmptyBalancesState(): Promise<boolean> {
+    const emptyBalances = this.authenticatedPage.page.locator(
+      '[data-test-id="empty-balances"]',
+    );
+    try {
+      await emptyBalances.waitFor({ state: "visible", timeout: 500 });
+      return true;
+    } catch (_e) {
+      return false;
+    }
+  }
+
+  private parseCurrencyAmount(text: string): { currencyCode: string; amount: number } | null {
+    const match = text.match(/([+-]?)(C\$|[£$€¥])(\d+\.?\d*)/);
+    if (!match) return null;
+    const sign = match[1];
+    const symbol = match[2];
+    const rawAmount = parseFloat(match[3]);
+    const amount = sign === "-" ? -rawAmount : rawAmount;
+    const currencyMap: Record<string, string> = { $: "USD", "C$": "CAD", "€": "EUR", "£": "GBP", "¥": "JPY" };
+    const currencyCode = currencyMap[symbol] || symbol;
+    return { currencyCode, amount };
+  }
+
+  private addAmount(
+    balances: Record<string, Record<string, number>>,
+    userName: string,
+    currencyCode: string,
+    amount: number,
+  ): void {
+    if (!balances[userName]) balances[userName] = {};
+    balances[userName][currencyCode] = (balances[userName][currencyCode] || 0) + amount;
+  }
+
+  private async detectView(): Promise<"desktop" | "mobile"> {
+    const desktopTable = this.authenticatedPage.page.locator(".desktop-table");
+    try {
+      await desktopTable.waitFor({ state: "visible", timeout: 1000 });
+      return "desktop";
+    } catch (_e) {
+      const mobileCards = this.authenticatedPage.page.locator(".mobile-cards");
+      await mobileCards.waitFor({ state: "visible", timeout: 1000 });
+      return "mobile";
+    }
+  }
+
+  private async findTransactionTarget(
+    description: string,
+  ): Promise<{ targetItem: any; transactionId: string }> {
+    const view = await this.detectView();
+    if (view === "desktop") {
+      const items = await this.authenticatedPage.page
+        .locator('[data-test-id="transaction-item"]')
+        .all();
+      for (const item of items) {
+        const text = await item.textContent();
+        if (text && text.includes(description)) {
+          const id = (await item.getAttribute("data-transaction-id")) || "";
+          return { targetItem: item, transactionId: id };
+        }
+      }
+      throw new Error(`Transaction not found: ${description}`);
+    }
+    // mobile
+    const cards = await this.authenticatedPage.page
+      .locator('[data-test-id="transaction-card"]')
+      .all();
+    for (const card of cards) {
+      const text = await card.textContent();
+      if (text && text.includes(description)) {
+        const id = (await card.getAttribute("data-transaction-id")) || "";
+        return { targetItem: card, transactionId: id };
+      }
+    }
+    throw new Error(`Transaction not found: ${description}`);
+  }
+
+  private async getVisibleDetailsContainer(transactionId: string) {
+    const containers = await this.authenticatedPage.page
+      .locator(`[data-test-id="transaction-details-${transactionId}"]`)
+      .all();
+    for (const c of containers) {
+      try {
+        await c.waitFor({ state: "visible", timeout: 2000 });
+        return c;
+      } catch (_e) {
+        // continue
+      }
+    }
+    return containers[0] || null;
+  }
 
 	async createTestExpense(
 		description?: string,
@@ -96,16 +189,7 @@ class TransactionBalanceTestHelper {
 		await this.authenticatedPage.page.waitForTimeout(1000);
 
 		// Check if we have an empty balances state - but wait longer to ensure it's truly empty
-		const emptyBalances = this.authenticatedPage.page.locator(
-			'[data-test-id="empty-balances"]',
-		);
-		let hasEmptyState = false;
-		try {
-			await emptyBalances.waitFor({ state: "visible", timeout: 500 });
-			hasEmptyState = true;
-		} catch (_e) {
-			hasEmptyState = false;
-		}
+    const hasEmptyState = await this.isEmptyBalancesState();
 
 		// Also check if we have user sections or amount items
 		const userSections = this.authenticatedPage.page.locator(
@@ -146,57 +230,25 @@ class TransactionBalanceTestHelper {
 			return balances;
 		}
 
-		for (let i = 0; i < userCount; i++) {
-			const section = userSections.nth(i);
-			const userHeader = section.locator('[data-test-id^="user-header-"]');
-			const userName = await userHeader.textContent();
-
-			if (userName) {
-				console.log(`Processing balances for user: ${userName}`);
-				balances[userName] = {};
-
-				// Look for amount items within this user's section
-				const amountItems = section.locator('[data-test-id="amount-item"]');
-				const amountCount = await amountItems.count();
-
-				for (let j = 0; j < amountCount; j++) {
-					const amountItem = amountItems.nth(j);
-					const amountText = (await amountItem.textContent()) || "";
-
-					// Extract currency and amount using regex (handles + and - signs, including C$ for CAD)
-					const currencyMatch = amountText.match(
-						/([+-]?)(C\$|[£$€¥])(\d+\.?\d*)/,
-					);
-					if (currencyMatch) {
-						const sign = currencyMatch[1];
-						const currencySymbol = currencyMatch[2];
-						let amount = parseFloat(currencyMatch[3]);
-
-						// Apply sign
-						if (sign === "-") {
-							amount = -amount;
-						}
-
-						// Map currency symbols to codes (including C$ for CAD)
-						const currencyMap: Record<string, string> = {
-							$: "USD",
-							C$: "CAD",
-							"€": "EUR",
-							"£": "GBP",
-							"¥": "JPY",
-						};
-						const currencyCode = currencyMap[currencySymbol] || currencySymbol;
-
-						// Sum multiple entries for the same currency
-						balances[userName][currencyCode] =
-							(balances[userName][currencyCode] || 0) + amount;
-						console.log(
-							`✓ ${userName} ${currencyCode}: ${amount} (total: ${balances[userName][currencyCode]})`,
-						);
-					}
-				}
-			}
-		}
+    for (let i = 0; i < userCount; i++) {
+      const section = userSections.nth(i);
+      const userHeader = section.locator('[data-test-id^="user-header-"]');
+      const userName = (await userHeader.textContent()) || undefined;
+      if (!userName) continue;
+      console.log(`Processing balances for user: ${userName}`);
+      balances[userName] = {};
+      const amountItems = section.locator('[data-test-id="amount-item"]');
+      const amountCount = await amountItems.count();
+      for (let j = 0; j < amountCount; j++) {
+        const text = (await amountItems.nth(j).textContent()) || "";
+        const parsed = this.parseCurrencyAmount(text);
+        if (!parsed) continue;
+        this.addAmount(balances, userName, parsed.currencyCode, parsed.amount);
+        console.log(
+          `✓ ${userName} ${parsed.currencyCode}: ${parsed.amount} (total: ${balances[userName][parsed.currencyCode]})`,
+        );
+      }
+    }
 
 		console.log("Current balances:", JSON.stringify(balances, null, 2));
 		return balances;
@@ -244,16 +296,7 @@ class TransactionBalanceTestHelper {
 		const count = await amountItems.count();
 
 		// Check if page is in empty state first
-		const emptyBalances = this.authenticatedPage.page.locator(
-			'[data-test-id="empty-balances"]',
-		);
-		let isEmpty = false;
-		try {
-			await emptyBalances.waitFor({ state: "visible", timeout: 1000 });
-			isEmpty = true;
-		} catch (_e) {
-			isEmpty = false;
-		}
+    const isEmpty = await this.isEmptyBalancesState();
 
 		if (isEmpty) {
 			console.log(
@@ -300,117 +343,15 @@ class TransactionBalanceTestHelper {
 		expectedPaidBy?: Record<string, string>,
 		expectedTotalOwed?: string,
 	) {
-		console.log("Verifying transaction details for:", description);
-
-		// Check which view is visible (desktop table vs mobile cards)
-		const desktopTable = this.authenticatedPage.page.locator(".desktop-table");
-		const mobileCards = this.authenticatedPage.page.locator(".mobile-cards");
-
-		let targetItem = null;
-		let transactionId = null;
-
-		// Determine which view is visible and use appropriate selector
-		let isDesktopView = false;
-		try {
-			await desktopTable.waitFor({ state: "visible", timeout: 1000 });
-			isDesktopView = true;
-		} catch (_e) {
-			isDesktopView = false;
-		}
-
-		if (isDesktopView) {
-			console.log("Desktop table view detected, looking for transaction-item");
-			const transactionItems = await this.authenticatedPage.page
-				.locator('[data-test-id="transaction-item"]')
-				.all();
-
-			for (const item of transactionItems) {
-				const text = await item.textContent();
-				if (text && text.includes(description)) {
-					console.log(`Found transaction to expand (desktop): ${description}`);
-					targetItem = item;
-					transactionId = await item.getAttribute("data-transaction-id");
-					break;
-				}
-			}
-		} else {
-			let isMobileView = false;
-			try {
-				await mobileCards.waitFor({ state: "visible", timeout: 1000 });
-				isMobileView = true;
-			} catch (_e) {
-				isMobileView = false;
-			}
-
-			if (isMobileView) {
-				console.log("Mobile cards view detected, looking for transaction-card");
-				const transactionCards = await this.authenticatedPage.page
-					.locator('[data-test-id="transaction-card"]')
-					.all();
-
-				for (const card of transactionCards) {
-					const text = await card.textContent();
-					if (text && text.includes(description)) {
-						console.log(`Found transaction to expand (mobile): ${description}`);
-						targetItem = card;
-						transactionId = await card.getAttribute("data-transaction-id");
-						break;
-					}
-				}
-			} else {
-				throw new Error(
-					"Neither desktop table nor mobile cards view is visible",
-				);
-			}
-		}
-
-		if (!targetItem) {
-			throw new Error(`Transaction not found: ${description}`);
-		}
-
-		console.log(`Transaction ID: ${transactionId}`);
-
-		// Click to expand the transaction
-		await targetItem.click();
-
-		// Wait for transaction details to appear - find the visible one
-		await this.authenticatedPage.page.waitForTimeout(1000); // Allow animation to complete
-
-		// Look for the specific transaction details using the transaction ID
-		let detailsContainer = null;
-		const detailsContainers = await this.authenticatedPage.page
-			.locator(`[data-test-id="transaction-details-${transactionId}"]`)
-			.all();
-
-		console.log(
-			`Found ${detailsContainers.length} transaction details containers for ${transactionId}`,
-		);
-
-		// Find the visible container (important for mobile where there might be multiple)
-		for (const dc of detailsContainers) {
-			try {
-				await dc.waitFor({ state: "visible", timeout: 2000 });
-				detailsContainer = dc;
-				console.log(
-					`Found visible transaction details container for ${transactionId}`,
-				);
-				break;
-			} catch (_e) {
-				// Container not visible, continue searching
-			}
-		}
-
-		if (!detailsContainer && detailsContainers.length > 0) {
-			console.log(
-				`No visible containers found, using first container as fallback`,
-			);
-			detailsContainer = detailsContainers[0];
-		}
-
-		if (!detailsContainer) {
-			console.log(`No details container found for: ${description}`);
-			return;
-		}
+    console.log("Verifying transaction details for:", description);
+    const { targetItem, transactionId } = await this.findTransactionTarget(description);
+    await targetItem.click();
+    await this.authenticatedPage.page.waitForTimeout(1000);
+    const detailsContainer = await this.getVisibleDetailsContainer(transactionId);
+    if (!detailsContainer) {
+      console.log(`No details container found for: ${description}`);
+      return;
+    }
 
 		console.log(`Expanded transaction details found for: ${description}`);
 		// Verify each required section exists using data-test-id

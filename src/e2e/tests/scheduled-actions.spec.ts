@@ -59,6 +59,32 @@ test.describe("Scheduled Actions", () => {
     await helper.expectActionCardVisible({ description: "Gym membership", containsText: "WEEKLY" });
   });
 
+  test("toggle action active/inactive from list", async ({ authenticatedPage }) => {
+    const helper = new ScheduledActionsTestHelper(authenticatedPage);
+    await helper.createExpenseAction({ description: "Toggle me", amount: 5 });
+    await helper.gotoListPage();
+    // Initially active: status dot is green, button should say Deactivate
+    const card = authenticatedPage.page
+      .locator(".settings-card")
+      .filter({ hasText: "Toggle me" })
+      .first();
+    await expect(card).toBeVisible();
+
+    // Click the toggle button to deactivate
+    const actionId = await helper.getActionIdFromCard("Toggle me");
+    const toggleBtn = actionId
+      ? authenticatedPage.page.locator(`[data-test-id="sa-toggle-${actionId}"]`)
+      : card.locator('[data-test-id^="sa-toggle-"]').first();
+    await toggleBtn.click();
+
+    // After toggle, the button aria-label should flip to Activate action
+    await expect(toggleBtn).toHaveAttribute("aria-label", /Activate action/i);
+
+    // Toggle back to active and expect aria-label to flip to Deactivate action
+    await toggleBtn.click();
+    await expect(toggleBtn).toHaveAttribute("aria-label", /Deactivate action/i);
+  });
+
   test("delete flow: cancel then confirm", async ({ authenticatedPage }) => {
     const helper = new ScheduledActionsTestHelper(authenticatedPage);
     await helper.createExpenseAction({ description: "To be deleted", amount: 10 });

@@ -40,6 +40,56 @@ export const Trash: React.FC<IconProps> = ({
 	</svg>
 );
 
+export const Play: React.FC<IconProps> = ({
+	size = 16,
+	color = "currentColor",
+	className = "",
+	style,
+	onClick,
+	...additionalProps
+}) => (
+	<svg
+		width={size}
+		height={size}
+		fill={color}
+		className={`icon icon-play ${className}`}
+		viewBox="0 0 16 16"
+		aria-label="Activate"
+		style={style}
+		onClick={onClick}
+		role={onClick ? "button" : undefined}
+		tabIndex={onClick ? 0 : undefined}
+		{...additionalProps}
+	>
+		<path d="M3 2 L13 8 L3 14 Z" />
+	</svg>
+);
+
+export const Pause: React.FC<IconProps> = ({
+	size = 16,
+	color = "currentColor",
+	className = "",
+	style,
+	onClick,
+	...additionalProps
+}) => (
+	<svg
+		width={size}
+		height={size}
+		fill={color}
+		className={`icon icon-pause ${className}`}
+		viewBox="0 0 16 16"
+		aria-label="Deactivate"
+		style={style}
+		onClick={onClick}
+		role={onClick ? "button" : undefined}
+		tabIndex={onClick ? 0 : undefined}
+		{...additionalProps}
+	>
+		<path d="M3 2 H7 V14 H3 Z M9 2 H13 V14 H9 Z" />
+	</svg>
+);
+
 export const Calendar: React.FC<IconProps> = ({
 	size = 16,
 	color = "currentColor",

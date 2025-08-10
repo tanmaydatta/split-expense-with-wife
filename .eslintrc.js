@@ -13,6 +13,7 @@ module.exports = {
 			},
 		],
 		"no-unused-vars": "off",
+		"max-depth": ["warn", { max: 3 }],
 	},
 	ignorePatterns: [
 		"build/**",

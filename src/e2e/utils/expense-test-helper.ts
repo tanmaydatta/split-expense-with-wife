@@ -1,6 +1,5 @@
 import { expect } from "@playwright/test";
-import { getCITimeout } from "./test-utils";
-import { TestHelper, getCurrentUserId } from "./test-utils";
+import { TestHelper, getCITimeout, getCurrentUserId } from "./test-utils";
 
 // Shared helper class for expense operations
 export class ExpenseTestHelper {
@@ -121,116 +120,123 @@ export class ExpenseTestHelper {
 		let attempts = 0;
 		const maxAttempts = 5;
 
-		// Try to find the expense, using pagination if needed
 		while (!expenseFound && attempts <= maxAttempts) {
 			attempts++;
 			console.log(`Attempt ${attempts} to find expense: ${description}`);
 
-			// Look for the expense using only data-test-id attributes
-			const expenseSelectors = [
-				'[data-test-id="transaction-item"]',
-				'[data-test-id="expense-item"]',
-				'[data-test-id="transaction-card"]',
-			];
+			expenseFound =
+				(await this.checkSelectorsForMatch(
+					description,
+					amount,
+					expectedShare,
+				)) ||
+				(await this.checkBroaderContainer(description, amount, expectedShare));
 
-			for (const selector of expenseSelectors) {
-				const expenseItems = this.authenticatedPage.page.locator(selector);
-				const count = await expenseItems.count();
-
-				if (count > 0) {
-					console.log(
-						`Found ${count} expense items with selector: ${selector}`,
-					);
-
-					// Check each expense item for our description
-					for (let i = 0; i < count; i++) {
-						const item = expenseItems.nth(i);
-						const text = await item.textContent();
-						if (text && text.includes(description)) {
-							console.log(`Found expense with description: ${description}`);
-
-							// Verify it also contains the amount and share
-							const hasAmount = text.includes(amount);
-							const hasShare = !expectedShare || text.includes(expectedShare);
-
-							if (hasAmount && hasShare) {
-								if (expectedShare) {
-									console.log(
-										`Verified amount ${amount} and share ${expectedShare} in expense`,
-									);
-								} else {
-									console.log(`Verified amount ${amount} in expense`);
-								}
-								expenseFound = true;
-								break;
-							}
-						}
-					}
-
-					if (expenseFound) break;
-				}
-			}
-
-			// If not found with specific selectors, try broader search on the expenses container
 			if (!expenseFound) {
-				console.log("Trying broader search for expense in expenses container");
-				const expensesContainer = this.authenticatedPage.page.locator(
-					'[data-test-id="expenses-container"]',
-				);
-				try {
-					await expensesContainer.waitFor({ state: "visible", timeout: 2000 });
-					const containerText = await expensesContainer.textContent();
-					const hasDescription =
-						containerText && containerText.includes(description);
-					const hasAmount = containerText && containerText.includes(amount);
-					const hasShare =
-						!expectedShare ||
-						(containerText && containerText.includes(expectedShare));
-
-					if (hasDescription && hasAmount && hasShare) {
-						if (expectedShare) {
-							console.log(
-								`Found expense in expenses container: ${description} with amount ${amount} and share ${expectedShare}`,
-							);
-						} else {
-							console.log(
-								`Found expense in expenses container: ${description} with amount ${amount}`,
-							);
-						}
-						expenseFound = true;
-					}
-				} catch (_e) {
-					console.log("Expenses container not visible, continuing search");
-				}
-			}
-
-			// If still not found and we have attempts left, try clicking "Show more"
-			if (!expenseFound && attempts <= maxAttempts) {
-				console.log(
-					`Expense not found on attempt ${attempts}, looking for "Show more" button`,
-				);
-
-				// Look for "Show more" button using data-test-id
-				const showMoreButton = this.authenticatedPage.page.locator(
-					'[data-test-id="show-more-button"]',
-				);
-				await expect(this.authenticatedPage.page).toHaveURL("/expenses");
-				try {
-					// Wait up to 15 s for the button to appear (covers slow CI environments)
-					await showMoreButton.waitFor({ state: "visible", timeout: 15000 });
-					console.log("Clicking 'Show more' button to load more expenses");
-					await showMoreButton.click();
-					await this.authenticatedPage.page.waitForTimeout(2000); // Wait for new expenses to load
-				} catch (_e) {
-					console.log(
-						"No 'Show more' button found after waiting, stopping pagination attempts",
-					);
-					break;
-				}
+				const paginated = await this.tryPaginate();
+				if (!paginated) break;
 			}
 		}
 
 		expect(expenseFound).toBe(true);
+	}
+
+	private async checkSelectorsForMatch(
+		description: string,
+		amount: string,
+		expectedShare?: string,
+	): Promise<boolean> {
+		const selectors = [
+			'[data-test-id="transaction-item"]',
+			'[data-test-id="expense-item"]',
+			'[data-test-id="transaction-card"]',
+		];
+		for (const selector of selectors) {
+			const expenseItems = this.authenticatedPage.page.locator(selector);
+			const count = await expenseItems.count();
+			if (count === 0) continue;
+			console.log(`Found ${count} expense items with selector: ${selector}`);
+			const matched = await this.findMatchInItems(
+				expenseItems,
+				description,
+				amount,
+				expectedShare,
+			);
+			if (matched) return true;
+		}
+		return false;
+	}
+
+	private async checkBroaderContainer(
+		description: string,
+		amount: string,
+		expectedShare?: string,
+	): Promise<boolean> {
+		console.log("Trying broader search for expense in expenses container");
+		const expensesContainer = this.authenticatedPage.page.locator(
+			'[data-test-id="expenses-container"]',
+		);
+		try {
+			await expensesContainer.waitFor({ state: "visible", timeout: 2000 });
+			const containerText = await expensesContainer.textContent();
+			const hasDescription = containerText?.includes(description) ?? false;
+			const hasAmount = containerText?.includes(amount) ?? false;
+			const hasShare =
+				!expectedShare || containerText?.includes(expectedShare) || false;
+			if (hasDescription && hasAmount && hasShare) {
+				if (expectedShare) {
+					console.log(
+						`Found expense in expenses container: ${description} with amount ${amount} and share ${expectedShare}`,
+					);
+				} else {
+					console.log(
+						`Found expense in expenses container: ${description} with amount ${amount}`,
+					);
+				}
+				return true;
+			}
+		} catch (_e) {
+			console.log("Expenses container not visible, continuing search");
+		}
+		return false;
+	}
+
+	private async tryPaginate(): Promise<boolean> {
+		console.log(`Expense not found, looking for "Show more" button`);
+		const showMoreButton = this.authenticatedPage.page.locator(
+			'[data-test-id="show-more-button"]',
+		);
+		await expect(this.authenticatedPage.page).toHaveURL("/expenses");
+		try {
+			await showMoreButton.waitFor({ state: "visible", timeout: 15000 });
+			console.log("Clicking 'Show more' button to load more expenses");
+			await showMoreButton.click();
+			await this.authenticatedPage.page.waitForTimeout(2000);
+			return true;
+		} catch (_e) {
+			console.log(
+				"No 'Show more' button found after waiting, stopping pagination attempts",
+			);
+			return false;
+		}
+	}
+
+	private async findMatchInItems(
+		items: ReturnType<TestHelper["page"]["locator"]>,
+		description: string,
+		amount: string,
+		expectedShare?: string,
+	): Promise<boolean> {
+		const count = await items.count();
+		for (let i = 0; i < count; i++) {
+			const item = items.nth(i);
+			const text = await item.textContent();
+			if (!text || !text.includes(description)) continue;
+			const hasAmount = text.includes(amount);
+			const hasShare = !expectedShare || text.includes(expectedShare);
+			if (hasAmount && hasShare) return true;
+		}
+		return false;
 	}
 
 	async verifyExpenseNotPresent(description: string) {
@@ -377,11 +383,60 @@ export class ExpenseTestHelper {
 		}
 		await this.authenticatedPage.page.reload();
 		await this.authenticatedPage.page.waitForTimeout(2000);
-		// First find the expense entry
+		// Find the expense entry
 		let expenseFound = false;
-		let deleteButton = null;
+		let deleteButton: ReturnType<
+			typeof this.authenticatedPage.page.locator
+		> | null = null;
 		let attempts = 0;
 		const maxAttempts = 8;
+
+		const findDeleteButtonMobile = async () => {
+			const cards = this.authenticatedPage.page.locator(
+				'[data-test-id="transaction-card"]',
+			);
+			const count = await cards.count();
+			for (let i = 0; i < count; i++) {
+				const card = cards.nth(i);
+				const text = await card.textContent();
+				if (!text || !text.includes(description)) continue;
+				const btn = card.locator('[data-test-id="delete-button"]');
+				await btn.waitFor({ state: "visible", timeout: 2000 }).catch(() => {});
+				return btn;
+			}
+			return null;
+		};
+
+		const findDeleteButtonDesktop = async () => {
+			const rows = this.authenticatedPage.page.locator(
+				'[data-test-id="transaction-item"]',
+			);
+			const count = await rows.count();
+			for (let i = 0; i < count; i++) {
+				const row = rows.nth(i);
+				const text = await row.textContent();
+				if (!text || !text.includes(description)) continue;
+				const btn = row.locator('[data-test-id="delete-button"]');
+				await btn.waitFor({ state: "visible", timeout: 2000 }).catch(() => {});
+				return btn;
+			}
+			return null;
+		};
+
+		const clickShowMoreIfPresent = async (): Promise<boolean> => {
+			const button = this.authenticatedPage.page.locator(
+				'[data-test-id="show-more-button"]',
+			);
+			try {
+				await button.waitFor({ state: "visible", timeout: 10000 });
+				console.log("Clicking 'Show more' button to load more expenses");
+				await button.click();
+				await this.verifyExpensesPageComponents();
+				return true;
+			} catch {
+				return false;
+			}
+		};
 
 		while (!expenseFound && attempts <= maxAttempts) {
 			attempts++;
@@ -389,84 +444,14 @@ export class ExpenseTestHelper {
 				`Attempt ${attempts} to find expense for deletion: ${description}`,
 			);
 
-			// Check viewport to determine if we're on mobile or desktop
 			const isMobile = await this.authenticatedPage.isMobile();
-
-			if (isMobile) {
-				// On mobile, look for the card with the description and find its delete button
-				const expenseCards = this.authenticatedPage.page.locator(
-					'[data-test-id="transaction-card"]',
-				);
-				const cardCount = await expenseCards.count();
-
-				for (let i = 0; i < cardCount; i++) {
-					const card = expenseCards.nth(i);
-					const text = await card.textContent();
-					if (text && text.includes(description)) {
-						// Mobile uses button with data-test-id="delete-button"
-						deleteButton = card.locator('[data-test-id="delete-button"]');
-						try {
-							await deleteButton.waitFor({ state: "visible", timeout: 2000 });
-							expenseFound = true;
-							console.log(
-								`Found expense for deletion on mobile: ${description}`,
-							);
-							break;
-						} catch (_e) {
-							// Delete button not visible, continue searching
-						}
-					}
-				}
-			} else {
-				// On desktop, look for the table row with the description and find its delete button
-				const expenseRows = this.authenticatedPage.page.locator(
-					'[data-test-id="transaction-item"]',
-				);
-				const rowCount = await expenseRows.count();
-
-				for (let i = 0; i < rowCount; i++) {
-					const row = expenseRows.nth(i);
-					const text = await row.textContent();
-					if (text && text.includes(description)) {
-						// Desktop uses delete button with data-test-id="delete-button"
-						deleteButton = row.locator('[data-test-id="delete-button"]');
-						try {
-							await deleteButton.waitFor({ state: "visible", timeout: 2000 });
-							expenseFound = true;
-							console.log(
-								`Found expense for deletion on desktop: ${description}`,
-							);
-							break;
-						} catch (_e) {
-							// Delete button not visible, continue searching
-						}
-					}
-				}
-			}
-
-			// If we found the expense and delete button, proceed with deletion
-			if (expenseFound && deleteButton) {
-				break; // Exit the search loop
-			}
-
-			// If not found and we have attempts left, try clicking "Show more"
-			if (!expenseFound && attempts <= maxAttempts) {
-				const showMoreButton = this.authenticatedPage.page.locator(
-					'[data-test-id="show-more-button"]',
-				);
-				try {
-					await showMoreButton.waitFor({ state: "visible", timeout: 10000 });
-					console.log("Clicking 'Show more' button to load more expenses");
-					await showMoreButton.click();
-					// Wait for new expenses to load instead of fixed timeout
-					await this.verifyExpensesPageComponents();
-				} catch (_e) {
-					console.log(
-						"No 'Show more' button found after waiting, stopping pagination attempts",
-					);
-					break;
-				}
-			}
+			deleteButton = isMobile
+				? await findDeleteButtonMobile()
+				: await findDeleteButtonDesktop();
+			expenseFound = !!deleteButton;
+			if (expenseFound) break;
+			const paged = await clickShowMoreIfPresent();
+			if (!paged) break;
 		}
 
 		// Expect that we found the expense for deletion
