@@ -156,8 +156,8 @@ const ScheduledActionsHistory: React.FC<Props> = ({
 							Next: <strong>{upcoming || "—"}</strong>
 						</Subtext>
 					</UpcomingLeft>
-                    <ControlsBar>
-                        <RunButton
+					<ControlsBar>
+						<RunButton
 							onClick={() => {
 								if (!scheduledActionId || runNow.isPending) return;
 								runNow.mutate({ id: scheduledActionId });
@@ -167,8 +167,8 @@ const ScheduledActionsHistory: React.FC<Props> = ({
 							disabled={runNow.isPending}
 						>
 							{runNow.isPending ? "Running…" : "Run now"}
-                        </RunButton>
-                        <SkipButton
+						</RunButton>
+						<SkipButton
 							onClick={() => {
 								if (!scheduledActionId || isSaving) return;
 								updateAction.mutate({
@@ -181,8 +181,8 @@ const ScheduledActionsHistory: React.FC<Props> = ({
 							disabled={isSaving}
 						>
 							{isSaving ? "Saving…" : "Skip next"}
-                        </SkipButton>
-                        <DateInput
+						</SkipButton>
+						<DateInput
 							id="custom-next-date"
 							type="date"
 							aria-label="Custom next date"
@@ -192,7 +192,7 @@ const ScheduledActionsHistory: React.FC<Props> = ({
 							}
 							data-test-id="sa-custom-next-date-input"
 						/>
-                        <SetButton
+						<SetButton
 							onClick={() => {
 								if (!scheduledActionId || !customDate || isSaving) return;
 								updateAction.mutate({
@@ -205,8 +205,8 @@ const ScheduledActionsHistory: React.FC<Props> = ({
 							data-test-id="sa-set-custom-next"
 						>
 							{isSaving ? "Saving…" : "Set date"}
-                        </SetButton>
-                    </ControlsBar>
+						</SetButton>
+					</ControlsBar>
 				</UpcomingContainer>
 			</Card>
 			{isLoading && <div>Loading...</div>}
