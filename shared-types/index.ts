@@ -394,6 +394,10 @@ export interface ApiEndpoints {
 		request: ScheduledActionHistoryListRequest;
 		response: ScheduledActionHistoryListResponse;
 	};
+	"/scheduled-actions/run": {
+		request: { id: string };
+		response: { message: string; workflowInstanceId: string };
+	};
 }
 
 // Type-safe API client interface
@@ -489,6 +493,10 @@ export interface UpdateScheduledActionRequest {
 	frequency?: ScheduledActionFrequency;
 	startDate?: string;
 	actionData?: AddExpenseActionData | AddBudgetActionData;
+	// New: allow explicitly setting the next run date
+	nextExecutionDate?: string; // ISO date YYYY-MM-DD
+	// New: convenience flag to skip the next run (advance by one period)
+	skipNext?: boolean;
 }
 
 export interface ScheduledActionDeleteRequest {
@@ -572,20 +580,35 @@ export const CreateScheduledActionSchema = z.object({
 	actionData: z.union([AddExpenseActionSchema, AddBudgetActionSchema]),
 });
 
-export const UpdateScheduledActionSchema = z.object({
-	id: z.string().min(1),
-	isActive: z.boolean().optional(),
-	frequency: z
-		.union([z.literal("daily"), z.literal("weekly"), z.literal("monthly")])
-		.optional(),
-	startDate: z
-		.string()
-		.regex(/^\d{4}-\d{2}-\d{2}$/)
-		.optional(),
-	actionData: z
-		.union([AddExpenseActionSchema, AddBudgetActionSchema])
-		.optional(),
-});
+export const UpdateScheduledActionSchema = z
+	.object({
+		id: z.string().min(1),
+		isActive: z.boolean().optional(),
+		frequency: z
+			.union([z.literal("daily"), z.literal("weekly"), z.literal("monthly")])
+			.optional(),
+		startDate: z
+			.string()
+			.regex(/^\d{4}-\d{2}-\d{2}$/)
+			.optional(),
+		actionData: z
+			.union([AddExpenseActionSchema, AddBudgetActionSchema])
+			.optional(),
+		nextExecutionDate: z
+			.string()
+			.regex(/^\d{4}-\d{2}-\d{2}$/)
+			.optional(),
+		skipNext: z.boolean().optional(),
+	})
+	.superRefine((data, ctx) => {
+		if (data.nextExecutionDate && data.skipNext) {
+			ctx.addIssue({
+				code: "custom",
+				message: "Provide only one of nextExecutionDate or skipNext",
+				path: ["nextExecutionDate"],
+			});
+		}
+	});
 
 export const ScheduledActionListQuerySchema = z.object({
 	offset: z.coerce

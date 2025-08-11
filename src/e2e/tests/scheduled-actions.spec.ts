@@ -128,6 +128,77 @@ test.describe("Scheduled Actions", () => {
     ).toBeVisible();
   });
 
+  test("history page shows upcoming date and allows skip and custom next date", async ({ authenticatedPage }) => {
+    const helper = new ScheduledActionsTestHelper(authenticatedPage);
+    await helper.createExpenseAction({ description: "Skip me", amount: 5 });
+    await helper.openHistoryForAction("Skip me");
+
+    // Capture current upcoming date
+    const upcomingText = await authenticatedPage.page
+      .locator('[data-test-id="sa-history"] .settings-card:has-text("Upcoming run")')
+      .textContent();
+    const currentMatch = (upcomingText || '').match(/Next:\s*(\d{4}-\d{2}-\d{2})/);
+    const currentNext = currentMatch ? currentMatch[1] : undefined;
+
+    // Click skip next
+    await authenticatedPage.page.getByTestId('sa-skip-next').click();
+    await authenticatedPage.page.waitForTimeout(300); // allow re-render
+
+    // Expect next date to change
+    const upcomingText2 = await authenticatedPage.page
+      .locator('[data-test-id="sa-history"] .settings-card:has-text("Upcoming run")')
+      .textContent();
+    const newMatch = (upcomingText2 || '').match(/Next:\s*(\d{4}-\d{2}-\d{2})/);
+    const newNext = newMatch ? newMatch[1] : undefined;
+    expect(newNext).not.toBe(currentNext);
+
+    // Set custom next date = today + 5 days for determinism in CI window
+    const plusDays = (days: number) => {
+      const d = new Date();
+      d.setUTCDate(d.getUTCDate() + days);
+      return d.toISOString().split('T')[0];
+    };
+    const customDate = plusDays(5);
+    await authenticatedPage.page.getByTestId('sa-custom-next-date-input').fill(customDate);
+    await authenticatedPage.page.getByTestId('sa-set-custom-next').click();
+    await authenticatedPage.page.waitForTimeout(2000);
+
+    const upcomingText3 = await authenticatedPage.page
+      .locator('[data-test-id="sa-history"] .settings-card:has-text("Upcoming run")')
+      .textContent();
+    expect(upcomingText3).toContain(`Next: ${customDate}`);
+  });
+
+  test("run now from history triggers immediate run", async ({ authenticatedPage }) => {
+    const helper = new ScheduledActionsTestHelper(authenticatedPage);
+    await helper.createExpenseAction({ description: "Run Now", amount: 3 });
+    await helper.openHistoryForAction("Run Now");
+
+    // Capture current upcoming date
+    const beforeText = await authenticatedPage.page
+      .locator('[data-test-id="sa-history"] .settings-card:has-text("Upcoming run")')
+      .textContent();
+    const beforeMatch = (beforeText || '').match(/Next:\s*(\d{4}-\d{2}-\d{2})/);
+    const beforeNext = beforeMatch ? beforeMatch[1] : undefined;
+
+    // Run now
+    const btn = authenticatedPage.page.getByTestId("sa-run-now");
+    await btn.click();
+
+    // Wait briefly and refresh the page to pick up new nextExecutionDate
+    await authenticatedPage.page.waitForTimeout(5000);
+    await authenticatedPage.page.reload();
+    await authenticatedPage.page.waitForTimeout(2000);
+    const afterText = await authenticatedPage.page
+      .locator('[data-test-id="sa-history"] .settings-card:has-text("Upcoming run")')
+      .textContent();
+    const afterMatch = (afterText || '').match(/Next:\s*(\d{4}-\d{2}-\d{2})/);
+    const afterNext = afterMatch ? afterMatch[1] : undefined;
+
+    expect(afterNext).toBeTruthy();
+    expect(afterNext).not.toBe(beforeNext);
+  });
+
   test("new action defaults match group defaults", async ({ authenticatedPage }) => {
     const helper = new ScheduledActionsTestHelper(authenticatedPage);
     const expectedPercentages = await getCurrentUserPercentages(authenticatedPage);

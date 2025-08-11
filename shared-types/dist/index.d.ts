@@ -346,9 +346,7 @@ export interface ApiEndpoints {
 		};
 	};
 	"/scheduled-actions/delete": {
-		request: {
-			id: string;
-		};
+		request: ScheduledActionDeleteRequest;
 		response: {
 			message: string;
 		};
@@ -440,6 +438,11 @@ export interface UpdateScheduledActionRequest {
 	frequency?: ScheduledActionFrequency;
 	startDate?: string;
 	actionData?: AddExpenseActionData | AddBudgetActionData;
+	nextExecutionDate?: string;
+	skipNext?: boolean;
+}
+export interface ScheduledActionDeleteRequest {
+	id: string;
 }
 export interface ScheduledActionListRequest {
 	offset?: number;
@@ -579,6 +582,8 @@ export declare const UpdateScheduledActionSchema: z.ZodObject<
 				]
 			>
 		>;
+		nextExecutionDate: z.ZodOptional<z.ZodString>;
+		skipNext: z.ZodOptional<z.ZodBoolean>;
 	},
 	z.core.$strip
 >;

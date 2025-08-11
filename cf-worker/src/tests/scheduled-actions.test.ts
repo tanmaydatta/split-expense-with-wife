@@ -591,6 +591,79 @@ describe("Scheduled Actions Handlers", () => {
 				},
 				nextExecutionDate: "2024-01-01",
 			});
+
+  describe("handleScheduledActionRunNow", () => {
+    it("should trigger processor workflow for the action", async () => {
+      const db = getDb(env);
+      const now = "2024-03-15T10:30:00.000Z";
+      const actionId = ulid();
+      await db.insert(scheduledActions).values({
+        id: actionId,
+        userId: TEST_USERS.user1.id,
+        actionType: "add_expense",
+        frequency: "weekly",
+        startDate: "2024-01-01",
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+        actionData: {
+          amount: 5,
+          description: "Instant",
+          currency: "USD",
+          paidByUserId: TEST_USERS.user1.id,
+          splitPctShares: { [TEST_USERS.user1.id]: 100 },
+        },
+        nextExecutionDate: "2024-01-01",
+      });
+
+      // Mock workflow binding
+      // biome-ignore lint/suspicious/noExplicitAny: test env
+      (env as any).PROCESSOR_WORKFLOW = {
+        create: vi.fn().mockResolvedValue({ id: "wf-immediate" }),
+      } as any;
+
+      const response = await worker.fetch(
+        createTestRequest("scheduled-actions/run", "POST", { id: actionId }, userCookies),
+        env,
+        createExecutionContext(),
+      );
+      expect(response.status).toBe(200);
+      const body = (await response.json()) as { workflowInstanceId: string };
+      expect(body.workflowInstanceId).toContain("immediate-");
+    });
+
+    it("should reject run when user is from another group", async () => {
+      const db = getDb(env);
+      const now = "2024-03-15T10:30:00.000Z";
+      const actionId = ulid();
+      await db.insert(scheduledActions).values({
+        id: actionId,
+        userId: TEST_USERS.user1.id,
+        actionType: "add_expense",
+        frequency: "weekly",
+        startDate: "2024-01-01",
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+        actionData: {
+          amount: 5,
+          description: "Instant",
+          currency: "USD",
+          paidByUserId: TEST_USERS.user1.id,
+          splitPctShares: { [TEST_USERS.user1.id]: 100 },
+        },
+        nextExecutionDate: "2024-01-01",
+      });
+
+      const outsider = await createUserInNewGroup(env);
+      const response = await worker.fetch(
+        createTestRequest("scheduled-actions/run", "POST", { id: actionId }, outsider.cookies),
+        env,
+        createExecutionContext(),
+      );
+      expect(response.status).toBe(404);
+    });
+  });
 		});
 
 		it("should update scheduled action isActive status", async () => {
@@ -653,6 +726,71 @@ describe("Scheduled Actions Handlers", () => {
 			expect(actions[0].frequency).toBe("daily");
 			// nextExecutionDate should be recalculated
 			expect(actions[0].nextExecutionDate).not.toBe("2024-01-01");
+		});
+
+		it("should allow skipping the next run by one period", async () => {
+			// Arrange: set a known nextExecutionDate
+			const db = getDb(env);
+			await db
+				.update(scheduledActions)
+				.set({ nextExecutionDate: "2024-01-08" })
+				.where(eq(scheduledActions.id, actionId));
+
+			const updateRequest: any = {
+				id: actionId,
+				skipNext: true,
+			};
+
+			const response = await worker.fetch(
+				createTestRequest("scheduled-actions/update", "PUT", updateRequest, userCookies),
+				env,
+				createExecutionContext(),
+			);
+			expect(response.status).toBe(200);
+
+			const actions = await db
+				.select()
+				.from(scheduledActions)
+				.where(eq(scheduledActions.id, actionId));
+			expect(actions[0].nextExecutionDate).toBe("2024-01-15");
+		});
+
+		it("should allow setting a custom nextExecutionDate explicitly", async () => {
+			const db = getDb(env);
+			const updateRequest: any = {
+				id: actionId,
+				nextExecutionDate: "2024-02-01",
+			};
+
+			const response = await worker.fetch(
+				createTestRequest("scheduled-actions/update", "PUT", updateRequest, userCookies),
+				env,
+				createExecutionContext(),
+			);
+			expect(response.status).toBe(200);
+
+			const actions = await db
+				.select()
+				.from(scheduledActions)
+				.where(eq(scheduledActions.id, actionId));
+			expect(actions[0].nextExecutionDate).toBe("2024-02-01");
+		});
+
+		it("should reject update when both nextExecutionDate and skipNext are provided", async () => {
+			const updateRequest: any = {
+				id: actionId,
+				nextExecutionDate: "2024-02-01",
+				skipNext: true,
+			};
+
+			const response = await worker.fetch(
+				createTestRequest("scheduled-actions/update", "PUT", updateRequest, userCookies),
+				env,
+				createExecutionContext(),
+			);
+			expect(response.status).toBe(400);
+			const result = (await response.json()) as { error: string };
+			expect(result.error).toContain("only one of nextExecutionDate or skipNext");
 		});
 
 		it("should reject update of non-existent action", async () => {

@@ -23,6 +23,7 @@ import {
 	formatZodError,
 	withAuth,
 } from "../utils";
+import { triggerImmediateRun } from "../workflows/scheduled-actions-processor";
 
 // The database now returns properly typed JSON, so we don't need custom row types
 
@@ -330,6 +331,8 @@ export async function handleScheduledActionUpdate(
 
 		// ID validation handled by Zod schema
 
+		// Exclusivity is enforced by Zod schema now
+
 		// Check if action exists and belongs to user
 		const existingAction = await db
 			.select()
@@ -400,8 +403,29 @@ export async function handleScheduledActionUpdate(
 				| AddBudgetActionData;
 		}
 
-		// Recalculate next execution date if frequency or start date changed
-		if (body.frequency || body.startDate) {
+		// 1) If explicit nextExecutionDate provided, accept it as-is
+		if (body.nextExecutionDate) {
+			updateData.nextExecutionDate = body.nextExecutionDate;
+		}
+
+		// 2) If skipNext is requested, compute next using calculateNextExecutionDate
+		if (body.skipNext) {
+			const current = existingAction[0];
+			const currentNext = current.nextExecutionDate;
+			const freq = (body.frequency || current.frequency) as
+				| "daily"
+				| "weekly"
+				| "monthly";
+			// Use currentNext as both start and now to advance by exactly one period
+			updateData.nextExecutionDate = calculateNextExecutionDate(
+				currentNext,
+				freq,
+				new Date(currentNext),
+			);
+		}
+
+		// 3) Recalculate next execution date if frequency or start date changed (and not already set above)
+		if ((body.frequency || body.startDate) && !updateData.nextExecutionDate) {
 			const newFrequency = body.frequency || existingAction[0].frequency;
 			const newStartDate = body.startDate || existingAction[0].startDate;
 			updateData.nextExecutionDate = calculateNextExecutionDate(
@@ -656,5 +680,52 @@ export async function handleScheduledActionHistoryDetails(
 		}
 
 		return createJsonResponse(rows[0], 200, {}, request, env);
+	});
+}
+
+export async function handleScheduledActionRunNow(
+	request: Request,
+	env: Env,
+): Promise<Response> {
+	return withAuth(request, env, async (session, db) => {
+		const group = session.group;
+		if (!group) {
+			return createErrorResponse("User not in a group", 400, request, env);
+		}
+		const json = (await request.json()) as { id?: string };
+		const id = json?.id;
+		if (!id) {
+			return createErrorResponse("Missing id", 400, request, env);
+		}
+		// Validate ownership: action must belong to a user in the same group
+		const rows = await db
+			.select()
+			.from(scheduledActions)
+			.where(
+				and(
+					eq(scheduledActions.id, id),
+					inArray(scheduledActions.userId, group.userids),
+				),
+			)
+			.limit(1);
+		if (rows.length === 0) {
+			return createErrorResponse(
+				"Scheduled action not found",
+				404,
+				request,
+				env,
+			);
+		}
+		// Use the action's nextExecutionDate as the trigger date (00:00:00 time)
+		const nextDate = rows[0].nextExecutionDate;
+		const triggerDate = `${nextDate} 00:00:00`;
+		const workflowInstanceId = await triggerImmediateRun(env, id, triggerDate);
+		return createJsonResponse(
+			{ message: "Run started", workflowInstanceId },
+			200,
+			{},
+			request,
+			env,
+		);
 	});
 }

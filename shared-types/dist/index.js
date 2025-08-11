@@ -21,7 +21,7 @@ export const AddExpenseActionSchema = z.object({
 	amount: z.number().positive(),
 	description: z.string().min(2).max(100),
 	currency: z.string(),
-	paidByUserId: z.string(),
+	paidByUserId: z.string().min(1),
 	splitPctShares: z
 		.record(z.string(), z.number())
 		.refine(
@@ -47,20 +47,35 @@ export const CreateScheduledActionSchema = z.object({
 	startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
 	actionData: z.union([AddExpenseActionSchema, AddBudgetActionSchema]),
 });
-export const UpdateScheduledActionSchema = z.object({
-	id: z.string().min(1),
-	isActive: z.boolean().optional(),
-	frequency: z
-		.union([z.literal("daily"), z.literal("weekly"), z.literal("monthly")])
-		.optional(),
-	startDate: z
-		.string()
-		.regex(/^\d{4}-\d{2}-\d{2}$/)
-		.optional(),
-	actionData: z
-		.union([AddExpenseActionSchema, AddBudgetActionSchema])
-		.optional(),
-});
+export const UpdateScheduledActionSchema = z
+	.object({
+		id: z.string().min(1),
+		isActive: z.boolean().optional(),
+		frequency: z
+			.union([z.literal("daily"), z.literal("weekly"), z.literal("monthly")])
+			.optional(),
+		startDate: z
+			.string()
+			.regex(/^\d{4}-\d{2}-\d{2}$/)
+			.optional(),
+		actionData: z
+			.union([AddExpenseActionSchema, AddBudgetActionSchema])
+			.optional(),
+		nextExecutionDate: z
+			.string()
+			.regex(/^\d{4}-\d{2}-\d{2}$/)
+			.optional(),
+		skipNext: z.boolean().optional(),
+	})
+	.superRefine((data, ctx) => {
+		if (data.nextExecutionDate && data.skipNext) {
+			ctx.addIssue({
+				code: "custom",
+				message: "Provide only one of nextExecutionDate or skipNext",
+				path: ["nextExecutionDate"],
+			});
+		}
+	});
 export const ScheduledActionListQuerySchema = z.object({
 	offset: z.coerce
 		.number()

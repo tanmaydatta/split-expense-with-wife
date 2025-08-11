@@ -21,9 +21,9 @@
 - multi person split
 - sessions api - d1
 - schedule actions
-    - set action as inactive
-    - skip next date
-    - set next date
+    - set action as inactive ✅
+    - skip next date ✅
+    - set next date ✅
     - run now
 - confirmation dialog on delete
 - scan receipt
