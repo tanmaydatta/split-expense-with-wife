@@ -1,4 +1,5 @@
 import { sql } from "drizzle-orm";
+import { ulid } from "ulid";
 import { auth } from "../auth";
 import { getDb } from "../db";
 import { account, session, user, verification } from "../db/schema/auth-schema";
@@ -108,7 +109,7 @@ export async function setupDatabase(env: Env): Promise<void> {
 
 	// User table (better-auth)
 	await env.DB.exec(
-		"CREATE TABLE IF NOT EXISTS user (id TEXT PRIMARY KEY, name TEXT NOT NULL, email TEXT NOT NULL UNIQUE, email_verified INTEGER NOT NULL DEFAULT 0, image TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, username TEXT UNIQUE, display_username TEXT, groupid INTEGER, first_name TEXT NOT NULL, last_name TEXT NOT NULL)",
+		"CREATE TABLE IF NOT EXISTS user (id TEXT PRIMARY KEY, name TEXT NOT NULL, email TEXT NOT NULL UNIQUE, email_verified INTEGER NOT NULL DEFAULT 0, image TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, username TEXT UNIQUE, display_username TEXT, groupid TEXT, first_name TEXT NOT NULL, last_name TEXT NOT NULL)",
 	);
 
 	// Session table (better-auth)
@@ -128,32 +129,32 @@ export async function setupDatabase(env: Env): Promise<void> {
 
 	// Create legacy tables (for backward compatibility during migration)
 	await env.DB.exec(
-		"CREATE TABLE IF NOT EXISTS budget (id INTEGER PRIMARY KEY AUTOINCREMENT, budget_id VARCHAR(100), description VARCHAR(100) NOT NULL, added_time DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL, price VARCHAR(100), amount REAL NOT NULL, name VARCHAR(100) NOT NULL, deleted DATETIME DEFAULT NULL, groupid INTEGER NOT NULL DEFAULT 1, currency VARCHAR(10) DEFAULT 'GBP' NOT NULL)",
+		"CREATE TABLE IF NOT EXISTS budget (id INTEGER PRIMARY KEY AUTOINCREMENT, budget_id VARCHAR(100), description VARCHAR(100) NOT NULL, added_time DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL, price VARCHAR(100), amount REAL NOT NULL, name VARCHAR(100) NOT NULL, deleted DATETIME DEFAULT NULL, groupid TEXT NOT NULL, currency VARCHAR(10) DEFAULT 'GBP' NOT NULL)",
 	);
 	await env.DB.exec(
-		"CREATE TABLE IF NOT EXISTS groups (groupid INTEGER PRIMARY KEY AUTOINCREMENT, group_name VARCHAR(50) NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, userids VARCHAR(1000), budgets VARCHAR(1000), metadata TEXT)",
+		"CREATE TABLE IF NOT EXISTS groups (groupid TEXT PRIMARY KEY, group_name VARCHAR(50) NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, userids VARCHAR(1000), budgets VARCHAR(1000), metadata TEXT)",
 	);
 	await env.DB.exec(
 		"CREATE TABLE IF NOT EXISTS sessions_old (username VARCHAR(255) NOT NULL, sessionid VARCHAR(255) NOT NULL, expiry_time DATETIME NOT NULL)",
 	);
 	await env.DB.exec(
-		"CREATE TABLE IF NOT EXISTS transaction_users (transaction_id VARCHAR(100) NOT NULL, user_id INTEGER NOT NULL, amount DECIMAL(10,2) NOT NULL, owed_to_user_id INTEGER NOT NULL, group_id INTEGER NOT NULL, currency VARCHAR(10) NOT NULL, deleted DATETIME DEFAULT NULL)",
+		"CREATE TABLE IF NOT EXISTS transaction_users (transaction_id VARCHAR(100) NOT NULL, user_id TEXT NOT NULL, amount DECIMAL(10,2) NOT NULL, owed_to_user_id TEXT NOT NULL, group_id TEXT NOT NULL, currency VARCHAR(10) NOT NULL, deleted DATETIME DEFAULT NULL)",
 	);
 	await env.DB.exec(
-		"CREATE TABLE IF NOT EXISTS transactions (id INTEGER PRIMARY KEY AUTOINCREMENT, description VARCHAR(255) NOT NULL, amount DECIMAL(10,2) NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL, metadata TEXT, currency VARCHAR(10) NOT NULL, transaction_id VARCHAR(100), group_id INTEGER NOT NULL, deleted DATETIME DEFAULT NULL)",
+		"CREATE TABLE IF NOT EXISTS transactions (id INTEGER PRIMARY KEY AUTOINCREMENT, description VARCHAR(255) NOT NULL, amount DECIMAL(10,2) NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL, metadata TEXT, currency VARCHAR(10) NOT NULL, transaction_id VARCHAR(100), group_id TEXT NOT NULL, deleted DATETIME DEFAULT NULL)",
 	);
 	await env.DB.exec(
-		"CREATE TABLE IF NOT EXISTS users_old (id INTEGER PRIMARY KEY AUTOINCREMENT, username VARCHAR(50) NOT NULL, password VARCHAR(255) NOT NULL, first_name VARCHAR(50), last_name VARCHAR(50), groupid INTEGER NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL)",
+		"CREATE TABLE IF NOT EXISTS users_old (id INTEGER PRIMARY KEY AUTOINCREMENT, username VARCHAR(50) NOT NULL, password VARCHAR(255) NOT NULL, first_name VARCHAR(50), last_name VARCHAR(50), groupid TEXT NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL)",
 	);
 
 	// Create materialized views for performance
 	await env.DB.exec(
-		"CREATE TABLE IF NOT EXISTS user_balances (group_id INTEGER NOT NULL, user_id INTEGER NOT NULL, owed_to_user_id INTEGER NOT NULL, currency VARCHAR(10) NOT NULL, balance REAL NOT NULL DEFAULT 0, updated_at DATETIME NOT NULL, PRIMARY KEY (group_id, user_id, owed_to_user_id, currency))",
+		"CREATE TABLE IF NOT EXISTS user_balances (group_id TEXT NOT NULL, user_id TEXT NOT NULL, owed_to_user_id TEXT NOT NULL, currency VARCHAR(10) NOT NULL, balance REAL NOT NULL DEFAULT 0, updated_at DATETIME NOT NULL, PRIMARY KEY (group_id, user_id, owed_to_user_id, currency))",
 	);
 
 	// Create budget totals table
 	await env.DB.exec(
-		"CREATE TABLE IF NOT EXISTS budget_totals (group_id INTEGER NOT NULL, name VARCHAR(100) NOT NULL, currency VARCHAR(10) NOT NULL, total_amount REAL NOT NULL DEFAULT 0, updated_at DATETIME NOT NULL, PRIMARY KEY (group_id, name, currency))",
+		"CREATE TABLE IF NOT EXISTS budget_totals (group_id TEXT NOT NULL, name VARCHAR(100) NOT NULL, currency VARCHAR(10) NOT NULL, total_amount REAL NOT NULL DEFAULT 0, updated_at DATETIME NOT NULL, PRIMARY KEY (group_id, name, currency))",
 	);
 
 	// Create scheduled actions tables
@@ -232,7 +233,13 @@ export async function setupAndCleanDatabase(env: Env): Promise<void> {
 // Create test user and group data
 export async function createTestUserData(
 	env: Env,
-): Promise<Record<string, Record<string, string>>> {
+): Promise<{
+	user1: Record<string, string>;
+	user2: Record<string, string>;
+	user3: Record<string, string>;
+	user4: Record<string, string>;
+	testGroupId: string;
+}> {
 	const authInstance = auth(env);
 	const emails = [
 		generateEmail(),
@@ -240,11 +247,12 @@ export async function createTestUserData(
 		generateEmail(),
 		generateEmail(),
 	];
+	const testGroupId = ulid();
 	try {
 		const user1 = await authInstance.api.signUpEmail({
 			body: {
 				...TEST_USERS.user1,
-				groupid: 1,
+				groupid: testGroupId,
 				email: emails[0],
 				// biome-ignore lint/suspicious/noExplicitAny: test user type assertion
 			} as any,
@@ -252,7 +260,7 @@ export async function createTestUserData(
 		const user2 = await authInstance.api.signUpEmail({
 			body: {
 				...TEST_USERS.user2,
-				groupid: 1,
+				groupid: testGroupId,
 				email: emails[1],
 				// biome-ignore lint/suspicious/noExplicitAny: test user type assertion
 			} as any,
@@ -260,7 +268,7 @@ export async function createTestUserData(
 		const user3 = await authInstance.api.signUpEmail({
 			body: {
 				...TEST_USERS.user3,
-				groupid: 1,
+				groupid: testGroupId,
 				email: emails[2],
 				// biome-ignore lint/suspicious/noExplicitAny: test user type assertion
 			} as any,
@@ -268,7 +276,7 @@ export async function createTestUserData(
 		const user4 = await authInstance.api.signUpEmail({
 			body: {
 				...TEST_USERS.user4,
-				groupid: 1,
+				groupid: testGroupId,
 				email: emails[3],
 				// biome-ignore lint/suspicious/noExplicitAny: test user type assertion
 			} as any,
@@ -277,7 +285,7 @@ export async function createTestUserData(
 		const db = getDb(env);
 
 		await db.insert(groups).values({
-			groupid: 1,
+			groupid: testGroupId,
 			groupName: "Test Group",
 			userids: `["${user1.user.id}", "${user2.user.id}", "${user3.user.id}", "${user4.user.id}"]`,
 			budgets: '["house", "food"]',
@@ -289,6 +297,7 @@ export async function createTestUserData(
 			user2: { ...TEST_USERS.user2, id: user2.user.id, email: emails[1] },
 			user3: { ...TEST_USERS.user3, id: user3.user.id, email: emails[2] },
 			user4: { ...TEST_USERS.user4, id: user4.user.id, email: emails[3] },
+			testGroupId,
 		};
 	} catch (error) {
 		console.error("Failed to create test user data:", error);

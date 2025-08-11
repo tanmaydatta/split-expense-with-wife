@@ -23,7 +23,7 @@ run_worker_first = ["/.netlify/functions/*", "/hello", "/auth/*"]
 
 [vars]
 ALLOWED_ORIGINS = "https://staging--splitexpense.netlify.app,https://splitexpense.netlify.app,https://deploy-preview-5--splitexpense.netlify.app,http://localhost:3000,http://localhost:3001"
-GROUP_IDS = "1"
+GROUP_IDS = ""
 BASE_URL = "http://localhost:8787/auth"
 AUTH_TRUSTED_ORIGINS = ["http://localhost:8787", "http://localhost:3000"]
 LOCAL = true
@@ -55,7 +55,7 @@ enabled = true
     
     [env.prod.vars]
     ALLOWED_ORIGINS = "https://splitexpense.netlify.app,https://deploy-preview-5--splitexpense.netlify.app,http://localhost:3000,http://localhost:3001"
-    GROUP_IDS = "1"
+    GROUP_IDS = ""
     BASE_URL = "https://splitexpense.tanmaydatta.workers.dev/auth"
     AUTH_TRUSTED_ORIGINS = ["https://splitexpense.tanmaydatta.workers.dev"]
     LOCAL = false
@@ -81,7 +81,7 @@ enabled = true
 
     [env.dev.vars]
     ALLOWED_ORIGINS = "https://splitexpense-dev.tanmaydatta.workers.dev,https://splitexpense.netlify.app,https://deploy-preview-5--splitexpense.netlify.app,http://localhost:3000,http://localhost:3001"
-    GROUP_IDS = "1"
+    GROUP_IDS = ""
     BASE_URL = "https://splitexpense-dev.tanmaydatta.workers.dev/auth"
     AUTH_TRUSTED_ORIGINS = ["https://splitexpense-dev.tanmaydatta.workers.dev"]
     LOCAL = false

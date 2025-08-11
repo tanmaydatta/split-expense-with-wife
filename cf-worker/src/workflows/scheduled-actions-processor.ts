@@ -112,7 +112,7 @@ export async function processExpenseAction(
 
 	const splitResult = await createSplitTransactionStatements(
 		expenseData,
-		userData.groupid || 0,
+		userData.groupid || "",
 		db,
 		env,
 		transactionId,
@@ -143,7 +143,7 @@ export async function processBudgetAction(
 			budgetData.type === "Credit" ? budgetData.amount : -budgetData.amount,
 		description: budgetData.description,
 		name: budgetData.budgetName,
-		groupid: userData.groupid,
+		groupid: userData.groupid || "",
 		currency: budgetData.currency,
 	};
 

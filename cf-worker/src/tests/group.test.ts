@@ -22,7 +22,13 @@ import {
 } from "./test-utils";
 
 describe("Group Metadata Handler", () => {
-	let TEST_USERS: Record<string, Record<string, string>>;
+	let TEST_USERS: {
+		user1: Record<string, string>;
+		user2: Record<string, string>;
+		user3: Record<string, string>;
+		user4: Record<string, string>;
+		testGroupId: string;
+	};
 	beforeAll(async () => {
 		await setupAndCleanDatabase(env);
 	});
@@ -41,7 +47,7 @@ describe("Group Metadata Handler", () => {
 		);
 
 		const requestBody: UpdateGroupMetadataRequest = {
-			groupid: 1,
+			groupid: TEST_USERS.testGroupId,
 			defaultShare: {
 				[TEST_USERS.user1.id]: 25,
 				[TEST_USERS.user2.id]: 25,
@@ -70,7 +76,7 @@ describe("Group Metadata Handler", () => {
 		const groupData = await db
 			.select({ metadata: groups.metadata })
 			.from(groups)
-			.where(eq(groups.groupid, 1))
+			.where(eq(groups.groupid, TEST_USERS.testGroupId))
 			.limit(1);
 		expect(groupData).toHaveLength(1);
 		const metadata = JSON.parse(groupData[0].metadata || "{}");
@@ -97,10 +103,10 @@ describe("Group Metadata Handler", () => {
 			.set({
 				metadata: '{"defaultCurrency": "GBP", "other_field": "preserved"}',
 			})
-			.where(eq(groups.groupid, 1));
+			.where(eq(groups.groupid, TEST_USERS.testGroupId));
 
 		const requestBody: UpdateGroupMetadataRequest = {
-			groupid: 1,
+			groupid: TEST_USERS.testGroupId,
 			defaultShare: {
 				[TEST_USERS.user1.id]: 40,
 				[TEST_USERS.user2.id]: 30,
@@ -126,7 +132,7 @@ describe("Group Metadata Handler", () => {
 		const groupData = await db
 			.select({ metadata: groups.metadata })
 			.from(groups)
-			.where(eq(groups.groupid, 1))
+			.where(eq(groups.groupid, TEST_USERS.testGroupId))
 			.limit(1);
 		expect(groupData).toHaveLength(1);
 		const metadata = JSON.parse(groupData[0].metadata || "{}");
@@ -147,10 +153,10 @@ describe("Group Metadata Handler", () => {
 			.set({
 				metadata: `{"defaultShare": {"${TEST_USERS.user1.id}": 50, "${TEST_USERS.user2.id}": 50}, "other_field": "preserved"}`,
 			})
-			.where(eq(groups.groupid, 1));
+			.where(eq(groups.groupid, TEST_USERS.testGroupId));
 
 		const requestBody: UpdateGroupMetadataRequest = {
-			groupid: 1,
+			groupid: TEST_USERS.testGroupId,
 			defaultCurrency: "EUR",
 		};
 
@@ -168,8 +174,8 @@ describe("Group Metadata Handler", () => {
 
 	it("should return 401 for missing authentication token", async () => {
 		const requestBody: UpdateGroupMetadataRequest = {
-			groupid: 1,
-			defaultShare: { "1": 100 },
+			groupid: TEST_USERS.testGroupId,
+			defaultShare: { [TEST_USERS.user1.id]: 100 },
 		};
 
 		const request = createMockRequest("POST", requestBody); // No token
@@ -182,8 +188,8 @@ describe("Group Metadata Handler", () => {
 
 	it("should return 401 for invalid authentication token", async () => {
 		const requestBody: UpdateGroupMetadataRequest = {
-			groupid: 1,
-			defaultShare: { "1": 100 },
+			groupid: TEST_USERS.testGroupId,
+			defaultShare: { [TEST_USERS.user1.id]: 100 },
 		};
 
 		const request = createMockRequest("POST", requestBody, "invalid-token");
@@ -196,8 +202,8 @@ describe("Group Metadata Handler", () => {
 
 	it("should return 401 for unauthorized group access", async () => {
 		const requestBody: UpdateGroupMetadataRequest = {
-			groupid: 999, // User is in group 1, not 999
-			defaultShare: { "1": 100 },
+			groupid: "999", // User is in group TEST_USERS.testGroupId, not 999
+			defaultShare: { [TEST_USERS.user1.id]: 100 },
 		};
 
 		const request = createMockRequest("POST", requestBody, "test-session-id");
@@ -216,7 +222,7 @@ describe("Group Metadata Handler", () => {
 		);
 
 		const requestBody: UpdateGroupMetadataRequest = {
-			groupid: 1,
+			groupid: TEST_USERS.testGroupId,
 			defaultCurrency: "INVALID",
 		};
 
@@ -236,7 +242,7 @@ describe("Group Metadata Handler", () => {
 		);
 
 		const requestBody: UpdateGroupMetadataRequest = {
-			groupid: 1,
+			groupid: TEST_USERS.testGroupId,
 			defaultShare: {
 				[TEST_USERS.user1.id]: 40,
 				[TEST_USERS.user2.id]: 30,
@@ -263,7 +269,7 @@ describe("Group Metadata Handler", () => {
 		);
 
 		const requestBody: UpdateGroupMetadataRequest = {
-			groupid: 1,
+			groupid: TEST_USERS.testGroupId,
 			defaultShare: {
 				[TEST_USERS.user1.id]: 100, // Missing users 2, 3, 4
 			},
@@ -287,7 +293,7 @@ describe("Group Metadata Handler", () => {
 		);
 
 		const requestBody: UpdateGroupMetadataRequest = {
-			groupid: 1,
+			groupid: TEST_USERS.testGroupId,
 			defaultShare: {
 				[TEST_USERS.user1.id]: 25,
 				[TEST_USERS.user2.id]: 25,
@@ -313,7 +319,7 @@ describe("Group Metadata Handler", () => {
 		);
 
 		const requestBody: UpdateGroupMetadataRequest = {
-			groupid: 1,
+			groupid: TEST_USERS.testGroupId,
 			defaultShare: {
 				[TEST_USERS.user1.id]: -10,
 				[TEST_USERS.user2.id]: 60,
@@ -340,7 +346,7 @@ describe("Group Metadata Handler", () => {
 		);
 
 		const requestBody: UpdateGroupMetadataRequest = {
-			groupid: 1,
+			groupid: TEST_USERS.testGroupId,
 			defaultShare: {},
 		};
 
@@ -371,7 +377,7 @@ describe("Group Metadata Handler", () => {
 		);
 
 		const requestBody: UpdateGroupMetadataRequest = {
-			groupid: 1,
+			groupid: TEST_USERS.testGroupId,
 			defaultShare: {
 				[TEST_USERS.user1.id]: 25.25,
 				[TEST_USERS.user2.id]: 25.25,
@@ -394,7 +400,7 @@ describe("Group Metadata Handler", () => {
 		);
 
 		const requestBody: UpdateGroupMetadataRequest = {
-			groupid: 1,
+			groupid: TEST_USERS.testGroupId,
 			defaultShare: {
 				[TEST_USERS.user1.id]: 25,
 				[TEST_USERS.user2.id]: 25,
@@ -426,7 +432,7 @@ describe("Group Metadata Handler", () => {
 		);
 
 		const requestBody: UpdateGroupMetadataRequest = {
-			groupid: 1,
+			groupid: TEST_USERS.testGroupId,
 			defaultShare: {
 				[TEST_USERS.user1.id]: 25,
 				[TEST_USERS.user2.id]: 25,
@@ -445,7 +451,13 @@ describe("Group Metadata Handler", () => {
 });
 
 describe("Group Details Handler", () => {
-	let TEST_USERS: Record<string, Record<string, string>>;
+	let TEST_USERS: {
+		user1: Record<string, string>;
+		user2: Record<string, string>;
+		user3: Record<string, string>;
+		user4: Record<string, string>;
+		testGroupId: string;
+	};
 	beforeAll(async () => {
 		await setupAndCleanDatabase(env);
 	});
@@ -470,7 +482,7 @@ describe("Group Details Handler", () => {
 			const responseData = (await response.json()) as GroupDetailsResponse;
 
 			// Check all required fields are present
-			expect(responseData.groupid).toBe(1);
+			expect(responseData.groupid).toBe(TEST_USERS.testGroupId);
 			expect(responseData.groupName).toBe("Test Group");
 			expect(Array.isArray(responseData.budgets)).toBe(true);
 			expect(responseData.metadata).toBeDefined();
@@ -486,7 +498,7 @@ describe("Group Details Handler", () => {
 				expect(user.Id).toBeDefined();
 				expect(user.FirstName).toBeDefined();
 				expect(user.LastName).toBeDefined();
-				expect(user.groupid).toBe(1);
+				expect(user.groupid).toBe(TEST_USERS.testGroupId);
 			});
 		});
 
@@ -566,7 +578,13 @@ describe("Group Details Handler", () => {
 });
 
 describe("Extended Group Metadata Handler", () => {
-	let TEST_USERS: Record<string, Record<string, string>>;
+	let TEST_USERS: {
+		user1: Record<string, string>;
+		user2: Record<string, string>;
+		user3: Record<string, string>;
+		user4: Record<string, string>;
+		testGroupId: string;
+	};
 	beforeAll(async () => {
 		await setupAndCleanDatabase(env);
 	});
@@ -586,7 +604,7 @@ describe("Extended Group Metadata Handler", () => {
 			);
 
 			const requestBody: UpdateGroupMetadataRequest = {
-				groupid: 1,
+				groupid: TEST_USERS.testGroupId,
 				groupName: "Updated Group Name",
 			};
 
@@ -603,7 +621,7 @@ describe("Extended Group Metadata Handler", () => {
 			const groupResult = await db
 				.select({ groupName: groups.groupName })
 				.from(groups)
-				.where(eq(groups.groupid, 1))
+				.where(eq(groups.groupid, TEST_USERS.testGroupId))
 				.limit(1);
 			expect(groupResult).toHaveLength(1);
 			expect(groupResult[0].groupName).toBe("Updated Group Name");
@@ -617,7 +635,7 @@ describe("Extended Group Metadata Handler", () => {
 			);
 
 			const requestBody: UpdateGroupMetadataRequest = {
-				groupid: 1,
+				groupid: TEST_USERS.testGroupId,
 				groupName: "  Trimmed Group Name  ",
 			};
 
@@ -631,7 +649,7 @@ describe("Extended Group Metadata Handler", () => {
 			const groupResult = await db
 				.select({ groupName: groups.groupName })
 				.from(groups)
-				.where(eq(groups.groupid, 1))
+				.where(eq(groups.groupid, TEST_USERS.testGroupId))
 				.limit(1);
 			expect(groupResult).toHaveLength(1);
 			expect(groupResult[0].groupName).toBe("Trimmed Group Name");
@@ -645,7 +663,7 @@ describe("Extended Group Metadata Handler", () => {
 			);
 
 			const requestBody: UpdateGroupMetadataRequest = {
-				groupid: 1,
+				groupid: TEST_USERS.testGroupId,
 				groupName: "   ",
 			};
 
@@ -663,7 +681,7 @@ describe("Extended Group Metadata Handler", () => {
 			);
 
 			const requestBody: UpdateGroupMetadataRequest = {
-				groupid: 1,
+				groupid: TEST_USERS.testGroupId,
 				groupName: "Family & Friends Group 2024 🏠",
 			};
 
@@ -677,7 +695,7 @@ describe("Extended Group Metadata Handler", () => {
 			const groupResult = await db
 				.select({ groupName: groups.groupName })
 				.from(groups)
-				.where(eq(groups.groupid, 1))
+				.where(eq(groups.groupid, TEST_USERS.testGroupId))
 				.limit(1);
 			expect(groupResult).toHaveLength(1);
 			expect(groupResult[0].groupName).toBe("Family & Friends Group 2024 🏠");
@@ -693,7 +711,7 @@ describe("Extended Group Metadata Handler", () => {
 			);
 
 			const requestBody: UpdateGroupMetadataRequest = {
-				groupid: 1,
+				groupid: TEST_USERS.testGroupId,
 				budgets: [
 					"house",
 					"food",
@@ -713,7 +731,7 @@ describe("Extended Group Metadata Handler", () => {
 			const groupResult = await db
 				.select({ budgets: groups.budgets })
 				.from(groups)
-				.where(eq(groups.groupid, 1))
+				.where(eq(groups.groupid, TEST_USERS.testGroupId))
 				.limit(1);
 			expect(groupResult).toHaveLength(1);
 			const budgets = JSON.parse(groupResult[0].budgets || "[]");
@@ -731,7 +749,7 @@ describe("Extended Group Metadata Handler", () => {
 			);
 
 			const requestBody: UpdateGroupMetadataRequest = {
-				groupid: 1,
+				groupid: TEST_USERS.testGroupId,
 				budgets: ["food"], // Remove 'house' and 'transportation'
 			};
 
@@ -745,7 +763,7 @@ describe("Extended Group Metadata Handler", () => {
 			const groupResult = await db
 				.select({ budgets: groups.budgets })
 				.from(groups)
-				.where(eq(groups.groupid, 1))
+				.where(eq(groups.groupid, TEST_USERS.testGroupId))
 				.limit(1);
 			expect(groupResult).toHaveLength(1);
 			const budgets = JSON.parse(groupResult[0].budgets || "[]");
@@ -762,7 +780,7 @@ describe("Extended Group Metadata Handler", () => {
 			);
 
 			const requestBody: UpdateGroupMetadataRequest = {
-				groupid: 1,
+				groupid: TEST_USERS.testGroupId,
 				budgets: [
 					"house",
 					"food",
@@ -783,7 +801,7 @@ describe("Extended Group Metadata Handler", () => {
 			const groupResult = await db
 				.select({ budgets: groups.budgets })
 				.from(groups)
-				.where(eq(groups.groupid, 1))
+				.where(eq(groups.groupid, TEST_USERS.testGroupId))
 				.limit(1);
 			expect(groupResult).toHaveLength(1);
 			const budgets = JSON.parse(groupResult[0].budgets || "[]");
@@ -803,7 +821,7 @@ describe("Extended Group Metadata Handler", () => {
 			);
 
 			const requestBody: UpdateGroupMetadataRequest = {
-				groupid: 1,
+				groupid: TEST_USERS.testGroupId,
 				budgets: [],
 			};
 
@@ -817,7 +835,7 @@ describe("Extended Group Metadata Handler", () => {
 			const groupResult = await db
 				.select({ budgets: groups.budgets })
 				.from(groups)
-				.where(eq(groups.groupid, 1))
+				.where(eq(groups.groupid, TEST_USERS.testGroupId))
 				.limit(1);
 			expect(groupResult).toHaveLength(1);
 			const budgets = JSON.parse(groupResult[0].budgets || "[]");
@@ -834,7 +852,7 @@ describe("Extended Group Metadata Handler", () => {
 
 			// First update to set initial budgets
 			const initialRequest: UpdateGroupMetadataRequest = {
-				groupid: 1,
+				groupid: TEST_USERS.testGroupId,
 				budgets: ["house", "food", "utilities"],
 			};
 			await handleUpdateGroupMetadata(
@@ -844,7 +862,7 @@ describe("Extended Group Metadata Handler", () => {
 
 			// Update only currency, should preserve budgets
 			const requestBody: UpdateGroupMetadataRequest = {
-				groupid: 1,
+				groupid: TEST_USERS.testGroupId,
 				defaultCurrency: "EUR",
 			};
 
@@ -858,7 +876,7 @@ describe("Extended Group Metadata Handler", () => {
 			const groupResult = await db
 				.select({ budgets: groups.budgets })
 				.from(groups)
-				.where(eq(groups.groupid, 1))
+				.where(eq(groups.groupid, TEST_USERS.testGroupId))
 				.limit(1);
 			expect(groupResult).toHaveLength(1);
 			const budgets = JSON.parse(groupResult[0].budgets || "[]");
@@ -876,7 +894,7 @@ describe("Extended Group Metadata Handler", () => {
 			);
 
 			const requestBody: UpdateGroupMetadataRequest = {
-				groupid: 1,
+				groupid: TEST_USERS.testGroupId,
 				budgets: ["house rent", "food-delivery", "car_maintenance"],
 			};
 
@@ -890,7 +908,7 @@ describe("Extended Group Metadata Handler", () => {
 			const groupResult = await db
 				.select({ budgets: groups.budgets })
 				.from(groups)
-				.where(eq(groups.groupid, 1))
+				.where(eq(groups.groupid, TEST_USERS.testGroupId))
 				.limit(1);
 			expect(groupResult).toHaveLength(1);
 			const budgets = JSON.parse(groupResult[0].budgets || "[]");
@@ -908,7 +926,7 @@ describe("Extended Group Metadata Handler", () => {
 			);
 
 			const requestBody: UpdateGroupMetadataRequest = {
-				groupid: 1,
+				groupid: TEST_USERS.testGroupId,
 				budgets: ["valid-budget", "invalid!@#"],
 			};
 
@@ -932,7 +950,7 @@ describe("Extended Group Metadata Handler", () => {
 			);
 
 			const requestBody: UpdateGroupMetadataRequest = {
-				groupid: 1,
+				groupid: TEST_USERS.testGroupId,
 				groupName: "Multi-Update Group",
 				budgets: ["rent", "groceries", "utilities"],
 				defaultCurrency: "EUR",
@@ -958,7 +976,7 @@ describe("Extended Group Metadata Handler", () => {
 					metadata: groups.metadata,
 				})
 				.from(groups)
-				.where(eq(groups.groupid, 1))
+				.where(eq(groups.groupid, TEST_USERS.testGroupId))
 				.limit(1);
 			expect(groupResult).toHaveLength(1);
 
@@ -984,7 +1002,7 @@ describe("Extended Group Metadata Handler", () => {
 
 			// Update only group name and budgets
 			const requestBody: UpdateGroupMetadataRequest = {
-				groupid: 1,
+				groupid: TEST_USERS.testGroupId,
 				groupName: "Partial Update Group",
 				budgets: ["new-category"],
 			};
@@ -1003,7 +1021,7 @@ describe("Extended Group Metadata Handler", () => {
 					metadata: groups.metadata,
 				})
 				.from(groups)
-				.where(eq(groups.groupid, 1))
+				.where(eq(groups.groupid, TEST_USERS.testGroupId))
 				.limit(1);
 			expect(groupResult).toHaveLength(1);
 
@@ -1027,7 +1045,7 @@ describe("Extended Group Metadata Handler", () => {
 			);
 
 			const requestBody: UpdateGroupMetadataRequest = {
-				groupid: 1,
+				groupid: TEST_USERS.testGroupId,
 				// No fields to update
 			};
 
@@ -1039,7 +1057,7 @@ describe("Extended Group Metadata Handler", () => {
 
 		it("should return 401 for unauthorized users", async () => {
 			const requestBody: UpdateGroupMetadataRequest = {
-				groupid: 1,
+				groupid: TEST_USERS.testGroupId,
 				groupName: "Unauthorized Update",
 			};
 
@@ -1057,7 +1075,7 @@ describe("Extended Group Metadata Handler", () => {
 			);
 
 			const requestBody: UpdateGroupMetadataRequest = {
-				groupid: 1,
+				groupid: TEST_USERS.testGroupId,
 				defaultShare: {
 					[TEST_USERS.user1.id]: 60,
 					[TEST_USERS.user2.id]: 30, // Total = 90%, not 100%
@@ -1078,7 +1096,7 @@ describe("Extended Group Metadata Handler", () => {
 			);
 
 			const requestBody: UpdateGroupMetadataRequest = {
-				groupid: 1,
+				groupid: TEST_USERS.testGroupId,
 				defaultCurrency: "INVALID",
 			};
 
@@ -1096,7 +1114,7 @@ describe("Extended Group Metadata Handler", () => {
 			);
 
 			const requestBody: UpdateGroupMetadataRequest = {
-				groupid: 1,
+				groupid: TEST_USERS.testGroupId,
 				defaultShare: {
 					[TEST_USERS.user1.id]: -10,
 					[TEST_USERS.user2.id]: 110,
@@ -1124,11 +1142,11 @@ describe("Extended Group Metadata Handler", () => {
 					userids: `["${TEST_USERS.user1.id}", "${TEST_USERS.user2.id}", "${TEST_USERS.user3.id}"]`,
 					metadata: `{"defaultCurrency": "USD", "defaultShare": {"${TEST_USERS.user1.id}": 33.333, "${TEST_USERS.user2.id}": 33.333, "${TEST_USERS.user3.id}": 33.334}}`,
 				})
-				.where(eq(groups.groupid, 1));
+				.where(eq(groups.groupid, TEST_USERS.testGroupId));
 
 			// Test case 1: Perfect precision - should pass (total = 100.000)
 			const perfectRequest: UpdateGroupMetadataRequest = {
-				groupid: 1,
+				groupid: TEST_USERS.testGroupId,
 				defaultShare: {
 					[TEST_USERS.user1.id]: 33.333,
 					[TEST_USERS.user2.id]: 33.333,
@@ -1144,7 +1162,7 @@ describe("Extended Group Metadata Handler", () => {
 
 			// Test case 2: Within 0.001 tolerance - should pass (total = 99.9995, difference = 0.0005)
 			const toleranceRequest: UpdateGroupMetadataRequest = {
-				groupid: 1,
+				groupid: TEST_USERS.testGroupId,
 				defaultShare: {
 					[TEST_USERS.user1.id]: 33.3335,
 					[TEST_USERS.user2.id]: 33.333,
@@ -1160,7 +1178,7 @@ describe("Extended Group Metadata Handler", () => {
 
 			// Test case 3: Outside 0.001 tolerance - should fail (total = 99.997, difference = 0.003)
 			const failRequest: UpdateGroupMetadataRequest = {
-				groupid: 1,
+				groupid: TEST_USERS.testGroupId,
 				defaultShare: {
 					[TEST_USERS.user1.id]: 33.333,
 					[TEST_USERS.user2.id]: 33.332,
@@ -1176,7 +1194,7 @@ describe("Extended Group Metadata Handler", () => {
 
 			// Test case 4: High precision with many decimals - should pass (total = 100.000)
 			const precisionRequest: UpdateGroupMetadataRequest = {
-				groupid: 1,
+				groupid: TEST_USERS.testGroupId,
 				defaultShare: {
 					[TEST_USERS.user1.id]: 33.33333,
 					[TEST_USERS.user2.id]: 33.33333,
@@ -1192,7 +1210,7 @@ describe("Extended Group Metadata Handler", () => {
 
 			// Test case 5: Slightly over 100% but within tolerance - should pass (total = 100.0005)
 			const overRequest: UpdateGroupMetadataRequest = {
-				groupid: 1,
+				groupid: TEST_USERS.testGroupId,
 				defaultShare: {
 					[TEST_USERS.user1.id]: 33.3335,
 					[TEST_USERS.user2.id]: 33.333,
@@ -1208,7 +1226,7 @@ describe("Extended Group Metadata Handler", () => {
 
 			// Test case 6: Way over tolerance - should fail (total = 100.5)
 			const wayOverRequest: UpdateGroupMetadataRequest = {
-				groupid: 1,
+				groupid: TEST_USERS.testGroupId,
 				defaultShare: {
 					[TEST_USERS.user1.id]: 33.5,
 					[TEST_USERS.user2.id]: 33.5,

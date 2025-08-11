@@ -122,7 +122,7 @@ export async function handleBudget(
 			}
 
 			// Set currency default
-			const budgetRequest = {
+			const budgetRequest: BudgetRequest = {
 				...body,
 				currency: body.currency || "GBP",
 				groupid: session.group.groupid,
@@ -554,7 +554,7 @@ export async function handleBudgetTotal(
 			// Use existing utility function for now (could be migrated to Drizzle later)
 			const totals = await getBudgetTotals(
 				env,
-				session.group.groupid.toString(),
+				session.group.groupid,
 				body.name,
 			);
 

@@ -15,7 +15,7 @@ import type {
 import { account, session, user, verification } from "./auth-schema";
 
 export const groups = sqliteTable("groups", {
-	groupid: integer("groupid").primaryKey({ autoIncrement: true }),
+	groupid: text("groupid").primaryKey(),
 	groupName: text("group_name", { length: 50 }).notNull(),
 	createdAt: text("created_at").notNull().default("CURRENT_TIMESTAMP"),
 	userids: text("userids", { length: 1000 }),
@@ -33,7 +33,7 @@ export const transactions = sqliteTable(
 		metadata: text("metadata", { mode: "json" }).$type<TransactionMetadata>(),
 		currency: text("currency", { length: 10 }).notNull(),
 		transactionId: text("transaction_id", { length: 100 }),
-		groupId: integer("group_id").notNull(),
+		groupId: text("group_id").notNull(),
 		deleted: text("deleted"),
 	},
 	(table) => [
@@ -55,7 +55,7 @@ export const transactionUsers = sqliteTable(
 		userId: text("user_id").notNull(),
 		amount: real("amount").notNull(),
 		owedToUserId: text("owed_to_user_id").notNull(),
-		groupId: integer("group_id").notNull(),
+		groupId: text("group_id").notNull(),
 		currency: text("currency", { length: 10 }).notNull(),
 		deleted: text("deleted"),
 	},
@@ -110,7 +110,7 @@ export const budget = sqliteTable(
 		amount: real("amount").notNull(),
 		name: text("name", { length: 100 }).notNull(),
 		deleted: text("deleted"),
-		groupid: integer("groupid").notNull(),
+		groupid: text("groupid").notNull(),
 		currency: text("currency", { length: 10 }).notNull().default("GBP"),
 	},
 	(table) => [
@@ -144,7 +144,7 @@ export const budget = sqliteTable(
 export const userBalances = sqliteTable(
 	"user_balances",
 	{
-		groupId: integer("group_id").notNull(),
+		groupId: text("group_id").notNull(),
 		userId: text("user_id").notNull(),
 		owedToUserId: text("owed_to_user_id").notNull(),
 		currency: text("currency", { length: 10 }).notNull(),
@@ -176,7 +176,7 @@ export const userBalances = sqliteTable(
 export const budgetTotals = sqliteTable(
 	"budget_totals",
 	{
-		groupId: integer("group_id").notNull(),
+		groupId: text("group_id").notNull(),
 		name: text("name", { length: 100 }).notNull(),
 		currency: text("currency", { length: 10 }).notNull(),
 		totalAmount: real("total_amount").notNull().default(0),

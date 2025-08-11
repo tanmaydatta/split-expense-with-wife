@@ -185,7 +185,7 @@ function Dashboard(): JSX.Element {
 			amount: creditDebit === "Debit" ? -amount! : amount!,
 			description: description!,
 			name: budget,
-			groupid: data?.extra?.group?.groupid || 0,
+			groupid: data?.extra?.group?.groupid ?? "",
 			currency: currency,
 		};
 

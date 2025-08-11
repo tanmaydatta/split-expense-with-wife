@@ -12,12 +12,12 @@ export interface User {
 	username?: string | null;
 	FirstName: string | null;
 	LastName?: string | null;
-	groupid: number | null;
+	groupid: string | null;
 	password?: string; // Only used in login
 }
 
 export interface Group {
-	groupid: number;
+	groupid: string;
 	budgets: string; // JSON string
 	userids: string; // JSON string
 	metadata: string; // JSON string
@@ -32,7 +32,7 @@ export interface BudgetEntry {
 	amount: number;
 	name: string;
 	deleted?: string; // ISO string format
-	groupid: number;
+	groupid: string;
 	currency: string;
 }
 
@@ -45,7 +45,7 @@ export interface Transaction {
 	metadata: string; // JSON string
 	currency: string;
 	transaction_id: string;
-	group_id: number;
+	group_id: string;
 	deleted?: string; // ISO string format
 }
 
@@ -54,7 +54,7 @@ export interface TransactionUser {
 	user_id: string;
 	amount: number;
 	owed_to_user_id: string;
-	group_id: number;
+	group_id: string;
 	currency: string;
 	deleted?: string; // ISO string format
 	first_name?: string; // User's first name for display
@@ -82,7 +82,7 @@ export interface BudgetRequest {
 	amount: number;
 	description: string;
 	name: string;
-	groupid: number;
+	groupid: string;
 	currency: string;
 }
 
@@ -132,12 +132,12 @@ export interface TransactionsListRequest {
 // API Response types
 export interface LoginResponse {
 	username: string;
-	groupId: number;
+	groupId: string;
 	budgets: string[];
 	users: User[];
-	userids: number[];
+	userids: string[];
 	metadata: GroupMetadata;
-	userId: number;
+	userId: string;
 	token: string;
 	currencies: string[];
 }
@@ -180,9 +180,9 @@ export interface TransactionsListResponse {
 }
 
 export interface TransactionBalances {
-	user_id: number;
+	user_id: string;
 	amount: number;
-	owed_to_user_id: number;
+	owed_to_user_id: string;
 	currency: string;
 }
 
@@ -213,7 +213,7 @@ export interface FrontendTransaction {
 }
 
 export interface FrontendUser {
-	Id: number;
+	Id: string;
 	Name: string;
 }
 
@@ -234,7 +234,7 @@ export interface BudgetTotal {
 
 // Settings/Group management types
 export interface GroupDetailsResponse {
-	groupid: number;
+	groupid: string;
 	groupName: string;
 	budgets: string[];
 	metadata: GroupMetadata;
@@ -242,7 +242,7 @@ export interface GroupDetailsResponse {
 }
 
 export interface UpdateGroupMetadataRequest {
-	groupid: number;
+	groupid: string;
 	defaultShare?: Record<string, number>;
 	defaultCurrency?: string;
 	groupName?: string;
@@ -265,7 +265,7 @@ export interface AuthenticatedUser {
 	updatedAt: Date;
 	username: string | null;
 	displayUsername: string | null;
-	groupid: number | null;
+	groupid: string | null;
 	firstName: string;
 	lastName: string;
 }
@@ -296,7 +296,7 @@ export interface FullAuthSession {
 
 // Parsed group data for frontend use (same structure as backend ParsedGroup)
 export interface ParsedGroupData {
-	groupid: number;
+	groupid: string;
 	budgets: string[];
 	userids: string[];
 	metadata: GroupMetadata;

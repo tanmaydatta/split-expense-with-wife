@@ -23,7 +23,7 @@ export interface CurrentSession {
 
 // Parsed group data (JSON strings parsed into structured data)
 export interface ParsedGroup {
-	groupid: number;
+	groupid: string;
 	budgets: string[];
 	userids: string[];
 	metadata: GroupMetadata;
@@ -46,7 +46,7 @@ export interface UserRow {
 	username: string;
 	first_name: string;
 	last_name: string;
-	groupid: number;
+	groupid: string;
 	password: string;
 	created_at: string;
 }
@@ -59,7 +59,7 @@ export interface TransactionRow {
 	metadata: string;
 	currency: string;
 	transaction_id: string;
-	group_id: number;
+	group_id: string;
 	deleted?: string;
 }
 
@@ -68,7 +68,7 @@ export interface TransactionDetailRow {
 	user_id: number;
 	amount: number;
 	owed_to_user_id: number;
-	group_id: number;
+	group_id: string;
 	currency: string;
 	deleted?: string;
 	first_name: string;
@@ -120,7 +120,7 @@ export interface TransactionCreateResponse {
 
 // Group metadata update types
 export interface UpdateGroupMetadataRequest {
-	groupid: number;
+	groupid: string;
 	defaultShare?: Record<string, number>;
 	defaultCurrency?: string;
 	groupName?: string;

@@ -35,7 +35,7 @@ async function createUserInNewGroup(env: Env): Promise<{ id: string; email: stri
 	const rand = Math.floor(Math.random() * 1000000);
 	const email = `outsider${rand}@example.com`;
 	const password = "testpass";
-	const groupid = 1000 + rand; // ensure different from default group 1
+	const groupid = `g${1000 + rand}`; // ensure different from default group
 	const signupRes = await authInstance.api.signUpEmail({
 		body: {
 			email,
@@ -60,7 +60,13 @@ async function createUserInNewGroup(env: Env): Promise<{ id: string; email: stri
 }
 
 describe("Scheduled Actions Handlers", () => {
-	let TEST_USERS: Record<string, Record<string, string>>;
+	let TEST_USERS: {
+		user1: Record<string, string>;
+		user2: Record<string, string>;
+		user3: Record<string, string>;
+		user4: Record<string, string>;
+		testGroupId: string;
+	};
 	let userCookies: string;
 
 	beforeAll(async () => {

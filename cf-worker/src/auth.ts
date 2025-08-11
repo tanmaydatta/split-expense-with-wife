@@ -146,7 +146,7 @@ export const auth = (env: Env): ReturnType<typeof betterAuth> =>
 		user: {
 			additionalFields: {
 				groupid: {
-					type: "number",
+					type: "string",
 					required: false,
 				},
 				firstName: {

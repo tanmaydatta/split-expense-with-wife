@@ -35,6 +35,7 @@ describe("Scheduled Actions Workflows", () => {
 	let db: any;
 	let testUserId: string;
 	let testActionId: string;
+	let testGroupId: string;
 	beforeAll(async () => {
 		await setupAndCleanDatabase(testEnv);
 	});
@@ -55,8 +56,18 @@ describe("Scheduled Actions Workflows", () => {
 			// biome-ignore lint/suspicious/noExplicitAny: Test workflow mock
 		} as any;
 
+		// Create test group
+		testGroupId = ulid();
+		await db.insert(groups).values({
+			groupid: testGroupId,
+			groupName: "Test Group",
+			userids: "[]", // Will update after creating user
+			budgets: '["house", "food"]',
+			metadata: "{}",
+		});
+
 		// Set required environment variables for cron handler
-		testEnv.GROUP_IDS = "1";
+		testEnv.GROUP_IDS = "";
 
 		// Create test user
 		testUserId = ulid();
@@ -66,7 +77,7 @@ describe("Scheduled Actions Workflows", () => {
 			name: "Test User",
 			firstName: "Test",
 			lastName: "User",
-			groupid: 1,
+			groupid: testGroupId,
 			createdAt: new Date(),
 			updatedAt: new Date(),
 		});
@@ -168,7 +179,7 @@ describe("Scheduled Actions Workflows", () => {
 		beforeEach(async () => {
 			// Create a group for the users
 			await db.insert(groups).values({
-				groupid: 1,
+				groupid: "1",
 				groupName: "Test Group",
 				budgets: JSON.stringify(["house", "groceries"]),
 			});
@@ -606,7 +617,7 @@ describe("Scheduled Actions Workflows", () => {
 				actionsToProcess,
 				"2024-01-15 00:00:00",
 				"2024-01-15",
-				1,
+				10,
 			);
 
 			expect(results.length).toBe(1);
@@ -740,7 +751,7 @@ describe("Scheduled Actions Workflows", () => {
 		beforeEach(async () => {
 			// Create a group for the users
 			await db.insert(groups).values({
-				groupid: 1,
+				groupid: "1",
 				groupName: "Test Group",
 				budgets: JSON.stringify(["house", "groceries"]),
 			});
@@ -859,7 +870,7 @@ describe("Scheduled Actions Workflows", () => {
 			expect(actionsResult).toHaveLength(1);
 			expect(actionsResult[0].scheduled_actions.id).toBe(testActionId);
 			expect(actionsResult[0].user.id).toBe(testUserId);
-			expect(actionsResult[0].user.groupid).toBe(1);
+			expect(actionsResult[0].user.groupid).toBe(testGroupId);
 		});
 
 		it("fetchActionsWithUsers throws when no matching actions", async () => {
@@ -888,7 +899,7 @@ describe("Scheduled Actions Workflows", () => {
 				},
 			});
 			// biome-ignore lint/suspicious/noExplicitAny: Test mock
-			const userData = { groupid: 1 } as any;
+			const userData = { groupid: "1" } as any;
 			const currentDate = "2024-01-15";
 
 			const result = await processExpenseAction(
@@ -919,7 +930,7 @@ describe("Scheduled Actions Workflows", () => {
 				},
 			});
 			// biome-ignore lint/suspicious/noExplicitAny: Test mock
-			const userData = { groupid: 1 } as any;
+			const userData = { groupid: "1" } as any;
 			const currentDate = "2024-01-15";
 
 			const result = await processBudgetAction(
@@ -1004,7 +1015,7 @@ describe("Scheduled Actions Workflows", () => {
 		beforeEach(async () => {
 			// Create a group for the users
 			await db.insert(groups).values({
-				groupid: 1,
+				groupid: "1",
 				groupName: "Test Group",
 				budgets: JSON.stringify(["house", "groceries"]),
 			});
@@ -1056,7 +1067,7 @@ describe("Scheduled Actions Workflows", () => {
 			const transactionId = "test-tx-123";
 			const result = await createSplitTransactionStatements(
 				expenseData,
-				1,
+				testGroupId,
 				db,
 				testEnv,
 				transactionId,
@@ -1090,7 +1101,7 @@ describe("Scheduled Actions Workflows", () => {
 				amount: 800,
 				description: "Monthly house budget",
 				name: "house",
-				groupid: 1,
+				groupid: "1",
 				currency: "GBP" as const,
 			};
 
@@ -1139,7 +1150,7 @@ describe("Scheduled Actions Workflows", () => {
 			// Create transaction first time
 			const result1 = await createSplitTransactionStatements(
 				expenseData,
-				1,
+				testGroupId,
 				db,
 				testEnv,
 				transactionId,
@@ -1151,7 +1162,7 @@ describe("Scheduled Actions Workflows", () => {
 			// Try to create the same transaction again
 			const result2 = await createSplitTransactionStatements(
 				expenseData,
-				1,
+				testGroupId,
 				db,
 				testEnv,
 				transactionId,
@@ -1179,7 +1190,7 @@ describe("Scheduled Actions Workflows", () => {
 				amount: 800,
 				description: "Monthly house budget",
 				name: "house",
-				groupid: 1,
+				groupid: "1",
 				currency: "GBP" as const,
 			};
 
@@ -1220,7 +1231,7 @@ describe("Scheduled Actions Workflows", () => {
 		beforeEach(async () => {
 			// Create a group for the users
 			await db.insert(groups).values({
-				groupid: 1,
+				groupid: "1",
 				groupName: "Test Group",
 				budgets: JSON.stringify(["house", "groceries"]),
 			});
@@ -1269,7 +1280,7 @@ describe("Scheduled Actions Workflows", () => {
 			);
 			const splitResult = await createSplitTransactionStatements(
 				expenseData,
-				1,
+				testGroupId,
 				db,
 				testEnv,
 				transactionId,
@@ -1381,7 +1392,7 @@ describe("Scheduled Actions Workflows", () => {
 						: -budgetActionData.amount,
 				description: budgetActionData.description,
 				name: budgetActionData.budgetName,
-				groupid: 1,
+				groupid: "1",
 				currency: budgetActionData.currency,
 			};
 
