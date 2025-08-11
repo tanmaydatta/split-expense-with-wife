@@ -6,6 +6,7 @@ import {
 	useQueryClient,
 } from "@tanstack/react-query";
 import type {
+	ApiEndpoints,
 	CreateScheduledActionRequest,
 	ScheduledActionHistoryListRequest,
 	ScheduledActionHistoryListResponse,
@@ -59,6 +60,20 @@ export function useUpdateScheduledAction() {
 	return useMutation({
 		mutationFn: async (data: UpdateScheduledActionRequest) =>
 			typedApi.post("/scheduled-actions/update", data),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ["scheduled-actions"] });
+		},
+	});
+}
+
+export function useRunScheduledActionNow() {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: async (data: { id: string }) =>
+			typedApi.post(
+				"/scheduled-actions/run" as keyof ApiEndpoints,
+				data as any,
+			),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["scheduled-actions"] });
 		},

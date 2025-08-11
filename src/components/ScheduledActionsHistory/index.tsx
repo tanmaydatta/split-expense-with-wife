@@ -2,6 +2,7 @@ import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { Input } from "@/components/Form/Input";
 import {
+	useRunScheduledActionNow,
 	useScheduledActionDetails,
 	useScheduledActionHistory,
 	useUpdateScheduledAction,
@@ -46,13 +47,13 @@ const StatusDot = styled.span<{ $status: "success" | "failed" | "started" }>`
 `;
 
 const TitleText = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   color: #111827;
-  font-weight: 600;
+  font-weight: 700;
 `;
 
 const Subtext = styled.div`
-  font-size: 12px;
+  font-size: 13px;
   color: #4b5563;
 `;
 
@@ -66,11 +67,6 @@ const UpcomingContainer = styled.div`
   grid-template-columns: 1fr auto;
   gap: 16px;
   align-items: center;
-
-  @media (max-width: 768px) {
-    grid-template-columns: 1fr;
-    align-items: stretch;
-  }
 `;
 
 const UpcomingLeft = styled.div`
@@ -81,11 +77,15 @@ const UpcomingLeft = styled.div`
 
 const UpcomingRight = styled.div`
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto auto 1fr auto;
   align-items: center;
   gap: 12px;
 
-  @media (max-width: 768px) {
+  @media (max-width: 980px) {
+    grid-template-columns: 1fr 1fr;
+    grid-auto-rows: minmax(44px, auto);
+  }
+  @media (max-width: 640px) {
     grid-template-columns: 1fr;
   }
 `;
@@ -103,6 +103,7 @@ const ScheduledActionsHistory: React.FC<Props> = ({
 	const navigate = useNavigate();
 	const { data: details } = useScheduledActionDetails(scheduledActionId);
 	const updateAction = useUpdateScheduledAction();
+	const runNow = useRunScheduledActionNow();
 	const [customDate, setCustomDate] = React.useState<string>("");
 	const { data, isLoading, isError } = useScheduledActionHistory({
 		offset: 0,
@@ -130,6 +131,17 @@ const ScheduledActionsHistory: React.FC<Props> = ({
 						</Subtext>
 					</UpcomingLeft>
 					<UpcomingRight>
+						<ActionButton
+							onClick={() => {
+								if (!scheduledActionId || runNow.isPending) return;
+								runNow.mutate({ id: scheduledActionId });
+							}}
+							aria-label="Run this action now"
+							data-test-id="sa-run-now"
+							disabled={runNow.isPending}
+						>
+							{runNow.isPending ? "Running…" : "Run now"}
+						</ActionButton>
 						<ActionButton
 							onClick={() => {
 								if (!scheduledActionId || isSaving) return;

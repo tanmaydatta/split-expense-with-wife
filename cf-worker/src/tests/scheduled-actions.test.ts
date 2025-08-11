@@ -591,6 +591,79 @@ describe("Scheduled Actions Handlers", () => {
 				},
 				nextExecutionDate: "2024-01-01",
 			});
+
+  describe("handleScheduledActionRunNow", () => {
+    it("should trigger processor workflow for the action", async () => {
+      const db = getDb(env);
+      const now = "2024-03-15T10:30:00.000Z";
+      const actionId = ulid();
+      await db.insert(scheduledActions).values({
+        id: actionId,
+        userId: TEST_USERS.user1.id,
+        actionType: "add_expense",
+        frequency: "weekly",
+        startDate: "2024-01-01",
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+        actionData: {
+          amount: 5,
+          description: "Instant",
+          currency: "USD",
+          paidByUserId: TEST_USERS.user1.id,
+          splitPctShares: { [TEST_USERS.user1.id]: 100 },
+        },
+        nextExecutionDate: "2024-01-01",
+      });
+
+      // Mock workflow binding
+      // biome-ignore lint/suspicious/noExplicitAny: test env
+      (env as any).PROCESSOR_WORKFLOW = {
+        create: vi.fn().mockResolvedValue({ id: "wf-immediate" }),
+      } as any;
+
+      const response = await worker.fetch(
+        createTestRequest("scheduled-actions/run", "POST", { id: actionId }, userCookies),
+        env,
+        createExecutionContext(),
+      );
+      expect(response.status).toBe(200);
+      const body = (await response.json()) as { workflowInstanceId: string };
+      expect(body.workflowInstanceId).toContain("immediate-");
+    });
+
+    it("should reject run when user is from another group", async () => {
+      const db = getDb(env);
+      const now = "2024-03-15T10:30:00.000Z";
+      const actionId = ulid();
+      await db.insert(scheduledActions).values({
+        id: actionId,
+        userId: TEST_USERS.user1.id,
+        actionType: "add_expense",
+        frequency: "weekly",
+        startDate: "2024-01-01",
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+        actionData: {
+          amount: 5,
+          description: "Instant",
+          currency: "USD",
+          paidByUserId: TEST_USERS.user1.id,
+          splitPctShares: { [TEST_USERS.user1.id]: 100 },
+        },
+        nextExecutionDate: "2024-01-01",
+      });
+
+      const outsider = await createUserInNewGroup(env);
+      const response = await worker.fetch(
+        createTestRequest("scheduled-actions/run", "POST", { id: actionId }, outsider.cookies),
+        env,
+        createExecutionContext(),
+      );
+      expect(response.status).toBe(404);
+    });
+  });
 		});
 
 		it("should update scheduled action isActive status", async () => {

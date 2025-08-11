@@ -49,6 +49,26 @@ export interface ProcessorResult {
 	results: ActionExecutionResult[];
 }
 
+// Trigger processing of a single scheduled action immediately by creating
+// a processor workflow with a single-action batch. Returns the workflow id.
+export async function triggerImmediateRun(
+	env: Env,
+	actionId: string,
+	triggerDate: string,
+): Promise<string> {
+	const batchNumber = 1;
+	const instanceId = `immediate-${triggerDate.replace(/[:\s]/g, "-")}-${actionId}`;
+	await env.PROCESSOR_WORKFLOW.create({
+		id: instanceId,
+		params: {
+			triggerDate,
+			actionIds: [actionId],
+			batchNumber,
+		},
+	});
+	return instanceId;
+}
+
 export async function fetchActionsWithUsers(
 	env: Env,
 	actionIds: string[],

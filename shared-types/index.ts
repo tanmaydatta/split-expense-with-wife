@@ -394,6 +394,10 @@ export interface ApiEndpoints {
 		request: ScheduledActionHistoryListRequest;
 		response: ScheduledActionHistoryListResponse;
 	};
+	"/scheduled-actions/run": {
+		request: { id: string };
+		response: { message: string; workflowInstanceId: string };
+	};
 }
 
 // Type-safe API client interface

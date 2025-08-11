@@ -169,6 +169,36 @@ test.describe("Scheduled Actions", () => {
     expect(upcomingText3).toContain(`Next: ${customDate}`);
   });
 
+  test("run now from history triggers immediate run", async ({ authenticatedPage }) => {
+    const helper = new ScheduledActionsTestHelper(authenticatedPage);
+    await helper.createExpenseAction({ description: "Run Now", amount: 3 });
+    await helper.openHistoryForAction("Run Now");
+
+    // Capture current upcoming date
+    const beforeText = await authenticatedPage.page
+      .locator('[data-test-id="sa-history"] .settings-card:has-text("Upcoming run")')
+      .textContent();
+    const beforeMatch = (beforeText || '').match(/Next:\s*(\d{4}-\d{2}-\d{2})/);
+    const beforeNext = beforeMatch ? beforeMatch[1] : undefined;
+
+    // Run now
+    const btn = authenticatedPage.page.getByTestId("sa-run-now");
+    await btn.click();
+
+    // Wait briefly and refresh the page to pick up new nextExecutionDate
+    await authenticatedPage.page.waitForTimeout(500);
+    await authenticatedPage.page.reload();
+
+    const afterText = await authenticatedPage.page
+      .locator('[data-test-id="sa-history"] .settings-card:has-text("Upcoming run")')
+      .textContent();
+    const afterMatch = (afterText || '').match(/Next:\s*(\d{4}-\d{2}-\d{2})/);
+    const afterNext = afterMatch ? afterMatch[1] : undefined;
+
+    expect(afterNext).toBeTruthy();
+    expect(afterNext).not.toBe(beforeNext);
+  });
+
   test("new action defaults match group defaults", async ({ authenticatedPage }) => {
     const helper = new ScheduledActionsTestHelper(authenticatedPage);
     const expectedPercentages = await getCurrentUserPercentages(authenticatedPage);

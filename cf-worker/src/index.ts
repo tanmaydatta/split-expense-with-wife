@@ -24,6 +24,7 @@ import {
 	handleScheduledActionHistory,
 	handleScheduledActionHistoryDetails,
 	handleScheduledActionList,
+	handleScheduledActionRunNow,
 	handleScheduledActionUpdate,
 } from "./handlers/scheduled-actions";
 import {
@@ -136,6 +137,12 @@ export default {
 				case "scheduled-actions/history/details":
 					if (request.method === "GET") {
 						return await handleScheduledActionHistoryDetails(request, env);
+					}
+					return createErrorResponse("Method not allowed", 405, request, env);
+
+				case "scheduled-actions/run":
+					if (request.method === "POST") {
+						return await handleScheduledActionRunNow(request, env);
 					}
 					return createErrorResponse("Method not allowed", 405, request, env);
 

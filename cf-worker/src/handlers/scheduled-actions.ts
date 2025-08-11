@@ -23,6 +23,7 @@ import {
 	formatZodError,
 	withAuth,
 } from "../utils";
+import { triggerImmediateRun } from "../workflows/scheduled-actions-processor";
 
 // The database now returns properly typed JSON, so we don't need custom row types
 
@@ -679,5 +680,50 @@ export async function handleScheduledActionHistoryDetails(
 		}
 
 		return createJsonResponse(rows[0], 200, {}, request, env);
+	});
+}
+
+export async function handleScheduledActionRunNow(
+	request: Request,
+	env: Env,
+): Promise<Response> {
+	return withAuth(request, env, async (session, db) => {
+		const group = session.group;
+		if (!group) {
+			return createErrorResponse("User not in a group", 400, request, env);
+		}
+		const json = (await request.json()) as { id?: string };
+		const id = json?.id;
+		if (!id) {
+			return createErrorResponse("Missing id", 400, request, env);
+		}
+		// Validate ownership: action must belong to a user in the same group
+		const rows = await db
+			.select()
+			.from(scheduledActions)
+			.where(
+				and(
+					eq(scheduledActions.id, id),
+					inArray(scheduledActions.userId, group.userids),
+				),
+			)
+			.limit(1);
+		if (rows.length === 0) {
+			return createErrorResponse(
+				"Scheduled action not found",
+				404,
+				request,
+				env,
+			);
+		}
+		const triggerDate = formatSQLiteTime();
+		const workflowInstanceId = await triggerImmediateRun(env, id, triggerDate);
+		return createJsonResponse(
+			{ message: "Run started", workflowInstanceId },
+			200,
+			{},
+			request,
+			env,
+		);
 	});
 }
