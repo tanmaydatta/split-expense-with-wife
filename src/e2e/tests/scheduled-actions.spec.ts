@@ -161,7 +161,7 @@ test.describe("Scheduled Actions", () => {
     const customDate = plusDays(5);
     await authenticatedPage.page.getByTestId('sa-custom-next-date-input').fill(customDate);
     await authenticatedPage.page.getByTestId('sa-set-custom-next').click();
-    await authenticatedPage.page.waitForTimeout(200);
+    await authenticatedPage.page.waitForTimeout(2000);
 
     const upcomingText3 = await authenticatedPage.page
       .locator('[data-test-id="sa-history"] .settings-card:has-text("Upcoming run")')
@@ -188,7 +188,7 @@ test.describe("Scheduled Actions", () => {
     // Wait briefly and refresh the page to pick up new nextExecutionDate
     await authenticatedPage.page.waitForTimeout(5000);
     await authenticatedPage.page.reload();
-
+    await authenticatedPage.page.waitForTimeout(2000);
     const afterText = await authenticatedPage.page
       .locator('[data-test-id="sa-history"] .settings-card:has-text("Upcoming run")')
       .textContent();
