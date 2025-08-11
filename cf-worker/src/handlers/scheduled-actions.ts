@@ -716,10 +716,10 @@ export async function handleScheduledActionRunNow(
 				env,
 			);
 		}
-        // Use the action's nextExecutionDate as the trigger date (00:00:00 time)
-        const nextDate = rows[0].nextExecutionDate;
-        const triggerDate = `${nextDate} 00:00:00`;
-        const workflowInstanceId = await triggerImmediateRun(env, id, triggerDate);
+		// Use the action's nextExecutionDate as the trigger date (00:00:00 time)
+		const nextDate = rows[0].nextExecutionDate;
+		const triggerDate = `${nextDate} 00:00:00`;
+		const workflowInstanceId = await triggerImmediateRun(env, id, triggerDate);
 		return createJsonResponse(
 			{ message: "Run started", workflowInstanceId },
 			200,
