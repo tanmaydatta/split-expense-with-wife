@@ -64,9 +64,14 @@ const Separator = styled.span`
 
 const UpcomingContainer = styled.div`
   display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 16px;
+  grid-template-columns: 260px 1fr;
+  gap: 24px;
   align-items: center;
+
+  @media (max-width: 900px) {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
 `;
 
 const UpcomingLeft = styled.div`
@@ -75,25 +80,46 @@ const UpcomingLeft = styled.div`
   gap: 4px;
 `;
 
-const UpcomingRight = styled.div`
+const ControlsBar = styled.div`
   display: grid;
-  grid-template-columns: auto auto 1fr auto;
+  grid-template-columns: 1fr;
+  grid-template-areas:
+    "date"
+    "set"
+    "run"
+    "skip";
   align-items: center;
   gap: 12px;
-
-  @media (max-width: 980px) {
-    grid-template-columns: 1fr 1fr;
-    grid-auto-rows: minmax(44px, auto);
-  }
-  @media (max-width: 640px) {
-    grid-template-columns: 1fr;
-  }
 `;
 
 const ActionButton = styled(Button)`
   height: 44px;
   min-width: 120px;
   padding: 0 16px;
+`;
+
+const DateInput = styled(Input)`
+  height: 44px;
+  width: 100%;
+  grid-area: date;
+`;
+
+const RunButton = styled(ActionButton)`
+  grid-area: run;
+  justify-self: stretch;
+  width: 100%;
+`;
+
+const SkipButton = styled(ActionButton)`
+  grid-area: skip;
+  justify-self: stretch;
+  width: 100%;
+`;
+
+const SetButton = styled(ActionButton)`
+  grid-area: set;
+  justify-self: stretch;
+  width: 100%;
 `;
 
 const ScheduledActionsHistory: React.FC<Props> = ({
@@ -130,8 +156,8 @@ const ScheduledActionsHistory: React.FC<Props> = ({
 							Next: <strong>{upcoming || "—"}</strong>
 						</Subtext>
 					</UpcomingLeft>
-					<UpcomingRight>
-						<ActionButton
+                    <ControlsBar>
+                        <RunButton
 							onClick={() => {
 								if (!scheduledActionId || runNow.isPending) return;
 								runNow.mutate({ id: scheduledActionId });
@@ -141,8 +167,8 @@ const ScheduledActionsHistory: React.FC<Props> = ({
 							disabled={runNow.isPending}
 						>
 							{runNow.isPending ? "Running…" : "Run now"}
-						</ActionButton>
-						<ActionButton
+                        </RunButton>
+                        <SkipButton
 							onClick={() => {
 								if (!scheduledActionId || isSaving) return;
 								updateAction.mutate({
@@ -155,8 +181,8 @@ const ScheduledActionsHistory: React.FC<Props> = ({
 							disabled={isSaving}
 						>
 							{isSaving ? "Saving…" : "Skip next"}
-						</ActionButton>
-						<Input
+                        </SkipButton>
+                        <DateInput
 							id="custom-next-date"
 							type="date"
 							aria-label="Custom next date"
@@ -165,9 +191,8 @@ const ScheduledActionsHistory: React.FC<Props> = ({
 								setCustomDate(e.target.value)
 							}
 							data-test-id="sa-custom-next-date-input"
-							style={{ minWidth: 260, height: 44 }}
 						/>
-						<ActionButton
+                        <SetButton
 							onClick={() => {
 								if (!scheduledActionId || !customDate || isSaving) return;
 								updateAction.mutate({
@@ -180,8 +205,8 @@ const ScheduledActionsHistory: React.FC<Props> = ({
 							data-test-id="sa-set-custom-next"
 						>
 							{isSaving ? "Saving…" : "Set date"}
-						</ActionButton>
-					</UpcomingRight>
+                        </SetButton>
+                    </ControlsBar>
 				</UpcomingContainer>
 			</Card>
 			{isLoading && <div>Loading...</div>}

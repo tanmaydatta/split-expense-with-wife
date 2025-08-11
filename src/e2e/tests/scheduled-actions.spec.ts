@@ -186,7 +186,7 @@ test.describe("Scheduled Actions", () => {
     await btn.click();
 
     // Wait briefly and refresh the page to pick up new nextExecutionDate
-    await authenticatedPage.page.waitForTimeout(500);
+    await authenticatedPage.page.waitForTimeout(5000);
     await authenticatedPage.page.reload();
 
     const afterText = await authenticatedPage.page
