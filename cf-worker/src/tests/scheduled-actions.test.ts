@@ -655,6 +655,71 @@ describe("Scheduled Actions Handlers", () => {
 			expect(actions[0].nextExecutionDate).not.toBe("2024-01-01");
 		});
 
+		it("should allow skipping the next run by one period", async () => {
+			// Arrange: set a known nextExecutionDate
+			const db = getDb(env);
+			await db
+				.update(scheduledActions)
+				.set({ nextExecutionDate: "2024-01-08" })
+				.where(eq(scheduledActions.id, actionId));
+
+			const updateRequest: any = {
+				id: actionId,
+				skipNext: true,
+			};
+
+			const response = await worker.fetch(
+				createTestRequest("scheduled-actions/update", "PUT", updateRequest, userCookies),
+				env,
+				createExecutionContext(),
+			);
+			expect(response.status).toBe(200);
+
+			const actions = await db
+				.select()
+				.from(scheduledActions)
+				.where(eq(scheduledActions.id, actionId));
+			expect(actions[0].nextExecutionDate).toBe("2024-01-15");
+		});
+
+		it("should allow setting a custom nextExecutionDate explicitly", async () => {
+			const db = getDb(env);
+			const updateRequest: any = {
+				id: actionId,
+				nextExecutionDate: "2024-02-01",
+			};
+
+			const response = await worker.fetch(
+				createTestRequest("scheduled-actions/update", "PUT", updateRequest, userCookies),
+				env,
+				createExecutionContext(),
+			);
+			expect(response.status).toBe(200);
+
+			const actions = await db
+				.select()
+				.from(scheduledActions)
+				.where(eq(scheduledActions.id, actionId));
+			expect(actions[0].nextExecutionDate).toBe("2024-02-01");
+		});
+
+		it("should reject update when both nextExecutionDate and skipNext are provided", async () => {
+			const updateRequest: any = {
+				id: actionId,
+				nextExecutionDate: "2024-02-01",
+				skipNext: true,
+			};
+
+			const response = await worker.fetch(
+				createTestRequest("scheduled-actions/update", "PUT", updateRequest, userCookies),
+				env,
+				createExecutionContext(),
+			);
+			expect(response.status).toBe(400);
+			const result = (await response.json()) as { error: string };
+			expect(result.error).toContain("only one of nextExecutionDate or skipNext");
+		});
+
 		it("should reject update of non-existent action", async () => {
 			const updateRequest: UpdateScheduledActionRequest = {
 				id: "non-existent-id",

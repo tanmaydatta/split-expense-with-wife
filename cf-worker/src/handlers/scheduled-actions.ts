@@ -330,6 +330,8 @@ export async function handleScheduledActionUpdate(
 
 		// ID validation handled by Zod schema
 
+		// Exclusivity is enforced by Zod schema now
+
 		// Check if action exists and belongs to user
 		const existingAction = await db
 			.select()
@@ -400,8 +402,29 @@ export async function handleScheduledActionUpdate(
 				| AddBudgetActionData;
 		}
 
-		// Recalculate next execution date if frequency or start date changed
-		if (body.frequency || body.startDate) {
+		// 1) If explicit nextExecutionDate provided, accept it as-is
+		if (body.nextExecutionDate) {
+			updateData.nextExecutionDate = body.nextExecutionDate;
+		}
+
+		// 2) If skipNext is requested, compute next using calculateNextExecutionDate
+		if (body.skipNext) {
+			const current = existingAction[0];
+			const currentNext = current.nextExecutionDate;
+			const freq = (body.frequency || current.frequency) as
+				| "daily"
+				| "weekly"
+				| "monthly";
+			// Use currentNext as both start and now to advance by exactly one period
+			updateData.nextExecutionDate = calculateNextExecutionDate(
+				currentNext,
+				freq,
+				new Date(currentNext),
+			);
+		}
+
+		// 3) Recalculate next execution date if frequency or start date changed (and not already set above)
+		if ((body.frequency || body.startDate) && !updateData.nextExecutionDate) {
 			const newFrequency = body.frequency || existingAction[0].frequency;
 			const newStartDate = body.startDate || existingAction[0].startDate;
 			updateData.nextExecutionDate = calculateNextExecutionDate(

@@ -1,5 +1,11 @@
+import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
-import { useScheduledActionHistory } from "@/hooks/useScheduledActions";
+import { Input } from "@/components/Form/Input";
+import {
+	useScheduledActionDetails,
+	useScheduledActionHistory,
+	useUpdateScheduledAction,
+} from "@/hooks/useScheduledActions";
 import { dateToFullStr } from "@/utils/date";
 import React from "react";
 import { useNavigate } from "react-router-dom";
@@ -55,11 +61,49 @@ const Separator = styled.span`
   color: #9ca3af;
 `;
 
+const UpcomingContainer = styled.div`
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 16px;
+  align-items: center;
+
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+`;
+
+const UpcomingLeft = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+`;
+
+const UpcomingRight = styled.div`
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+  }
+`;
+
+const ActionButton = styled(Button)`
+  height: 44px;
+  min-width: 120px;
+  padding: 0 16px;
+`;
+
 const ScheduledActionsHistory: React.FC<Props> = ({
 	scheduledActionId,
 	executionStatus,
 }) => {
 	const navigate = useNavigate();
+	const { data: details } = useScheduledActionDetails(scheduledActionId);
+	const updateAction = useUpdateScheduledAction();
+	const [customDate, setCustomDate] = React.useState<string>("");
 	const { data, isLoading, isError } = useScheduledActionHistory({
 		offset: 0,
 		limit: 25,
@@ -70,8 +114,64 @@ const ScheduledActionsHistory: React.FC<Props> = ({
 	const list =
 		(data as ScheduledActionHistoryListResponse | undefined)?.history || [];
 
+	const upcoming = (
+		details as import("split-expense-shared-types").ScheduledAction | undefined
+	)?.nextExecutionDate;
+	const isSaving = updateAction.isPending;
+
 	return (
 		<div data-test-id="sa-history">
+			<Card className="settings-card">
+				<UpcomingContainer>
+					<UpcomingLeft>
+						<TitleText>Upcoming run</TitleText>
+						<Subtext>
+							Next: <strong>{upcoming || "—"}</strong>
+						</Subtext>
+					</UpcomingLeft>
+					<UpcomingRight>
+						<ActionButton
+							onClick={() => {
+								if (!scheduledActionId || isSaving) return;
+								updateAction.mutate({
+									id: scheduledActionId,
+									skipNext: true,
+								} as any);
+							}}
+							aria-label="Skip the next scheduled run"
+							data-test-id="sa-skip-next"
+							disabled={isSaving}
+						>
+							{isSaving ? "Saving…" : "Skip next"}
+						</ActionButton>
+						<Input
+							id="custom-next-date"
+							type="date"
+							aria-label="Custom next date"
+							value={customDate}
+							onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+								setCustomDate(e.target.value)
+							}
+							data-test-id="sa-custom-next-date-input"
+							style={{ minWidth: 260, height: 44 }}
+						/>
+						<ActionButton
+							onClick={() => {
+								if (!scheduledActionId || !customDate || isSaving) return;
+								updateAction.mutate({
+									id: scheduledActionId,
+									nextExecutionDate: customDate,
+								} as any);
+							}}
+							disabled={!customDate || isSaving}
+							aria-label="Set custom next execution date"
+							data-test-id="sa-set-custom-next"
+						>
+							{isSaving ? "Saving…" : "Set date"}
+						</ActionButton>
+					</UpcomingRight>
+				</UpcomingContainer>
+			</Card>
 			{isLoading && <div>Loading...</div>}
 			{isError && <div>Failed to load history</div>}
 			{!isLoading && !isError && data && list.length === 0 && (

@@ -128,6 +128,47 @@ test.describe("Scheduled Actions", () => {
     ).toBeVisible();
   });
 
+  test("history page shows upcoming date and allows skip and custom next date", async ({ authenticatedPage }) => {
+    const helper = new ScheduledActionsTestHelper(authenticatedPage);
+    await helper.createExpenseAction({ description: "Skip me", amount: 5 });
+    await helper.openHistoryForAction("Skip me");
+
+    // Capture current upcoming date
+    const upcomingText = await authenticatedPage.page
+      .locator('[data-test-id="sa-history"] .settings-card:has-text("Upcoming run")')
+      .textContent();
+    const currentMatch = (upcomingText || '').match(/Next:\s*(\d{4}-\d{2}-\d{2})/);
+    const currentNext = currentMatch ? currentMatch[1] : undefined;
+
+    // Click skip next
+    await authenticatedPage.page.getByTestId('sa-skip-next').click();
+    await authenticatedPage.page.waitForTimeout(300); // allow re-render
+
+    // Expect next date to change
+    const upcomingText2 = await authenticatedPage.page
+      .locator('[data-test-id="sa-history"] .settings-card:has-text("Upcoming run")')
+      .textContent();
+    const newMatch = (upcomingText2 || '').match(/Next:\s*(\d{4}-\d{2}-\d{2})/);
+    const newNext = newMatch ? newMatch[1] : undefined;
+    expect(newNext).not.toBe(currentNext);
+
+    // Set custom next date = today + 5 days for determinism in CI window
+    const plusDays = (days: number) => {
+      const d = new Date();
+      d.setUTCDate(d.getUTCDate() + days);
+      return d.toISOString().split('T')[0];
+    };
+    const customDate = plusDays(5);
+    await authenticatedPage.page.getByTestId('sa-custom-next-date-input').fill(customDate);
+    await authenticatedPage.page.getByTestId('sa-set-custom-next').click();
+    await authenticatedPage.page.waitForTimeout(200);
+
+    const upcomingText3 = await authenticatedPage.page
+      .locator('[data-test-id="sa-history"] .settings-card:has-text("Upcoming run")')
+      .textContent();
+    expect(upcomingText3).toContain(`Next: ${customDate}`);
+  });
+
   test("new action defaults match group defaults", async ({ authenticatedPage }) => {
     const helper = new ScheduledActionsTestHelper(authenticatedPage);
     const expectedPercentages = await getCurrentUserPercentages(authenticatedPage);

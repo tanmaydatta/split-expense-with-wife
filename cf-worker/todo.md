@@ -21,7 +21,7 @@
 - multi person split
 - sessions api - d1
 - schedule actions
-    - set action as inactive
+    - set action as inactive ✅
     - skip next date
     - set next date
     - run now
