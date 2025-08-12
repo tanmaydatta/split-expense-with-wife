@@ -89,7 +89,7 @@ export async function enrichSession(
 
 function getGroup(
 	userGroup: {
-		groupid: number | null;
+		groupid: string | null;
 		metadata: string | null;
 		budgets: string | null;
 		userids: string | null;
@@ -115,7 +115,7 @@ function getGroup(
 		console.error("Error parsing group data:", error);
 		// Return a safe default group
 		return {
-			groupid: userGroup[0].groupid || 0,
+			groupid: userGroup[0].groupid || "",
 			budgets: [],
 			userids: [],
 			metadata: { defaultShare: {}, defaultCurrency: "USD" },
@@ -457,7 +457,7 @@ export function calculateSplitAmounts(
 export function generateDrizzleBalanceUpdates(
 	env: Env,
 	splitAmounts: SplitAmount[],
-	groupId: number,
+	groupId: string,
 	operation: "add" | "remove",
 ) {
 	const db = getDb(env);
@@ -497,10 +497,8 @@ export async function rebuildGroupBalances(
 ): Promise<void> {
 	const db = getDb(env);
 	const currentTime = formatSQLiteTime();
-	const parsedGroupId = Number.parseInt(groupId);
-
 	// Delete existing balances for the group using Drizzle
-	await db.delete(userBalances).where(eq(userBalances.groupId, parsedGroupId));
+	await db.delete(userBalances).where(eq(userBalances.groupId, groupId));
 
 	// Get aggregated transaction data using Drizzle
 	const aggregatedBalances = await db
@@ -514,7 +512,7 @@ export async function rebuildGroupBalances(
 		.from(transactionUsers)
 		.where(
 			and(
-				eq(transactionUsers.groupId, parsedGroupId),
+				eq(transactionUsers.groupId, groupId),
 				isNull(transactionUsers.deleted),
 			),
 		)

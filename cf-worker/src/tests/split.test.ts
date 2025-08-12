@@ -28,7 +28,13 @@ type SplitDeleteResponse = ApiEndpoints["/split_delete"]["response"];
 // Database result types removed - now using Drizzle schema types directly
 
 describe("Split handlers", () => {
-	let TEST_USERS: Record<string, Record<string, string>>;
+	let TEST_USERS: {
+		user1: Record<string, string>;
+		user2: Record<string, string>;
+		user3: Record<string, string>;
+		user4: Record<string, string>;
+		testGroupId: string;
+	};
 
 	beforeAll(async () => {
 		await setupAndCleanDatabase(env);
@@ -225,7 +231,7 @@ describe("Split handlers", () => {
 				description: "Test split",
 				amount: 100,
 				currency: "USD",
-				groupId: 1,
+				groupId: TEST_USERS.testGroupId,
 				createdAt: "2024-01-01 00:00:00",
 			});
 			await db.insert(transactionUsers).values({
@@ -234,7 +240,7 @@ describe("Split handlers", () => {
 				amount: 50,
 				owedToUserId: TEST_USERS.user2.id,
 				currency: "USD",
-				groupId: 1,
+				groupId: TEST_USERS.testGroupId,
 			});
 
 			const request = createTestRequest(
@@ -382,7 +388,7 @@ describe("Split handlers", () => {
 
 			const debt = userTransactions[0];
 			expect(debt.currency).toBe("GBP");
-			expect(debt.groupId).toBe(1);
+			expect(debt.groupId).toBe(TEST_USERS.testGroupId);
 			expect(debt.amount).toBeCloseTo(24, 2); // User 2's debt to User 1
 		});
 
@@ -440,7 +446,7 @@ describe("Split handlers", () => {
 			const db = getDb(env);
 
 			await db.insert(groups).values({
-				groupid: 2,
+				groupid: "test-group-2",
 				groupName: "Multi-person Group",
 				userids: `["${TEST_USERS.user1.id}", "${TEST_USERS.user2.id}", "${TEST_USERS.user3.id}"]`,
 				metadata: `{"defaultCurrency": "EUR", "defaultShare": {"${TEST_USERS.user1.id}": 40, "${TEST_USERS.user2.id}": 30, "${TEST_USERS.user3.id}": 30}}`,
@@ -587,7 +593,7 @@ describe("Split handlers", () => {
 			const db = getDb(env);
 
 			await db.insert(groups).values({
-				groupid: 3,
+				groupid: "test-group-3",
 				groupName: "Mixed Payment Group",
 				userids: `["${TEST_USERS.user1.id}", "${TEST_USERS.user2.id}", "${TEST_USERS.user3.id}"]`,
 				metadata: `{"defaultCurrency": "EUR", "defaultShare": {"${TEST_USERS.user1.id}": 50, "${TEST_USERS.user2.id}": 30, "${TEST_USERS.user3.id}": 20}}`,
@@ -736,7 +742,7 @@ describe("Split handlers", () => {
 			const db = getDb(env);
 
 			await db.insert(groups).values({
-				groupid: 4,
+				groupid: "test-group-4",
 				groupName: "Four Person Group",
 				userids: `["${TEST_USERS.user1.id}", "${TEST_USERS.user2.id}", "${TEST_USERS.user3.id}", "${TEST_USERS.user4.id}"]`,
 				metadata: `{"defaultCurrency": "USD", "defaultShare": {"${TEST_USERS.user1.id}": 40, "${TEST_USERS.user2.id}": 20, "${TEST_USERS.user3.id}": 25, "${TEST_USERS.user4.id}": 15}}`,
@@ -932,7 +938,7 @@ describe("Split handlers", () => {
 				description: "Transaction 1",
 				amount: 100,
 				currency: "USD",
-				groupId: 1,
+				groupId: TEST_USERS.testGroupId,
 				createdAt: "2024-01-01 00:00:00",
 			});
 

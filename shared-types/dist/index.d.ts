@@ -7,11 +7,11 @@ export interface User {
 	username?: string | null;
 	FirstName: string | null;
 	LastName?: string | null;
-	groupid: number | null;
+	groupid: string | null;
 	password?: string;
 }
 export interface Group {
-	groupid: number;
+	groupid: string;
 	budgets: string;
 	userids: string;
 	metadata: string;
@@ -24,7 +24,7 @@ export interface BudgetEntry {
 	amount: number;
 	name: string;
 	deleted?: string;
-	groupid: number;
+	groupid: string;
 	currency: string;
 }
 export interface Transaction {
@@ -35,7 +35,7 @@ export interface Transaction {
 	metadata: string;
 	currency: string;
 	transaction_id: string;
-	group_id: number;
+	group_id: string;
 	deleted?: string;
 }
 export interface TransactionUser {
@@ -43,7 +43,7 @@ export interface TransactionUser {
 	user_id: string;
 	amount: number;
 	owed_to_user_id: string;
-	group_id: number;
+	group_id: string;
 	currency: string;
 	deleted?: string;
 	first_name?: string;
@@ -65,7 +65,7 @@ export interface BudgetRequest {
 	amount: number;
 	description: string;
 	name: string;
-	groupid: number;
+	groupid: string;
 	currency: string;
 }
 export interface BudgetListRequest {
@@ -105,12 +105,12 @@ export interface TransactionsListRequest {
 }
 export interface LoginResponse {
 	username: string;
-	groupId: number;
+	groupId: string;
 	budgets: string[];
 	users: User[];
-	userids: number[];
+	userids: string[];
 	metadata: GroupMetadata;
-	userId: number;
+	userId: string;
 	token: string;
 	currencies: string[];
 }
@@ -146,9 +146,9 @@ export interface TransactionsListResponse {
 	transactionDetails: Record<string, TransactionUser[]>;
 }
 export interface TransactionBalances {
-	user_id: number;
+	user_id: string;
 	amount: number;
-	owed_to_user_id: number;
+	owed_to_user_id: string;
 	currency: string;
 }
 export interface ApiResponse<T = any> {
@@ -173,7 +173,7 @@ export interface FrontendTransaction {
 	currency: string;
 }
 export interface FrontendUser {
-	Id: number;
+	Id: string;
 	Name: string;
 }
 export interface BudgetDisplayEntry {
@@ -189,14 +189,14 @@ export interface BudgetTotal {
 	amount: number;
 }
 export interface GroupDetailsResponse {
-	groupid: number;
+	groupid: string;
 	groupName: string;
 	budgets: string[];
 	metadata: GroupMetadata;
 	users: User[];
 }
 export interface UpdateGroupMetadataRequest {
-	groupid: number;
+	groupid: string;
 	defaultShare?: Record<string, number>;
 	defaultCurrency?: string;
 	groupName?: string;
@@ -216,7 +216,7 @@ export interface AuthenticatedUser {
 	updatedAt: Date;
 	username: string | null;
 	displayUsername: string | null;
-	groupid: number | null;
+	groupid: string | null;
 	firstName: string;
 	lastName: string;
 }
@@ -242,7 +242,7 @@ export interface FullAuthSession {
 	extra: EnrichedSessionExtra;
 }
 export interface ParsedGroupData {
-	groupid: number;
+	groupid: string;
 	budgets: string[];
 	userids: string[];
 	metadata: GroupMetadata;
@@ -354,6 +354,15 @@ export interface ApiEndpoints {
 	"/scheduled-actions/history": {
 		request: ScheduledActionHistoryListRequest;
 		response: ScheduledActionHistoryListResponse;
+	};
+	"/scheduled-actions/run": {
+		request: {
+			id: string;
+		};
+		response: {
+			message: string;
+			workflowInstanceId: string;
+		};
 	};
 }
 export interface TypedApiClient {

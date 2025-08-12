@@ -27,7 +27,13 @@ type BudgetTotalResponse = Array<{ currency: string; amount: number }>;
 const env = testEnv as unknown as Env;
 
 describe("Budget Handlers", () => {
-	let TEST_USERS: Record<string, Record<string, string>>;
+	let TEST_USERS: {
+		user1: Record<string, string>;
+		user2: Record<string, string>;
+		user3: Record<string, string>;
+		user4: Record<string, string>;
+		testGroupId: string;
+	};
 	beforeAll(async () => {
 		await setupAndCleanDatabase(env);
 	});
@@ -54,7 +60,7 @@ describe("Budget Handlers", () => {
 				description: "Test transaction",
 				amount: 100,
 				currency: "USD",
-				groupId: 1,
+				groupId: TEST_USERS.testGroupId,
 				createdAt: "2024-01-01 00:00:00",
 			});
 			await db.insert(transactionUsers).values([
@@ -64,7 +70,7 @@ describe("Budget Handlers", () => {
 					amount: 50,
 					owedToUserId: TEST_USERS.user2.id,
 					currency: "USD",
-					groupId: 1,
+					groupId: TEST_USERS.testGroupId,
 				},
 				{
 					transactionId: "test-tx-1",
@@ -72,7 +78,7 @@ describe("Budget Handlers", () => {
 					amount: 20,
 					owedToUserId: TEST_USERS.user1.id,
 					currency: "USD",
-					groupId: 1,
+					groupId: TEST_USERS.testGroupId,
 				},
 			]);
 
@@ -122,7 +128,7 @@ describe("Budget Handlers", () => {
 					amount: 75,
 					owedToUserId: TEST_USERS.user1.id,
 					currency: "USD",
-					groupId: 1,
+					groupId: TEST_USERS.testGroupId,
 				},
 				{
 					transactionId: "tx-2",
@@ -130,7 +136,7 @@ describe("Budget Handlers", () => {
 					amount: 25,
 					owedToUserId: TEST_USERS.user2.id,
 					currency: "USD",
-					groupId: 1,
+					groupId: TEST_USERS.testGroupId,
 				},
 			]);
 
@@ -177,7 +183,7 @@ describe("Budget Handlers", () => {
 					amount: 30,
 					owedToUserId: TEST_USERS.user2.id,
 					currency: "USD",
-					groupId: 1,
+					groupId: TEST_USERS.testGroupId,
 				},
 				{
 					transactionId: "tx-3b",
@@ -185,7 +191,7 @@ describe("Budget Handlers", () => {
 					amount: 40,
 					owedToUserId: TEST_USERS.user3.id,
 					currency: "USD",
-					groupId: 1,
+					groupId: TEST_USERS.testGroupId,
 				},
 				{
 					transactionId: "tx-3c",
@@ -193,7 +199,7 @@ describe("Budget Handlers", () => {
 					amount: 20,
 					owedToUserId: TEST_USERS.user1.id,
 					currency: "USD",
-					groupId: 1,
+					groupId: TEST_USERS.testGroupId,
 				},
 			]);
 
@@ -242,7 +248,7 @@ describe("Budget Handlers", () => {
 					amount: 50,
 					owedToUserId: TEST_USERS.user2.id,
 					currency: "USD",
-					groupId: 1,
+					groupId: TEST_USERS.testGroupId,
 				},
 				{
 					transactionId: "tx-4b",
@@ -250,7 +256,7 @@ describe("Budget Handlers", () => {
 					amount: 30,
 					owedToUserId: TEST_USERS.user1.id,
 					currency: "USD",
-					groupId: 1,
+					groupId: TEST_USERS.testGroupId,
 				},
 				{
 					transactionId: "tx-4c",
@@ -258,7 +264,7 @@ describe("Budget Handlers", () => {
 					amount: 40,
 					owedToUserId: TEST_USERS.user1.id,
 					currency: "USD",
-					groupId: 1,
+					groupId: TEST_USERS.testGroupId,
 				},
 				{
 					transactionId: "tx-4d",
@@ -266,7 +272,7 @@ describe("Budget Handlers", () => {
 					amount: 20,
 					owedToUserId: TEST_USERS.user4.id,
 					currency: "USD",
-					groupId: 1,
+					groupId: TEST_USERS.testGroupId,
 				},
 			]);
 
@@ -316,7 +322,7 @@ describe("Budget Handlers", () => {
 					amount: 50,
 					owedToUserId: TEST_USERS.user2.id,
 					currency: "USD",
-					groupId: 1,
+					groupId: TEST_USERS.testGroupId,
 				},
 				{
 					transactionId: "tx-5b",
@@ -324,7 +330,7 @@ describe("Budget Handlers", () => {
 					amount: 30,
 					owedToUserId: TEST_USERS.user1.id,
 					currency: "EUR",
-					groupId: 1,
+					groupId: TEST_USERS.testGroupId,
 				},
 				{
 					transactionId: "tx-5c",
@@ -332,7 +338,7 @@ describe("Budget Handlers", () => {
 					amount: 100,
 					owedToUserId: TEST_USERS.user1.id,
 					currency: "GBP",
-					groupId: 1,
+					groupId: TEST_USERS.testGroupId,
 				},
 			]);
 
@@ -412,7 +418,7 @@ describe("Budget Handlers", () => {
 					amount: 100,
 					owedToUserId: TEST_USERS.user1.id,
 					currency: "USD",
-					groupId: 1,
+					groupId: TEST_USERS.testGroupId,
 				},
 				{
 					transactionId: "tx-6b",
@@ -420,7 +426,7 @@ describe("Budget Handlers", () => {
 					amount: 50,
 					owedToUserId: TEST_USERS.user2.id,
 					currency: "USD",
-					groupId: 1,
+					groupId: TEST_USERS.testGroupId,
 				},
 				{
 					transactionId: "tx-6c",
@@ -428,7 +434,7 @@ describe("Budget Handlers", () => {
 					amount: 40,
 					owedToUserId: TEST_USERS.user2.id,
 					currency: "USD",
-					groupId: 1,
+					groupId: TEST_USERS.testGroupId,
 				},
 			]);
 
@@ -478,7 +484,7 @@ describe("Budget Handlers", () => {
 					amount: 60,
 					owedToUserId: TEST_USERS.user2.id,
 					currency: "USD",
-					groupId: 1,
+					groupId: TEST_USERS.testGroupId,
 				},
 				{
 					transactionId: "tx-7b",
@@ -486,7 +492,7 @@ describe("Budget Handlers", () => {
 					amount: 10,
 					owedToUserId: TEST_USERS.user1.id,
 					currency: "USD",
-					groupId: 1,
+					groupId: TEST_USERS.testGroupId,
 				},
 				{
 					transactionId: "tx-7c",
@@ -494,7 +500,7 @@ describe("Budget Handlers", () => {
 					amount: 30,
 					owedToUserId: TEST_USERS.user2.id,
 					currency: "USD",
-					groupId: 1,
+					groupId: TEST_USERS.testGroupId,
 				},
 				{
 					transactionId: "tx-7d",
@@ -502,7 +508,7 @@ describe("Budget Handlers", () => {
 					amount: 20,
 					owedToUserId: TEST_USERS.user1.id,
 					currency: "USD",
-					groupId: 1,
+					groupId: TEST_USERS.testGroupId,
 				},
 				{
 					transactionId: "tx-7e",
@@ -510,7 +516,7 @@ describe("Budget Handlers", () => {
 					amount: 50,
 					owedToUserId: TEST_USERS.user1.id,
 					currency: "USD",
-					groupId: 1,
+					groupId: TEST_USERS.testGroupId,
 				},
 			]);
 
@@ -555,7 +561,7 @@ describe("Budget Handlers", () => {
 					amount: 50,
 					owedToUserId: TEST_USERS.user2.id,
 					currency: "USD",
-					groupId: 1,
+					groupId: TEST_USERS.testGroupId,
 				},
 				{
 					transactionId: "tx-8b",
@@ -563,7 +569,7 @@ describe("Budget Handlers", () => {
 					amount: 30,
 					owedToUserId: TEST_USERS.user3.id,
 					currency: "USD",
-					groupId: 1,
+					groupId: TEST_USERS.testGroupId,
 				},
 			]);
 
@@ -610,7 +616,7 @@ describe("Budget Handlers", () => {
 					amount: 100,
 					owedToUserId: TEST_USERS.user2.id,
 					currency: "USD",
-					groupId: 1,
+					groupId: TEST_USERS.testGroupId,
 				},
 				{
 					transactionId: "tx-9b",
@@ -618,7 +624,7 @@ describe("Budget Handlers", () => {
 					amount: 75,
 					owedToUserId: TEST_USERS.user3.id,
 					currency: "USD",
-					groupId: 1,
+					groupId: TEST_USERS.testGroupId,
 				},
 			]);
 
@@ -665,7 +671,7 @@ describe("Budget Handlers", () => {
 					amount: 60,
 					owedToUserId: TEST_USERS.user1.id,
 					currency: "USD",
-					groupId: 1,
+					groupId: TEST_USERS.testGroupId,
 				},
 				{
 					transactionId: "tx-10b",
@@ -673,7 +679,7 @@ describe("Budget Handlers", () => {
 					amount: 40,
 					owedToUserId: TEST_USERS.user1.id,
 					currency: "USD",
-					groupId: 1,
+					groupId: TEST_USERS.testGroupId,
 				},
 			]);
 
@@ -720,7 +726,7 @@ describe("Budget Handlers", () => {
 					amount: 50,
 					owedToUserId: TEST_USERS.user2.id,
 					currency: "USD",
-					groupId: 1,
+					groupId: TEST_USERS.testGroupId,
 				},
 				{
 					transactionId: "tx-11b",
@@ -728,7 +734,7 @@ describe("Budget Handlers", () => {
 					amount: 30,
 					owedToUserId: TEST_USERS.user3.id,
 					currency: "USD",
-					groupId: 1,
+					groupId: TEST_USERS.testGroupId,
 				},
 				{
 					transactionId: "tx-11c",
@@ -736,7 +742,7 @@ describe("Budget Handlers", () => {
 					amount: 20,
 					owedToUserId: TEST_USERS.user1.id,
 					currency: "USD",
-					groupId: 1,
+					groupId: TEST_USERS.testGroupId,
 				},
 			]);
 
@@ -783,7 +789,7 @@ describe("Budget Handlers", () => {
 					amount: 25,
 					owedToUserId: TEST_USERS.user2.id,
 					currency: "USD",
-					groupId: 1,
+					groupId: TEST_USERS.testGroupId,
 				},
 				{
 					transactionId: "tx-12b",
@@ -791,7 +797,7 @@ describe("Budget Handlers", () => {
 					amount: 35,
 					owedToUserId: TEST_USERS.user3.id,
 					currency: "USD",
-					groupId: 1,
+					groupId: TEST_USERS.testGroupId,
 				},
 				{
 					transactionId: "tx-12c",
@@ -799,7 +805,7 @@ describe("Budget Handlers", () => {
 					amount: 45,
 					owedToUserId: TEST_USERS.user4.id,
 					currency: "USD",
-					groupId: 1,
+					groupId: TEST_USERS.testGroupId,
 				},
 			]);
 
@@ -847,7 +853,7 @@ describe("Budget Handlers", () => {
 					amount: 80,
 					owedToUserId: TEST_USERS.user1.id,
 					currency: "USD",
-					groupId: 1,
+					groupId: TEST_USERS.testGroupId,
 				},
 				{
 					transactionId: "tx-13b",
@@ -855,7 +861,7 @@ describe("Budget Handlers", () => {
 					amount: 65,
 					owedToUserId: TEST_USERS.user1.id,
 					currency: "USD",
-					groupId: 1,
+					groupId: TEST_USERS.testGroupId,
 				},
 				{
 					transactionId: "tx-13c",
@@ -863,7 +869,7 @@ describe("Budget Handlers", () => {
 					amount: 55,
 					owedToUserId: TEST_USERS.user1.id,
 					currency: "USD",
-					groupId: 1,
+					groupId: TEST_USERS.testGroupId,
 				},
 			]);
 
@@ -912,7 +918,7 @@ describe("Budget Handlers", () => {
 					amount: 90,
 					owedToUserId: TEST_USERS.user2.id,
 					currency: "USD",
-					groupId: 1,
+					groupId: TEST_USERS.testGroupId,
 				},
 				{
 					transactionId: "tx-14b",
@@ -920,7 +926,7 @@ describe("Budget Handlers", () => {
 					amount: 70,
 					owedToUserId: TEST_USERS.user4.id,
 					currency: "USD",
-					groupId: 1,
+					groupId: TEST_USERS.testGroupId,
 				},
 			]);
 
@@ -970,7 +976,7 @@ describe("Budget Handlers", () => {
 					amount: 100,
 					owedToUserId: TEST_USERS.user2.id,
 					currency: "USD",
-					groupId: 1,
+					groupId: TEST_USERS.testGroupId,
 				},
 				{
 					transactionId: "tx-15b",
@@ -978,7 +984,7 @@ describe("Budget Handlers", () => {
 					amount: 50,
 					owedToUserId: TEST_USERS.user1.id,
 					currency: "EUR",
-					groupId: 1,
+					groupId: TEST_USERS.testGroupId,
 				},
 				{
 					transactionId: "tx-15c",
@@ -986,7 +992,7 @@ describe("Budget Handlers", () => {
 					amount: 200,
 					owedToUserId: TEST_USERS.user1.id,
 					currency: "GBP",
-					groupId: 1,
+					groupId: TEST_USERS.testGroupId,
 				},
 				{
 					transactionId: "tx-15d",
@@ -994,7 +1000,7 @@ describe("Budget Handlers", () => {
 					amount: 75,
 					owedToUserId: TEST_USERS.user3.id,
 					currency: "EUR",
-					groupId: 1,
+					groupId: TEST_USERS.testGroupId,
 				},
 			]);
 
@@ -1046,7 +1052,7 @@ describe("Budget Handlers", () => {
 					amount: 40,
 					owedToUserId: TEST_USERS.user2.id,
 					currency: "USD",
-					groupId: 1,
+					groupId: TEST_USERS.testGroupId,
 				},
 				{
 					transactionId: "tx-16b",
@@ -1054,7 +1060,7 @@ describe("Budget Handlers", () => {
 					amount: 30,
 					owedToUserId: TEST_USERS.user1.id,
 					currency: "USD",
-					groupId: 1,
+					groupId: TEST_USERS.testGroupId,
 				},
 				{
 					transactionId: "tx-16c",
@@ -1062,7 +1068,7 @@ describe("Budget Handlers", () => {
 					amount: 60,
 					owedToUserId: TEST_USERS.user1.id,
 					currency: "USD",
-					groupId: 1,
+					groupId: TEST_USERS.testGroupId,
 				},
 				{
 					transactionId: "tx-16d",
@@ -1070,7 +1076,7 @@ describe("Budget Handlers", () => {
 					amount: 20,
 					owedToUserId: TEST_USERS.user3.id,
 					currency: "USD",
-					groupId: 1,
+					groupId: TEST_USERS.testGroupId,
 				},
 				{
 					transactionId: "tx-16e",
@@ -1078,7 +1084,7 @@ describe("Budget Handlers", () => {
 					amount: 80,
 					owedToUserId: TEST_USERS.user1.id,
 					currency: "USD",
-					groupId: 1,
+					groupId: TEST_USERS.testGroupId,
 				},
 				{
 					transactionId: "tx-16f",
@@ -1086,7 +1092,7 @@ describe("Budget Handlers", () => {
 					amount: 35,
 					owedToUserId: TEST_USERS.user4.id,
 					currency: "USD",
-					groupId: 1,
+					groupId: TEST_USERS.testGroupId,
 				},
 			]);
 
@@ -1133,7 +1139,7 @@ describe("Budget Handlers", () => {
 					amount: 85,
 					owedToUserId: TEST_USERS.user2.id,
 					currency: "USD",
-					groupId: 1,
+					groupId: TEST_USERS.testGroupId,
 				},
 				{
 					transactionId: "tx-17b",
@@ -1141,7 +1147,7 @@ describe("Budget Handlers", () => {
 					amount: 50,
 					owedToUserId: TEST_USERS.user2.id,
 					currency: "USD",
-					groupId: 1,
+					groupId: TEST_USERS.testGroupId,
 				},
 			]);
 
@@ -1191,7 +1197,7 @@ describe("Budget Handlers", () => {
 						amount: 100,
 						description: "Groceries",
 						name: "house",
-						groupid: 1,
+						groupid: TEST_USERS.testGroupId,
 						currency: "USD",
 					}),
 				},
@@ -1227,7 +1233,7 @@ describe("Budget Handlers", () => {
 						amount: 100,
 						description: "Groceries",
 						name: "unauthorized_budget",
-						groupid: 1,
+						groupid: TEST_USERS.testGroupId,
 						currency: "USD",
 					}),
 				},
@@ -1260,7 +1266,7 @@ describe("Budget Handlers", () => {
 				addedTime: "2024-01-01 00:00:00",
 				amount: 100,
 				name: "house",
-				groupid: 1,
+				groupid: TEST_USERS.testGroupId,
 				currency: "USD",
 			});
 
@@ -1307,7 +1313,7 @@ describe("Budget Handlers", () => {
 				addedTime: "2024-01-01 00:00:00",
 				amount: 100,
 				name: "house",
-				groupid: 1,
+				groupid: TEST_USERS.testGroupId,
 				currency: "USD",
 			});
 
@@ -1380,7 +1386,7 @@ describe("Budget Handlers", () => {
 					addedTime: formatDate(month1),
 					amount: -500,
 					name: "house",
-					groupid: 1,
+					groupid: TEST_USERS.testGroupId,
 					currency: "USD",
 				},
 				{
@@ -1389,7 +1395,7 @@ describe("Budget Handlers", () => {
 					addedTime: formatDate(month2),
 					amount: -600,
 					name: "house",
-					groupid: 1,
+					groupid: TEST_USERS.testGroupId,
 					currency: "USD",
 				},
 				{
@@ -1398,7 +1404,7 @@ describe("Budget Handlers", () => {
 					addedTime: formatDate(month3),
 					amount: -400,
 					name: "house",
-					groupid: 1,
+					groupid: TEST_USERS.testGroupId,
 					currency: "USD",
 				},
 			]);
@@ -1628,7 +1634,7 @@ describe("Budget Handlers", () => {
 					addedTime: getRecentDate(5),
 					amount: -1000,
 					name: "house",
-					groupid: 1,
+					groupid: TEST_USERS.testGroupId,
 					currency: "USD",
 				},
 				{
@@ -1637,7 +1643,7 @@ describe("Budget Handlers", () => {
 					addedTime: getRecentDate(4),
 					amount: -1200,
 					name: "house",
-					groupid: 1,
+					groupid: TEST_USERS.testGroupId,
 					currency: "USD",
 				},
 				{
@@ -1646,7 +1652,7 @@ describe("Budget Handlers", () => {
 					addedTime: getRecentDate(3),
 					amount: -800,
 					name: "house",
-					groupid: 1,
+					groupid: TEST_USERS.testGroupId,
 					currency: "USD",
 				},
 				{
@@ -1655,7 +1661,7 @@ describe("Budget Handlers", () => {
 					addedTime: getRecentDate(2),
 					amount: -1100,
 					name: "house",
-					groupid: 1,
+					groupid: TEST_USERS.testGroupId,
 					currency: "USD",
 				},
 				{
@@ -1664,7 +1670,7 @@ describe("Budget Handlers", () => {
 					addedTime: getRecentDate(1),
 					amount: -900,
 					name: "house",
-					groupid: 1,
+					groupid: TEST_USERS.testGroupId,
 					currency: "USD",
 				},
 				{
@@ -1673,7 +1679,7 @@ describe("Budget Handlers", () => {
 					addedTime: getRecentDate(0),
 					amount: -1300,
 					name: "house",
-					groupid: 1,
+					groupid: TEST_USERS.testGroupId,
 					currency: "USD",
 				},
 			]);
@@ -1790,7 +1796,7 @@ describe("Budget Handlers", () => {
 					addedTime: formatDate(month1),
 					amount: 800,
 					name: "house",
-					groupid: 1,
+					groupid: TEST_USERS.testGroupId,
 					currency: "USD",
 				},
 				{
@@ -1801,7 +1807,7 @@ describe("Budget Handlers", () => {
 					), // 5 days later
 					amount: -250,
 					name: "house",
-					groupid: 1,
+					groupid: TEST_USERS.testGroupId,
 					currency: "USD",
 				},
 				{
@@ -1812,7 +1818,7 @@ describe("Budget Handlers", () => {
 					), // 10 days later
 					amount: -150,
 					name: "house",
-					groupid: 1,
+					groupid: TEST_USERS.testGroupId,
 					currency: "USD",
 				},
 			]);
@@ -1825,7 +1831,7 @@ describe("Budget Handlers", () => {
 					addedTime: formatDate(month2),
 					amount: 800,
 					name: "house",
-					groupid: 1,
+					groupid: TEST_USERS.testGroupId,
 					currency: "USD",
 				},
 				{
@@ -1836,7 +1842,7 @@ describe("Budget Handlers", () => {
 					), // 3 days later
 					amount: -300,
 					name: "house",
-					groupid: 1,
+					groupid: TEST_USERS.testGroupId,
 					currency: "USD",
 				},
 				{
@@ -1847,7 +1853,7 @@ describe("Budget Handlers", () => {
 					), // 7 days later
 					amount: -200,
 					name: "house",
-					groupid: 1,
+					groupid: TEST_USERS.testGroupId,
 					currency: "USD",
 				},
 				{
@@ -1858,7 +1864,7 @@ describe("Budget Handlers", () => {
 					), // 5 days before
 					amount: 50,
 					name: "house",
-					groupid: 1,
+					groupid: TEST_USERS.testGroupId,
 					currency: "GBP",
 				},
 				{
@@ -1869,7 +1875,7 @@ describe("Budget Handlers", () => {
 					), // 13 days later
 					amount: -75,
 					name: "house",
-					groupid: 1,
+					groupid: TEST_USERS.testGroupId,
 					currency: "GBP",
 				},
 			]);
@@ -1882,7 +1888,7 @@ describe("Budget Handlers", () => {
 					addedTime: formatDate(month3),
 					amount: 900,
 					name: "house",
-					groupid: 1,
+					groupid: TEST_USERS.testGroupId,
 					currency: "USD",
 				},
 				{
@@ -1893,7 +1899,7 @@ describe("Budget Handlers", () => {
 					), // 5 days later
 					amount: 100,
 					name: "house",
-					groupid: 1,
+					groupid: TEST_USERS.testGroupId,
 					currency: "GBP",
 				},
 			]);
@@ -1906,7 +1912,7 @@ describe("Budget Handlers", () => {
 					addedTime: formatDate(month4),
 					amount: -400,
 					name: "house",
-					groupid: 1,
+					groupid: TEST_USERS.testGroupId,
 					currency: "USD",
 				},
 				{
@@ -1917,7 +1923,7 @@ describe("Budget Handlers", () => {
 					), // 5 days later
 					amount: -180,
 					name: "house",
-					groupid: 1,
+					groupid: TEST_USERS.testGroupId,
 					currency: "USD",
 				},
 				{
@@ -1928,7 +1934,7 @@ describe("Budget Handlers", () => {
 					), // 10 days later
 					amount: -60,
 					name: "house",
-					groupid: 1,
+					groupid: TEST_USERS.testGroupId,
 					currency: "GBP",
 				},
 			]);
@@ -2137,7 +2143,7 @@ describe("Budget Handlers", () => {
 					addedTime: formatDate(testMonth),
 					amount: -500,
 					name: "house",
-					groupid: 1,
+					groupid: TEST_USERS.testGroupId,
 					currency: "USD",
 				},
 				{
@@ -2148,7 +2154,7 @@ describe("Budget Handlers", () => {
 					), // 5 days later
 					amount: 100,
 					name: "house",
-					groupid: 1,
+					groupid: TEST_USERS.testGroupId,
 					currency: "GBP",
 				},
 			]);
@@ -2256,7 +2262,7 @@ describe("Budget Handlers", () => {
 					addedTime: "2024-01-01 00:00:00",
 					amount: 500,
 					name: "house",
-					groupid: 1,
+					groupid: TEST_USERS.testGroupId,
 					currency: "USD",
 				},
 				{
@@ -2265,7 +2271,7 @@ describe("Budget Handlers", () => {
 					addedTime: "2024-02-01 00:00:00",
 					amount: 1000,
 					name: "house",
-					groupid: 1,
+					groupid: TEST_USERS.testGroupId,
 					currency: "USD",
 				},
 			]);

@@ -52,7 +52,7 @@ export function generateDeterministicBudgetId(
  */
 export async function createSplitTransactionFromRequest(
 	splitRequest: SplitRequest,
-	groupId: number,
+	groupId: string,
 	db: DbInstance,
 	env: Env,
 	transactionId: string,
@@ -226,7 +226,7 @@ export async function createSplitTransactionFromRequest(
  */
 export async function createSplitTransactionStatements(
 	expenseData: AddExpenseActionData,
-	groupId: number,
+	groupId: string,
 	db: DbInstance,
 	env: Env,
 	transactionId: string,

@@ -1,0 +1,15 @@
+{
+	"permissions": {
+		"allow": [
+			"Bash(yarn db:generate:*)",
+			"Bash(yarn test)",
+			"Bash(yarn test:*)",
+			"WebFetch(domain:developers.cloudflare.com)",
+			"WebFetch(domain:sqlite.org)",
+			"Bash(yarn lint)",
+			"Bash(npm run build:*)",
+			"Bash(yarn wrangler types:*)"
+		],
+		"deny": []
+	}
+}
