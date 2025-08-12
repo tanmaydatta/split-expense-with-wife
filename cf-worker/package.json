@@ -22,7 +22,7 @@
 		"db:generate": "drizzle-kit generate",
 		"db:migrate:local": "wrangler d1 migrations apply splitexpense-dev --local",
 		"db:migrate:dev": "wrangler d1 migrations apply splitexpense-dev -e dev --remote",
-		"db:migrate:prod": "wrangler d1 migrations apply splitexpense --remote",
+		"db:migrate:prod": "wrangler d1 migrations apply splitexpense -e prod --remote",
 		"db:push:dev": "drizzle-kit push --config=drizzle.config.local.ts",
 		"db:introspect": "drizzle-kit pull"
 	},
