@@ -36,9 +36,7 @@ async function getMonthlyBudgetData(
 			month: sql<number>`CAST(strftime('%m', added_time) AS INTEGER)`.as(
 				"month",
 			),
-			year: sql<number>`CAST(strftime('%Y', added_time) AS INTEGER)`.as(
-				"year",
-			),
+			year: sql<number>`CAST(strftime('%Y', added_time) AS INTEGER)`.as("year"),
 			currency: budget.currency,
 			amount: sql<number>`SUM(amount)`.as("amount"),
 		})
@@ -64,12 +62,14 @@ async function getMonthlyBudgetData(
 }
 
 // Helper function to process monthly data and find date range
-function processMonthlyDataAndFindRange(monthlyData: Array<{
-	month: number;
-	year: number;
-	currency: string;
-	amount: number;
-}>) {
+function processMonthlyDataAndFindRange(
+	monthlyData: Array<{
+		month: number;
+		year: number;
+		currency: string;
+		amount: number;
+	}>,
+) {
 	const allCurrencies = new Set<string>();
 	let oldestDate = new Date();
 	const today = new Date();
@@ -93,12 +93,14 @@ function processMonthlyDataAndFindRange(monthlyData: Array<{
 }
 
 // Helper function to create data map from monthly data
-function createDataMap(monthlyData: Array<{
-	month: number;
-	year: number;
-	currency: string;
-	amount: number;
-}>) {
+function createDataMap(
+	monthlyData: Array<{
+		month: number;
+		year: number;
+		currency: string;
+		amount: number;
+	}>,
+) {
 	const dataMap: Record<string, Record<string, number>> = {};
 	for (const data of monthlyData) {
 		const key = `${data.year}-${data.month}`;
@@ -198,15 +200,15 @@ function calculateRollingAverages(
 		});
 
 		// Create average entries for each currency
-		const currencyAverages: AverageSpendData[] = Array.from(
-			allCurrencies,
-		).map((currency) => ({
-			currency,
-			averageMonthlySpend:
-				monthsBack > 0 ? currencyTotals[currency] / monthsBack : 0,
-			totalSpend: currencyTotals[currency],
-			monthsAnalyzed: monthsBack,
-		}));
+		const currencyAverages: AverageSpendData[] = Array.from(allCurrencies).map(
+			(currency) => ({
+				currency,
+				averageMonthlySpend:
+					monthsBack > 0 ? currencyTotals[currency] / monthsBack : 0,
+				totalSpend: currencyTotals[currency],
+				monthsAnalyzed: monthsBack,
+			}),
+		);
 
 		// Filter out currencies with 0 total spend
 		const filteredAverages = currencyAverages.filter(
@@ -634,10 +636,16 @@ export async function handleBudgetMonthly(
 			);
 
 			// Process the data
-			const { allCurrencies, oldestDate, today } = processMonthlyDataAndFindRange(monthlyData);
+			const { allCurrencies, oldestDate, today } =
+				processMonthlyDataAndFindRange(monthlyData);
 
 			const dataMap = createDataMap(monthlyData);
-			const monthlyBudgets = generateMonthlyBudgets(allCurrencies, dataMap, oldestDate, today);
+			const monthlyBudgets = generateMonthlyBudgets(
+				allCurrencies,
+				dataMap,
+				oldestDate,
+				today,
+			);
 
 			const averages = calculateRollingAverages(monthlyBudgets, allCurrencies);
 

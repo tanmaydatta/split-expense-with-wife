@@ -94,7 +94,9 @@ type TransactionDbResult = {
 };
 
 // Helper function to transform transactions list
-function transformTransactionsList(rawTransactionsList: TransactionDbResult[]): Transaction[] {
+function transformTransactionsList(
+	rawTransactionsList: TransactionDbResult[],
+): Transaction[] {
 	return rawTransactionsList.map((t) => {
 		const defaultMetadata = {
 			owedAmounts: {},

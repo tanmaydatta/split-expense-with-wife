@@ -13,7 +13,7 @@ import {
 	ScheduledActionListQuerySchema,
 	type ScheduledActionListResponse,
 	type UpdateScheduledActionRequest,
-	UpdateScheduledActionSchema
+	UpdateScheduledActionSchema,
 } from "../../../shared-types";
 import type { getDb } from "../db";
 import { scheduledActionHistory, scheduledActions } from "../db/schema/schema";
@@ -359,7 +359,7 @@ function buildUpdateData(
 
 // Helper function to validate and set action data
 // Type for database query result (has null instead of undefined)
-type ScheduledActionDbResult = Omit<ScheduledAction, 'lastExecutedAt'> & {
+type ScheduledActionDbResult = Omit<ScheduledAction, "lastExecutedAt"> & {
 	lastExecutedAt: string | null;
 };
 
@@ -438,11 +438,7 @@ async function processScheduledActionUpdate(
 	db: ReturnType<typeof getDb>,
 ): Promise<void> {
 	// Get existing action
-	const existingAction = await getExistingAction(
-		db,
-		body.id,
-		group.userids,
-	);
+	const existingAction = await getExistingAction(db, body.id, group.userids);
 
 	// Build update data
 	const updateData = buildUpdateData(body);
@@ -466,7 +462,11 @@ async function processScheduledActionUpdate(
 }
 
 // Helper function to parse and validate update request
-function parseUpdateRequest(json: unknown): { success: true; data: UpdateScheduledActionRequest } | { success: false; error: string } {
+function parseUpdateRequest(
+	json: unknown,
+):
+	| { success: true; data: UpdateScheduledActionRequest }
+	| { success: false; error: string } {
 	const parsed = UpdateScheduledActionSchema.safeParse(json);
 	if (!parsed.success) {
 		return { success: false, error: formatZodError(parsed.error) };
@@ -475,7 +475,10 @@ function parseUpdateRequest(json: unknown): { success: true; data: UpdateSchedul
 }
 
 // Helper function to handle update errors
-function handleUpdateError(error: unknown): { message: string; status: number } {
+function handleUpdateError(error: unknown): {
+	message: string;
+	status: number;
+} {
 	const message = error instanceof Error ? error.message : "Unknown error";
 	const status = message === "Scheduled action not found" ? 404 : 400;
 	return { message, status };
@@ -669,7 +672,11 @@ export async function handleScheduledActionHistory(
 		const { offset, limit, scheduledActionId, executionStatus } =
 			parseQuery.data;
 
-		const conditions = buildHistoryConditions(group, scheduledActionId, executionStatus);
+		const conditions = buildHistoryConditions(
+			group,
+			scheduledActionId,
+			executionStatus,
+		);
 		const response = await getHistoryData(db, conditions, offset, limit);
 
 		return createJsonResponse(response, 200, {}, request, env);

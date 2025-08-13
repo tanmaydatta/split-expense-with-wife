@@ -182,31 +182,40 @@ function validateBudgets(budgets: string[]): string | null {
 }
 
 // Helper function to validate currency
-function validateCurrencyField(body: UpdateGroupMetadataRequest): string | null {
-	if (body.defaultCurrency !== undefined && !validateCurrency(body.defaultCurrency)) {
+function validateCurrencyField(
+	body: UpdateGroupMetadataRequest,
+): string | null {
+	if (
+		body.defaultCurrency !== undefined &&
+		!validateCurrency(body.defaultCurrency)
+	) {
 		return "Invalid currency code";
 	}
 	return null;
 }
 
 // Helper function to validate and process group name
-function validateAndProcessGroupName(body: UpdateGroupMetadataRequest): string | null {
+function validateAndProcessGroupName(
+	body: UpdateGroupMetadataRequest,
+): string | null {
 	if (body.groupName === undefined) return null;
-	
+
 	const error = validateGroupName(body.groupName);
 	if (error) return error;
-	
+
 	body.groupName = body.groupName.trim();
 	return null;
 }
 
 // Helper function to validate and process budgets
-function validateAndProcessBudgets(body: UpdateGroupMetadataRequest): string | null {
+function validateAndProcessBudgets(
+	body: UpdateGroupMetadataRequest,
+): string | null {
 	if (body.budgets === undefined) return null;
-	
+
 	const error = validateBudgets(body.budgets);
 	if (error) return error;
-	
+
 	body.budgets = [...new Set(body.budgets)];
 	return null;
 }
@@ -293,10 +302,7 @@ async function updateMetadata(
 	};
 
 	// Set default USD currency if no currency is provided and none exists
-	if (
-		body.defaultCurrency === undefined &&
-		!currentMetadata.defaultCurrency
-	) {
+	if (body.defaultCurrency === undefined && !currentMetadata.defaultCurrency) {
 		newMetadata.defaultCurrency = "USD";
 	}
 
@@ -309,7 +315,8 @@ async function buildUpdatesObject(
 	session: CurrentSession,
 	db: ReturnType<typeof getDb>,
 ): Promise<{ metadata?: string; groupName?: string; budgets?: string }> {
-	const updates: { metadata?: string; groupName?: string; budgets?: string } = {};
+	const updates: { metadata?: string; groupName?: string; budgets?: string } =
+		{};
 
 	// Update metadata if provided
 	const metadata = await updateMetadata(body, session, db);
