@@ -33,12 +33,15 @@ function validateMigrationRequest(request: Request, env: Env): Response | null {
 }
 
 // Helper function to create transaction user update statements
-function createTransactionUserStatements(db: any, idMap: Array<{ oldId: number; newId: string }>) {
+function createTransactionUserStatements(
+	db: ReturnType<typeof getDb>,
+	idMap: Array<{ oldId: number; newId: string }>,
+) {
 	const statements = [];
-	
+
 	for (const user of idMap) {
 		const oldIdAsString = user.oldId.toString();
-		
+
 		// Update userId references
 		statements.push(
 			db
@@ -46,7 +49,7 @@ function createTransactionUserStatements(db: any, idMap: Array<{ oldId: number; 
 				.set({ userId: user.newId })
 				.where(eq(transactionUsers.userId, oldIdAsString)),
 		);
-		
+
 		// Update owedToUserId references
 		statements.push(
 			db
@@ -55,17 +58,20 @@ function createTransactionUserStatements(db: any, idMap: Array<{ oldId: number; 
 				.where(eq(transactionUsers.owedToUserId, oldIdAsString)),
 		);
 	}
-	
+
 	return statements;
 }
 
 // Helper function to create user balance update statements
-function createUserBalanceStatements(db: any, idMap: Array<{ oldId: number; newId: string }>) {
+function createUserBalanceStatements(
+	db: ReturnType<typeof getDb>,
+	idMap: Array<{ oldId: number; newId: string }>,
+) {
 	const statements = [];
-	
+
 	for (const user of idMap) {
 		const oldIdAsString = user.oldId.toString();
-		
+
 		// Update userId references
 		statements.push(
 			db
@@ -73,7 +79,7 @@ function createUserBalanceStatements(db: any, idMap: Array<{ oldId: number; newI
 				.set({ userId: user.newId })
 				.where(eq(userBalances.userId, oldIdAsString)),
 		);
-		
+
 		// Update owedToUserId references
 		statements.push(
 			db
@@ -82,20 +88,23 @@ function createUserBalanceStatements(db: any, idMap: Array<{ oldId: number; newI
 				.where(eq(userBalances.owedToUserId, oldIdAsString)),
 		);
 	}
-	
+
 	return statements;
 }
 
 // Helper function to create group update statements
-async function createGroupUpdateStatements(db: any, idMap: Array<{ oldId: number; newId: string }>) {
+async function createGroupUpdateStatements(
+	db: ReturnType<typeof getDb>,
+	idMap: Array<{ oldId: number; newId: string }>,
+) {
 	const statements = [];
 	const allGroups = await db.select().from(groups);
-	
+
 	for (const group of allGroups) {
 		if (!group.userids) {
 			continue;
 		}
-		
+
 		try {
 			const oldUserIds: number[] = JSON.parse(group.userids);
 			const newUserIds = oldUserIds
@@ -104,7 +113,7 @@ async function createGroupUpdateStatements(db: any, idMap: Array<{ oldId: number
 					return mapping ? mapping.newId : null;
 				})
 				.filter(Boolean);
-			
+
 			if (newUserIds.length > 0) {
 				statements.push(
 					db
@@ -120,21 +129,21 @@ async function createGroupUpdateStatements(db: any, idMap: Array<{ oldId: number
 			);
 		}
 	}
-	
+
 	return statements;
 }
 
 // Helper function to create password update statements
 async function createPasswordUpdateStatements(
-	db: any,
-	passwords: Array<{ userId: string; plainPassword: string }>
+	db: ReturnType<typeof getDb>,
+	passwords: Array<{ userId: string; plainPassword: string }>,
 ) {
 	const statements = [];
-	
+
 	for (const { userId, plainPassword } of passwords) {
 		console.log(`🔄 Hashing password for user: ${userId}`);
 		const hashedPassword = await hashPasswordWithWebCrypto(plainPassword);
-		
+
 		statements.push(
 			db
 				.update(account)
@@ -143,14 +152,11 @@ async function createPasswordUpdateStatements(
 					updatedAt: new Date(),
 				})
 				.where(
-					and(
-						eq(account.userId, userId),
-						eq(account.providerId, "credential"),
-					),
+					and(eq(account.userId, userId), eq(account.providerId, "credential")),
 				),
 		);
 	}
-	
+
 	return statements;
 }
 
@@ -165,10 +171,13 @@ export async function handleRelinkData(request: Request, env: Env) {
 
 	try {
 		// Create all statements using helper functions
-		const transactionUserStatements = createTransactionUserStatements(db, idMap);
+		const transactionUserStatements = createTransactionUserStatements(
+			db,
+			idMap,
+		);
 		const userBalanceStatements = createUserBalanceStatements(db, idMap);
 		const groupStatements = await createGroupUpdateStatements(db, idMap);
-		
+
 		const batchStatements = [
 			...transactionUserStatements,
 			...userBalanceStatements,
@@ -266,7 +275,10 @@ export async function handlePasswordMigration(request: Request, env: Env) {
 		console.log(`📊 Migrating ${body.passwords.length} passwords`);
 
 		// Create password update statements using helper function
-		const batchStatements = await createPasswordUpdateStatements(db, body.passwords);
+		const batchStatements = await createPasswordUpdateStatements(
+			db,
+			body.passwords,
+		);
 
 		// Execute all updates in a batch
 		await db.batch([batchStatements[0], ...batchStatements.slice(1)]);

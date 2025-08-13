@@ -3,9 +3,12 @@ import { ulid } from "ulid";
 import type {
 	SplitDeleteRequest,
 	SplitRequest,
+	Transaction,
+	TransactionMetadata,
 	TransactionsListRequest,
 	TransactionUser,
 } from "../../../shared-types";
+import type { getDb } from "../db";
 import { user } from "../db/schema/auth-schema";
 import { transactions, transactionUsers } from "../db/schema/schema";
 import {
@@ -21,11 +24,11 @@ import { createSplitTransactionFromRequest } from "../utils/scheduled-action-exe
 async function createSplitTransactionHandler(
 	body: SplitRequest,
 	groupId: string,
-	db: any,
+	db: ReturnType<typeof getDb>,
 	env: Env,
 ): Promise<{ message: string; transactionId: string }> {
 	const transactionId = ulid();
-	
+
 	const result = await createSplitTransactionFromRequest(
 		body,
 		groupId,
@@ -50,33 +53,48 @@ async function createSplitTransactionHandler(
 async function getTransactionsList(
 	body: TransactionsListRequest,
 	groupId: string,
-	db: any,
-): Promise<{ transactions: any[]; transactionDetails: Record<string, TransactionUser[]> }> {
+	db: ReturnType<typeof getDb>,
+): Promise<{
+	transactions: Transaction[];
+	transactionDetails: Record<string, TransactionUser[]>;
+}> {
 	// Get transactions list using Drizzle
 	const rawTransactionsList = await db
 		.select()
 		.from(transactions)
-		.where(
-			and(
-				eq(transactions.groupId, groupId),
-				isNull(transactions.deleted),
-			),
-		)
+		.where(and(eq(transactions.groupId, groupId), isNull(transactions.deleted)))
 		.orderBy(desc(transactions.createdAt))
 		.limit(10)
 		.offset(body.offset);
 
 	// Transform to match production format
 	const transactionsList = transformTransactionsList(rawTransactionsList);
-	
+
 	// Get transaction details
-	const transactionDetails = await getTransactionDetails(rawTransactionsList, groupId, db);
+	const transactionDetails = await getTransactionDetails(
+		rawTransactionsList,
+		groupId,
+		db,
+	);
 
 	return { transactions: transactionsList, transactionDetails };
 }
 
+// Type for raw database transaction result (camelCase)
+type TransactionDbResult = {
+	id: number;
+	description: string;
+	amount: number;
+	createdAt: string;
+	metadata: TransactionMetadata | null;
+	currency: string;
+	transactionId: string | null;
+	groupId: string;
+	deleted: string | null;
+};
+
 // Helper function to transform transactions list
-function transformTransactionsList(rawTransactionsList: any[]): any[] {
+function transformTransactionsList(rawTransactionsList: TransactionDbResult[]): Transaction[] {
 	return rawTransactionsList.map((t) => {
 		const defaultMetadata = {
 			owedAmounts: {},
@@ -86,20 +104,25 @@ function transformTransactionsList(rawTransactionsList: any[]): any[] {
 		const metadata = t.metadata || defaultMetadata;
 
 		return {
+			id: t.id,
 			description: t.description,
 			amount: t.amount,
 			created_at: t.createdAt,
 			metadata: JSON.stringify(metadata),
 			currency: t.currency,
-			transaction_id: t.transactionId,
+			transaction_id: t.transactionId || "",
 			group_id: t.groupId,
-			deleted: t.deleted,
+			deleted: t.deleted || undefined,
 		};
 	});
 }
 
 // Helper function to fetch transaction details from database
-async function fetchTransactionDetailsFromDb(transactionIds: string[], groupId: string, db: any) {
+async function fetchTransactionDetailsFromDb(
+	transactionIds: string[],
+	groupId: string,
+	db: ReturnType<typeof getDb>,
+) {
 	return await db
 		.select({
 			transactionId: transactionUsers.transactionId,
@@ -122,8 +145,22 @@ async function fetchTransactionDetailsFromDb(transactionIds: string[], groupId: 
 		);
 }
 
+// Type for raw database transaction user result (camelCase)
+type TransactionUserDbResult = {
+	transactionId: string;
+	userId: string;
+	amount: number;
+	owedToUserId: string;
+	groupId: string;
+	currency: string;
+	deleted: string | null;
+	firstName: string;
+};
+
 // Helper function to group details by transaction ID
-function groupDetailsByTransactionId(allDetails: any[]): Record<string, TransactionUser[]> {
+function groupDetailsByTransactionId(
+	allDetails: TransactionUserDbResult[],
+): Record<string, TransactionUser[]> {
 	const transactionDetails: Record<string, TransactionUser[]> = {};
 
 	for (const detail of allDetails) {
@@ -131,14 +168,14 @@ function groupDetailsByTransactionId(allDetails: any[]): Record<string, Transact
 			transactionDetails[detail.transactionId] = [];
 		}
 		transactionDetails[detail.transactionId].push({
-			transaction_id: detail.transactionId || "",
+			transaction_id: detail.transactionId,
 			user_id: detail.userId,
 			amount: detail.amount,
 			owed_to_user_id: detail.owedToUserId,
 			group_id: detail.groupId,
 			currency: detail.currency,
 			deleted: detail.deleted || undefined,
-			first_name: detail.firstName || undefined,
+			first_name: detail.firstName,
 		});
 	}
 
@@ -147,9 +184,9 @@ function groupDetailsByTransactionId(allDetails: any[]): Record<string, Transact
 
 // Helper function to get transaction details
 async function getTransactionDetails(
-	rawTransactionsList: any[],
+	rawTransactionsList: TransactionDbResult[],
 	groupId: string,
-	db: any,
+	db: ReturnType<typeof getDb>,
 ): Promise<Record<string, TransactionUser[]>> {
 	const transactionIds = rawTransactionsList
 		.map((t) => t.transactionId)
@@ -159,7 +196,11 @@ async function getTransactionDetails(
 		return {};
 	}
 
-	const allDetails = await fetchTransactionDetailsFromDb(transactionIds, groupId, db);
+	const allDetails = await fetchTransactionDetailsFromDb(
+		transactionIds,
+		groupId,
+		db,
+	);
 	return groupDetailsByTransactionId(allDetails);
 }
 
@@ -180,7 +221,12 @@ export async function handleSplitNew(
 			const body = (await request.json()) as SplitRequest;
 
 			try {
-				const response = await createSplitTransactionHandler(body, session.group.groupid, db, env);
+				const response = await createSplitTransactionHandler(
+					body,
+					session.group.groupid,
+					db,
+					env,
+				);
 				return createJsonResponse(response, 200, {}, request, env);
 			} catch (error) {
 				console.error("Split transaction error:", error);
@@ -302,7 +348,11 @@ export async function handleTransactionsList(
 			}
 
 			const body = (await request.json()) as TransactionsListRequest;
-			const response = await getTransactionsList(body, session.group.groupid, db);
+			const response = await getTransactionsList(
+				body,
+				session.group.groupid,
+				db,
+			);
 
 			return createJsonResponse(response, 200, {}, request, env);
 		});

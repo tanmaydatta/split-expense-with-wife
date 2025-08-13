@@ -14,6 +14,7 @@ import {
 	transactions,
 	transactionUsers,
 } from "../db/schema/schema";
+import type { SplitAmount } from "../types";
 import {
 	calculateSplitAmounts,
 	formatSQLiteTime,
@@ -99,7 +100,10 @@ async function getUserData(db: DbInstance, splitRequest: SplitRequest) {
 }
 
 // Helper function to transform paid shares
-function transformPaidShares(splitRequest: SplitRequest, userIdToName: Map<string, string>) {
+function transformPaidShares(
+	splitRequest: SplitRequest,
+	userIdToName: Map<string, string>,
+) {
 	const paidBySharesWithNames: Record<string, number> = {};
 	for (const [userId, amount] of Object.entries(splitRequest.paidByShares)) {
 		const firstName = userIdToName.get(userId) || userId;
@@ -109,11 +113,16 @@ function transformPaidShares(splitRequest: SplitRequest, userIdToName: Map<strin
 }
 
 // Helper function to transform split percentages and calculate owed amounts
-function transformSplitShares(splitRequest: SplitRequest, userIdToName: Map<string, string>) {
+function transformSplitShares(
+	splitRequest: SplitRequest,
+	userIdToName: Map<string, string>,
+) {
 	const splitPctSharesWithNames: Record<string, number> = {};
 	const owedAmounts: Record<string, number> = {};
 
-	for (const [userId, percentage] of Object.entries(splitRequest.splitPctShares)) {
+	for (const [userId, percentage] of Object.entries(
+		splitRequest.splitPctShares,
+	)) {
 		const firstName = userIdToName.get(userId) || userId;
 		splitPctSharesWithNames[firstName] = percentage as number;
 
@@ -126,13 +135,15 @@ function transformSplitShares(splitRequest: SplitRequest, userIdToName: Map<stri
 
 // Helper function to calculate owed-to amounts
 function calculateOwedToAmounts(
-	splitRequest: SplitRequest, 
+	splitRequest: SplitRequest,
 	userIdToName: Map<string, string>,
-	owedAmounts: Record<string, number>
+	owedAmounts: Record<string, number>,
 ) {
 	const owedToAmounts: Record<string, number> = {};
 
-	for (const [userId, paidAmount] of Object.entries(splitRequest.paidByShares)) {
+	for (const [userId, paidAmount] of Object.entries(
+		splitRequest.paidByShares,
+	)) {
 		const firstName = userIdToName.get(userId) || userId;
 		const owedAmount = owedAmounts[firstName] || 0;
 		const netAmount = (paidAmount as number) - owedAmount;
@@ -158,8 +169,15 @@ async function getUserMappings(
 }> {
 	const userIdToName = await getUserData(db, splitRequest);
 	const paidBySharesWithNames = transformPaidShares(splitRequest, userIdToName);
-	const { splitPctSharesWithNames, owedAmounts } = transformSplitShares(splitRequest, userIdToName);
-	const owedToAmounts = calculateOwedToAmounts(splitRequest, userIdToName, owedAmounts);
+	const { splitPctSharesWithNames, owedAmounts } = transformSplitShares(
+		splitRequest,
+		userIdToName,
+	);
+	const owedToAmounts = calculateOwedToAmounts(
+		splitRequest,
+		userIdToName,
+		owedAmounts,
+	);
 
 	return {
 		userIdToName,
@@ -180,7 +198,7 @@ function createTransactionStatements(
 	paidBySharesWithNames: Record<string, number>,
 	owedAmounts: Record<string, number>,
 	owedToAmounts: Record<string, number>,
-	splitAmounts: any[],
+	splitAmounts: SplitAmount[],
 	env: Env,
 ): QueryStatement[] {
 	const statements = [];
@@ -219,7 +237,12 @@ function createTransactionStatements(
 	}
 
 	// Generate balance updates
-	const balanceUpdates = generateDrizzleBalanceUpdates(env, splitAmounts, groupId, "add");
+	const balanceUpdates = generateDrizzleBalanceUpdates(
+		env,
+		splitAmounts,
+		groupId,
+		"add",
+	);
 	for (const update of balanceUpdates) {
 		statements.push({ query: update });
 	}
@@ -248,7 +271,9 @@ export async function createSplitTransactionFromRequest(
 	// Check if transaction already exists (for deterministic IDs)
 	const exists = await checkTransactionExists(db, transactionId);
 	if (exists) {
-		console.log(`Transaction ${transactionId} already exists, skipping creation`);
+		console.log(
+			`Transaction ${transactionId} already exists, skipping creation`,
+		);
 		return {
 			resultData: {
 				message: `Transaction already exists: ${splitRequest.description}`,
@@ -262,7 +287,8 @@ export async function createSplitTransactionFromRequest(
 	const timestamp = formatSQLiteTime();
 
 	// Get user mappings and transformed data
-	const { paidBySharesWithNames, owedAmounts, owedToAmounts } = await getUserMappings(db, splitRequest);
+	const { paidBySharesWithNames, owedAmounts, owedToAmounts } =
+		await getUserMappings(db, splitRequest);
 
 	// Calculate split amounts
 	const splitAmounts = calculateSplitAmounts(

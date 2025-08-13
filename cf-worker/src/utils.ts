@@ -265,11 +265,7 @@ function flattenZodIssues(issues: ZIssue[]): ZIssue[] {
 
 // Helper function to check if error is a ZodError
 function isZodError(error: unknown): error is z.ZodError {
-	return (
-		error !== null &&
-		typeof error === "object" &&
-		"issues" in error
-	);
+	return error !== null && typeof error === "object" && "issues" in error;
 }
 
 // Helper function to convert technical field names to user-friendly ones
@@ -289,7 +285,9 @@ function simplifyErrorMessage(message: string, friendlyPath: string): string {
 		message.includes("Invalid input: expected") &&
 		message.includes("received undefined")
 	) {
-		return friendlyPath ? `${friendlyPath} is required` : "Required field is missing";
+		return friendlyPath
+			? `${friendlyPath} is required`
+			: "Required field is missing";
 	}
 	if (message.includes("user not in group")) {
 		return "Selected user is not in your group";
@@ -471,11 +469,15 @@ export function calculateSplitAmounts(
 	currency: string,
 ): SplitAmount[] {
 	// Calculate net position for each user (positive = owed money, negative = owes money)
-	const netPositions = calculateNetPositions(amount, paidByShares, splitPctShares);
-	
+	const netPositions = calculateNetPositions(
+		amount,
+		paidByShares,
+		splitPctShares,
+	);
+
 	// Separate creditors (net positive) and debtors (net negative)
 	const { creditors, debtors } = separateCreditorsAndDebtors(netPositions);
-	
+
 	// Create debt relationships: debtors owe proportionally to creditors
 	return createDebtRelationships(creditors, debtors, currency);
 }

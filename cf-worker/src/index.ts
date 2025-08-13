@@ -41,7 +41,11 @@ import { ScheduledActionsOrchestratorWorkflow } from "./workflows/scheduled-acti
 import { ScheduledActionsProcessorWorkflow } from "./workflows/scheduled-actions-processor";
 
 // Helper function to handle auth routes
-async function handleAuthRoutes(request: Request, env: Env, path: string): Promise<Response | null> {
+async function handleAuthRoutes(
+	request: Request,
+	env: Env,
+	path: string,
+): Promise<Response | null> {
 	if (!path.startsWith("/auth/")) {
 		return null;
 	}
@@ -69,25 +73,61 @@ function validateMethodAndHandle(
 	request: Request,
 	env: Env,
 	allowedMethods: string[],
-	handler: (request: Request, env: Env) => Promise<Response>
+	handler: (request: Request, env: Env) => Promise<Response>,
 ): Promise<Response> {
 	if (allowedMethods.includes(request.method)) {
 		return handler(request, env);
 	}
-	return Promise.resolve(createErrorResponse("Method not allowed", 405, request, env));
+	return Promise.resolve(
+		createErrorResponse("Method not allowed", 405, request, env),
+	);
 }
 
 // Helper function to handle scheduled actions routes
-async function handleScheduledActionsRoutes(request: Request, env: Env, apiPath: string): Promise<Response | null> {
-	const routeMap: Record<string, { methods: string[]; handler: (request: Request, env: Env) => Promise<Response> }> = {
-		"scheduled-actions": { methods: ["POST"], handler: handleScheduledActionCreate },
-		"scheduled-actions/list": { methods: ["GET"], handler: handleScheduledActionList },
-		"scheduled-actions/update": { methods: ["PUT", "POST"], handler: handleScheduledActionUpdate },
-		"scheduled-actions/delete": { methods: ["DELETE"], handler: handleScheduledActionDelete },
-		"scheduled-actions/history": { methods: ["GET"], handler: handleScheduledActionHistory },
-		"scheduled-actions/history/details": { methods: ["GET"], handler: handleScheduledActionHistoryDetails },
-		"scheduled-actions/run": { methods: ["POST"], handler: handleScheduledActionRunNow },
-		"scheduled-actions/details": { methods: ["GET"], handler: handleScheduledActionDetails },
+async function handleScheduledActionsRoutes(
+	request: Request,
+	env: Env,
+	apiPath: string,
+): Promise<Response | null> {
+	const routeMap: Record<
+		string,
+		{
+			methods: string[];
+			handler: (request: Request, env: Env) => Promise<Response>;
+		}
+	> = {
+		"scheduled-actions": {
+			methods: ["POST"],
+			handler: handleScheduledActionCreate,
+		},
+		"scheduled-actions/list": {
+			methods: ["GET"],
+			handler: handleScheduledActionList,
+		},
+		"scheduled-actions/update": {
+			methods: ["PUT", "POST"],
+			handler: handleScheduledActionUpdate,
+		},
+		"scheduled-actions/delete": {
+			methods: ["DELETE"],
+			handler: handleScheduledActionDelete,
+		},
+		"scheduled-actions/history": {
+			methods: ["GET"],
+			handler: handleScheduledActionHistory,
+		},
+		"scheduled-actions/history/details": {
+			methods: ["GET"],
+			handler: handleScheduledActionHistoryDetails,
+		},
+		"scheduled-actions/run": {
+			methods: ["POST"],
+			handler: handleScheduledActionRunNow,
+		},
+		"scheduled-actions/details": {
+			methods: ["GET"],
+			handler: handleScheduledActionDetails,
+		},
 	};
 
 	const route = routeMap[apiPath];
@@ -95,11 +135,20 @@ async function handleScheduledActionsRoutes(request: Request, env: Env, apiPath:
 		return null;
 	}
 
-	return await validateMethodAndHandle(request, env, route.methods, route.handler);
+	return await validateMethodAndHandle(
+		request,
+		env,
+		route.methods,
+		route.handler,
+	);
 }
 
 // Helper function to handle basic API routes
-async function handleBasicApiRoutes(request: Request, env: Env, apiPath: string): Promise<Response | null> {
+async function handleBasicApiRoutes(
+	request: Request,
+	env: Env,
+	apiPath: string,
+): Promise<Response | null> {
 	switch (apiPath) {
 		case "balances":
 			return await handleBalances(request, env);
@@ -135,7 +184,11 @@ async function handleBasicApiRoutes(request: Request, env: Env, apiPath: string)
 }
 
 // Helper function to handle API routes
-async function handleApiRoutes(request: Request, env: Env, path: string): Promise<Response | null> {
+async function handleApiRoutes(
+	request: Request,
+	env: Env,
+	path: string,
+): Promise<Response | null> {
 	if (!path.startsWith("/.netlify/functions/")) {
 		return null;
 	}
@@ -143,7 +196,11 @@ async function handleApiRoutes(request: Request, env: Env, path: string): Promis
 	const apiPath = path.replace("/.netlify/functions/", "");
 
 	// Try scheduled actions routes first
-	const scheduledActionsResponse = await handleScheduledActionsRoutes(request, env, apiPath);
+	const scheduledActionsResponse = await handleScheduledActionsRoutes(
+		request,
+		env,
+		apiPath,
+	);
 	if (scheduledActionsResponse) {
 		return scheduledActionsResponse;
 	}
@@ -158,7 +215,10 @@ async function handleApiRoutes(request: Request, env: Env, path: string): Promis
 }
 
 // Helper function to handle static assets
-async function handleStaticAssets(request: Request, env: Env): Promise<Response> {
+async function handleStaticAssets(
+	request: Request,
+	env: Env,
+): Promise<Response> {
 	try {
 		const assetRequest = new Request(request.url, {
 			method: request.method,
@@ -217,6 +277,5 @@ export default {
 // Export workflow classes for Cloudflare Workflows
 export {
 	ScheduledActionsOrchestratorWorkflow,
-	ScheduledActionsProcessorWorkflow
+	ScheduledActionsProcessorWorkflow,
 };
-

@@ -6,7 +6,10 @@ import type { Session } from "./types";
 import { enrichSession } from "./utils";
 
 // Helper functions for password verification
-function decodeStoredHash(hash: string): { salt: Uint8Array; storedHash: Uint8Array } {
+function decodeStoredHash(hash: string): {
+	salt: Uint8Array;
+	storedHash: Uint8Array;
+} {
 	const combined = new Uint8Array(
 		atob(hash)
 			.split("")
@@ -17,10 +20,13 @@ function decodeStoredHash(hash: string): { salt: Uint8Array; storedHash: Uint8Ar
 	return { salt, storedHash };
 }
 
-async function hashPasswordWithSalt(password: string, salt: Uint8Array): Promise<Uint8Array> {
+async function hashPasswordWithSalt(
+	password: string,
+	salt: Uint8Array,
+): Promise<Uint8Array> {
 	const encoder = new TextEncoder();
 	const data = encoder.encode(password);
-	
+
 	const key = await crypto.subtle.importKey(
 		"raw",
 		data,
@@ -43,7 +49,10 @@ async function hashPasswordWithSalt(password: string, salt: Uint8Array): Promise
 	return new Uint8Array(candidateHashBuffer);
 }
 
-function compareHashes(candidateHash: Uint8Array, storedHash: Uint8Array): boolean {
+function compareHashes(
+	candidateHash: Uint8Array,
+	storedHash: Uint8Array,
+): boolean {
 	if (candidateHash.length !== storedHash.length) {
 		return false;
 	}

@@ -67,9 +67,12 @@ async function executeActionSafely(
 	currentDate: string,
 	historyId: string,
 	triggerDate: string,
-): Promise<{ resultData: ScheduledActionResultData; executionDurationMs: number }> {
+): Promise<{
+	resultData: ScheduledActionResultData;
+	executionDurationMs: number;
+}> {
 	const innerStartTime = Date.now();
-	
+
 	// Check if already executed
 	const alreadyExecuted = await checkActionAlreadyExecuted(env, historyId);
 	if (alreadyExecuted) {
@@ -80,11 +83,24 @@ async function executeActionSafely(
 	}
 
 	// Process action
-	const { resultData, statements } = await processActionByType(env, action, userData, currentDate);
+	const { resultData, statements } = await processActionByType(
+		env,
+		action,
+		userData,
+		currentDate,
+	);
 	const executionDurationMs = Date.now() - innerStartTime;
 
 	// Execute statements
-	await executeActionStatements(env, action, historyId, executionDurationMs, resultData, statements, new Date(triggerDate));
+	await executeActionStatements(
+		env,
+		action,
+		historyId,
+		executionDurationMs,
+		resultData,
+		statements,
+		new Date(triggerDate),
+	);
 
 	if (!resultData) {
 		throw new Error("No result data generated for action execution");

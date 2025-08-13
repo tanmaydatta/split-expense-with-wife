@@ -6,7 +6,9 @@ import type {
 	UpdateGroupMetadataResponse,
 	User,
 } from "../../../shared-types";
+import type { getDb } from "../db";
 import { groups } from "../db/schema/schema";
+import type { CurrentSession } from "../types";
 import { createErrorResponse, createJsonResponse, withAuth } from "../utils";
 
 // Handle getting group details
@@ -70,16 +72,47 @@ export async function handleGroupDetails(
 // Helper function to validate currency
 function validateCurrency(currency: string): boolean {
 	const validCurrencies = [
-		"USD", "EUR", "GBP", "CAD", "AUD", "JPY", "CHF", "CNY", "INR", "SEK",
-		"NOK", "DKK", "PLN", "CZK", "HUF", "BGN", "RON", "HRK", "RUB", "TRY",
-		"BRL", "MXN", "ZAR", "KRW", "SGD", "HKD", "NZD", "THB", "MYR", "IDR",
-		"PHP", "VND",
+		"USD",
+		"EUR",
+		"GBP",
+		"CAD",
+		"AUD",
+		"JPY",
+		"CHF",
+		"CNY",
+		"INR",
+		"SEK",
+		"NOK",
+		"DKK",
+		"PLN",
+		"CZK",
+		"HUF",
+		"BGN",
+		"RON",
+		"HRK",
+		"RUB",
+		"TRY",
+		"BRL",
+		"MXN",
+		"ZAR",
+		"KRW",
+		"SGD",
+		"HKD",
+		"NZD",
+		"THB",
+		"MYR",
+		"IDR",
+		"PHP",
+		"VND",
 	];
 	return validCurrencies.includes(currency);
 }
 
 // Helper function to check user membership
-function validateUserMembership(defaultShare: Record<string, number>, groupUserIds: Set<string>): string | null {
+function validateUserMembership(
+	defaultShare: Record<string, number>,
+	groupUserIds: Set<string>,
+): string | null {
 	const shareUserIds = new Set(Object.keys(defaultShare));
 
 	// Check if all group members are included
@@ -148,86 +181,140 @@ function validateBudgets(budgets: string[]): string | null {
 	return null;
 }
 
-// Helper function to validate request body
-function validateRequestBody(
+// Helper function to validate currency
+function validateCurrencyField(body: UpdateGroupMetadataRequest): string | null {
+	if (body.defaultCurrency !== undefined && !validateCurrency(body.defaultCurrency)) {
+		return "Invalid currency code";
+	}
+	return null;
+}
+
+// Helper function to validate and process group name
+function validateAndProcessGroupName(body: UpdateGroupMetadataRequest): string | null {
+	if (body.groupName === undefined) return null;
+	
+	const error = validateGroupName(body.groupName);
+	if (error) return error;
+	
+	body.groupName = body.groupName.trim();
+	return null;
+}
+
+// Helper function to validate and process budgets
+function validateAndProcessBudgets(body: UpdateGroupMetadataRequest): string | null {
+	if (body.budgets === undefined) return null;
+	
+	const error = validateBudgets(body.budgets);
+	if (error) return error;
+	
+	body.budgets = [...new Set(body.budgets)];
+	return null;
+}
+
+// Helper function to validate and process individual fields
+function validateAndProcessFields(
 	body: UpdateGroupMetadataRequest,
 	groupUserIds: Set<string>,
 ): string | null {
-	if (body.defaultCurrency !== undefined) {
-		if (!validateCurrency(body.defaultCurrency)) {
-			return "Invalid currency code";
-		}
-	}
+	const currencyError = validateCurrencyField(body);
+	if (currencyError) return currencyError;
 
 	if (body.defaultShare !== undefined) {
 		const error = validateDefaultShare(body.defaultShare, groupUserIds);
 		if (error) return error;
 	}
 
-	if (body.groupName !== undefined) {
-		const error = validateGroupName(body.groupName);
-		if (error) return error;
-		body.groupName = body.groupName.trim();
-	}
+	const groupNameError = validateAndProcessGroupName(body);
+	if (groupNameError) return groupNameError;
 
-	if (body.budgets !== undefined) {
-		const error = validateBudgets(body.budgets);
-		if (error) return error;
-		body.budgets = [...new Set(body.budgets)];
-	}
+	const budgetsError = validateAndProcessBudgets(body);
+	if (budgetsError) return budgetsError;
 
-	// Check if no changes were provided
-	if (
-		body.defaultShare === undefined &&
-		body.defaultCurrency === undefined &&
-		body.groupName === undefined &&
-		body.budgets === undefined
-	) {
+	return null;
+}
+
+// Helper function to check if any changes are provided
+function hasAnyChanges(body: UpdateGroupMetadataRequest): boolean {
+	return (
+		body.defaultShare !== undefined ||
+		body.defaultCurrency !== undefined ||
+		body.groupName !== undefined ||
+		body.budgets !== undefined
+	);
+}
+
+// Helper function to validate request body
+function validateRequestBody(
+	body: UpdateGroupMetadataRequest,
+	groupUserIds: Set<string>,
+): string | null {
+	const fieldError = validateAndProcessFields(body, groupUserIds);
+	if (fieldError) return fieldError;
+
+	if (!hasAnyChanges(body)) {
 		return "No changes provided";
 	}
 
 	return null;
 }
 
+// Helper function to update metadata
+async function updateMetadata(
+	body: UpdateGroupMetadataRequest,
+	session: CurrentSession,
+	db: ReturnType<typeof getDb>,
+): Promise<string | undefined> {
+	if (body.defaultShare === undefined && body.defaultCurrency === undefined) {
+		return undefined;
+	}
+
+	if (!session.group) {
+		throw new Error("No group found for session");
+	}
+
+	const currentGroup = await db
+		.select({ metadata: groups.metadata })
+		.from(groups)
+		.where(eq(groups.groupid, session.group.groupid))
+		.limit(1);
+
+	const currentMetadata = JSON.parse(
+		currentGroup[0]?.metadata || "{}",
+	) as GroupMetadata;
+
+	const newMetadata: GroupMetadata = {
+		...currentMetadata,
+		...(body.defaultShare !== undefined && {
+			defaultShare: body.defaultShare,
+		}),
+		...(body.defaultCurrency !== undefined && {
+			defaultCurrency: body.defaultCurrency,
+		}),
+	};
+
+	// Set default USD currency if no currency is provided and none exists
+	if (
+		body.defaultCurrency === undefined &&
+		!currentMetadata.defaultCurrency
+	) {
+		newMetadata.defaultCurrency = "USD";
+	}
+
+	return JSON.stringify(newMetadata);
+}
+
 // Helper function to build updates object
 async function buildUpdatesObject(
 	body: UpdateGroupMetadataRequest,
-	session: any,
-	db: any,
+	session: CurrentSession,
+	db: ReturnType<typeof getDb>,
 ): Promise<{ metadata?: string; groupName?: string; budgets?: string }> {
 	const updates: { metadata?: string; groupName?: string; budgets?: string } = {};
 
 	// Update metadata if provided
-	if (body.defaultShare !== undefined || body.defaultCurrency !== undefined) {
-		const currentGroup = await db
-			.select({ metadata: groups.metadata })
-			.from(groups)
-			.where(eq(groups.groupid, session.group.groupid))
-			.limit(1);
-
-		const currentMetadata = JSON.parse(
-			currentGroup[0]?.metadata || "{}",
-		) as GroupMetadata;
-		
-		const newMetadata: GroupMetadata = {
-			...currentMetadata,
-			...(body.defaultShare !== undefined && {
-				defaultShare: body.defaultShare,
-			}),
-			...(body.defaultCurrency !== undefined && {
-				defaultCurrency: body.defaultCurrency,
-			}),
-		};
-
-		// Set default USD currency if no currency is provided and none exists
-		if (
-			body.defaultCurrency === undefined &&
-			!currentMetadata.defaultCurrency
-		) {
-			newMetadata.defaultCurrency = "USD";
-		}
-
-		updates.metadata = JSON.stringify(newMetadata);
+	const metadata = await updateMetadata(body, session, db);
+	if (metadata) {
+		updates.metadata = metadata;
 	}
 
 	// Update group name if provided

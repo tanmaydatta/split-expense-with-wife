@@ -8,14 +8,16 @@ import {
 	AddExpenseActionSchema,
 	type CreateScheduledActionRequest,
 	CURRENCIES,
-	type ScheduledActionHistoryListResponse,
+	type ScheduledAction,
 	ScheduledActionHistoryQuerySchema,
 	ScheduledActionListQuerySchema,
 	type ScheduledActionListResponse,
 	type UpdateScheduledActionRequest,
-	UpdateScheduledActionSchema,
+	UpdateScheduledActionSchema
 } from "../../../shared-types";
+import type { getDb } from "../db";
 import { scheduledActionHistory, scheduledActions } from "../db/schema/schema";
+import type { ParsedGroup } from "../types";
 import {
 	createErrorResponse,
 	createJsonResponse,
@@ -309,7 +311,11 @@ export async function handleScheduledActionList(
 }
 
 // Helper function to validate and get existing action
-async function getExistingAction(db: any, actionId: string, groupUserIds: string[]) {
+async function getExistingAction(
+	db: ReturnType<typeof getDb>,
+	actionId: string,
+	groupUserIds: string[],
+) {
 	const existingAction = await db
 		.select()
 		.from(scheduledActions)
@@ -329,7 +335,9 @@ async function getExistingAction(db: any, actionId: string, groupUserIds: string
 }
 
 // Helper function to build update data object
-function buildUpdateData(body: UpdateScheduledActionRequest): ScheduledActionUpdateData {
+function buildUpdateData(
+	body: UpdateScheduledActionRequest,
+): ScheduledActionUpdateData {
 	const updateData: ScheduledActionUpdateData = {
 		updatedAt: formatSQLiteTime(),
 	};
@@ -350,10 +358,15 @@ function buildUpdateData(body: UpdateScheduledActionRequest): ScheduledActionUpd
 }
 
 // Helper function to validate and set action data
+// Type for database query result (has null instead of undefined)
+type ScheduledActionDbResult = Omit<ScheduledAction, 'lastExecutedAt'> & {
+	lastExecutedAt: string | null;
+};
+
 function validateAndSetActionData(
 	body: UpdateScheduledActionRequest,
-	existingAction: any,
-	group: any,
+	existingAction: ScheduledActionDbResult,
+	group: ParsedGroup,
 	updateData: ScheduledActionUpdateData,
 ): void {
 	if (!body.actionData) {
@@ -365,23 +378,25 @@ function validateAndSetActionData(
 		group.userids,
 		group.budgets,
 	);
-	
+
 	const actionParsed =
 		existingAction.actionType === "add_expense"
 			? ExpenseValid.safeParse(body.actionData)
 			: BudgetValid.safeParse(body.actionData);
-			
+
 	if (!actionParsed.success) {
 		throw new Error(formatZodError(actionParsed.error));
 	}
 
-	updateData.actionData = actionParsed.data as AddExpenseActionData | AddBudgetActionData;
+	updateData.actionData = actionParsed.data as
+		| AddExpenseActionData
+		| AddBudgetActionData;
 }
 
 // Helper function to calculate next execution date
 function calculateAndSetNextExecutionDate(
 	body: UpdateScheduledActionRequest,
-	existingAction: any,
+	existingAction: ScheduledActionDbResult,
 	updateData: ScheduledActionUpdateData,
 ): void {
 	// 1) If explicit nextExecutionDate provided, accept it as-is
@@ -393,7 +408,10 @@ function calculateAndSetNextExecutionDate(
 	// 2) If skipNext is requested, compute next using calculateNextExecutionDate
 	if (body.skipNext) {
 		const currentNext = existingAction.nextExecutionDate;
-		const freq = (body.frequency || existingAction.frequency) as "daily" | "weekly" | "monthly";
+		const freq = (body.frequency || existingAction.frequency) as
+			| "daily"
+			| "weekly"
+			| "monthly";
 		updateData.nextExecutionDate = calculateNextExecutionDate(
 			currentNext,
 			freq,
@@ -413,6 +431,56 @@ function calculateAndSetNextExecutionDate(
 	}
 }
 
+// Helper function to process scheduled action update
+async function processScheduledActionUpdate(
+	body: UpdateScheduledActionRequest,
+	group: ParsedGroup,
+	db: ReturnType<typeof getDb>,
+): Promise<void> {
+	// Get existing action
+	const existingAction = await getExistingAction(
+		db,
+		body.id,
+		group.userids,
+	);
+
+	// Build update data
+	const updateData = buildUpdateData(body);
+
+	// Validate and set action data if provided
+	validateAndSetActionData(body, existingAction, group, updateData);
+
+	// Calculate next execution date
+	calculateAndSetNextExecutionDate(body, existingAction, updateData);
+
+	// Update the action
+	await db
+		.update(scheduledActions)
+		.set(updateData)
+		.where(
+			and(
+				eq(scheduledActions.id, body.id),
+				inArray(scheduledActions.userId, group.userids),
+			),
+		);
+}
+
+// Helper function to parse and validate update request
+function parseUpdateRequest(json: unknown): { success: true; data: UpdateScheduledActionRequest } | { success: false; error: string } {
+	const parsed = UpdateScheduledActionSchema.safeParse(json);
+	if (!parsed.success) {
+		return { success: false, error: formatZodError(parsed.error) };
+	}
+	return { success: true, data: parsed.data };
+}
+
+// Helper function to handle update errors
+function handleUpdateError(error: unknown): { message: string; status: number } {
+	const message = error instanceof Error ? error.message : "Unknown error";
+	const status = message === "Scheduled action not found" ? 404 : 400;
+	return { message, status };
+}
+
 export async function handleScheduledActionUpdate(
 	request: Request,
 	env: Env,
@@ -425,39 +493,12 @@ export async function handleScheduledActionUpdate(
 
 		try {
 			const json = (await request.json()) as unknown;
-			const parsed = UpdateScheduledActionSchema.safeParse(json);
-			if (!parsed.success) {
-				return createErrorResponse(
-					formatZodError(parsed.error),
-					400,
-					request,
-					env,
-				);
+			const parseResult = parseUpdateRequest(json);
+			if (!parseResult.success) {
+				return createErrorResponse(parseResult.error, 400, request, env);
 			}
-			const body: UpdateScheduledActionRequest = parsed.data;
 
-			// Get existing action
-			const existingAction = await getExistingAction(db, body.id, group.userids);
-
-			// Build update data
-			const updateData = buildUpdateData(body);
-
-			// Validate and set action data if provided
-			validateAndSetActionData(body, existingAction, group, updateData);
-
-			// Calculate next execution date
-			calculateAndSetNextExecutionDate(body, existingAction, updateData);
-
-			// Update the action
-			await db
-				.update(scheduledActions)
-				.set(updateData)
-				.where(
-					and(
-						eq(scheduledActions.id, body.id),
-						inArray(scheduledActions.userId, group.userids),
-					),
-				);
+			await processScheduledActionUpdate(parseResult.data, group, db);
 
 			return createJsonResponse(
 				{ message: "Scheduled action updated successfully" },
@@ -467,8 +508,7 @@ export async function handleScheduledActionUpdate(
 				env,
 			);
 		} catch (error) {
-			const message = error instanceof Error ? error.message : "Unknown error";
-			const status = message === "Scheduled action not found" ? 404 : 400;
+			const { message, status } = handleUpdateError(error);
 			return createErrorResponse(message, status, request, env);
 		}
 	});
@@ -536,6 +576,72 @@ export async function handleScheduledActionDelete(
 	});
 }
 
+// Helper function to build history query conditions
+function buildHistoryConditions(
+	group: ParsedGroup,
+	scheduledActionId?: string,
+	executionStatus?: string,
+) {
+	const conditions = [inArray(scheduledActionHistory.userId, group.userids)];
+
+	if (scheduledActionId) {
+		conditions.push(
+			eq(scheduledActionHistory.scheduledActionId, scheduledActionId),
+		);
+	}
+	if (
+		executionStatus &&
+		["success", "failed", "started"].includes(executionStatus)
+	) {
+		conditions.push(
+			eq(
+				scheduledActionHistory.executionStatus,
+				executionStatus as "success" | "failed" | "started",
+			),
+		);
+	}
+
+	return conditions;
+}
+
+// Helper function to get history data
+async function getHistoryData(
+	db: ReturnType<typeof getDb>,
+	conditions: Parameters<typeof and>,
+	offset: number,
+	limit: number,
+) {
+	// Get total count
+	const totalCountResult = await db
+		.select({ count: count() })
+		.from(scheduledActionHistory)
+		.where(and(...conditions));
+
+	const totalCount = totalCountResult[0]?.count || 0;
+
+	// Get history entries
+	const history = await db
+		.select()
+		.from(scheduledActionHistory)
+		.where(and(...conditions))
+		.orderBy(desc(scheduledActionHistory.executedAt))
+		.limit(limit)
+		.offset(offset);
+
+	// Convert null to undefined for TypeScript compatibility
+	const convertedHistory = history.map((entry) => ({
+		...entry,
+		errorMessage: entry.errorMessage || undefined,
+		executionDurationMs: entry.executionDurationMs || undefined,
+	}));
+
+	return {
+		history: convertedHistory,
+		totalCount,
+		hasMore: offset + limit < totalCount,
+	};
+}
+
 export async function handleScheduledActionHistory(
 	request: Request,
 	env: Env,
@@ -563,55 +669,8 @@ export async function handleScheduledActionHistory(
 		const { offset, limit, scheduledActionId, executionStatus } =
 			parseQuery.data;
 
-		// Build where conditions
-		const conditions = [inArray(scheduledActionHistory.userId, group.userids)];
-
-		if (scheduledActionId) {
-			conditions.push(
-				eq(scheduledActionHistory.scheduledActionId, scheduledActionId),
-			);
-		}
-		if (
-			executionStatus &&
-			["success", "failed", "started"].includes(executionStatus)
-		) {
-			conditions.push(
-				eq(
-					scheduledActionHistory.executionStatus,
-					executionStatus as "success" | "failed" | "started",
-				),
-			);
-		}
-
-		// Get total count
-		const totalCountResult = await db
-			.select({ count: count() })
-			.from(scheduledActionHistory)
-			.where(and(...conditions));
-
-		const totalCount = totalCountResult[0]?.count || 0;
-
-		// Get history entries
-		const history = await db
-			.select()
-			.from(scheduledActionHistory)
-			.where(and(...conditions))
-			.orderBy(desc(scheduledActionHistory.executedAt))
-			.limit(limit)
-			.offset(offset);
-
-		// Convert null to undefined for TypeScript compatibility
-		const convertedHistory = history.map((entry) => ({
-			...entry,
-			errorMessage: entry.errorMessage || undefined,
-			executionDurationMs: entry.executionDurationMs || undefined,
-		}));
-
-		const response: ScheduledActionHistoryListResponse = {
-			history: convertedHistory,
-			totalCount,
-			hasMore: offset + limit < totalCount,
-		};
+		const conditions = buildHistoryConditions(group, scheduledActionId, executionStatus);
+		const response = await getHistoryData(db, conditions, offset, limit);
 
 		return createJsonResponse(response, 200, {}, request, env);
 	});
