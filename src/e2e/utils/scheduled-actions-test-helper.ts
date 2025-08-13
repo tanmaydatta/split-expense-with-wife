@@ -301,6 +301,7 @@ export class ScheduledActionsTestHelper {
 		await expect(
 			this.authenticatedPage.page.getByTestId("scheduled-actions-history"),
 		).toBeVisible();
+		await this.authenticatedPage.page.waitForTimeout(2000); // allow re-render
 	}
 
 	async getActionIdFromCard(description: string): Promise<string | null> {

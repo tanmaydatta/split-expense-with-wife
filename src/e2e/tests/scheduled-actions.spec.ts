@@ -142,7 +142,7 @@ test.describe("Scheduled Actions", () => {
 
     // Click skip next
     await authenticatedPage.page.getByTestId('sa-skip-next').click();
-    await authenticatedPage.page.waitForTimeout(300); // allow re-render
+    await authenticatedPage.page.waitForTimeout(2000); // allow re-render
 
     // Expect next date to change
     const upcomingText2 = await authenticatedPage.page

@@ -263,70 +263,75 @@ function flattenZodIssues(issues: ZIssue[]): ZIssue[] {
 	return flattened;
 }
 
-// Convert a ZodError into a human-readable string and log full details
-export function formatZodError(error: unknown): string {
-	// Check if it's a ZodError by looking for the issues property
-	if (
-		error &&
+// Helper function to check if error is a ZodError
+function isZodError(error: unknown): error is z.ZodError {
+	return (
+		error !== null &&
 		typeof error === "object" &&
-		"issues" in (error as { issues: unknown })
+		"issues" in error
+	);
+}
+
+// Helper function to convert technical field names to user-friendly ones
+function makeFriendlyPath(path: string): string {
+	return path
+		.replace("actionData.", "")
+		.replace("paidByUserId", "paid by user")
+		.replace("splitPctShares", "split percentages")
+		.replace("budgetName", "budget name")
+		.replace("startDate", "start date")
+		.replace("actionType", "action type");
+}
+
+// Helper function to simplify error messages
+function simplifyErrorMessage(message: string, friendlyPath: string): string {
+	if (
+		message.includes("Invalid input: expected") &&
+		message.includes("received undefined")
 	) {
-		const zodError = error as z.ZodError;
-
-		// Log full error details for debugging
-		console.error(
-			"Zod validation error:",
-			JSON.stringify(zodError.issues, null, 2),
-		);
-
-		// Flatten all nested union issues
-		const allIssues = flattenZodIssues(zodError.issues as unknown as ZIssue[]);
-
-		// Create user-friendly messages
-		const userMessages = allIssues.map((issue) => {
-			const path = issue.path?.join(".") || "";
-
-			// Convert technical field names to user-friendly ones
-			const friendlyPath = path
-				.replace("actionData.", "")
-				.replace("paidByUserId", "paid by user")
-				.replace("splitPctShares", "split percentages")
-				.replace("budgetName", "budget name")
-				.replace("startDate", "start date")
-				.replace("actionType", "action type");
-
-			// Simplify common error messages
-			const message = issue.message;
-			if (
-				message.includes("Invalid input: expected") &&
-				message.includes("received undefined")
-			) {
-				if (friendlyPath) {
-					return `${friendlyPath} is required`;
-				}
-				return "Required field is missing";
-			}
-			if (message.includes("user not in group")) {
-				return "Selected user is not in your group";
-			}
-			if (message.includes("not available in group")) {
-				return "Selected budget is not available";
-			}
-
-			return friendlyPath ? `${friendlyPath}: ${message}` : message;
-		});
-
-		// De-duplicate and return first few messages
-		const unique = Array.from(new Set(userMessages)).filter(Boolean);
-		const result = unique.slice(0, 3).join(". ");
-
-		// If we couldn't create meaningful messages, return a generic one
-		return result || "Please check your input and try again";
+		return friendlyPath ? `${friendlyPath} is required` : "Required field is missing";
+	}
+	if (message.includes("user not in group")) {
+		return "Selected user is not in your group";
+	}
+	if (message.includes("not available in group")) {
+		return "Selected budget is not available";
 	}
 
-	// Log other errors too
-	console.error("Non-Zod validation error:", error);
-	return error instanceof Error ? error.message : "Invalid input";
+	return friendlyPath ? `${friendlyPath}: ${message}` : message;
+}
+
+// Helper function to create user-friendly messages from issues
+function createUserFriendlyMessages(allIssues: ZIssue[]): string[] {
+	return allIssues.map((issue) => {
+		const path = issue.path?.join(".") || "";
+		const friendlyPath = makeFriendlyPath(path);
+		return simplifyErrorMessage(issue.message, friendlyPath);
+	});
+}
+
+// Convert a ZodError into a human-readable string and log full details
+export function formatZodError(error: unknown): string {
+	if (!isZodError(error)) {
+		console.error("Non-Zod validation error:", error);
+		return error instanceof Error ? error.message : "Invalid input";
+	}
+
+	// Log full error details for debugging
+	console.error("Zod validation error:", JSON.stringify(error.issues, null, 2));
+
+	// Flatten all nested union issues
+	const allIssues = flattenZodIssues(error.issues as unknown as ZIssue[]);
+
+	// Create user-friendly messages
+	const userMessages = createUserFriendlyMessages(allIssues);
+
+	// De-duplicate and return first few messages
+	const unique = Array.from(new Set(userMessages)).filter(Boolean);
+	const result = unique.slice(0, 3).join(". ");
+
+	// If we couldn't create meaningful messages, return a generic one
+	return result || "Please check your input and try again";
 }
 
 // Add CORS headers to any response
@@ -392,16 +397,12 @@ export function validatePaidAmounts(
 	return Math.abs(totalPaid - totalAmount) < 0.01; // Allow small floating point errors
 }
 
-// Calculate split amounts for transactions using net settlement logic
-export function calculateSplitAmounts(
+// Helper function to calculate net positions for users
+function calculateNetPositions(
 	amount: number,
 	paidByShares: Record<string, number>,
 	splitPctShares: Record<string, number>,
-	currency: string,
-): SplitAmount[] {
-	const splitAmounts: SplitAmount[] = [];
-
-	// Calculate net position for each user (positive = owed money, negative = owes money)
+): Record<string, number> {
 	const netPositions: Record<string, number> = {};
 
 	// Calculate what each user owes based on split percentages
@@ -415,31 +416,40 @@ export function calculateSplitAmounts(
 		netPositions[userIdStr] = (netPositions[userIdStr] || 0) + paidAmount;
 	}
 
-	// Separate creditors (net positive) and debtors (net negative)
+	return netPositions;
+}
+
+// Helper function to separate creditors and debtors
+function separateCreditorsAndDebtors(netPositions: Record<string, number>) {
 	const creditors: Array<{ userId: string; amount: number }> = [];
 	const debtors: Array<{ userId: string; amount: number }> = [];
 
 	for (const [userIdStr, netAmount] of Object.entries(netPositions)) {
 		if (netAmount > 0.001) {
-			// Creditor (owed money)
 			creditors.push({ userId: userIdStr, amount: netAmount });
 		} else if (netAmount < -0.01) {
-			// Debtor (owes money)
 			debtors.push({ userId: userIdStr, amount: -netAmount });
 		}
 	}
 
-	// Create debt relationships: debtors owe proportionally to creditors
+	return { creditors, debtors };
+}
+
+// Helper function to create debt relationships
+function createDebtRelationships(
+	creditors: Array<{ userId: string; amount: number }>,
+	debtors: Array<{ userId: string; amount: number }>,
+	currency: string,
+): SplitAmount[] {
+	const splitAmounts: SplitAmount[] = [];
 	const totalCreditorAmount = creditors.reduce((sum, c) => sum + c.amount, 0);
 
 	for (const debtor of debtors) {
 		for (const creditor of creditors) {
-			// Calculate how much this debtor owes to this creditor proportionally
 			const proportionToCreditor = creditor.amount / totalCreditorAmount;
 			const amountOwedToCreditor = debtor.amount * proportionToCreditor;
 
 			if (amountOwedToCreditor > 0.001) {
-				// Only record significant amounts
 				splitAmounts.push({
 					user_id: debtor.userId,
 					amount: Math.round(amountOwedToCreditor * 100) / 100,
@@ -451,6 +461,23 @@ export function calculateSplitAmounts(
 	}
 
 	return splitAmounts;
+}
+
+// Calculate split amounts for transactions using net settlement logic
+export function calculateSplitAmounts(
+	amount: number,
+	paidByShares: Record<string, number>,
+	splitPctShares: Record<string, number>,
+	currency: string,
+): SplitAmount[] {
+	// Calculate net position for each user (positive = owed money, negative = owes money)
+	const netPositions = calculateNetPositions(amount, paidByShares, splitPctShares);
+	
+	// Separate creditors (net positive) and debtors (net negative)
+	const { creditors, debtors } = separateCreditorsAndDebtors(netPositions);
+	
+	// Create debt relationships: debtors owe proportionally to creditors
+	return createDebtRelationships(creditors, debtors, currency);
 }
 
 // Generate Drizzle balance update statements

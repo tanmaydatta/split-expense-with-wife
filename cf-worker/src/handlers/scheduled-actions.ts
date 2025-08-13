@@ -308,6 +308,111 @@ export async function handleScheduledActionList(
 	});
 }
 
+// Helper function to validate and get existing action
+async function getExistingAction(db: any, actionId: string, groupUserIds: string[]) {
+	const existingAction = await db
+		.select()
+		.from(scheduledActions)
+		.where(
+			and(
+				eq(scheduledActions.id, actionId),
+				inArray(scheduledActions.userId, groupUserIds),
+			),
+		)
+		.limit(1);
+
+	if (existingAction.length === 0) {
+		throw new Error("Scheduled action not found");
+	}
+
+	return existingAction[0];
+}
+
+// Helper function to build update data object
+function buildUpdateData(body: UpdateScheduledActionRequest): ScheduledActionUpdateData {
+	const updateData: ScheduledActionUpdateData = {
+		updatedAt: formatSQLiteTime(),
+	};
+
+	if (body.isActive !== undefined) {
+		updateData.isActive = body.isActive;
+	}
+
+	if (body.frequency) {
+		updateData.frequency = body.frequency;
+	}
+
+	if (body.startDate) {
+		updateData.startDate = body.startDate;
+	}
+
+	return updateData;
+}
+
+// Helper function to validate and set action data
+function validateAndSetActionData(
+	body: UpdateScheduledActionRequest,
+	existingAction: any,
+	group: any,
+	updateData: ScheduledActionUpdateData,
+): void {
+	if (!body.actionData) {
+		return;
+	}
+
+	// Validate action data via runtime Zod
+	const { ExpenseValid, BudgetValid } = buildActionDataSchemas(
+		group.userids,
+		group.budgets,
+	);
+	
+	const actionParsed =
+		existingAction.actionType === "add_expense"
+			? ExpenseValid.safeParse(body.actionData)
+			: BudgetValid.safeParse(body.actionData);
+			
+	if (!actionParsed.success) {
+		throw new Error(formatZodError(actionParsed.error));
+	}
+
+	updateData.actionData = actionParsed.data as AddExpenseActionData | AddBudgetActionData;
+}
+
+// Helper function to calculate next execution date
+function calculateAndSetNextExecutionDate(
+	body: UpdateScheduledActionRequest,
+	existingAction: any,
+	updateData: ScheduledActionUpdateData,
+): void {
+	// 1) If explicit nextExecutionDate provided, accept it as-is
+	if (body.nextExecutionDate) {
+		updateData.nextExecutionDate = body.nextExecutionDate;
+		return;
+	}
+
+	// 2) If skipNext is requested, compute next using calculateNextExecutionDate
+	if (body.skipNext) {
+		const currentNext = existingAction.nextExecutionDate;
+		const freq = (body.frequency || existingAction.frequency) as "daily" | "weekly" | "monthly";
+		updateData.nextExecutionDate = calculateNextExecutionDate(
+			currentNext,
+			freq,
+			new Date(currentNext),
+		);
+		return;
+	}
+
+	// 3) Recalculate next execution date if frequency or start date changed
+	if ((body.frequency || body.startDate) && !updateData.nextExecutionDate) {
+		const newFrequency = body.frequency || existingAction.frequency;
+		const newStartDate = body.startDate || existingAction.startDate;
+		updateData.nextExecutionDate = calculateNextExecutionDate(
+			newStartDate,
+			newFrequency as "daily" | "weekly" | "monthly",
+		);
+	}
+}
+
 export async function handleScheduledActionUpdate(
 	request: Request,
 	env: Env,
@@ -317,141 +422,55 @@ export async function handleScheduledActionUpdate(
 		if (!group) {
 			return createErrorResponse("User not in a group", 400, request, env);
 		}
-		const json = (await request.json()) as unknown;
-		const parsed = UpdateScheduledActionSchema.safeParse(json);
-		if (!parsed.success) {
-			return createErrorResponse(
-				formatZodError(parsed.error),
-				400,
-				request,
-				env,
-			);
-		}
-		const body: UpdateScheduledActionRequest = parsed.data;
 
-		// ID validation handled by Zod schema
-
-		// Exclusivity is enforced by Zod schema now
-
-		// Check if action exists and belongs to user
-		const existingAction = await db
-			.select()
-			.from(scheduledActions)
-			.where(
-				and(
-					eq(scheduledActions.id, body.id),
-					inArray(scheduledActions.userId, group.userids),
-				),
-			)
-			.limit(1);
-
-		if (existingAction.length === 0) {
-			return createErrorResponse(
-				"Scheduled action not found",
-				404,
-				request,
-				env,
-			);
-		}
-
-		// Build update object
-		const updateData: ScheduledActionUpdateData = {
-			updatedAt: formatSQLiteTime(),
-		};
-
-		if (body.isActive !== undefined) {
-			updateData.isActive = body.isActive;
-		}
-
-		if (body.frequency) {
-			// Frequency validation handled by Zod schema
-			updateData.frequency = body.frequency;
-		}
-
-		if (body.startDate) {
-			// Start date validation handled by Zod schema
-			updateData.startDate = body.startDate;
-		}
-
-		if (body.actionData) {
-			// Get group info for validation
-			const group = session.group;
-			if (!group) {
-				return createErrorResponse("User not in a group", 400, request, env);
-			}
-
-			// Validate action data via runtime Zod
-			const { ExpenseValid, BudgetValid } = buildActionDataSchemas(
-				group.userids,
-				group.budgets,
-			);
-			const actionParsed =
-				existingAction[0].actionType === "add_expense"
-					? ExpenseValid.safeParse(body.actionData)
-					: BudgetValid.safeParse(body.actionData);
-			if (!actionParsed.success) {
+		try {
+			const json = (await request.json()) as unknown;
+			const parsed = UpdateScheduledActionSchema.safeParse(json);
+			if (!parsed.success) {
 				return createErrorResponse(
-					formatZodError(actionParsed.error),
+					formatZodError(parsed.error),
 					400,
 					request,
 					env,
 				);
 			}
+			const body: UpdateScheduledActionRequest = parsed.data;
 
-			updateData.actionData = actionParsed.data as
-				| AddExpenseActionData
-				| AddBudgetActionData;
-		}
+			// Get existing action
+			const existingAction = await getExistingAction(db, body.id, group.userids);
 
-		// 1) If explicit nextExecutionDate provided, accept it as-is
-		if (body.nextExecutionDate) {
-			updateData.nextExecutionDate = body.nextExecutionDate;
-		}
+			// Build update data
+			const updateData = buildUpdateData(body);
 
-		// 2) If skipNext is requested, compute next using calculateNextExecutionDate
-		if (body.skipNext) {
-			const current = existingAction[0];
-			const currentNext = current.nextExecutionDate;
-			const freq = (body.frequency || current.frequency) as
-				| "daily"
-				| "weekly"
-				| "monthly";
-			// Use currentNext as both start and now to advance by exactly one period
-			updateData.nextExecutionDate = calculateNextExecutionDate(
-				currentNext,
-				freq,
-				new Date(currentNext),
+			// Validate and set action data if provided
+			validateAndSetActionData(body, existingAction, group, updateData);
+
+			// Calculate next execution date
+			calculateAndSetNextExecutionDate(body, existingAction, updateData);
+
+			// Update the action
+			await db
+				.update(scheduledActions)
+				.set(updateData)
+				.where(
+					and(
+						eq(scheduledActions.id, body.id),
+						inArray(scheduledActions.userId, group.userids),
+					),
+				);
+
+			return createJsonResponse(
+				{ message: "Scheduled action updated successfully" },
+				200,
+				{},
+				request,
+				env,
 			);
+		} catch (error) {
+			const message = error instanceof Error ? error.message : "Unknown error";
+			const status = message === "Scheduled action not found" ? 404 : 400;
+			return createErrorResponse(message, status, request, env);
 		}
-
-		// 3) Recalculate next execution date if frequency or start date changed (and not already set above)
-		if ((body.frequency || body.startDate) && !updateData.nextExecutionDate) {
-			const newFrequency = body.frequency || existingAction[0].frequency;
-			const newStartDate = body.startDate || existingAction[0].startDate;
-			updateData.nextExecutionDate = calculateNextExecutionDate(
-				newStartDate,
-				newFrequency as "daily" | "weekly" | "monthly",
-			);
-		}
-
-		// Update the action
-		await db
-			.update(scheduledActions)
-			.set(updateData)
-			.where(
-				and(
-					eq(scheduledActions.id, body.id),
-					inArray(scheduledActions.userId, group.userids),
-				),
-			);
-
-		return createJsonResponse(
-			{ message: "Scheduled action updated successfully" },
-			200,
-			{},
-			request,
-			env,
-		);
 	});
 }
 

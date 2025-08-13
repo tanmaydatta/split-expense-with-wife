@@ -5,6 +5,57 @@ import { getDb } from "./db";
 import type { Session } from "./types";
 import { enrichSession } from "./utils";
 
+// Helper functions for password verification
+function decodeStoredHash(hash: string): { salt: Uint8Array; storedHash: Uint8Array } {
+	const combined = new Uint8Array(
+		atob(hash)
+			.split("")
+			.map((char) => char.charCodeAt(0)),
+	);
+	const salt = combined.slice(0, 16);
+	const storedHash = combined.slice(16);
+	return { salt, storedHash };
+}
+
+async function hashPasswordWithSalt(password: string, salt: Uint8Array): Promise<Uint8Array> {
+	const encoder = new TextEncoder();
+	const data = encoder.encode(password);
+	
+	const key = await crypto.subtle.importKey(
+		"raw",
+		data,
+		{ name: "PBKDF2" },
+		false,
+		["deriveBits"],
+	);
+
+	const candidateHashBuffer = await crypto.subtle.deriveBits(
+		{
+			name: "PBKDF2",
+			salt: salt,
+			iterations: 10000,
+			hash: "SHA-256",
+		},
+		key,
+		256,
+	);
+
+	return new Uint8Array(candidateHashBuffer);
+}
+
+function compareHashes(candidateHash: Uint8Array, storedHash: Uint8Array): boolean {
+	if (candidateHash.length !== storedHash.length) {
+		return false;
+	}
+
+	for (let i = 0; i < candidateHash.length; i++) {
+		if (candidateHash[i] !== storedHash[i]) {
+			return false;
+		}
+	}
+	return true;
+}
+
 // const env = process.env as unknown as Env;
 export const auth = (env: Env): ReturnType<typeof betterAuth> =>
 	betterAuth({
@@ -87,55 +138,14 @@ export const auth = (env: Env): ReturnType<typeof betterAuth> =>
 							return false;
 						}
 
-						const encoder = new TextEncoder();
-						const data = encoder.encode(password);
+						const { salt, storedHash } = decodeStoredHash(hash);
+						const candidateHash = await hashPasswordWithSalt(password, salt);
+						const isMatch = compareHashes(candidateHash, storedHash);
 
-						// Decode the stored hash
-						const combined = new Uint8Array(
-							atob(hash)
-								.split("")
-								.map((char) => char.charCodeAt(0)),
-						);
-
-						// Extract salt (first 16 bytes) and stored hash (remaining bytes)
-						const salt = combined.slice(0, 16);
-						const storedHash = combined.slice(16);
-
-						// Hash the candidate password with the same salt
-						const key = await crypto.subtle.importKey(
-							"raw",
-							data,
-							{ name: "PBKDF2" },
-							false,
-							["deriveBits"],
-						);
-
-						const candidateHashBuffer = await crypto.subtle.deriveBits(
-							{
-								name: "PBKDF2",
-								salt: salt,
-								iterations: 10000,
-								hash: "SHA-256",
-							},
-							key,
-							256,
-						);
-
-						const candidateHash = new Uint8Array(candidateHashBuffer);
-
-						// Compare hashes
-						if (candidateHash.length !== storedHash.length) {
-							return false;
+						if (isMatch) {
+							console.log("✅ Password verification successful");
 						}
-
-						for (let i = 0; i < candidateHash.length; i++) {
-							if (candidateHash[i] !== storedHash[i]) {
-								return false;
-							}
-						}
-
-						console.log("✅ Password verification successful");
-						return true;
+						return isMatch;
 					} catch (error) {
 						console.error("❌ Password verification error:", error);
 						return false;

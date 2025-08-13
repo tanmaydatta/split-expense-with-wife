@@ -21,6 +21,80 @@ import {
 } from "../utils";
 import { createBudgetEntryStatements } from "../utils/scheduled-action-execution";
 
+// Helper function to create user name mapping
+function createUserNameMapping(usersById: Record<string, any>): Map<string, string> {
+	const userIdToName = new Map<string, string>();
+	Object.values(usersById).forEach((user) => {
+		userIdToName.set(user.id, user.firstName || "Unknown");
+	});
+	return userIdToName;
+}
+
+// Helper function to add balance to result
+function addBalanceToResult(
+	result: Record<string, Record<string, number>>,
+	userName: string,
+	currency: string,
+	amount: number
+): void {
+	if (!result[userName]) {
+		result[userName] = {};
+	}
+	result[userName][currency] = (result[userName][currency] || 0) + amount;
+}
+
+// Helper function to process when current user owes someone
+function processCurrentUserOwes(
+	result: Record<string, Record<string, number>>,
+	owedToUserId: string,
+	currency: string,
+	amount: number,
+	currentUserId: string,
+	userIdToName: Map<string, string>
+): void {
+	const otherUserName = userIdToName.get(owedToUserId);
+	if (otherUserName && owedToUserId !== currentUserId) {
+		addBalanceToResult(result, otherUserName, currency, -amount);
+	}
+}
+
+// Helper function to process when someone owes current user
+function processSomeoneOwesCurrentUser(
+	result: Record<string, Record<string, number>>,
+	userId: string,
+	currency: string,
+	amount: number,
+	userIdToName: Map<string, string>
+): void {
+	const otherUserName = userIdToName.get(userId);
+	if (otherUserName) {
+		addBalanceToResult(result, otherUserName, currency, amount);
+	}
+}
+
+// Helper function to process balance data
+function processBalances(
+	balances: any[],
+	currentUserId: string,
+	userIdToName: Map<string, string>
+): Record<string, Record<string, number>> {
+	const result: Record<string, Record<string, number>> = {};
+
+	for (const balance of balances) {
+		const { userId, owedToUserId, currency, balance: amount } = balance;
+
+		if (userId === currentUserId) {
+			// Current user owes someone else
+			processCurrentUserOwes(result, owedToUserId, currency, amount, currentUserId, userIdToName);
+		} else if (owedToUserId === currentUserId) {
+			// Someone else owes current user
+			processSomeoneOwesCurrentUser(result, userId, currency, amount, userIdToName);
+		}
+	}
+
+	return result;
+}
+
 // Handle balances
 export async function handleBalances(
 	request: Request,
@@ -35,6 +109,7 @@ export async function handleBalances(
 			if (!session.group) {
 				return createErrorResponse("Unauthorized", 401, request, env);
 			}
+			
 			const balances = await db
 				.select({
 					userId: userBalances.userId,
@@ -51,42 +126,11 @@ export async function handleBalances(
 				);
 
 			// Create user ID to name mapping
-			const userIdToName = new Map<string, string>();
-			Object.values(session.usersById).forEach((user) => {
-				userIdToName.set(user.id, user.firstName || "Unknown");
-			});
-
+			const userIdToName = createUserNameMapping(session.usersById);
 			console.log("userIdToName", userIdToName);
 
 			// Transform balances into UserBalancesByUser format
-			const result: Record<string, Record<string, number>> = {};
-
-			for (const balance of balances) {
-				const { userId, owedToUserId, currency, balance: amount } = balance;
-
-				// From current user's perspective
-				if (userId === session.currentUser.id) {
-					// Current user owes someone else (negative for that person)
-					const otherUserName = userIdToName.get(owedToUserId);
-					if (otherUserName && owedToUserId !== session.user.id) {
-						if (!result[otherUserName]) {
-							result[otherUserName] = {};
-						}
-						result[otherUserName][currency] =
-							(result[otherUserName][currency] || 0) - amount;
-					}
-				} else if (owedToUserId === session.currentUser.id) {
-					// Someone else owes current user (positive for that person)
-					const otherUserName = userIdToName.get(userId);
-					if (otherUserName) {
-						if (!result[otherUserName]) {
-							result[otherUserName] = {};
-						}
-						result[otherUserName][currency] =
-							(result[otherUserName][currency] || 0) + amount;
-					}
-				}
-			}
+			const result = processBalances(balances, session.currentUser.id, userIdToName);
 
 			// Return empty object if no balances exist
 			if (Object.keys(result).length === 0) {

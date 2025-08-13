@@ -23,6 +23,76 @@ import {
 	generateDeterministicTransactionId,
 } from "../utils/scheduled-action-execution";
 
+// Helper function to check if action was already executed
+async function checkActionAlreadyExecuted(
+	env: Env,
+	historyId: string,
+): Promise<boolean> {
+	const db = getDb(env);
+	const existing = await db
+		.select({ status: scheduledActionHistory.executionStatus })
+		.from(scheduledActionHistory)
+		.where(eq(scheduledActionHistory.id, historyId))
+		.limit(1);
+	return existing.length > 0 && existing[0].status === "success";
+}
+
+// Helper function to process action by type
+async function processActionByType(
+	env: Env,
+	action: ScheduledActionSelect,
+	userData: UserSelect,
+	currentDate: string,
+): Promise<{
+	resultData: ScheduledActionResultData;
+	statements: Array<{ query: BatchItem<"sqlite"> }>;
+}> {
+	switch (action.actionType) {
+		case "add_expense": {
+			return await processExpenseAction(env, action, userData, currentDate);
+		}
+		case "add_budget": {
+			return await processBudgetAction(env, action, userData, currentDate);
+		}
+		default:
+			throw new Error(`Unknown action type: ${action.actionType}`);
+	}
+}
+
+// Helper function to execute action with error handling
+async function executeActionSafely(
+	env: Env,
+	action: ScheduledActionSelect,
+	userData: UserSelect,
+	currentDate: string,
+	historyId: string,
+	triggerDate: string,
+): Promise<{ resultData: ScheduledActionResultData; executionDurationMs: number }> {
+	const innerStartTime = Date.now();
+	
+	// Check if already executed
+	const alreadyExecuted = await checkActionAlreadyExecuted(env, historyId);
+	if (alreadyExecuted) {
+		return {
+			resultData: { message: "Already executed" } as ScheduledActionResultData,
+			executionDurationMs: 0,
+		};
+	}
+
+	// Process action
+	const { resultData, statements } = await processActionByType(env, action, userData, currentDate);
+	const executionDurationMs = Date.now() - innerStartTime;
+
+	// Execute statements
+	await executeActionStatements(env, action, historyId, executionDurationMs, resultData, statements, new Date(triggerDate));
+
+	if (!resultData) {
+		throw new Error("No result data generated for action execution");
+	}
+
+	return { resultData, executionDurationMs };
+}
+
 type ScheduledActionSelect = typeof scheduledActions.$inferSelect;
 type UserSelect = typeof user.$inferSelect;
 
@@ -277,84 +347,19 @@ export class ScheduledActionsProcessorWorkflow extends WorkflowEntrypoint {
 			const actionStartTime = Date.now();
 
 			try {
-				const { resultData, executionDurationMs } = (await step.do(
+				const { resultData, executionDurationMs } = await step.do(
 					`process-and-execute-${action.id}`,
 					async () => {
-						const innerStartTime = Date.now();
-						// Idempotency guard: if this action's history is already success for today, return
-						{
-							const db = getDb(this.env as Env);
-							const existing = await db
-								.select({ status: scheduledActionHistory.executionStatus })
-								.from(scheduledActionHistory)
-								.where(eq(scheduledActionHistory.id, historyId))
-								.limit(1);
-							if (existing.length > 0 && existing[0].status === "success") {
-								return {
-									resultData: { message: "Already executed" },
-									executionDurationMs: 0,
-								} as {
-									resultData: ScheduledActionResultData;
-									executionDurationMs: number;
-								};
-							}
-						}
-						let resultData: ScheduledActionResultData | undefined;
-						let dbStatements: Array<{ query: BatchItem<"sqlite"> }> = [];
-
-						// Build statements and compute result data
-						switch (action.actionType) {
-							case "add_expense": {
-								const expenseResult = await processExpenseAction(
-									this.env as Env,
-									action,
-									userData,
-									currentDate,
-								);
-								resultData = expenseResult.resultData;
-								dbStatements = expenseResult.statements;
-								break;
-							}
-
-							case "add_budget": {
-								const budgetResult = await processBudgetAction(
-									this.env as Env,
-									action,
-									userData,
-									currentDate,
-								);
-								resultData = budgetResult.resultData;
-								dbStatements = budgetResult.statements;
-								break;
-							}
-
-							default:
-								throw new Error(`Unknown action type: ${action.actionType}`);
-						}
-
-						const executionDurationMs = Date.now() - innerStartTime;
-
-						// Execute statements within the same step to avoid serialization
-						await executeActionStatements(
+						return await executeActionSafely(
 							this.env as Env,
 							action,
+							userData,
+							currentDate,
 							historyId,
-							executionDurationMs,
-							resultData as ScheduledActionResultData,
-							dbStatements,
-							new Date(triggerDate),
+							triggerDate,
 						);
-
-						if (!resultData) {
-							throw new Error("No result data generated for action execution");
-						}
-
-						return { resultData, executionDurationMs };
 					},
-				)) as {
-					resultData: ScheduledActionResultData;
-					executionDurationMs: number;
-				};
+				);
 
 				results.push({
 					actionId: action.id,

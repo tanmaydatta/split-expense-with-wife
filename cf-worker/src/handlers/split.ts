@@ -17,6 +17,152 @@ import {
 } from "../utils";
 import { createSplitTransactionFromRequest } from "../utils/scheduled-action-execution";
 
+// Helper function to create split transaction
+async function createSplitTransactionHandler(
+	body: SplitRequest,
+	groupId: string,
+	db: any,
+	env: Env,
+): Promise<{ message: string; transactionId: string }> {
+	const transactionId = ulid();
+	
+	const result = await createSplitTransactionFromRequest(
+		body,
+		groupId,
+		db,
+		env,
+		transactionId,
+	);
+
+	// Execute all statements in a single batch
+	if (result.statements.length > 0) {
+		const queries = result.statements.map((stmt) => stmt.query);
+		await db.batch([queries[0], ...queries.slice(1)]);
+	}
+
+	return {
+		message: "Transaction created successfully",
+		transactionId: result.transactionId,
+	};
+}
+
+// Helper function to get transactions list
+async function getTransactionsList(
+	body: TransactionsListRequest,
+	groupId: string,
+	db: any,
+): Promise<{ transactions: any[]; transactionDetails: Record<string, TransactionUser[]> }> {
+	// Get transactions list using Drizzle
+	const rawTransactionsList = await db
+		.select()
+		.from(transactions)
+		.where(
+			and(
+				eq(transactions.groupId, groupId),
+				isNull(transactions.deleted),
+			),
+		)
+		.orderBy(desc(transactions.createdAt))
+		.limit(10)
+		.offset(body.offset);
+
+	// Transform to match production format
+	const transactionsList = transformTransactionsList(rawTransactionsList);
+	
+	// Get transaction details
+	const transactionDetails = await getTransactionDetails(rawTransactionsList, groupId, db);
+
+	return { transactions: transactionsList, transactionDetails };
+}
+
+// Helper function to transform transactions list
+function transformTransactionsList(rawTransactionsList: any[]): any[] {
+	return rawTransactionsList.map((t) => {
+		const defaultMetadata = {
+			owedAmounts: {},
+			paidByShares: {},
+			owedToAmounts: {},
+		};
+		const metadata = t.metadata || defaultMetadata;
+
+		return {
+			description: t.description,
+			amount: t.amount,
+			created_at: t.createdAt,
+			metadata: JSON.stringify(metadata),
+			currency: t.currency,
+			transaction_id: t.transactionId,
+			group_id: t.groupId,
+			deleted: t.deleted,
+		};
+	});
+}
+
+// Helper function to fetch transaction details from database
+async function fetchTransactionDetailsFromDb(transactionIds: string[], groupId: string, db: any) {
+	return await db
+		.select({
+			transactionId: transactionUsers.transactionId,
+			userId: transactionUsers.userId,
+			amount: transactionUsers.amount,
+			owedToUserId: transactionUsers.owedToUserId,
+			groupId: transactionUsers.groupId,
+			currency: transactionUsers.currency,
+			deleted: transactionUsers.deleted,
+			firstName: user.firstName,
+		})
+		.from(transactionUsers)
+		.innerJoin(user, eq(user.id, transactionUsers.userId))
+		.where(
+			and(
+				inArray(transactionUsers.transactionId, transactionIds),
+				eq(transactionUsers.groupId, groupId),
+				isNull(transactionUsers.deleted),
+			),
+		);
+}
+
+// Helper function to group details by transaction ID
+function groupDetailsByTransactionId(allDetails: any[]): Record<string, TransactionUser[]> {
+	const transactionDetails: Record<string, TransactionUser[]> = {};
+
+	for (const detail of allDetails) {
+		if (!transactionDetails[detail.transactionId]) {
+			transactionDetails[detail.transactionId] = [];
+		}
+		transactionDetails[detail.transactionId].push({
+			transaction_id: detail.transactionId || "",
+			user_id: detail.userId,
+			amount: detail.amount,
+			owed_to_user_id: detail.owedToUserId,
+			group_id: detail.groupId,
+			currency: detail.currency,
+			deleted: detail.deleted || undefined,
+			first_name: detail.firstName || undefined,
+		});
+	}
+
+	return transactionDetails;
+}
+
+// Helper function to get transaction details
+async function getTransactionDetails(
+	rawTransactionsList: any[],
+	groupId: string,
+	db: any,
+): Promise<Record<string, TransactionUser[]>> {
+	const transactionIds = rawTransactionsList
+		.map((t) => t.transactionId)
+		.filter((id): id is string => id !== null);
+
+	if (transactionIds.length === 0) {
+		return {};
+	}
+
+	const allDetails = await fetchTransactionDetailsFromDb(transactionIds, groupId, db);
+	return groupDetailsByTransactionId(allDetails);
+}
+
 // Handle new split (direct database creation without Splitwise)
 export async function handleSplitNew(
 	request: Request,
@@ -33,30 +179,8 @@ export async function handleSplitNew(
 
 			const body = (await request.json()) as SplitRequest;
 
-			// Generate unique transaction ID using ULID for regular handler
-			const transactionId = ulid();
-
 			try {
-				// Use the reusable utility function
-				const result = await createSplitTransactionFromRequest(
-					body,
-					session.group.groupid,
-					db,
-					env,
-					transactionId,
-				);
-
-				// Execute all statements in a single batch
-				if (result.statements.length > 0) {
-					const queries = result.statements.map((stmt) => stmt.query);
-					await db.batch([queries[0], ...queries.slice(1)]);
-				}
-
-				const response = {
-					message: "Transaction created successfully",
-					transactionId: result.transactionId,
-				};
-
+				const response = await createSplitTransactionHandler(body, session.group.groupid, db, env);
 				return createJsonResponse(response, 200, {}, request, env);
 			} catch (error) {
 				console.error("Split transaction error:", error);
@@ -178,93 +302,7 @@ export async function handleTransactionsList(
 			}
 
 			const body = (await request.json()) as TransactionsListRequest;
-
-			// Get transactions list using Drizzle
-			const rawTransactionsList = await db
-				.select()
-				.from(transactions)
-				.where(
-					and(
-						eq(transactions.groupId, session.group.groupid),
-						isNull(transactions.deleted),
-					),
-				)
-				.orderBy(desc(transactions.createdAt))
-				.limit(10)
-				.offset(body.offset);
-
-			// Transform to match production format (snake_case field names, no id field)
-			const transactionsList = rawTransactionsList.map((t) => {
-				const defaultMetadata = {
-					owedAmounts: {},
-					paidByShares: {},
-					owedToAmounts: {},
-				};
-				const metadata = t.metadata || defaultMetadata;
-
-				return {
-					description: t.description,
-					amount: t.amount,
-					created_at: t.createdAt,
-					metadata: JSON.stringify(metadata), // Convert to JSON string as expected by frontend
-					currency: t.currency,
-					transaction_id: t.transactionId,
-					group_id: t.groupId,
-					deleted: t.deleted,
-				};
-			});
-
-			// Get transaction details for all transactions
-			const transactionIds = rawTransactionsList
-				.map((t) => t.transactionId)
-				.filter((id): id is string => id !== null);
-			const transactionDetails: Record<string, TransactionUser[]> = {};
-
-			if (transactionIds.length > 0) {
-				// Get all transaction details using Drizzle
-				const allDetails = await db
-					.select({
-						transactionId: transactionUsers.transactionId,
-						userId: transactionUsers.userId,
-						amount: transactionUsers.amount,
-						owedToUserId: transactionUsers.owedToUserId,
-						groupId: transactionUsers.groupId,
-						currency: transactionUsers.currency,
-						deleted: transactionUsers.deleted,
-						firstName: user.firstName,
-					})
-					.from(transactionUsers)
-					.innerJoin(user, eq(user.id, transactionUsers.userId))
-					.where(
-						and(
-							inArray(transactionUsers.transactionId, transactionIds),
-							eq(transactionUsers.groupId, session.group.groupid),
-							isNull(transactionUsers.deleted),
-						),
-					);
-
-				// Group details by transaction ID
-				for (const detail of allDetails) {
-					if (!transactionDetails[detail.transactionId]) {
-						transactionDetails[detail.transactionId] = [];
-					}
-					transactionDetails[detail.transactionId].push({
-						transaction_id: detail.transactionId || "",
-						user_id: detail.userId,
-						amount: detail.amount,
-						owed_to_user_id: detail.owedToUserId,
-						group_id: detail.groupId,
-						currency: detail.currency,
-						deleted: detail.deleted || undefined,
-						first_name: detail.firstName || undefined,
-					});
-				}
-			}
-
-			const response = {
-				transactions: transactionsList,
-				transactionDetails,
-			};
+			const response = await getTransactionsList(body, session.group.groupid, db);
 
 			return createJsonResponse(response, 200, {}, request, env);
 		});
