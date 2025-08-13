@@ -23,6 +23,7 @@ export class ScheduledActionsTestHelper {
 
 	async gotoListPage(): Promise<void> {
 		await this.authenticatedPage.page.goto("/scheduled-actions");
+		await this.authenticatedPage.page.waitForTimeout(2000);
 		console.log("navigated to:", this.authenticatedPage.page.url());
 		await expect(
 			this.authenticatedPage.page.locator(
@@ -124,6 +125,7 @@ export class ScheduledActionsTestHelper {
 
 	async submitAndConfirmSuccess(): Promise<void> {
 		await this.authenticatedPage.page.getByTestId("sa-submit").click();
+		await this.authenticatedPage.page.waitForTimeout(2000);
 		await expect(
 			this.authenticatedPage.page.getByTestId("success-container"),
 		).toBeVisible();
