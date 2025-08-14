@@ -16,13 +16,12 @@ const idMap = [
 //   { oldId: 5, newId: 'uwnwzpESqA2h5Km8SFNFcJc2h4vwS3zg' }
 // ];
 
-export async function handleRelinkData(request: Request, env: Env) {
-	// Only allow POST requests
+// Helper function to validate migration request
+function validateMigrationRequest(request: Request, env: Env): Response | null {
 	if (request.method !== "POST") {
 		return new Response("Method not allowed", { status: 405 });
 	}
 
-	// Security check - require a secret header to prevent unauthorized access
 	const authHeader = request.headers.get("x-migration-secret");
 	if (!authHeader || authHeader !== env.MIGRATION_SECRET) {
 		return new Response("Unauthorized - Invalid or missing migration secret", {
@@ -30,90 +29,160 @@ export async function handleRelinkData(request: Request, env: Env) {
 		});
 	}
 
+	return null;
+}
+
+// Helper function to create transaction user update statements
+function createTransactionUserStatements(
+	db: ReturnType<typeof getDb>,
+	idMap: Array<{ oldId: number; newId: string }>,
+) {
+	const statements = [];
+
+	for (const user of idMap) {
+		const oldIdAsString = user.oldId.toString();
+
+		// Update userId references
+		statements.push(
+			db
+				.update(transactionUsers)
+				.set({ userId: user.newId })
+				.where(eq(transactionUsers.userId, oldIdAsString)),
+		);
+
+		// Update owedToUserId references
+		statements.push(
+			db
+				.update(transactionUsers)
+				.set({ owedToUserId: user.newId })
+				.where(eq(transactionUsers.owedToUserId, oldIdAsString)),
+		);
+	}
+
+	return statements;
+}
+
+// Helper function to create user balance update statements
+function createUserBalanceStatements(
+	db: ReturnType<typeof getDb>,
+	idMap: Array<{ oldId: number; newId: string }>,
+) {
+	const statements = [];
+
+	for (const user of idMap) {
+		const oldIdAsString = user.oldId.toString();
+
+		// Update userId references
+		statements.push(
+			db
+				.update(userBalances)
+				.set({ userId: user.newId })
+				.where(eq(userBalances.userId, oldIdAsString)),
+		);
+
+		// Update owedToUserId references
+		statements.push(
+			db
+				.update(userBalances)
+				.set({ owedToUserId: user.newId })
+				.where(eq(userBalances.owedToUserId, oldIdAsString)),
+		);
+	}
+
+	return statements;
+}
+
+// Helper function to create group update statements
+async function createGroupUpdateStatements(
+	db: ReturnType<typeof getDb>,
+	idMap: Array<{ oldId: number; newId: string }>,
+) {
+	const statements = [];
+	const allGroups = await db.select().from(groups);
+
+	for (const group of allGroups) {
+		if (!group.userids) {
+			continue;
+		}
+
+		try {
+			const oldUserIds: number[] = JSON.parse(group.userids);
+			const newUserIds = oldUserIds
+				.map((oldId) => {
+					const mapping = idMap.find((m) => m.oldId === oldId);
+					return mapping ? mapping.newId : null;
+				})
+				.filter(Boolean);
+
+			if (newUserIds.length > 0) {
+				statements.push(
+					db
+						.update(groups)
+						.set({ userids: JSON.stringify(newUserIds) })
+						.where(eq(groups.groupid, group.groupid)),
+				);
+			}
+		} catch (jsonError) {
+			console.warn(
+				`Failed to parse userids for group ${group.groupid}:`,
+				jsonError,
+			);
+		}
+	}
+
+	return statements;
+}
+
+// Helper function to create password update statements
+async function createPasswordUpdateStatements(
+	db: ReturnType<typeof getDb>,
+	passwords: Array<{ userId: string; plainPassword: string }>,
+) {
+	const statements = [];
+
+	for (const { userId, plainPassword } of passwords) {
+		console.log(`🔄 Hashing password for user: ${userId}`);
+		const hashedPassword = await hashPasswordWithWebCrypto(plainPassword);
+
+		statements.push(
+			db
+				.update(account)
+				.set({
+					password: hashedPassword,
+					updatedAt: new Date(),
+				})
+				.where(
+					and(eq(account.userId, userId), eq(account.providerId, "credential")),
+				),
+		);
+	}
+
+	return statements;
+}
+
+export async function handleRelinkData(request: Request, env: Env) {
+	// Validate request
+	const validationError = validateMigrationRequest(request, env);
+	if (validationError) {
+		return validationError;
+	}
+
 	const db = getDb(env);
 
 	try {
-		const batchStatements = [];
+		// Create all statements using helper functions
+		const transactionUserStatements = createTransactionUserStatements(
+			db,
+			idMap,
+		);
+		const userBalanceStatements = createUserBalanceStatements(db, idMap);
+		const groupStatements = await createGroupUpdateStatements(db, idMap);
 
-		// === Prepare statements for transactionUsers table ===
-		for (const user of idMap) {
-			const oldIdAsString = user.oldId.toString();
-
-			// Update userId references in transactionUsers
-			batchStatements.push(
-				db
-					.update(transactionUsers)
-					.set({ userId: user.newId })
-					.where(eq(transactionUsers.userId, oldIdAsString)),
-			);
-
-			// Update owedToUserId references in transactionUsers
-			batchStatements.push(
-				db
-					.update(transactionUsers)
-					.set({ owedToUserId: user.newId })
-					.where(eq(transactionUsers.owedToUserId, oldIdAsString)),
-			);
-		}
-
-		// === Prepare statements for userBalances table ===
-		for (const user of idMap) {
-			const oldIdAsString = user.oldId.toString();
-
-			// Update userId references in userBalances
-			batchStatements.push(
-				db
-					.update(userBalances)
-					.set({ userId: user.newId })
-					.where(eq(userBalances.userId, oldIdAsString)),
-			);
-
-			// Update owedToUserId references in userBalances
-			batchStatements.push(
-				db
-					.update(userBalances)
-					.set({ owedToUserId: user.newId })
-					.where(eq(userBalances.owedToUserId, oldIdAsString)),
-			);
-		}
-
-		// === Prepare statements for JSON data in groups table ===
-		// We must read the data first, then prepare the updates
-		const allGroups = await db.select().from(groups);
-
-		for (const group of allGroups) {
-			if (!group.userids) {
-				continue;
-			}
-
-			try {
-				const oldUserIds: number[] = JSON.parse(group.userids);
-
-				// Map old IDs to new IDs
-				const newUserIds = oldUserIds
-					.map((oldId) => {
-						const mapping = idMap.find((m) => m.oldId === oldId);
-						return mapping ? mapping.newId : null;
-					})
-					.filter(Boolean); // Remove any null values
-
-				// Only update if we found valid mappings
-				if (newUserIds.length > 0) {
-					batchStatements.push(
-						db
-							.update(groups)
-							.set({ userids: JSON.stringify(newUserIds) })
-							.where(eq(groups.groupid, group.groupid)),
-					);
-				}
-			} catch (jsonError) {
-				console.warn(
-					`Failed to parse userids for group ${group.groupid}:`,
-					jsonError,
-				);
-				// Continue with other groups if one fails
-			}
-		}
+		const batchStatements = [
+			...transactionUserStatements,
+			...userBalanceStatements,
+			...groupStatements,
+		];
 
 		// Execute all prepared statements in a single atomic batch
 		console.log(`Executing ${batchStatements.length} migration statements...`);
@@ -186,15 +255,10 @@ async function hashPasswordWithWebCrypto(password: string): Promise<string> {
 }
 
 export async function handlePasswordMigration(request: Request, env: Env) {
-	// Only allow POST requests
-	if (request.method !== "POST") {
-		return new Response("Method not allowed", { status: 405 });
-	}
-
-	// Check for migration secret
-	const migrationSecret = request.headers.get("x-migration-secret");
-	if (!migrationSecret || migrationSecret !== env.MIGRATION_SECRET) {
-		return createErrorResponse("Unauthorized", 401, request, env);
+	// Validate request
+	const validationError = validateMigrationRequest(request, env);
+	if (validationError) {
+		return validationError;
 	}
 
 	const db = getDb(env);
@@ -210,30 +274,11 @@ export async function handlePasswordMigration(request: Request, env: Env) {
 		console.log("🔒 Starting password hash migration...");
 		console.log(`📊 Migrating ${body.passwords.length} passwords`);
 
-		const batchStatements = [];
-
-		for (const { userId, plainPassword } of body.passwords) {
-			console.log(`🔄 Hashing password for user: ${userId}`);
-
-			// Hash the password using our new Web Crypto implementation
-			const hashedPassword = await hashPasswordWithWebCrypto(plainPassword);
-
-			// Update the account table where userId matches and providerId is 'credential'
-			batchStatements.push(
-				db
-					.update(account)
-					.set({
-						password: hashedPassword,
-						updatedAt: new Date(),
-					})
-					.where(
-						and(
-							eq(account.userId, userId),
-							eq(account.providerId, "credential"),
-						),
-					),
-			);
-		}
+		// Create password update statements using helper function
+		const batchStatements = await createPasswordUpdateStatements(
+			db,
+			body.passwords,
+		);
 
 		// Execute all updates in a batch
 		await db.batch([batchStatements[0], ...batchStatements.slice(1)]);

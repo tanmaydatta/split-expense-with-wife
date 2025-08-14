@@ -4,6 +4,7 @@ import {
   getCurrentUserPercentages,
 } from "../utils/expense-test-helper";
 import { ScheduledActionsTestHelper } from "../utils/scheduled-actions-test-helper";
+import { getCITimeout } from "../utils/test-utils";
 
 test.describe("Scheduled Actions", () => {
   // No request mocking. Use real backend like other e2e suites.
@@ -142,7 +143,7 @@ test.describe("Scheduled Actions", () => {
 
     // Click skip next
     await authenticatedPage.page.getByTestId('sa-skip-next').click();
-    await authenticatedPage.page.waitForTimeout(300); // allow re-render
+    await authenticatedPage.page.waitForTimeout(getCITimeout(2000)); // allow re-render
 
     // Expect next date to change
     const upcomingText2 = await authenticatedPage.page
@@ -161,7 +162,7 @@ test.describe("Scheduled Actions", () => {
     const customDate = plusDays(5);
     await authenticatedPage.page.getByTestId('sa-custom-next-date-input').fill(customDate);
     await authenticatedPage.page.getByTestId('sa-set-custom-next').click();
-    await authenticatedPage.page.waitForTimeout(2000);
+    await authenticatedPage.page.waitForTimeout(getCITimeout(2000));
 
     const upcomingText3 = await authenticatedPage.page
       .locator('[data-test-id="sa-history"] .settings-card:has-text("Upcoming run")')
@@ -186,9 +187,9 @@ test.describe("Scheduled Actions", () => {
     await btn.click();
 
     // Wait briefly and refresh the page to pick up new nextExecutionDate
-    await authenticatedPage.page.waitForTimeout(5000);
+    await authenticatedPage.page.waitForTimeout(getCITimeout(5000));
     await authenticatedPage.page.reload();
-    await authenticatedPage.page.waitForTimeout(2000);
+    await authenticatedPage.page.waitForTimeout(getCITimeout(2000));
     const afterText = await authenticatedPage.page
       .locator('[data-test-id="sa-history"] .settings-card:has-text("Upcoming run")')
       .textContent();

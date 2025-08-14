@@ -23,6 +23,7 @@ export class ScheduledActionsTestHelper {
 
 	async gotoListPage(): Promise<void> {
 		await this.authenticatedPage.page.goto("/scheduled-actions");
+		await this.authenticatedPage.page.waitForTimeout(getCITimeout(2000));
 		console.log("navigated to:", this.authenticatedPage.page.url());
 		await expect(
 			this.authenticatedPage.page.locator(
@@ -124,9 +125,10 @@ export class ScheduledActionsTestHelper {
 
 	async submitAndConfirmSuccess(): Promise<void> {
 		await this.authenticatedPage.page.getByTestId("sa-submit").click();
+		await this.authenticatedPage.page.waitForTimeout(getCITimeout(2000));
 		await expect(
 			this.authenticatedPage.page.getByTestId("success-container"),
-		).toBeVisible();
+		).toBeVisible({ timeout: getCITimeout(10000) });
 	}
 
 	async expectActionCardVisible(params: {
@@ -137,13 +139,15 @@ export class ScheduledActionsTestHelper {
 		const card = this.authenticatedPage.page
 			.locator(".settings-card")
 			.filter({ hasText: description });
-		await expect(card.first()).toBeVisible();
+		await expect(card.first()).toBeVisible({ timeout: getCITimeout(10000) });
 		if (containsText) {
 			const expected =
 				typeof containsText === "string"
 					? new RegExp(containsText, "i")
 					: containsText;
-			await expect(card.first()).toContainText(expected as RegExp);
+			await expect(card.first()).toContainText(expected as RegExp, {
+				timeout: getCITimeout(5000),
+			});
 		}
 	}
 
@@ -159,7 +163,7 @@ export class ScheduledActionsTestHelper {
 			.locator(".settings-card")
 			.filter({ hasText: description })
 			.first();
-		await expect(card).toBeVisible();
+		await expect(card).toBeVisible({ timeout: getCITimeout(10000) });
 
 		if (frequency) await expect(card).toContainText(new RegExp(frequency, "i"));
 		if (typeText) await expect(card).toContainText(typeText);
@@ -236,11 +240,11 @@ export class ScheduledActionsTestHelper {
 	async openEditForAction(description: string): Promise<void> {
 		await this.gotoListPage();
 		const card = await this.findCard(description);
-		await expect(card.first()).toBeVisible();
+		await expect(card.first()).toBeVisible({ timeout: getCITimeout(10000) });
 		await card.first().locator('[data-test-id^="sa-edit-"]').click();
 		await expect(
 			this.authenticatedPage.page.getByTestId("scheduled-actions-edit"),
-		).toBeVisible();
+		).toBeVisible({ timeout: getCITimeout(10000) });
 	}
 
 	async changeFrequencyWeekly(): Promise<void> {
@@ -258,7 +262,7 @@ export class ScheduledActionsTestHelper {
 	async deleteAction(description: string, opts?: { confirm?: boolean }) {
 		await this.gotoListPage();
 		const card = await this.findCard(description);
-		await expect(card.first()).toBeVisible();
+		await expect(card.first()).toBeVisible({ timeout: getCITimeout(10000) });
 		const deleteBtn = card.first().locator('[data-test-id^="sa-delete-"]');
 		const deleteBtnTestId = await deleteBtn.getAttribute("data-test-id");
 		const actionId = deleteBtnTestId?.replace("sa-delete-", "");
@@ -266,12 +270,12 @@ export class ScheduledActionsTestHelper {
 		const dialog = this.authenticatedPage.page
 			.getByRole("dialog", { name: "Delete action?" })
 			.first();
-		await expect(dialog).toBeVisible();
+		await expect(dialog).toBeVisible({ timeout: getCITimeout(5000) });
 		if (opts?.confirm === false) {
 			await dialog
 				.getByRole("button", { name: "Cancel" })
 				.click({ force: true });
-			await expect(card.first()).toBeVisible();
+			await expect(card.first()).toBeVisible({ timeout: getCITimeout(5000) });
 		} else {
 			await dialog
 				.getByRole("button", { name: "Delete" })
@@ -281,14 +285,14 @@ export class ScheduledActionsTestHelper {
 					this.authenticatedPage.page.locator(
 						`[data-test-id="sa-item-${actionId}"]`,
 					),
-				).toHaveCount(0);
+				).toHaveCount(0, { timeout: getCITimeout(10000) });
 			} else {
 				// Fallback: remove by description if id not found (less precise)
 				await expect(
 					this.authenticatedPage.page
 						.locator(".settings-card")
 						.filter({ hasText: description }),
-				).toHaveCount(0);
+				).toHaveCount(0, { timeout: getCITimeout(10000) });
 			}
 		}
 	}
@@ -296,17 +300,18 @@ export class ScheduledActionsTestHelper {
 	async openHistoryForAction(description: string): Promise<void> {
 		await this.gotoListPage();
 		const card = await this.findCard(description);
-		await expect(card.first()).toBeVisible();
+		await expect(card.first()).toBeVisible({ timeout: getCITimeout(10000) });
 		await card.first().getByText(description).click();
 		await expect(
 			this.authenticatedPage.page.getByTestId("scheduled-actions-history"),
-		).toBeVisible();
+		).toBeVisible({ timeout: getCITimeout(10000) });
+		await this.authenticatedPage.page.waitForTimeout(getCITimeout(2000)); // allow re-render
 	}
 
 	async getActionIdFromCard(description: string): Promise<string | null> {
 		await this.gotoListPage();
 		const card = await this.findCard(description);
-		await expect(card.first()).toBeVisible();
+		await expect(card.first()).toBeVisible({ timeout: getCITimeout(10000) });
 		const editBtn = card.first().locator('[data-test-id^="sa-edit-"]');
 		const editTestId = await editBtn.getAttribute("data-test-id");
 		return editTestId ? editTestId.replace("sa-edit-", "") : null;

@@ -8,14 +8,16 @@ import {
 	AddExpenseActionSchema,
 	type CreateScheduledActionRequest,
 	CURRENCIES,
-	type ScheduledActionHistoryListResponse,
+	type ScheduledAction,
 	ScheduledActionHistoryQuerySchema,
 	ScheduledActionListQuerySchema,
 	type ScheduledActionListResponse,
 	type UpdateScheduledActionRequest,
 	UpdateScheduledActionSchema,
 } from "../../../shared-types";
+import type { getDb } from "../db";
 import { scheduledActionHistory, scheduledActions } from "../db/schema/schema";
+import type { ParsedGroup } from "../types";
 import {
 	createErrorResponse,
 	createJsonResponse,
@@ -308,6 +310,180 @@ export async function handleScheduledActionList(
 	});
 }
 
+// Helper function to validate and get existing action
+async function getExistingAction(
+	db: ReturnType<typeof getDb>,
+	actionId: string,
+	groupUserIds: string[],
+) {
+	const existingAction = await db
+		.select()
+		.from(scheduledActions)
+		.where(
+			and(
+				eq(scheduledActions.id, actionId),
+				inArray(scheduledActions.userId, groupUserIds),
+			),
+		)
+		.limit(1);
+
+	if (existingAction.length === 0) {
+		throw new Error("Scheduled action not found");
+	}
+
+	return existingAction[0];
+}
+
+// Helper function to build update data object
+function buildUpdateData(
+	body: UpdateScheduledActionRequest,
+): ScheduledActionUpdateData {
+	const updateData: ScheduledActionUpdateData = {
+		updatedAt: formatSQLiteTime(),
+	};
+
+	if (body.isActive !== undefined) {
+		updateData.isActive = body.isActive;
+	}
+
+	if (body.frequency) {
+		updateData.frequency = body.frequency;
+	}
+
+	if (body.startDate) {
+		updateData.startDate = body.startDate;
+	}
+
+	return updateData;
+}
+
+// Helper function to validate and set action data
+// Type for database query result (has null instead of undefined)
+type ScheduledActionDbResult = Omit<ScheduledAction, "lastExecutedAt"> & {
+	lastExecutedAt: string | null;
+};
+
+function validateAndSetActionData(
+	body: UpdateScheduledActionRequest,
+	existingAction: ScheduledActionDbResult,
+	group: ParsedGroup,
+	updateData: ScheduledActionUpdateData,
+): void {
+	if (!body.actionData) {
+		return;
+	}
+
+	// Validate action data via runtime Zod
+	const { ExpenseValid, BudgetValid } = buildActionDataSchemas(
+		group.userids,
+		group.budgets,
+	);
+
+	const actionParsed =
+		existingAction.actionType === "add_expense"
+			? ExpenseValid.safeParse(body.actionData)
+			: BudgetValid.safeParse(body.actionData);
+
+	if (!actionParsed.success) {
+		throw new Error(formatZodError(actionParsed.error));
+	}
+
+	updateData.actionData = actionParsed.data as
+		| AddExpenseActionData
+		| AddBudgetActionData;
+}
+
+// Helper function to calculate next execution date
+function calculateAndSetNextExecutionDate(
+	body: UpdateScheduledActionRequest,
+	existingAction: ScheduledActionDbResult,
+	updateData: ScheduledActionUpdateData,
+): void {
+	// 1) If explicit nextExecutionDate provided, accept it as-is
+	if (body.nextExecutionDate) {
+		updateData.nextExecutionDate = body.nextExecutionDate;
+		return;
+	}
+
+	// 2) If skipNext is requested, compute next using calculateNextExecutionDate
+	if (body.skipNext) {
+		const currentNext = existingAction.nextExecutionDate;
+		const freq = (body.frequency || existingAction.frequency) as
+			| "daily"
+			| "weekly"
+			| "monthly";
+		updateData.nextExecutionDate = calculateNextExecutionDate(
+			currentNext,
+			freq,
+			new Date(currentNext),
+		);
+		return;
+	}
+
+	// 3) Recalculate next execution date if frequency or start date changed
+	if ((body.frequency || body.startDate) && !updateData.nextExecutionDate) {
+		const newFrequency = body.frequency || existingAction.frequency;
+		const newStartDate = body.startDate || existingAction.startDate;
+		updateData.nextExecutionDate = calculateNextExecutionDate(
+			newStartDate,
+			newFrequency as "daily" | "weekly" | "monthly",
+		);
+	}
+}
+
+// Helper function to process scheduled action update
+async function processScheduledActionUpdate(
+	body: UpdateScheduledActionRequest,
+	group: ParsedGroup,
+	db: ReturnType<typeof getDb>,
+): Promise<void> {
+	// Get existing action
+	const existingAction = await getExistingAction(db, body.id, group.userids);
+
+	// Build update data
+	const updateData = buildUpdateData(body);
+
+	// Validate and set action data if provided
+	validateAndSetActionData(body, existingAction, group, updateData);
+
+	// Calculate next execution date
+	calculateAndSetNextExecutionDate(body, existingAction, updateData);
+
+	// Update the action
+	await db
+		.update(scheduledActions)
+		.set(updateData)
+		.where(
+			and(
+				eq(scheduledActions.id, body.id),
+				inArray(scheduledActions.userId, group.userids),
+			),
+		);
+}
+
+// Helper function to parse and validate update request
+function parseUpdateRequest(
+	json: unknown,
+):
+	| { success: true; data: UpdateScheduledActionRequest }
+	| { success: false; error: string } {
+	const parsed = UpdateScheduledActionSchema.safeParse(json);
+	if (!parsed.success) {
+		return { success: false, error: formatZodError(parsed.error) };
+	}
+	return { success: true, data: parsed.data };
+}
+
+// Helper function to handle update errors
+function handleUpdateError(error: unknown): {
+	message: string;
+	status: number;
+} {
+	const message = error instanceof Error ? error.message : "Unknown error";
+	const status = message === "Scheduled action not found" ? 404 : 400;
+	return { message, status };
+}
+
 export async function handleScheduledActionUpdate(
 	request: Request,
 	env: Env,
@@ -317,141 +493,27 @@ export async function handleScheduledActionUpdate(
 		if (!group) {
 			return createErrorResponse("User not in a group", 400, request, env);
 		}
-		const json = (await request.json()) as unknown;
-		const parsed = UpdateScheduledActionSchema.safeParse(json);
-		if (!parsed.success) {
-			return createErrorResponse(
-				formatZodError(parsed.error),
-				400,
+
+		try {
+			const json = (await request.json()) as unknown;
+			const parseResult = parseUpdateRequest(json);
+			if (!parseResult.success) {
+				return createErrorResponse(parseResult.error, 400, request, env);
+			}
+
+			await processScheduledActionUpdate(parseResult.data, group, db);
+
+			return createJsonResponse(
+				{ message: "Scheduled action updated successfully" },
+				200,
+				{},
 				request,
 				env,
 			);
+		} catch (error) {
+			const { message, status } = handleUpdateError(error);
+			return createErrorResponse(message, status, request, env);
 		}
-		const body: UpdateScheduledActionRequest = parsed.data;
-
-		// ID validation handled by Zod schema
-
-		// Exclusivity is enforced by Zod schema now
-
-		// Check if action exists and belongs to user
-		const existingAction = await db
-			.select()
-			.from(scheduledActions)
-			.where(
-				and(
-					eq(scheduledActions.id, body.id),
-					inArray(scheduledActions.userId, group.userids),
-				),
-			)
-			.limit(1);
-
-		if (existingAction.length === 0) {
-			return createErrorResponse(
-				"Scheduled action not found",
-				404,
-				request,
-				env,
-			);
-		}
-
-		// Build update object
-		const updateData: ScheduledActionUpdateData = {
-			updatedAt: formatSQLiteTime(),
-		};
-
-		if (body.isActive !== undefined) {
-			updateData.isActive = body.isActive;
-		}
-
-		if (body.frequency) {
-			// Frequency validation handled by Zod schema
-			updateData.frequency = body.frequency;
-		}
-
-		if (body.startDate) {
-			// Start date validation handled by Zod schema
-			updateData.startDate = body.startDate;
-		}
-
-		if (body.actionData) {
-			// Get group info for validation
-			const group = session.group;
-			if (!group) {
-				return createErrorResponse("User not in a group", 400, request, env);
-			}
-
-			// Validate action data via runtime Zod
-			const { ExpenseValid, BudgetValid } = buildActionDataSchemas(
-				group.userids,
-				group.budgets,
-			);
-			const actionParsed =
-				existingAction[0].actionType === "add_expense"
-					? ExpenseValid.safeParse(body.actionData)
-					: BudgetValid.safeParse(body.actionData);
-			if (!actionParsed.success) {
-				return createErrorResponse(
-					formatZodError(actionParsed.error),
-					400,
-					request,
-					env,
-				);
-			}
-
-			updateData.actionData = actionParsed.data as
-				| AddExpenseActionData
-				| AddBudgetActionData;
-		}
-
-		// 1) If explicit nextExecutionDate provided, accept it as-is
-		if (body.nextExecutionDate) {
-			updateData.nextExecutionDate = body.nextExecutionDate;
-		}
-
-		// 2) If skipNext is requested, compute next using calculateNextExecutionDate
-		if (body.skipNext) {
-			const current = existingAction[0];
-			const currentNext = current.nextExecutionDate;
-			const freq = (body.frequency || current.frequency) as
-				| "daily"
-				| "weekly"
-				| "monthly";
-			// Use currentNext as both start and now to advance by exactly one period
-			updateData.nextExecutionDate = calculateNextExecutionDate(
-				currentNext,
-				freq,
-				new Date(currentNext),
-			);
-		}
-
-		// 3) Recalculate next execution date if frequency or start date changed (and not already set above)
-		if ((body.frequency || body.startDate) && !updateData.nextExecutionDate) {
-			const newFrequency = body.frequency || existingAction[0].frequency;
-			const newStartDate = body.startDate || existingAction[0].startDate;
-			updateData.nextExecutionDate = calculateNextExecutionDate(
-				newStartDate,
-				newFrequency as "daily" | "weekly" | "monthly",
-			);
-		}
-
-		// Update the action
-		await db
-			.update(scheduledActions)
-			.set(updateData)
-			.where(
-				and(
-					eq(scheduledActions.id, body.id),
-					inArray(scheduledActions.userId, group.userids),
-				),
-			);
-
-		return createJsonResponse(
-			{ message: "Scheduled action updated successfully" },
-			200,
-			{},
-			request,
-			env,
-		);
 	});
 }
 
@@ -517,6 +579,72 @@ export async function handleScheduledActionDelete(
 	});
 }
 
+// Helper function to build history query conditions
+function buildHistoryConditions(
+	group: ParsedGroup,
+	scheduledActionId?: string,
+	executionStatus?: string,
+) {
+	const conditions = [inArray(scheduledActionHistory.userId, group.userids)];
+
+	if (scheduledActionId) {
+		conditions.push(
+			eq(scheduledActionHistory.scheduledActionId, scheduledActionId),
+		);
+	}
+	if (
+		executionStatus &&
+		["success", "failed", "started"].includes(executionStatus)
+	) {
+		conditions.push(
+			eq(
+				scheduledActionHistory.executionStatus,
+				executionStatus as "success" | "failed" | "started",
+			),
+		);
+	}
+
+	return conditions;
+}
+
+// Helper function to get history data
+async function getHistoryData(
+	db: ReturnType<typeof getDb>,
+	conditions: Parameters<typeof and>,
+	offset: number,
+	limit: number,
+) {
+	// Get total count
+	const totalCountResult = await db
+		.select({ count: count() })
+		.from(scheduledActionHistory)
+		.where(and(...conditions));
+
+	const totalCount = totalCountResult[0]?.count || 0;
+
+	// Get history entries
+	const history = await db
+		.select()
+		.from(scheduledActionHistory)
+		.where(and(...conditions))
+		.orderBy(desc(scheduledActionHistory.executedAt))
+		.limit(limit)
+		.offset(offset);
+
+	// Convert null to undefined for TypeScript compatibility
+	const convertedHistory = history.map((entry) => ({
+		...entry,
+		errorMessage: entry.errorMessage || undefined,
+		executionDurationMs: entry.executionDurationMs || undefined,
+	}));
+
+	return {
+		history: convertedHistory,
+		totalCount,
+		hasMore: offset + limit < totalCount,
+	};
+}
+
 export async function handleScheduledActionHistory(
 	request: Request,
 	env: Env,
@@ -544,55 +672,12 @@ export async function handleScheduledActionHistory(
 		const { offset, limit, scheduledActionId, executionStatus } =
 			parseQuery.data;
 
-		// Build where conditions
-		const conditions = [inArray(scheduledActionHistory.userId, group.userids)];
-
-		if (scheduledActionId) {
-			conditions.push(
-				eq(scheduledActionHistory.scheduledActionId, scheduledActionId),
-			);
-		}
-		if (
-			executionStatus &&
-			["success", "failed", "started"].includes(executionStatus)
-		) {
-			conditions.push(
-				eq(
-					scheduledActionHistory.executionStatus,
-					executionStatus as "success" | "failed" | "started",
-				),
-			);
-		}
-
-		// Get total count
-		const totalCountResult = await db
-			.select({ count: count() })
-			.from(scheduledActionHistory)
-			.where(and(...conditions));
-
-		const totalCount = totalCountResult[0]?.count || 0;
-
-		// Get history entries
-		const history = await db
-			.select()
-			.from(scheduledActionHistory)
-			.where(and(...conditions))
-			.orderBy(desc(scheduledActionHistory.executedAt))
-			.limit(limit)
-			.offset(offset);
-
-		// Convert null to undefined for TypeScript compatibility
-		const convertedHistory = history.map((entry) => ({
-			...entry,
-			errorMessage: entry.errorMessage || undefined,
-			executionDurationMs: entry.executionDurationMs || undefined,
-		}));
-
-		const response: ScheduledActionHistoryListResponse = {
-			history: convertedHistory,
-			totalCount,
-			hasMore: offset + limit < totalCount,
-		};
+		const conditions = buildHistoryConditions(
+			group,
+			scheduledActionId,
+			executionStatus,
+		);
+		const response = await getHistoryData(db, conditions, offset, limit);
 
 		return createJsonResponse(response, 200, {}, request, env);
 	});

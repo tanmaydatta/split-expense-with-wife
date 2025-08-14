@@ -6,7 +6,9 @@ import type {
 	UpdateGroupMetadataResponse,
 	User,
 } from "../../../shared-types";
+import type { getDb } from "../db";
 import { groups } from "../db/schema/schema";
+import type { CurrentSession } from "../types";
 import { createErrorResponse, createJsonResponse, withAuth } from "../utils";
 
 // Handle getting group details
@@ -67,6 +69,274 @@ export async function handleGroupDetails(
 }
 
 // Handle updating group metadata
+// Helper function to validate currency
+function validateCurrency(currency: string): boolean {
+	const validCurrencies = [
+		"USD",
+		"EUR",
+		"GBP",
+		"CAD",
+		"AUD",
+		"JPY",
+		"CHF",
+		"CNY",
+		"INR",
+		"SEK",
+		"NOK",
+		"DKK",
+		"PLN",
+		"CZK",
+		"HUF",
+		"BGN",
+		"RON",
+		"HRK",
+		"RUB",
+		"TRY",
+		"BRL",
+		"MXN",
+		"ZAR",
+		"KRW",
+		"SGD",
+		"HKD",
+		"NZD",
+		"THB",
+		"MYR",
+		"IDR",
+		"PHP",
+		"VND",
+	];
+	return validCurrencies.includes(currency);
+}
+
+// Helper function to check user membership
+function validateUserMembership(
+	defaultShare: Record<string, number>,
+	groupUserIds: Set<string>,
+): string | null {
+	const shareUserIds = new Set(Object.keys(defaultShare));
+
+	// Check if all group members are included
+	for (const userId of groupUserIds) {
+		if (!shareUserIds.has(userId)) {
+			return "All group members must have a default share percentage";
+		}
+	}
+
+	// Check if any invalid user IDs are included
+	for (const userId of shareUserIds) {
+		if (!groupUserIds.has(userId)) {
+			return "Invalid user IDs: users not in group";
+		}
+	}
+
+	return null;
+}
+
+// Helper function to validate percentages
+function validatePercentages(percentages: number[]): string | null {
+	if (percentages.some((p) => p < 0)) {
+		return "Default share percentages must be positive";
+	}
+
+	const total = percentages.reduce((sum, p) => sum + p, 0);
+	if (Math.abs(total - 100) > 0.001) {
+		return "Default share percentages must add up to 100%";
+	}
+
+	return null;
+}
+
+// Helper function to validate default share
+function validateDefaultShare(
+	defaultShare: Record<string, number>,
+	groupUserIds: Set<string>,
+): string | null {
+	if (Object.keys(defaultShare).length === 0) {
+		return "All group members must have a default share percentage";
+	}
+
+	const membershipError = validateUserMembership(defaultShare, groupUserIds);
+	if (membershipError) return membershipError;
+
+	const percentages = Object.values(defaultShare);
+	return validatePercentages(percentages);
+}
+
+// Helper function to validate group name
+function validateGroupName(groupName: string): string | null {
+	const trimmedName = groupName.trim();
+	if (trimmedName.length === 0) {
+		return "Group name cannot be empty";
+	}
+	return null;
+}
+
+// Helper function to validate budgets
+function validateBudgets(budgets: string[]): string | null {
+	for (const budgetName of budgets) {
+		if (!/^[a-zA-Z0-9\s\-_]+$/.test(budgetName)) {
+			return "Budget names can only contain letters, numbers, spaces, hyphens, and underscores";
+		}
+	}
+	return null;
+}
+
+// Helper function to validate currency
+function validateCurrencyField(
+	body: UpdateGroupMetadataRequest,
+): string | null {
+	if (
+		body.defaultCurrency !== undefined &&
+		!validateCurrency(body.defaultCurrency)
+	) {
+		return "Invalid currency code";
+	}
+	return null;
+}
+
+// Helper function to validate and process group name
+function validateAndProcessGroupName(
+	body: UpdateGroupMetadataRequest,
+): string | null {
+	if (body.groupName === undefined) return null;
+
+	const error = validateGroupName(body.groupName);
+	if (error) return error;
+
+	body.groupName = body.groupName.trim();
+	return null;
+}
+
+// Helper function to validate and process budgets
+function validateAndProcessBudgets(
+	body: UpdateGroupMetadataRequest,
+): string | null {
+	if (body.budgets === undefined) return null;
+
+	const error = validateBudgets(body.budgets);
+	if (error) return error;
+
+	body.budgets = [...new Set(body.budgets)];
+	return null;
+}
+
+// Helper function to validate and process individual fields
+function validateAndProcessFields(
+	body: UpdateGroupMetadataRequest,
+	groupUserIds: Set<string>,
+): string | null {
+	const currencyError = validateCurrencyField(body);
+	if (currencyError) return currencyError;
+
+	if (body.defaultShare !== undefined) {
+		const error = validateDefaultShare(body.defaultShare, groupUserIds);
+		if (error) return error;
+	}
+
+	const groupNameError = validateAndProcessGroupName(body);
+	if (groupNameError) return groupNameError;
+
+	const budgetsError = validateAndProcessBudgets(body);
+	if (budgetsError) return budgetsError;
+
+	return null;
+}
+
+// Helper function to check if any changes are provided
+function hasAnyChanges(body: UpdateGroupMetadataRequest): boolean {
+	return (
+		body.defaultShare !== undefined ||
+		body.defaultCurrency !== undefined ||
+		body.groupName !== undefined ||
+		body.budgets !== undefined
+	);
+}
+
+// Helper function to validate request body
+function validateRequestBody(
+	body: UpdateGroupMetadataRequest,
+	groupUserIds: Set<string>,
+): string | null {
+	const fieldError = validateAndProcessFields(body, groupUserIds);
+	if (fieldError) return fieldError;
+
+	if (!hasAnyChanges(body)) {
+		return "No changes provided";
+	}
+
+	return null;
+}
+
+// Helper function to update metadata
+async function updateMetadata(
+	body: UpdateGroupMetadataRequest,
+	session: CurrentSession,
+	db: ReturnType<typeof getDb>,
+): Promise<string | undefined> {
+	if (body.defaultShare === undefined && body.defaultCurrency === undefined) {
+		return undefined;
+	}
+
+	if (!session.group) {
+		throw new Error("No group found for session");
+	}
+
+	const currentGroup = await db
+		.select({ metadata: groups.metadata })
+		.from(groups)
+		.where(eq(groups.groupid, session.group.groupid))
+		.limit(1);
+
+	const currentMetadata = JSON.parse(
+		currentGroup[0]?.metadata || "{}",
+	) as GroupMetadata;
+
+	const newMetadata: GroupMetadata = {
+		...currentMetadata,
+		...(body.defaultShare !== undefined && {
+			defaultShare: body.defaultShare,
+		}),
+		...(body.defaultCurrency !== undefined && {
+			defaultCurrency: body.defaultCurrency,
+		}),
+	};
+
+	// Set default USD currency if no currency is provided and none exists
+	if (body.defaultCurrency === undefined && !currentMetadata.defaultCurrency) {
+		newMetadata.defaultCurrency = "USD";
+	}
+
+	return JSON.stringify(newMetadata);
+}
+
+// Helper function to build updates object
+async function buildUpdatesObject(
+	body: UpdateGroupMetadataRequest,
+	session: CurrentSession,
+	db: ReturnType<typeof getDb>,
+): Promise<{ metadata?: string; groupName?: string; budgets?: string }> {
+	const updates: { metadata?: string; groupName?: string; budgets?: string } =
+		{};
+
+	// Update metadata if provided
+	const metadata = await updateMetadata(body, session, db);
+	if (metadata) {
+		updates.metadata = metadata;
+	}
+
+	// Update group name if provided
+	if (body.groupName !== undefined) {
+		updates.groupName = body.groupName;
+	}
+
+	// Update budgets if provided
+	if (body.budgets !== undefined) {
+		updates.budgets = JSON.stringify(body.budgets);
+	}
+
+	return updates;
+}
+
 export async function handleUpdateGroupMetadata(
 	request: Request,
 	env: Env,
@@ -86,197 +356,15 @@ export async function handleUpdateGroupMetadata(
 			return createErrorResponse("Unauthorized", 401, request, env);
 		}
 
-		// Validation logic
-		if (body.defaultCurrency !== undefined) {
-			// Validate currency code (3-letter codes)
-			const validCurrencies = [
-				"USD",
-				"EUR",
-				"GBP",
-				"CAD",
-				"AUD",
-				"JPY",
-				"CHF",
-				"CNY",
-				"INR",
-				"SEK",
-				"NOK",
-				"DKK",
-				"PLN",
-				"CZK",
-				"HUF",
-				"BGN",
-				"RON",
-				"HRK",
-				"RUB",
-				"TRY",
-				"BRL",
-				"MXN",
-				"ZAR",
-				"KRW",
-				"SGD",
-				"HKD",
-				"NZD",
-				"THB",
-				"MYR",
-				"IDR",
-				"PHP",
-				"VND",
-			];
-			if (!validCurrencies.includes(body.defaultCurrency)) {
-				return createErrorResponse("Invalid currency code", 400, request, env);
-			}
+		// Validate request body
+		const groupUserIds = new Set(Object.keys(session.usersById));
+		const validationError = validateRequestBody(body, groupUserIds);
+		if (validationError) {
+			return createErrorResponse(validationError, 400, request, env);
 		}
 
-		if (body.defaultShare !== undefined) {
-			// Validate defaultShare is not empty
-			if (Object.keys(body.defaultShare).length === 0) {
-				return createErrorResponse(
-					"All group members must have a default share percentage",
-					400,
-					request,
-					env,
-				);
-			}
-
-			// Get all users in the group from session (no DB query needed)
-			const groupUserIds = new Set(Object.keys(session.usersById));
-			const shareUserIds = new Set(Object.keys(body.defaultShare));
-
-			// Check if all group members are included
-			for (const userId of groupUserIds) {
-				if (!shareUserIds.has(userId)) {
-					return createErrorResponse(
-						"All group members must have a default share percentage",
-						400,
-						request,
-						env,
-					);
-				}
-			}
-
-			// Check if any invalid user IDs are included
-			for (const userId of shareUserIds) {
-				if (!groupUserIds.has(userId)) {
-					return createErrorResponse(
-						"Invalid user IDs: users not in group",
-						400,
-						request,
-						env,
-					);
-				}
-			}
-
-			// Validate percentages
-			const percentages = Object.values(body.defaultShare);
-
-			// Check for negative percentages
-			if (percentages.some((p) => p < 0)) {
-				return createErrorResponse(
-					"Default share percentages must be positive",
-					400,
-					request,
-					env,
-				);
-			}
-
-			// Check percentages add up to 100 (with floating point tolerance)
-			const total = percentages.reduce((sum, p) => sum + p, 0);
-			if (Math.abs(total - 100) > 0.001) {
-				return createErrorResponse(
-					"Default share percentages must add up to 100%",
-					400,
-					request,
-					env,
-				);
-			}
-		}
-
-		if (body.groupName !== undefined) {
-			// Trim and validate group name
-			const trimmedName = body.groupName.trim();
-			if (trimmedName.length === 0) {
-				return createErrorResponse(
-					"Group name cannot be empty",
-					400,
-					request,
-					env,
-				);
-			}
-			body.groupName = trimmedName;
-		}
-
-		if (body.budgets !== undefined) {
-			// Validate budget names
-			for (const budgetName of body.budgets) {
-				if (!/^[a-zA-Z0-9\s\-_]+$/.test(budgetName)) {
-					return createErrorResponse(
-						"Budget names can only contain letters, numbers, spaces, hyphens, and underscores",
-						400,
-						request,
-						env,
-					);
-				}
-			}
-			// Remove duplicates
-			body.budgets = [...new Set(body.budgets)];
-		}
-
-		// Check if no changes were provided
-		if (
-			body.defaultShare === undefined &&
-			body.defaultCurrency === undefined &&
-			body.groupName === undefined &&
-			body.budgets === undefined
-		) {
-			return createErrorResponse("No changes provided", 400, request, env);
-		}
-
-		// Prepare update data
-		const updates: { metadata?: string; groupName?: string; budgets?: string } =
-			{};
-
-		// Update metadata if provided
-		if (body.defaultShare !== undefined || body.defaultCurrency !== undefined) {
-			const currentGroup = await db
-				.select({ metadata: groups.metadata })
-				.from(groups)
-				.where(eq(groups.groupid, session.group.groupid))
-				.limit(1);
-
-			const currentMetadata = JSON.parse(
-				currentGroup[0]?.metadata || "{}",
-			) as GroupMetadata;
-			const newMetadata: GroupMetadata = {
-				...currentMetadata,
-				...(body.defaultShare !== undefined && {
-					defaultShare: body.defaultShare,
-				}),
-				...(body.defaultCurrency !== undefined && {
-					defaultCurrency: body.defaultCurrency,
-				}),
-			};
-
-			// Set default USD currency if no currency is provided and none exists
-			if (
-				body.defaultCurrency === undefined &&
-				!currentMetadata.defaultCurrency
-			) {
-				newMetadata.defaultCurrency = "USD";
-			}
-
-			updates.metadata = JSON.stringify(newMetadata);
-		}
-
-		// Update group name if provided
-		if (body.groupName !== undefined) {
-			updates.groupName = body.groupName;
-		}
-
-		// Update budgets if provided
-		if (body.budgets !== undefined) {
-			updates.budgets = JSON.stringify(body.budgets);
-		}
+		// Build updates object
+		const updates = await buildUpdatesObject(body, session, db);
 		// Update group using Drizzle
 		if (Object.keys(updates).length > 0) {
 			await db

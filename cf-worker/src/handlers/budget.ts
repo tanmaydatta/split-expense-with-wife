@@ -10,6 +10,8 @@ import type {
 	BudgetRequest,
 	BudgetTotalRequest,
 } from "../../../shared-types";
+import type { getDb } from "../db";
+import type { user } from "../db/schema/auth-schema";
 import { budget, budgetTotals, userBalances } from "../db/schema/schema";
 import {
 	createErrorResponse,
@@ -19,7 +21,359 @@ import {
 	isAuthorizedForBudget,
 	withAuth,
 } from "../utils";
+
 import { createBudgetEntryStatements } from "../utils/scheduled-action-execution";
+
+// Helper function to get monthly budget data from database
+async function getMonthlyBudgetData(
+	db: ReturnType<typeof getDb>,
+	name: string,
+	groupId: string,
+	oldestData: Date,
+) {
+	return await db
+		.select({
+			month: sql<number>`CAST(strftime('%m', added_time) AS INTEGER)`.as(
+				"month",
+			),
+			year: sql<number>`CAST(strftime('%Y', added_time) AS INTEGER)`.as("year"),
+			currency: budget.currency,
+			amount: sql<number>`SUM(amount)`.as("amount"),
+		})
+		.from(budget)
+		.where(
+			and(
+				eq(budget.name, name),
+				eq(budget.groupid, groupId),
+				isNull(budget.deleted),
+				gte(budget.addedTime, formatSQLiteTime(oldestData)),
+				lt(budget.amount, 0), // Only negative amounts (expenses)
+			),
+		)
+		.groupBy(
+			sql`strftime('%Y', added_time)`,
+			sql`strftime('%m', added_time)`,
+			budget.currency,
+		)
+		.orderBy(
+			sql`strftime('%Y', added_time) DESC`,
+			sql`strftime('%m', added_time) DESC`,
+		);
+}
+
+// Helper function to process monthly data and find date range
+function processMonthlyDataAndFindRange(
+	monthlyData: Array<{
+		month: number;
+		year: number;
+		currency: string;
+		amount: number;
+	}>,
+) {
+	const allCurrencies = new Set<string>();
+	let oldestDate = new Date();
+	const today = new Date();
+
+	monthlyData.forEach((data) => {
+		allCurrencies.add(data.currency);
+		const dataDate = new Date(data.year, data.month - 1);
+		if (dataDate < oldestDate) {
+			oldestDate = dataDate;
+		}
+	});
+
+	// If no data, use a reasonable default (2 years back)
+	if (monthlyData.length === 0) {
+		oldestDate = new Date();
+		oldestDate.setFullYear(oldestDate.getFullYear() - 2);
+		allCurrencies.add("USD"); // Default currency if no data
+	}
+
+	return { allCurrencies, oldestDate, today };
+}
+
+// Helper function to create data map from monthly data
+function createDataMap(
+	monthlyData: Array<{
+		month: number;
+		year: number;
+		currency: string;
+		amount: number;
+	}>,
+) {
+	const dataMap: Record<string, Record<string, number>> = {};
+	for (const data of monthlyData) {
+		const key = `${data.year}-${data.month}`;
+		if (!dataMap[key]) {
+			dataMap[key] = {};
+		}
+		dataMap[key][data.currency] = data.amount;
+	}
+	return dataMap;
+}
+
+// Helper function to generate monthly budgets array
+function generateMonthlyBudgets(
+	allCurrencies: Set<string>,
+	dataMap: Record<string, Record<string, number>>,
+	oldestDate: Date,
+	today: Date,
+) {
+	const monthToName = [
+		"",
+		"January",
+		"February",
+		"March",
+		"April",
+		"May",
+		"June",
+		"July",
+		"August",
+		"September",
+		"October",
+		"November",
+		"December",
+	];
+
+	const monthlyBudgets: Array<{
+		month: string;
+		year: number;
+		amounts: Array<{ currency: string; amount: number }>;
+	}> = [];
+
+	const currentDate = new Date(today.getFullYear(), today.getMonth());
+	const endDate = new Date(oldestDate.getFullYear(), oldestDate.getMonth());
+
+	while (currentDate >= endDate) {
+		const year = currentDate.getFullYear();
+		const month = currentDate.getMonth() + 1;
+		const key = `${year}-${month}`;
+
+		const amounts: Array<{ currency: string; amount: number }> = [];
+		for (const currency of allCurrencies) {
+			const amount = dataMap[key]?.[currency] || 0;
+			amounts.push({ currency, amount: Math.abs(amount) });
+		}
+
+		monthlyBudgets.push({
+			month: monthToName[month],
+			year: year,
+			amounts: amounts,
+		});
+
+		currentDate.setMonth(currentDate.getMonth() - 1);
+	}
+
+	return monthlyBudgets;
+}
+
+// Helper function to calculate rolling averages
+function calculateRollingAverages(
+	monthlyBudgets: Array<{
+		month: string;
+		year: number;
+		amounts: Array<{ currency: string; amount: number }>;
+	}>,
+	allCurrencies: Set<string>,
+): AverageSpendPeriod[] {
+	const rollingAverages: AverageSpendPeriod[] = [];
+	const maxMonthsBack = monthlyBudgets.length;
+	const periodsToCalculate = Array.from(
+		{ length: maxMonthsBack },
+		(_, i) => i + 1,
+	);
+
+	for (const monthsBack of periodsToCalculate) {
+		const periodBudgets = monthlyBudgets.slice(0, monthsBack);
+		const currencyTotals: Record<string, number> = {};
+
+		// Initialize all currencies to 0
+		for (const currency of allCurrencies) {
+			currencyTotals[currency] = 0;
+		}
+
+		// Sum up actual spending for each currency
+		periodBudgets.forEach((monthData) => {
+			monthData.amounts.forEach((amount) => {
+				currencyTotals[amount.currency] += Math.abs(amount.amount);
+			});
+		});
+
+		// Create average entries for each currency
+		const currencyAverages: AverageSpendData[] = Array.from(allCurrencies).map(
+			(currency) => ({
+				currency,
+				averageMonthlySpend:
+					monthsBack > 0 ? currencyTotals[currency] / monthsBack : 0,
+				totalSpend: currencyTotals[currency],
+				monthsAnalyzed: monthsBack,
+			}),
+		);
+
+		// Filter out currencies with 0 total spend
+		const filteredAverages = currencyAverages.filter(
+			(avg) => avg.totalSpend > 0,
+		);
+
+		// If no spending data for this period, add a default entry
+		const finalAverages =
+			filteredAverages.length > 0
+				? filteredAverages
+				: [
+						{
+							currency: Array.from(allCurrencies)[0] || "USD",
+							averageMonthlySpend: 0,
+							totalSpend: 0,
+							monthsAnalyzed: monthsBack,
+						},
+					];
+
+		rollingAverages.push({
+			periodMonths: monthsBack,
+			averages: finalAverages,
+		});
+	}
+
+	return rollingAverages;
+}
+
+// Helper function to create budget entry
+async function createBudgetEntry(
+	budgetRequest: BudgetRequest,
+	db: ReturnType<typeof getDb>,
+	request: Request,
+	env: Env,
+) {
+	try {
+		// Generate unique budget ID using ULID for regular handler
+		const budgetId = ulid();
+
+		// Use the reusable utility function
+		const result = await createBudgetEntryStatements(
+			budgetRequest,
+			db,
+			budgetId,
+		);
+
+		// Execute all statements in a single batch
+		if (result.statements.length > 0) {
+			const queries = result.statements.map((stmt) => stmt.query);
+			await db.batch([queries[0], ...queries.slice(1)]);
+		}
+
+		return createJsonResponse(
+			{
+				message: "Budget entry created successfully",
+			},
+			200,
+			{},
+			request,
+			env,
+		);
+	} catch (error) {
+		console.error("Budget creation error:", error);
+		const errorMessage =
+			error instanceof Error ? error.message : "Unknown error";
+		return createErrorResponse(errorMessage, 400, request, env);
+	}
+}
+
+// Helper function to create user name mapping
+function createUserNameMapping(
+	usersById: Record<string, typeof user.$inferSelect>,
+): Map<string, string> {
+	const userIdToName = new Map<string, string>();
+	Object.values(usersById).forEach((user) => {
+		userIdToName.set(user.id, user.firstName || "Unknown");
+	});
+	return userIdToName;
+}
+
+// Helper function to add balance to result
+function addBalanceToResult(
+	result: Record<string, Record<string, number>>,
+	userName: string,
+	currency: string,
+	amount: number,
+): void {
+	if (!result[userName]) {
+		result[userName] = {};
+	}
+	result[userName][currency] = (result[userName][currency] || 0) + amount;
+}
+
+// Helper function to process when current user owes someone
+function processCurrentUserOwes(
+	result: Record<string, Record<string, number>>,
+	owedToUserId: string,
+	currency: string,
+	amount: number,
+	currentUserId: string,
+	userIdToName: Map<string, string>,
+): void {
+	const otherUserName = userIdToName.get(owedToUserId);
+	if (otherUserName && owedToUserId !== currentUserId) {
+		addBalanceToResult(result, otherUserName, currency, -amount);
+	}
+}
+
+// Helper function to process when someone owes current user
+function processSomeoneOwesCurrentUser(
+	result: Record<string, Record<string, number>>,
+	userId: string,
+	currency: string,
+	amount: number,
+	userIdToName: Map<string, string>,
+): void {
+	const otherUserName = userIdToName.get(userId);
+	if (otherUserName) {
+		addBalanceToResult(result, otherUserName, currency, amount);
+	}
+}
+
+// Type for the balance query result
+type BalanceQueryResult = {
+	userId: string;
+	owedToUserId: string;
+	currency: string;
+	balance: number;
+};
+
+// Helper function to process balance data
+function processBalances(
+	balances: BalanceQueryResult[],
+	currentUserId: string,
+	userIdToName: Map<string, string>,
+): Record<string, Record<string, number>> {
+	const result: Record<string, Record<string, number>> = {};
+
+	for (const balance of balances) {
+		const { userId, owedToUserId, currency, balance: amount } = balance;
+
+		if (userId === currentUserId) {
+			// Current user owes someone else
+			processCurrentUserOwes(
+				result,
+				owedToUserId,
+				currency,
+				amount,
+				currentUserId,
+				userIdToName,
+			);
+		} else if (owedToUserId === currentUserId) {
+			// Someone else owes current user
+			processSomeoneOwesCurrentUser(
+				result,
+				userId,
+				currency,
+				amount,
+				userIdToName,
+			);
+		}
+	}
+
+	return result;
+}
 
 // Handle balances
 export async function handleBalances(
@@ -35,6 +389,7 @@ export async function handleBalances(
 			if (!session.group) {
 				return createErrorResponse("Unauthorized", 401, request, env);
 			}
+
 			const balances = await db
 				.select({
 					userId: userBalances.userId,
@@ -51,42 +406,15 @@ export async function handleBalances(
 				);
 
 			// Create user ID to name mapping
-			const userIdToName = new Map<string, string>();
-			Object.values(session.usersById).forEach((user) => {
-				userIdToName.set(user.id, user.firstName || "Unknown");
-			});
-
+			const userIdToName = createUserNameMapping(session.usersById);
 			console.log("userIdToName", userIdToName);
 
 			// Transform balances into UserBalancesByUser format
-			const result: Record<string, Record<string, number>> = {};
-
-			for (const balance of balances) {
-				const { userId, owedToUserId, currency, balance: amount } = balance;
-
-				// From current user's perspective
-				if (userId === session.currentUser.id) {
-					// Current user owes someone else (negative for that person)
-					const otherUserName = userIdToName.get(owedToUserId);
-					if (otherUserName && owedToUserId !== session.user.id) {
-						if (!result[otherUserName]) {
-							result[otherUserName] = {};
-						}
-						result[otherUserName][currency] =
-							(result[otherUserName][currency] || 0) - amount;
-					}
-				} else if (owedToUserId === session.currentUser.id) {
-					// Someone else owes current user (positive for that person)
-					const otherUserName = userIdToName.get(userId);
-					if (otherUserName) {
-						if (!result[otherUserName]) {
-							result[otherUserName] = {};
-						}
-						result[otherUserName][currency] =
-							(result[otherUserName][currency] || 0) + amount;
-					}
-				}
-			}
+			const result = processBalances(
+				balances,
+				session.currentUser.id,
+				userIdToName,
+			);
 
 			// Return empty object if no balances exist
 			if (Object.keys(result).length === 0) {
@@ -128,38 +456,7 @@ export async function handleBudget(
 				groupid: session.group.groupid,
 			};
 
-			try {
-				// Generate unique budget ID using ULID for regular handler
-				const budgetId = ulid();
-
-				// Use the reusable utility function
-				const result = await createBudgetEntryStatements(
-					budgetRequest,
-					db,
-					budgetId,
-				);
-
-				// Execute all statements in a single batch
-				if (result.statements.length > 0) {
-					const queries = result.statements.map((stmt) => stmt.query);
-					await db.batch([queries[0], ...queries.slice(1)]);
-				}
-
-				return createJsonResponse(
-					{
-						message: "Budget entry created successfully",
-					},
-					200,
-					{},
-					request,
-					env,
-				);
-			} catch (error) {
-				console.error("Budget creation error:", error);
-				const errorMessage =
-					error instanceof Error ? error.message : "Unknown error";
-				return createErrorResponse(errorMessage, 400, request, env);
-			}
+			return await createBudgetEntry(budgetRequest, db, request, env);
 		});
 	} catch (error) {
 		console.error("Budget creation error:", error);
@@ -330,187 +627,27 @@ export async function handleBudgetMonthly(
 			const oldestData = new Date();
 			oldestData.setFullYear(oldestData.getFullYear() - 2);
 
-			// Get monthly budget data (only expenses - negative amounts)
-			const monthlyData = await db
-				.select({
-					month: sql<number>`CAST(strftime('%m', added_time) AS INTEGER)`.as(
-						"month",
-					),
-					year: sql<number>`CAST(strftime('%Y', added_time) AS INTEGER)`.as(
-						"year",
-					),
-					currency: budget.currency,
-					amount: sql<number>`SUM(amount)`.as("amount"),
-				})
-				.from(budget)
-				.where(
-					and(
-						eq(budget.name, name),
-						eq(budget.groupid, session.group.groupid),
-						isNull(budget.deleted),
-						gte(budget.addedTime, formatSQLiteTime(oldestData)),
-						lt(budget.amount, 0), // Only negative amounts (expenses)
-					),
-				)
-				.groupBy(
-					sql`strftime('%Y', added_time)`,
-					sql`strftime('%m', added_time)`,
-					budget.currency,
-				)
-				.orderBy(
-					sql`strftime('%Y', added_time) DESC`,
-					sql`strftime('%m', added_time) DESC`,
-				);
-
-			// Process data into monthly format
-			const monthToName = [
-				"",
-				"January",
-				"February",
-				"March",
-				"April",
-				"May",
-				"June",
-				"July",
-				"August",
-				"September",
-				"October",
-				"November",
-				"December",
-			];
-
-			// First, collect all unique currencies and find date range
-			const allCurrencies = new Set<string>();
-			let oldestDate = new Date();
-			const today = new Date();
-
-			monthlyData.forEach((data) => {
-				allCurrencies.add(data.currency);
-				const dataDate = new Date(data.year, data.month - 1);
-				if (dataDate < oldestDate) {
-					oldestDate = dataDate;
-				}
-			});
-
-			// If no data, use a reasonable default (2 years back)
-			if (monthlyData.length === 0) {
-				oldestDate = new Date();
-				oldestDate.setFullYear(oldestDate.getFullYear() - 2);
-				allCurrencies.add("USD"); // Default currency if no data
-			}
-
-			// Create map from actual data
-			const dataMap: Record<string, Record<string, number>> = {};
-			for (const data of monthlyData) {
-				const key = `${data.year}-${data.month}`;
-				if (!dataMap[key]) {
-					dataMap[key] = {};
-				}
-				dataMap[key][data.currency] = data.amount;
-			}
-
-			// Generate all months from today back to oldest date
-			const monthlyBudgets: Array<{
-				month: string;
-				year: number;
-				amounts: Array<{ currency: string; amount: number }>;
-			}> = [];
-
-			const currentDate = new Date(today.getFullYear(), today.getMonth()); // Start of current month
-			const endDate = new Date(oldestDate.getFullYear(), oldestDate.getMonth()); // Start of oldest month
-
-			while (currentDate >= endDate) {
-				const year = currentDate.getFullYear();
-				const month = currentDate.getMonth() + 1; // JS months are 0-indexed, but our data is 1-indexed
-				const key = `${year}-${month}`;
-
-				const amounts: Array<{ currency: string; amount: number }> = [];
-
-				// For each currency, add either real data or 0 (convert to absolute value for display)
-				for (const currency of allCurrencies) {
-					const amount = dataMap[key]?.[currency] || 0;
-					amounts.push({ currency, amount: Math.abs(amount) });
-				}
-
-				monthlyBudgets.push({
-					month: monthToName[month],
-					year: year,
-					amounts: amounts,
-				});
-
-				// Move to previous month
-				currentDate.setMonth(currentDate.getMonth() - 1);
-			}
-
-			// Calculate rolling averages for different time periods
-			const rollingAverages: AverageSpendPeriod[] = [];
-
-			// Calculate max periods based on how many months we generated (from today to oldest)
-			const maxMonthsBack = monthlyBudgets.length;
-
-			// Calculate averages for 1, 2, 3, ... up to maxMonthsBack months
-			const periodsToCalculate = Array.from(
-				{ length: maxMonthsBack },
-				(_, i) => i + 1,
+			// Get monthly budget data
+			const monthlyData = await getMonthlyBudgetData(
+				db,
+				name,
+				session.group.groupid,
+				oldestData,
 			);
 
-			for (const monthsBack of periodsToCalculate) {
-				// Take the first N months from our generated monthlyBudgets (which starts from today)
-				const periodBudgets = monthlyBudgets.slice(0, monthsBack);
+			// Process the data
+			const { allCurrencies, oldestDate, today } =
+				processMonthlyDataAndFindRange(monthlyData);
 
-				// Calculate totals by currency for this period (including months with 0 spend)
-				const currencyTotals: Record<string, number> = {};
+			const dataMap = createDataMap(monthlyData);
+			const monthlyBudgets = generateMonthlyBudgets(
+				allCurrencies,
+				dataMap,
+				oldestDate,
+				today,
+			);
 
-				// Initialize all currencies to 0
-				for (const currency of allCurrencies) {
-					currencyTotals[currency] = 0;
-				}
-
-				// Sum up actual spending for each currency across all months in the period
-				periodBudgets.forEach((monthData) => {
-					monthData.amounts.forEach((amount) => {
-						currencyTotals[amount.currency] += Math.abs(amount.amount);
-					});
-				});
-
-				// Create average entries for each currency
-				const currencyAverages: AverageSpendData[] = Array.from(
-					allCurrencies,
-				).map((currency) => ({
-					currency,
-					averageMonthlySpend:
-						monthsBack > 0 ? currencyTotals[currency] / monthsBack : 0,
-					totalSpend: currencyTotals[currency],
-					monthsAnalyzed: monthsBack,
-				}));
-
-				// Filter out currencies with 0 total spend unless there's no data at all
-				const filteredAverages = currencyAverages.filter(
-					(avg) => avg.totalSpend > 0,
-				);
-
-				// If no spending data for this period, add a default entry
-				const finalAverages =
-					filteredAverages.length > 0
-						? filteredAverages
-						: [
-								{
-									currency: Array.from(allCurrencies)[0] || "USD",
-									averageMonthlySpend: 0,
-									totalSpend: 0,
-									monthsAnalyzed: monthsBack,
-								},
-							];
-
-				const averageSpendPeriod: AverageSpendPeriod = {
-					periodMonths: monthsBack,
-					averages: finalAverages,
-				};
-
-				rollingAverages.push(averageSpendPeriod);
-			}
-
-			const averages = rollingAverages;
+			const averages = calculateRollingAverages(monthlyBudgets, allCurrencies);
 
 			// Return combined response
 			const result: BudgetMonthlyResponse = {

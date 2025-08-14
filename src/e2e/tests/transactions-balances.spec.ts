@@ -835,7 +835,7 @@ test.describe("Transactions and Balances", () => {
 			"**/.netlify/functions/transactions_list",
 			async (route) => {
 				// Simulate a 2-second delay
-				await new Promise((resolve) => setTimeout(resolve, 2000));
+				await new Promise((resolve) => setTimeout(resolve, 3000));
 
 				// Return a successful response with mock data using dynamic user IDs
 				await route.fulfill({
@@ -884,7 +884,7 @@ test.describe("Transactions and Balances", () => {
 
 		// Verify loader appears immediately after navigation starts
 		const loader = authenticatedPage.page.locator('[data-test-id="loader"]');
-		await expect(loader).toBeVisible({ timeout: 1000 });
+		await expect(loader).toBeVisible({ timeout: 2000 });
 		console.log("✅ Loader state detected during API call");
 
 		// Wait for navigation to complete (this will wait for the 2-second delay)

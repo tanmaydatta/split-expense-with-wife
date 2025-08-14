@@ -40,6 +40,196 @@ import {
 import { ScheduledActionsOrchestratorWorkflow } from "./workflows/scheduled-actions-orchestrator";
 import { ScheduledActionsProcessorWorkflow } from "./workflows/scheduled-actions-processor";
 
+// Helper function to handle auth routes
+async function handleAuthRoutes(
+	request: Request,
+	env: Env,
+	path: string,
+): Promise<Response | null> {
+	if (!path.startsWith("/auth/")) {
+		return null;
+	}
+
+	// Disable signups - return 404 for any signup-related routes
+	const signupRoutes = [
+		"/auth/sign-up",
+		"/auth/signup",
+		"/auth/register",
+		"/auth/sign-up/email",
+		"/auth/signup/email",
+	];
+
+	if (signupRoutes.some((route) => path.startsWith(route))) {
+		return createErrorResponse("Not Found", 404, request, env);
+	}
+
+	const authInstance = auth(env);
+	const authResponse = await authInstance.handler(request);
+	return addCORSHeaders(authResponse, request, env);
+}
+
+// Helper function to handle method validation for scheduled actions
+function validateMethodAndHandle(
+	request: Request,
+	env: Env,
+	allowedMethods: string[],
+	handler: (request: Request, env: Env) => Promise<Response>,
+): Promise<Response> {
+	if (allowedMethods.includes(request.method)) {
+		return handler(request, env);
+	}
+	return Promise.resolve(
+		createErrorResponse("Method not allowed", 405, request, env),
+	);
+}
+
+// Helper function to handle scheduled actions routes
+async function handleScheduledActionsRoutes(
+	request: Request,
+	env: Env,
+	apiPath: string,
+): Promise<Response | null> {
+	const routeMap: Record<
+		string,
+		{
+			methods: string[];
+			handler: (request: Request, env: Env) => Promise<Response>;
+		}
+	> = {
+		"scheduled-actions": {
+			methods: ["POST"],
+			handler: handleScheduledActionCreate,
+		},
+		"scheduled-actions/list": {
+			methods: ["GET"],
+			handler: handleScheduledActionList,
+		},
+		"scheduled-actions/update": {
+			methods: ["PUT", "POST"],
+			handler: handleScheduledActionUpdate,
+		},
+		"scheduled-actions/delete": {
+			methods: ["DELETE"],
+			handler: handleScheduledActionDelete,
+		},
+		"scheduled-actions/history": {
+			methods: ["GET"],
+			handler: handleScheduledActionHistory,
+		},
+		"scheduled-actions/history/details": {
+			methods: ["GET"],
+			handler: handleScheduledActionHistoryDetails,
+		},
+		"scheduled-actions/run": {
+			methods: ["POST"],
+			handler: handleScheduledActionRunNow,
+		},
+		"scheduled-actions/details": {
+			methods: ["GET"],
+			handler: handleScheduledActionDetails,
+		},
+	};
+
+	const route = routeMap[apiPath];
+	if (!route) {
+		return null;
+	}
+
+	return await validateMethodAndHandle(
+		request,
+		env,
+		route.methods,
+		route.handler,
+	);
+}
+
+// Helper function to handle basic API routes
+async function handleBasicApiRoutes(
+	request: Request,
+	env: Env,
+	apiPath: string,
+): Promise<Response | null> {
+	switch (apiPath) {
+		case "balances":
+			return await handleBalances(request, env);
+		case "budget":
+			return await handleBudget(request, env);
+		case "budget_delete":
+			return await handleBudgetDelete(request, env);
+		case "budget_list":
+			return await handleBudgetList(request, env);
+		case "budget_monthly":
+			return await handleBudgetMonthly(request, env);
+		case "budget_total":
+			return await handleBudgetTotal(request, env);
+		case "group/details":
+			return await handleGroupDetails(request, env);
+		case "group/metadata":
+			return await handleUpdateGroupMetadata(request, env);
+		case "split_new":
+			return await handleSplitNew(request, env);
+		case "split_delete":
+			return await handleSplitDelete(request, env);
+		case "transactions_list":
+			return await handleTransactionsList(request, env);
+		case "relink-data":
+			return await handleRelinkData(request, env);
+		case "migrate-passwords":
+			return await handlePasswordMigration(request, env);
+		case "hello":
+			return await handleHelloWorld(request, env);
+		default:
+			return null;
+	}
+}
+
+// Helper function to handle API routes
+async function handleApiRoutes(
+	request: Request,
+	env: Env,
+	path: string,
+): Promise<Response | null> {
+	if (!path.startsWith("/.netlify/functions/")) {
+		return null;
+	}
+
+	const apiPath = path.replace("/.netlify/functions/", "");
+
+	// Try scheduled actions routes first
+	const scheduledActionsResponse = await handleScheduledActionsRoutes(
+		request,
+		env,
+		apiPath,
+	);
+	if (scheduledActionsResponse) {
+		return scheduledActionsResponse;
+	}
+
+	// Try basic API routes
+	const basicApiResponse = await handleBasicApiRoutes(request, env, apiPath);
+	if (basicApiResponse) {
+		return basicApiResponse;
+	}
+
+	return createErrorResponse("Not Found", 404, request, env);
+}
+
+// Helper function to handle static assets
+async function handleStaticAssets(
+	request: Request,
+	env: Env,
+): Promise<Response> {
+	try {
+		const assetRequest = new Request(request.url, {
+			method: request.method,
+		});
+		return await env.ASSETS.fetch(assetRequest);
+	} catch (e) {
+		console.error("Asset not found", e);
+		return createErrorResponse("Asset not found", 404, request, env);
+	}
+}
+
 export default {
 	async fetch(
 		request: Request,
@@ -55,124 +245,15 @@ export default {
 		const path = url.pathname;
 
 		// Priority 1: Handle all better-auth routes
-		if (path.startsWith("/auth/")) {
-			// Disable signups - return 404 for any signup-related routes
-			const signupRoutes = [
-				"/auth/sign-up",
-				"/auth/signup",
-				"/auth/register",
-				"/auth/sign-up/email",
-				"/auth/signup/email",
-			];
-
-			if (signupRoutes.some((route) => path.startsWith(route))) {
-				return createErrorResponse("Not Found", 404, request, env);
-			}
-
-			const authInstance = auth(env);
-			const authResponse = await authInstance.handler(request);
-			return addCORSHeaders(authResponse, request, env);
+		const authResponse = await handleAuthRoutes(request, env, path);
+		if (authResponse) {
+			return authResponse;
 		}
 
 		// Priority 2: Handle all your existing application API routes
-		if (path.startsWith("/.netlify/functions/")) {
-			const apiPath = path.replace("/.netlify/functions/", "");
-
-			// Simple router for your API
-			switch (apiPath) {
-				case "balances":
-					return await handleBalances(request, env);
-
-				case "budget":
-					return await handleBudget(request, env);
-
-				case "budget_delete":
-					return await handleBudgetDelete(request, env);
-
-				case "budget_list":
-					return await handleBudgetList(request, env);
-
-				case "budget_monthly":
-					return await handleBudgetMonthly(request, env);
-
-				case "budget_total":
-					return await handleBudgetTotal(request, env);
-
-				case "group/details":
-					return await handleGroupDetails(request, env);
-
-				case "group/metadata":
-					return await handleUpdateGroupMetadata(request, env);
-
-				case "scheduled-actions":
-					if (request.method === "POST") {
-						return await handleScheduledActionCreate(request, env);
-					}
-					return createErrorResponse("Method not allowed", 405, request, env);
-
-				case "scheduled-actions/list":
-					if (request.method === "GET") {
-						return await handleScheduledActionList(request, env);
-					}
-					return createErrorResponse("Method not allowed", 405, request, env);
-
-				case "scheduled-actions/update":
-					if (request.method === "PUT" || request.method === "POST") {
-						return await handleScheduledActionUpdate(request, env);
-					}
-					return createErrorResponse("Method not allowed", 405, request, env);
-
-				case "scheduled-actions/delete":
-					if (request.method === "DELETE") {
-						return await handleScheduledActionDelete(request, env);
-					}
-					return createErrorResponse("Method not allowed", 405, request, env);
-
-				case "scheduled-actions/history":
-					if (request.method === "GET") {
-						return await handleScheduledActionHistory(request, env);
-					}
-					return createErrorResponse("Method not allowed", 405, request, env);
-
-				case "scheduled-actions/history/details":
-					if (request.method === "GET") {
-						return await handleScheduledActionHistoryDetails(request, env);
-					}
-					return createErrorResponse("Method not allowed", 405, request, env);
-
-				case "scheduled-actions/run":
-					if (request.method === "POST") {
-						return await handleScheduledActionRunNow(request, env);
-					}
-					return createErrorResponse("Method not allowed", 405, request, env);
-
-				case "scheduled-actions/details":
-					if (request.method === "GET") {
-						return await handleScheduledActionDetails(request, env);
-					}
-					return createErrorResponse("Method not allowed", 405, request, env);
-
-				case "split_new":
-					return await handleSplitNew(request, env);
-
-				case "split_delete":
-					return await handleSplitDelete(request, env);
-
-				case "transactions_list":
-					return await handleTransactionsList(request, env);
-
-				case "relink-data":
-					return await handleRelinkData(request, env);
-
-				case "migrate-passwords":
-					return await handlePasswordMigration(request, env);
-
-				case "hello":
-					return await handleHelloWorld(request, env);
-
-				default:
-					return createErrorResponse("Not Found", 404, request, env);
-			}
+		const apiResponse = await handleApiRoutes(request, env, path);
+		if (apiResponse) {
+			return apiResponse;
 		}
 
 		// Handle /hello endpoint for compatibility
@@ -181,15 +262,7 @@ export default {
 		}
 
 		// Priority 3: Fallback to serving static assets (your React app)
-		try {
-			const assetRequest = new Request(request.url, {
-				method: request.method,
-			});
-			return await env.ASSETS.fetch(assetRequest);
-		} catch (e) {
-			console.error("Asset not found", e);
-			return createErrorResponse("Asset not found", 404, request, env);
-		}
+		return await handleStaticAssets(request, env);
 	},
 
 	async scheduled(

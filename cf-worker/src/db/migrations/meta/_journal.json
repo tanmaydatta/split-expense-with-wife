@@ -1,55 +1,55 @@
 {
-  "version": "7",
-  "dialect": "sqlite",
-  "entries": [
-    {
-      "idx": 0,
-      "version": "6",
-      "when": 1753562098470,
-      "tag": "0000_rich_psylocke",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "6",
-      "when": 1753714477002,
-      "tag": "0001_volatile_darwin",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "6",
-      "when": 1753740936582,
-      "tag": "0002_unique_bastion",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "6",
-      "when": 1754399339381,
-      "tag": "0003_friendly_exodus",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "6",
-      "when": 1754570877458,
-      "tag": "0004_sleepy_silverclaw",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "6",
-      "when": 1754572921204,
-      "tag": "0005_natural_chameleon",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "6",
-      "when": 1755029250923,
-      "tag": "0006_real_lyja",
-      "breakpoints": true
-    }
-  ]
+	"version": "7",
+	"dialect": "sqlite",
+	"entries": [
+		{
+			"idx": 0,
+			"version": "6",
+			"when": 1753562098470,
+			"tag": "0000_rich_psylocke",
+			"breakpoints": true
+		},
+		{
+			"idx": 1,
+			"version": "6",
+			"when": 1753714477002,
+			"tag": "0001_volatile_darwin",
+			"breakpoints": true
+		},
+		{
+			"idx": 2,
+			"version": "6",
+			"when": 1753740936582,
+			"tag": "0002_unique_bastion",
+			"breakpoints": true
+		},
+		{
+			"idx": 3,
+			"version": "6",
+			"when": 1754399339381,
+			"tag": "0003_friendly_exodus",
+			"breakpoints": true
+		},
+		{
+			"idx": 4,
+			"version": "6",
+			"when": 1754570877458,
+			"tag": "0004_sleepy_silverclaw",
+			"breakpoints": true
+		},
+		{
+			"idx": 5,
+			"version": "6",
+			"when": 1754572921204,
+			"tag": "0005_natural_chameleon",
+			"breakpoints": true
+		},
+		{
+			"idx": 6,
+			"version": "6",
+			"when": 1755029250923,
+			"tag": "0006_real_lyja",
+			"breakpoints": true
+		}
+	]
 }
