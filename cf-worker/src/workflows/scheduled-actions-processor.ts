@@ -15,7 +15,7 @@ import { getDb } from "../db";
 import { user } from "../db/schema/auth-schema";
 import { scheduledActionHistory, scheduledActions } from "../db/schema/schema";
 import { calculateNextExecutionDate } from "../handlers/scheduled-actions";
-import { formatSQLiteTime } from "../utils";
+import { createHistoryId, formatSQLiteTime } from "../utils";
 import {
 	createBudgetEntryStatementsForScheduledAction,
 	createSplitTransactionStatements,
@@ -135,6 +135,58 @@ export interface ProcessorResult {
 	results: ActionExecutionResult[];
 }
 
+// Create a single history entry for manual runs with duplicate checking
+export async function createSingleHistoryEntry(
+	env: Env,
+	actionId: string,
+	workflowInstanceId: string,
+	currentDate: string,
+): Promise<void> {
+	const db = getDb(env);
+	const historyId = createHistoryId(actionId, currentDate);
+
+	// Check if history entry already exists
+	const existing = await db
+		.select({ id: scheduledActionHistory.id })
+		.from(scheduledActionHistory)
+		.where(eq(scheduledActionHistory.id, historyId))
+		.limit(1);
+
+	if (existing.length > 0) {
+		throw new Error(`Action has already been executed for date ${currentDate}`);
+	}
+
+	// Fetch the action to get its details
+	const actionRows = await db
+		.select()
+		.from(scheduledActions)
+		.where(eq(scheduledActions.id, actionId))
+		.limit(1);
+
+	if (actionRows.length === 0) {
+		throw new Error(`Scheduled action ${actionId} not found`);
+	}
+
+	const action = actionRows[0];
+
+	// Create the history entry
+	const historyEntry = {
+		id: historyId,
+		scheduledActionId: action.id,
+		userId: action.userId,
+		actionType: action.actionType,
+		executedAt: formatSQLiteTime(),
+		executionStatus: "started" as const,
+		workflowInstanceId,
+		workflowStatus: "running" as const,
+		actionData: action.actionData,
+	};
+
+	await db.insert(scheduledActionHistory).values(historyEntry);
+
+	console.log(`Created history entry for manual run: ${historyId}`);
+}
+
 // Trigger processing of a single scheduled action immediately by creating
 // a processor workflow with a single-action batch. Returns the workflow id.
 export async function triggerImmediateRun(
@@ -144,6 +196,12 @@ export async function triggerImmediateRun(
 ): Promise<string> {
 	const batchNumber = 1;
 	const instanceId = `immediate-${triggerDate.replace(/[:\s]/g, "-")}-${actionId}`;
+	const currentDate = triggerDate.split(" ")[0];
+
+	// Create history entry first with duplicate checking
+	await createSingleHistoryEntry(env, actionId, instanceId, currentDate);
+
+	// Create the processor workflow
 	await env.PROCESSOR_WORKFLOW.create({
 		id: instanceId,
 		params: {
@@ -359,7 +417,7 @@ export class ScheduledActionsProcessorWorkflow extends WorkflowEntrypoint {
 
 		// Step 2: Process each action
 		for (const { scheduled_actions: action, user: userData } of actionsResult) {
-			const historyId = `hist_${action.id}-${currentDate}`;
+			const historyId = createHistoryId(action.id, currentDate);
 			const actionStartTime = Date.now();
 
 			try {

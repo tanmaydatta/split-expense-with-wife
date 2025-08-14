@@ -26,9 +26,9 @@
     - set next date ✅
     - run now ✅
 - confirmation dialog on delete ✅
-- history entry on manual run
-    - idempotency check
-    - insert before calling workflow
+- history entry on manual run ✅
+    - idempotency check ✅
+    - insert before calling workflow ✅
 - scan receipt
 - full text search
 - transaction/add

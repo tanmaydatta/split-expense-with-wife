@@ -35,6 +35,11 @@ export function formatSQLiteTime(date: Date = new Date()): string {
 	return date.toISOString().replace("T", " ").slice(0, 19);
 }
 
+// Generate history ID for scheduled actions
+export function createHistoryId(actionId: string, currentDate: string): string {
+	return `hist_${actionId}-${currentDate}`;
+}
+
 export async function enrichSession(
 	session: Session,
 	db: ReturnType<typeof getDb>,

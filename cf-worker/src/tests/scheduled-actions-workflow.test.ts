@@ -16,7 +16,7 @@ import {
 	transactions,
 } from "../db/schema/schema";
 import { handleCron } from "../handlers/cron";
-import { formatSQLiteTime } from "../utils";
+import { createHistoryId, formatSQLiteTime } from "../utils";
 import { completeCleanupDatabase, setupAndCleanDatabase } from "./test-utils";
 
 // Mock workflow instance
@@ -238,7 +238,7 @@ describe("Scheduled Actions Workflows", () => {
 			const currentDate = "2024-01-15";
 			// Mark history as success for today
 			await db.insert(scheduledActionHistory).values({
-				id: `hist_${testActionId}-${currentDate}`,
+				id: createHistoryId(testActionId, currentDate),
 				scheduledActionId: testActionId,
 				userId: testUserId,
 				actionType: "add_expense",
@@ -282,7 +282,7 @@ describe("Scheduled Actions Workflows", () => {
 				"../workflows/scheduled-actions-orchestrator"
 			);
 			const currentDate = "2024-01-15";
-			const historyId = `hist_${testActionId}-${currentDate}`;
+			const historyId = createHistoryId(testActionId, currentDate);
 			await db.insert(scheduledActionHistory).values({
 				id: historyId,
 				scheduledActionId: testActionId,
@@ -354,7 +354,7 @@ describe("Scheduled Actions Workflows", () => {
 			];
 			// Seed history with failed/terminated to check onConflictDoUpdate path
 			await db.insert(scheduledActionHistory).values({
-				id: `hist_${testActionId}-${currentDate}`,
+				id: createHistoryId(testActionId, currentDate),
 				scheduledActionId: testActionId,
 				userId: testUserId,
 				actionType: "add_expense",
@@ -376,7 +376,7 @@ describe("Scheduled Actions Workflows", () => {
 				.select()
 				.from(scheduledActionHistory)
 				.where(
-					eq(scheduledActionHistory.id, `hist_${testActionId}-${currentDate}`),
+					eq(scheduledActionHistory.id, createHistoryId(testActionId, currentDate)),
 				)
 				.limit(1);
 			expect(hist[0].executionStatus).toBe("started");
@@ -676,7 +676,7 @@ describe("Scheduled Actions Workflows", () => {
 				nextExecutionDate: "2024-01-15",
 			});
 			await db.insert(scheduledActionHistory).values({
-				id: "hist_proc-1-2024-01-15",
+				id: createHistoryId("proc-1", "2024-01-15"),
 				scheduledActionId: "proc-1",
 				userId: testUserId,
 				actionType: "add_expense",
@@ -714,7 +714,7 @@ describe("Scheduled Actions Workflows", () => {
 			await executeActionStatements(
 				testEnv,
 				action,
-				"hist_proc-1-2024-01-15",
+				createHistoryId("proc-1", "2024-01-15"),
 				123,
 				{ message: "ok" },
 				stmts,
@@ -737,7 +737,7 @@ describe("Scheduled Actions Workflows", () => {
 				await db
 					.select()
 					.from(scheduledActionHistory)
-					.where(eq(scheduledActionHistory.id, "hist_proc-1-2024-01-15"))
+					.where(eq(scheduledActionHistory.id, createHistoryId("proc-1", "2024-01-15")))
 					.limit(1)
 			)[0]!;
 			expect(hist.executionStatus).toBe("success");
@@ -812,7 +812,7 @@ describe("Scheduled Actions Workflows", () => {
 				nextExecutionDate: "2024-01-15",
 			});
 			await db.insert(scheduledActionHistory).values({
-				id: "hist_proc-2-2024-01-15",
+				id: createHistoryId("proc-2", "2024-01-15"),
 				scheduledActionId: "proc-2",
 				userId: testUserId,
 				actionType: "add_expense",
@@ -834,7 +834,7 @@ describe("Scheduled Actions Workflows", () => {
 			await executeActionStatements(
 				testEnv,
 				action,
-				"hist_proc-2-2024-01-15",
+				createHistoryId("proc-2", "2024-01-15"),
 				200,
 				{ message: "ok2" },
 				[],
@@ -853,7 +853,7 @@ describe("Scheduled Actions Workflows", () => {
 				await db
 					.select()
 					.from(scheduledActionHistory)
-					.where(eq(scheduledActionHistory.id, "hist_proc-2-2024-01-15"))
+					.where(eq(scheduledActionHistory.id, createHistoryId("proc-2", "2024-01-15")))
 					.limit(1)
 			)[0]!;
 			expect(hist.executionStatus).toBe("success");
@@ -973,7 +973,7 @@ describe("Scheduled Actions Workflows", () => {
 			);
 
 			const actionId = testActionId;
-			const historyId = `hist_${testActionId}-2024-01-15`;
+			const historyId = createHistoryId(testActionId, "2024-01-15");
 			const error = new Error("Test action error");
 			const executionDurationMs = 100;
 
@@ -1257,7 +1257,7 @@ describe("Scheduled Actions Workflows", () => {
 			expect(actionsToRun[0].id).toBe(testActionId);
 
 			// Step 2: Create history entry (simulating orchestrator)
-			const historyId = `hist_${testActionId}-${currentDate}`;
+			const historyId = createHistoryId(testActionId, currentDate);
 			await db.insert(scheduledActionHistory).values({
 				id: historyId,
 				scheduledActionId: testActionId,
@@ -1372,7 +1372,7 @@ describe("Scheduled Actions Workflows", () => {
 			const currentDate = triggerDate.split("T")[0];
 
 			// Process the budget action
-			const historyId = `hist_${budgetActionId}-${currentDate}`;
+			const historyId = createHistoryId(budgetActionId, currentDate);
 			await db.insert(scheduledActionHistory).values({
 				id: historyId,
 				scheduledActionId: budgetActionId,
@@ -1444,6 +1444,245 @@ describe("Scheduled Actions Workflows", () => {
 				.limit(1);
 			expect(historyResult[0].executionStatus).toBe("success");
 			expect(historyResult[0].workflowStatus).toBe("complete");
+		});
+	});
+
+	describe("Manual Run Functions", () => {
+		describe("triggerImmediateRun", () => {
+			it("should create history entry and workflow successfully", async () => {
+				// Create a scheduled action
+				const actionId = ulid();
+				const triggerDate = "2024-01-15 00:00:00";
+				const currentDate = "2024-01-15";
+
+				await db.insert(scheduledActions).values({
+					id: actionId,
+					userId: testUserId,
+					actionType: "add_expense",
+					actionData: {
+						description: "Test manual run",
+						amount: 150,
+						currency: "USD",
+						paidByUserId: testUserId,
+						paidByShares: { [testUserId]: 150 },
+						splitPctShares: { [testUserId]: 100 },
+					} as AddExpenseActionData,
+					frequency: "daily",
+					startDate: "2024-01-15",
+					nextExecutionDate: "2024-01-15",
+					createdAt: formatSQLiteTime(),
+					updatedAt: formatSQLiteTime(),
+				});
+
+				// Import the function to test
+				const { triggerImmediateRun } = await import("../workflows/scheduled-actions-processor");
+
+				// Call the function
+				const workflowInstanceId = await triggerImmediateRun(testEnv, actionId, triggerDate);
+
+				// Verify workflow was created
+				expect(testEnv.PROCESSOR_WORKFLOW.create).toHaveBeenCalledWith({
+					id: `immediate-2024-01-15-00-00-00-${actionId}`,
+					params: {
+						triggerDate,
+						actionIds: [actionId],
+						batchNumber: 1,
+					},
+				});
+
+				// Verify history entry was created
+				const historyEntries = await db
+					.select()
+					.from(scheduledActionHistory)
+					.where(eq(scheduledActionHistory.scheduledActionId, actionId));
+
+				expect(historyEntries).toHaveLength(1);
+				const entry = historyEntries[0];
+				expect(entry.id).toBe(createHistoryId(actionId, currentDate));
+				expect(entry.scheduledActionId).toBe(actionId);
+				expect(entry.userId).toBe(testUserId);
+				expect(entry.actionType).toBe("add_expense");
+				expect(entry.executionStatus).toBe("started");
+				expect(entry.workflowInstanceId).toBe(workflowInstanceId);
+				expect(entry.workflowStatus).toBe("running");
+			});
+
+			it("should throw error when action already has history entry", async () => {
+				// Create a scheduled action
+				const actionId = ulid();
+				const triggerDate = "2024-01-15 00:00:00";
+				const currentDate = "2024-01-15";
+
+				await db.insert(scheduledActions).values({
+					id: actionId,
+					userId: testUserId,
+					actionType: "add_expense",
+					actionData: {
+						description: "Test duplicate run",
+						amount: 150,
+						currency: "USD",
+						paidByUserId: testUserId,
+						paidByShares: { [testUserId]: 150 },
+						splitPctShares: { [testUserId]: 100 },
+					} as AddExpenseActionData,
+					frequency: "daily",
+					startDate: "2024-01-15",
+					nextExecutionDate: "2024-01-15",
+					createdAt: formatSQLiteTime(),
+					updatedAt: formatSQLiteTime(),
+				});
+
+				// Create existing history entry
+				await db.insert(scheduledActionHistory).values({
+					id: createHistoryId(actionId, currentDate),
+					scheduledActionId: actionId,
+					userId: testUserId,
+					actionType: "add_expense",
+					executedAt: formatSQLiteTime(),
+					executionStatus: "started",
+					workflowInstanceId: "existing-workflow",
+					workflowStatus: "running",
+					actionData: {
+						description: "Test duplicate run",
+						amount: 150,
+						currency: "USD",
+						paidByUserId: testUserId,
+						paidByShares: { [testUserId]: 150 },
+						splitPctShares: { [testUserId]: 100 },
+					} as AddExpenseActionData,
+				});
+
+				// Import the function to test
+				const { triggerImmediateRun } = await import("../workflows/scheduled-actions-processor");
+
+				// Call the function and expect it to throw
+				await expect(
+					triggerImmediateRun(testEnv, actionId, triggerDate)
+				).rejects.toThrow(`Action has already been executed for date ${currentDate}`);
+
+				// Verify no workflow was created
+				expect(testEnv.PROCESSOR_WORKFLOW.create).not.toHaveBeenCalled();
+
+				// Verify history entry count unchanged
+				const historyEntries = await db
+					.select()
+					.from(scheduledActionHistory)
+					.where(eq(scheduledActionHistory.scheduledActionId, actionId));
+
+				expect(historyEntries).toHaveLength(1); // Still only the original entry
+			});
+
+			it("should throw error when scheduled action not found", async () => {
+				const nonExistentActionId = ulid();
+				const triggerDate = "2024-01-15 00:00:00";
+
+				// Import the function to test
+				const { triggerImmediateRun } = await import("../workflows/scheduled-actions-processor");
+
+				// Call the function and expect it to throw
+				await expect(
+					triggerImmediateRun(testEnv, nonExistentActionId, triggerDate)
+				).rejects.toThrow(`Scheduled action ${nonExistentActionId} not found`);
+
+				// Verify no workflow was created
+				expect(testEnv.PROCESSOR_WORKFLOW.create).not.toHaveBeenCalled();
+
+				// Verify no history entry was created
+				const historyEntries = await db
+					.select()
+					.from(scheduledActionHistory)
+					.where(eq(scheduledActionHistory.scheduledActionId, nonExistentActionId));
+
+				expect(historyEntries).toHaveLength(0);
+			});
+
+			it("should generate correct workflow instance ID format", async () => {
+				// Create a scheduled action
+				const actionId = ulid();
+				const triggerDate = "2024-01-15 00:00:00";
+
+				await db.insert(scheduledActions).values({
+					id: actionId,
+					userId: testUserId,
+					actionType: "add_expense",
+					actionData: {
+						description: "Test workflow ID format",
+						amount: 200,
+						currency: "USD",
+						paidByUserId: testUserId,
+						paidByShares: { [testUserId]: 200 },
+						splitPctShares: { [testUserId]: 100 },
+					} as AddExpenseActionData,
+					frequency: "daily",
+					startDate: "2024-01-15",
+					nextExecutionDate: "2024-01-15",
+					createdAt: formatSQLiteTime(),
+					updatedAt: formatSQLiteTime(),
+				});
+
+				// Import the function to test
+				const { triggerImmediateRun } = await import("../workflows/scheduled-actions-processor");
+
+				// Call the function
+				const workflowInstanceId = await triggerImmediateRun(testEnv, actionId, triggerDate);
+
+				// Verify workflow instance ID format
+				expect(workflowInstanceId).toBe(`immediate-2024-01-15-00-00-00-${actionId}`);
+
+				// Verify history entry links to correct workflow
+				const historyEntries = await db
+					.select()
+					.from(scheduledActionHistory)
+					.where(eq(scheduledActionHistory.scheduledActionId, actionId));
+
+				expect(historyEntries).toHaveLength(1);
+				expect(historyEntries[0].workflowInstanceId).toBe(workflowInstanceId);
+			});
+
+			it("should handle workflow creation failure gracefully", async () => {
+				// Create a scheduled action
+				const actionId = ulid();
+				const triggerDate = "2024-01-15 00:00:00";
+
+				await db.insert(scheduledActions).values({
+					id: actionId,
+					userId: testUserId,
+					actionType: "add_expense",
+					actionData: {
+						description: "Test workflow failure",
+						amount: 100,
+						currency: "USD",
+						paidByUserId: testUserId,
+						paidByShares: { [testUserId]: 100 },
+						splitPctShares: { [testUserId]: 100 },
+					} as AddExpenseActionData,
+					frequency: "daily",
+					startDate: "2024-01-15",
+					nextExecutionDate: "2024-01-15",
+					createdAt: formatSQLiteTime(),
+					updatedAt: formatSQLiteTime(),
+				});
+
+				// Mock workflow creation to fail
+				testEnv.PROCESSOR_WORKFLOW.create = vi.fn().mockRejectedValue(new Error("Workflow service unavailable"));
+
+				// Import the function to test
+				const { triggerImmediateRun } = await import("../workflows/scheduled-actions-processor");
+
+				// Call the function and expect it to throw
+				await expect(
+					triggerImmediateRun(testEnv, actionId, triggerDate)
+				).rejects.toThrow("Workflow service unavailable");
+
+				// Verify history entry was still created (since it's created first)
+				const historyEntries = await db
+					.select()
+					.from(scheduledActionHistory)
+					.where(eq(scheduledActionHistory.scheduledActionId, actionId));
+
+				expect(historyEntries).toHaveLength(1);
+				expect(historyEntries[0].executionStatus).toBe("started");
+			});
 		});
 	});
 });
