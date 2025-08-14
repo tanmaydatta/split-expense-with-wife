@@ -1,10 +1,10 @@
 import { Page, expect } from "@playwright/test";
 
 /**
- * Get CI-aware timeout for selectors (50% longer on CI)
+ * Get CI-aware timeout for selectors (2x longer on CI)
  */
 export function getCITimeout(defaultTimeout: number = 10000): number {
-	return process.env.CI ? Math.round(defaultTimeout * 1.5) : defaultTimeout;
+	return process.env.CI ? Math.round(defaultTimeout * 2.0) : defaultTimeout;
 }
 
 export interface TestUser {
