@@ -6,7 +6,7 @@ import {
 import { and, eq, inArray, lte, sql } from "drizzle-orm";
 import { getDb } from "../db";
 import { scheduledActionHistory, scheduledActions } from "../db/schema/schema";
-import { formatSQLiteTime } from "../utils";
+import { createHistoryId, formatSQLiteTime } from "../utils";
 
 type ScheduledActionSelect = typeof scheduledActions.$inferSelect;
 
@@ -96,7 +96,7 @@ export async function filterActionsWithoutHistory(
 
 	// Filter out actions that already have history entries (any status)
 	for (const action of pendingActions) {
-		const historyId = `hist_${action.id}-${currentDate}`;
+		const historyId = createHistoryId(action.id, currentDate);
 
 		const existingHistory = await db
 			.select()
@@ -134,7 +134,7 @@ export async function createBatchHistoryEntries(
 
 	// Create history entries for all actions in this batch at once
 	const historyEntries = batchActions.map((action) => ({
-		id: `hist_${action.id}-${currentDate}`,
+		id: createHistoryId(action.id, currentDate),
 		scheduledActionId: action.id,
 		userId: action.userId,
 		actionType: action.actionType,
@@ -175,7 +175,7 @@ export async function handleBatchError(
 
 	// Mark all actions in this batch as failed
 	for (const action of batchActions) {
-		const historyId = `hist_${action.id}-${currentDate}`;
+		const historyId = createHistoryId(action.id, currentDate);
 
 		try {
 			await db

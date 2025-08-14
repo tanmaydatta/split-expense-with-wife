@@ -768,6 +768,80 @@ export async function handleScheduledActionHistoryDetails(
 	});
 }
 
+async function validateAndGetScheduledAction(
+	db: ReturnType<typeof getDb>,
+	actionId: string,
+	groupUserIds: string[],
+): Promise<{ action: typeof scheduledActions.$inferSelect } | { error: string }> {
+	const rows = await db
+		.select()
+		.from(scheduledActions)
+		.where(
+			and(
+				eq(scheduledActions.id, actionId),
+				inArray(scheduledActions.userId, groupUserIds),
+			),
+		)
+		.limit(1);
+
+	if (rows.length === 0) {
+		return { error: "Scheduled action not found" };
+	}
+
+	return { action: rows[0] };
+}
+
+function handleTriggerError(error: unknown, nextDate: string): {
+	isHandled: boolean;
+	statusCode: number;
+	message: string;
+} | null {
+	const errorMessage = error instanceof Error ? error.message : "Unknown error";
+	if (errorMessage.includes("already been executed")) {
+		return {
+			isHandled: true,
+			statusCode: 409,
+			message: `Action has already been executed for ${nextDate}`,
+		};
+	}
+	return null;
+}
+
+async function executeManualRun(
+	env: Env,
+	actionId: string,
+	nextDate: string,
+	request: Request,
+): Promise<Response> {
+	const triggerDate = `${nextDate} 00:00:00`;
+
+	try {
+		const workflowInstanceId = await triggerImmediateRun(
+			env,
+			actionId,
+			triggerDate,
+		);
+		return createJsonResponse(
+			{ message: "Run started", workflowInstanceId },
+			200,
+			{},
+			request,
+			env,
+		);
+	} catch (error) {
+		const errorHandling = handleTriggerError(error, nextDate);
+		if (errorHandling) {
+			return createErrorResponse(
+				errorHandling.message,
+				errorHandling.statusCode,
+				request,
+				env,
+			);
+		}
+		throw error;
+	}
+}
+
 export async function handleScheduledActionRunNow(
 	request: Request,
 	env: Env,
@@ -777,40 +851,27 @@ export async function handleScheduledActionRunNow(
 		if (!group) {
 			return createErrorResponse("User not in a group", 400, request, env);
 		}
+
 		const json = (await request.json()) as { id?: string };
 		const id = json?.id;
 		if (!id) {
 			return createErrorResponse("Missing id", 400, request, env);
 		}
-		// Validate ownership: action must belong to a user in the same group
-		const rows = await db
-			.select()
-			.from(scheduledActions)
-			.where(
-				and(
-					eq(scheduledActions.id, id),
-					inArray(scheduledActions.userId, group.userids),
-				),
-			)
-			.limit(1);
-		if (rows.length === 0) {
-			return createErrorResponse(
-				"Scheduled action not found",
-				404,
-				request,
-				env,
-			);
+
+		const validationResult = await validateAndGetScheduledAction(
+			db,
+			id,
+			group.userids,
+		);
+		if ("error" in validationResult) {
+			return createErrorResponse(validationResult.error, 404, request, env);
 		}
-		// Use the action's nextExecutionDate as the trigger date (00:00:00 time)
-		const nextDate = rows[0].nextExecutionDate;
-		const triggerDate = `${nextDate} 00:00:00`;
-		const workflowInstanceId = await triggerImmediateRun(env, id, triggerDate);
-		return createJsonResponse(
-			{ message: "Run started", workflowInstanceId },
-			200,
-			{},
-			request,
+
+		return executeManualRun(
 			env,
+			id,
+			validationResult.action.nextExecutionDate,
+			request,
 		);
 	});
 }
