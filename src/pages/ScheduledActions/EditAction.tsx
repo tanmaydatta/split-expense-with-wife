@@ -69,7 +69,6 @@ const ScheduledActionEditPage: React.FC = () => {
 						await update.mutateAsync({
 							id: initialValues.id!,
 							frequency: val.frequency,
-							startDate: val.startDate,
 							actionData: val.actionData as any,
 						} as any);
 						await refetch();
