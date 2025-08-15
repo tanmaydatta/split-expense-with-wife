@@ -372,7 +372,9 @@ export const ScheduledActionsManager: React.FC<
 									field.handleChange(clamped);
 								}}
 								data-test-id="sa-start-date"
-								style={mode === "edit" ? { opacity: 0.6, cursor: "not-allowed" } : {}}
+								style={
+									mode === "edit" ? { opacity: 0.6, cursor: "not-allowed" } : {}
+								}
 							/>
 						)}
 					</form.Field>
