@@ -34,7 +34,7 @@ export async function handleGroupDetails(
 				metadata: groups.metadata,
 			})
 			.from(groups)
-			.where(eq(groups.groupid, session.group.groupid))
+			.where(eq(groups.groupid, String(session.group.groupid)))
 			.limit(1);
 
 		if (groupResult.length === 0) {
@@ -284,7 +284,7 @@ async function updateMetadata(
 	const currentGroup = await db
 		.select({ metadata: groups.metadata })
 		.from(groups)
-		.where(eq(groups.groupid, session.group.groupid))
+		.where(eq(groups.groupid, String(session.group.groupid)))
 		.limit(1);
 
 	const currentMetadata = JSON.parse(
@@ -370,14 +370,14 @@ export async function handleUpdateGroupMetadata(
 			await db
 				.update(groups)
 				.set(updates)
-				.where(eq(groups.groupid, session.group.groupid));
+				.where(eq(groups.groupid, String(session.group.groupid)));
 		}
 
 		// Get updated metadata for response
 		const updatedGroup = await db
 			.select({ metadata: groups.metadata })
 			.from(groups)
-			.where(eq(groups.groupid, session.group.groupid))
+			.where(eq(groups.groupid, String(session.group.groupid)))
 			.limit(1);
 
 		const updatedMetadata = JSON.parse(

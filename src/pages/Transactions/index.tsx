@@ -73,7 +73,7 @@ const TransactionList: React.FC<{
 						</thead>
 						<tbody>
 							{transactions.map((transaction) => (
-								<React.Fragment key={transaction.id}>
+								<React.Fragment key={transaction.transactionId}>
 									<tr
 										className="transaction-row"
 										data-test-id="transaction-item"
@@ -145,7 +145,7 @@ const TransactionList: React.FC<{
 			<div className="mobile-cards">
 				{transactions.map((transaction) => (
 					<TransactionCard
-						key={transaction.id}
+						key={transaction.transactionId}
 						transaction={transaction}
 						isSelected={
 							selectedTransaction?.transactionId === transaction.transactionId
@@ -267,7 +267,6 @@ const Transactions: React.FC = () => {
 						owedToAmounts: {},
 					};
 					return entries.push({
-						id: e.id,
 						transactionId: e.transaction_id,
 						description: e.description as string,
 						totalAmount: e.amount,

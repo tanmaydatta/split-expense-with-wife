@@ -8,7 +8,8 @@
 			"WebFetch(domain:sqlite.org)",
 			"Bash(yarn lint)",
 			"Bash(npm run build:*)",
-			"Bash(yarn wrangler types:*)"
+			"Bash(yarn wrangler types:*)",
+			"Bash(env)"
 		],
 		"deny": []
 	}

@@ -5,7 +5,6 @@ import {
 	real,
 	sqliteTable,
 	text,
-	uniqueIndex,
 } from "drizzle-orm/sqlite-core";
 import type {
 	ScheduledActionData,
@@ -26,13 +25,12 @@ export const groups = sqliteTable("groups", {
 export const transactions = sqliteTable(
 	"transactions",
 	{
-		id: integer("id").primaryKey({ autoIncrement: true }),
+		transactionId: text("transaction_id", { length: 100 }).primaryKey(),
 		description: text("description", { length: 255 }).notNull(),
 		amount: real("amount").notNull(),
 		createdAt: text("created_at").notNull().default("CURRENT_TIMESTAMP"),
 		metadata: text("metadata", { mode: "json" }).$type<TransactionMetadata>(),
 		currency: text("currency", { length: 10 }).notNull(),
-		transactionId: text("transaction_id", { length: 100 }),
 		groupId: text("group_id").notNull(),
 		deleted: text("deleted"),
 	},
@@ -43,7 +41,6 @@ export const transactions = sqliteTable(
 			table.createdAt,
 		),
 		index("transactions_created_at_idx").on(table.createdAt),
-		uniqueIndex("transactions_transaction_id_idx").on(table.transactionId),
 		index("transactions_group_id_idx").on(table.groupId),
 	],
 );

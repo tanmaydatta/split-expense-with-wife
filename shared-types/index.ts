@@ -38,7 +38,6 @@ export interface BudgetEntry {
 
 // Transaction types
 export interface Transaction {
-	id: number;
 	description: string;
 	amount: number;
 	created_at: string; // ISO string format
@@ -200,7 +199,6 @@ export interface ErrorResponse {
 
 // Frontend-specific types (extending the backend types)
 export interface FrontendTransaction {
-	id: number;
 	transactionId: string;
 	description: string;
 	totalAmount: number;

@@ -102,3 +102,5 @@ This is a full-stack expense splitting application with the following architectu
 - Frontend: Auto-deployed to Netlify on main branch
 - Backend: Manual deployment via `yarn deploy:dev|prod` commands
 - Database migrations: Run separately before deploying code changes
+- always use yarn in this project
+- do not add created by claude in commit message

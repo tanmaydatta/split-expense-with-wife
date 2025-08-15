@@ -211,7 +211,7 @@ function createTransactionStatements(
 			createdAt: timestamp,
 			currency: splitRequest.currency,
 			transactionId,
-			groupId,
+			groupId: String(groupId),
 			metadata: {
 				paidByShares: paidBySharesWithNames,
 				owedAmounts: owedAmounts,
