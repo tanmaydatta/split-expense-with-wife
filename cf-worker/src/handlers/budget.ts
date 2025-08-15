@@ -400,7 +400,7 @@ export async function handleBalances(
 				.from(userBalances)
 				.where(
 					and(
-						eq(userBalances.groupId, session.group.groupid),
+						eq(userBalances.groupId, String(session.group.groupid)),
 						sql`${userBalances.balance} != 0`,
 					),
 				);
@@ -453,7 +453,7 @@ export async function handleBudget(
 			const budgetRequest: BudgetRequest = {
 				...body,
 				currency: body.currency || "GBP",
-				groupid: session.group.groupid,
+				groupid: String(session.group.groupid),
 			};
 
 			return await createBudgetEntry(budgetRequest, db, request, env);
@@ -486,7 +486,7 @@ export async function handleBudgetDelete(
 				.where(
 					and(
 						eq(budget.id, body.id),
-						eq(budget.groupid, session.group.groupid),
+						eq(budget.groupid, String(session.group.groupid)),
 						isNull(budget.deleted),
 					),
 				)
@@ -519,7 +519,7 @@ export async function handleBudgetDelete(
 				})
 				.where(
 					and(
-						eq(budgetTotals.groupId, session.group.groupid),
+						eq(budgetTotals.groupId, String(session.group.groupid)),
 						eq(budgetTotals.name, entry.name),
 						eq(budgetTotals.currency, entry.currency),
 					),
@@ -576,7 +576,7 @@ export async function handleBudgetList(
 					and(
 						lt(budget.addedTime, currentTime),
 						eq(budget.name, name),
-						eq(budget.groupid, session.group.groupid),
+						eq(budget.groupid, String(session.group.groupid)),
 						isNull(budget.deleted),
 					),
 				)
@@ -631,7 +631,7 @@ export async function handleBudgetMonthly(
 			const monthlyData = await getMonthlyBudgetData(
 				db,
 				name,
-				session.group.groupid,
+				String(session.group.groupid),
 				oldestData,
 			);
 
@@ -691,7 +691,7 @@ export async function handleBudgetTotal(
 			// Use existing utility function for now (could be migrated to Drizzle later)
 			const totals = await getBudgetTotals(
 				env,
-				session.group.groupid,
+				String(session.group.groupid),
 				body.name,
 			);
 

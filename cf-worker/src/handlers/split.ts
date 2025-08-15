@@ -265,7 +265,7 @@ export async function handleSplitDelete(
 				.where(
 					and(
 						eq(transactionUsers.transactionId, body.id),
-						eq(transactionUsers.groupId, session.group.groupid),
+						eq(transactionUsers.groupId, String(session.group.groupid)),
 						isNull(transactionUsers.deleted),
 					),
 				);
@@ -283,7 +283,7 @@ export async function handleSplitDelete(
 				.where(
 					and(
 						eq(transactions.transactionId, body.id),
-						eq(transactions.groupId, session.group.groupid),
+						eq(transactions.groupId, String(session.group.groupid)),
 					),
 				);
 
@@ -293,7 +293,7 @@ export async function handleSplitDelete(
 				.where(
 					and(
 						eq(transactionUsers.transactionId, body.id),
-						eq(transactionUsers.groupId, session.group.groupid),
+						eq(transactionUsers.groupId, String(session.group.groupid)),
 					),
 				);
 
