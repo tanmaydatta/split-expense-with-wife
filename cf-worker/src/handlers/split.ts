@@ -27,7 +27,7 @@ async function createSplitTransactionHandler(
 	db: ReturnType<typeof getDb>,
 	env: Env,
 ): Promise<{ message: string; transactionId: string }> {
-	const transactionId = ulid();
+	const transactionId = `tx_${ulid()}`;
 
 	const result = await createSplitTransactionFromRequest(
 		body,
@@ -82,13 +82,12 @@ async function getTransactionsList(
 
 // Type for raw database transaction result (camelCase)
 type TransactionDbResult = {
-	id: number;
 	description: string;
 	amount: number;
 	createdAt: string;
 	metadata: TransactionMetadata | null;
 	currency: string;
-	transactionId: string | null;
+	transactionId: string;
 	groupId: string;
 	deleted: string | null;
 };
@@ -106,13 +105,12 @@ function transformTransactionsList(
 		const metadata = t.metadata || defaultMetadata;
 
 		return {
-			id: t.id,
 			description: t.description,
 			amount: t.amount,
 			created_at: t.createdAt,
 			metadata: JSON.stringify(metadata),
 			currency: t.currency,
-			transaction_id: t.transactionId || "",
+			transaction_id: t.transactionId,
 			group_id: t.groupId,
 			deleted: t.deleted || undefined,
 		};
@@ -190,9 +188,7 @@ async function getTransactionDetails(
 	groupId: string,
 	db: ReturnType<typeof getDb>,
 ): Promise<Record<string, TransactionUser[]>> {
-	const transactionIds = rawTransactionsList
-		.map((t) => t.transactionId)
-		.filter((id): id is string => id !== null);
+	const transactionIds = rawTransactionsList.map((t) => t.transactionId);
 
 	if (transactionIds.length === 0) {
 		return {};

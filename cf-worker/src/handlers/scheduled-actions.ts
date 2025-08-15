@@ -772,7 +772,9 @@ async function validateAndGetScheduledAction(
 	db: ReturnType<typeof getDb>,
 	actionId: string,
 	groupUserIds: string[],
-): Promise<{ action: typeof scheduledActions.$inferSelect } | { error: string }> {
+): Promise<
+	{ action: typeof scheduledActions.$inferSelect } | { error: string }
+> {
 	const rows = await db
 		.select()
 		.from(scheduledActions)
@@ -791,7 +793,10 @@ async function validateAndGetScheduledAction(
 	return { action: rows[0] };
 }
 
-function handleTriggerError(error: unknown, nextDate: string): {
+function handleTriggerError(
+	error: unknown,
+	nextDate: string,
+): {
 	isHandled: boolean;
 	statusCode: number;
 	message: string;
