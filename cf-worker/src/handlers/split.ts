@@ -58,15 +58,17 @@ async function getTransactionsList(
 	transactions: Transaction[];
 	transactionDetails: Record<string, TransactionUser[]>;
 }> {
+	// Convert groupId to string to match database type
+	const groupIdStr = String(groupId);
+	
 	// Get transactions list using Drizzle
 	const rawTransactionsList = await db
 		.select()
 		.from(transactions)
-		.where(and(eq(transactions.groupId, groupId), isNull(transactions.deleted)))
+		.where(and(eq(transactions.groupId, groupIdStr), isNull(transactions.deleted)))
 		.orderBy(desc(transactions.createdAt))
 		.limit(10)
 		.offset(body.offset);
-
 	// Transform to match production format
 	const transactionsList = transformTransactionsList(rawTransactionsList);
 
