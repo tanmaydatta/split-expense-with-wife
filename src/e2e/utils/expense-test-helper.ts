@@ -103,7 +103,7 @@ export class ExpenseTestHelper {
 	) {
 		await expect(this.authenticatedPage.page).toHaveURL("/expenses");
 		await this.authenticatedPage.page.reload();
-		await this.authenticatedPage.page.waitForTimeout(1000);
+		await this.authenticatedPage.page.waitForTimeout(2000);
 		console.log(
 			"verifySpecificExpenseEntry",
 			"description",
