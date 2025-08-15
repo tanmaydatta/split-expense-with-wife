@@ -29,6 +29,7 @@
 - history entry on manual run ✅
     - idempotency check ✅
     - insert before calling workflow ✅
+- edit action, start date should not be mutated ever
 - scan receipt
 - full text search
 - transaction/add

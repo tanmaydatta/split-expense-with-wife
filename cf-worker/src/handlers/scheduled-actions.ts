@@ -34,7 +34,6 @@ type ScheduledActionUpdateData = {
 	updatedAt: string;
 	isActive?: boolean;
 	frequency?: "daily" | "weekly" | "monthly";
-	startDate?: string;
 	actionData?: AddExpenseActionData | AddBudgetActionData;
 	nextExecutionDate?: string;
 };
@@ -350,10 +349,6 @@ function buildUpdateData(
 		updateData.frequency = body.frequency;
 	}
 
-	if (body.startDate) {
-		updateData.startDate = body.startDate;
-	}
-
 	return updateData;
 }
 
@@ -420,12 +415,13 @@ function calculateAndSetNextExecutionDate(
 		return;
 	}
 
-	// 3) Recalculate next execution date if frequency or start date changed
-	if ((body.frequency || body.startDate) && !updateData.nextExecutionDate) {
-		const newFrequency = body.frequency || existingAction.frequency;
-		const newStartDate = body.startDate || existingAction.startDate;
+	// 3) Recalculate next execution date if frequency changed
+	if (body.frequency && !updateData.nextExecutionDate) {
+		const newFrequency = body.frequency;
+		// Use existing start date since it cannot be changed
+		const existingStartDate = existingAction.startDate;
 		updateData.nextExecutionDate = calculateNextExecutionDate(
-			newStartDate,
+			existingStartDate,
 			newFrequency as "daily" | "weekly" | "monthly",
 		);
 	}

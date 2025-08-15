@@ -443,7 +443,6 @@ export interface UpdateScheduledActionRequest {
 	id: string;
 	isActive?: boolean;
 	frequency?: ScheduledActionFrequency;
-	startDate?: string;
 	actionData?: AddExpenseActionData | AddBudgetActionData;
 	nextExecutionDate?: string;
 	skipNext?: boolean;
@@ -560,7 +559,6 @@ export declare const UpdateScheduledActionSchema: z.ZodObject<
 				]
 			>
 		>;
-		startDate: z.ZodOptional<z.ZodString>;
 		actionData: z.ZodOptional<
 			z.ZodUnion<
 				readonly [

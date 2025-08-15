@@ -489,7 +489,6 @@ export interface UpdateScheduledActionRequest {
 	id: string;
 	isActive?: boolean;
 	frequency?: ScheduledActionFrequency;
-	startDate?: string;
 	actionData?: AddExpenseActionData | AddBudgetActionData;
 	// New: allow explicitly setting the next run date
 	nextExecutionDate?: string; // ISO date YYYY-MM-DD
@@ -584,10 +583,6 @@ export const UpdateScheduledActionSchema = z
 		isActive: z.boolean().optional(),
 		frequency: z
 			.union([z.literal("daily"), z.literal("weekly"), z.literal("monthly")])
-			.optional(),
-		startDate: z
-			.string()
-			.regex(/^\d{4}-\d{2}-\d{2}$/)
 			.optional(),
 		actionData: z
 			.union([AddExpenseActionSchema, AddBudgetActionSchema])

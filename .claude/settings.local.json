@@ -9,7 +9,8 @@
 			"Bash(yarn lint)",
 			"Bash(npm run build:*)",
 			"Bash(yarn wrangler types:*)",
-			"Bash(env)"
+			"Bash(env)",
+			"Bash(grep:*)"
 		],
 		"deny": []
 	}

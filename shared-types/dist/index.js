@@ -54,10 +54,6 @@ export const UpdateScheduledActionSchema = z
 		frequency: z
 			.union([z.literal("daily"), z.literal("weekly"), z.literal("monthly")])
 			.optional(),
-		startDate: z
-			.string()
-			.regex(/^\d{4}-\d{2}-\d{2}$/)
-			.optional(),
 		actionData: z
 			.union([AddExpenseActionSchema, AddBudgetActionSchema])
 			.optional(),

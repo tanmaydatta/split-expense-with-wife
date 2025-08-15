@@ -800,6 +800,43 @@ describe("Scheduled Actions Handlers", () => {
 			expect(result.error).toContain("only one of nextExecutionDate or skipNext");
 		});
 
+		it("should ignore startDate in update requests (startDate is immutable)", async () => {
+			const db = getDb(env);
+			
+			// Get original start date
+			const originalAction = await db
+				.select()
+				.from(scheduledActions)
+				.where(eq(scheduledActions.id, actionId))
+				.limit(1);
+			const originalStartDate = originalAction[0].startDate;
+			
+			const updateRequest: any = {
+				id: actionId,
+				startDate: "2024-02-01", // Should be ignored
+				frequency: "weekly"
+			};
+			const response = await worker.fetch(
+				createTestRequest("scheduled-actions/update", "PUT", updateRequest, userCookies),
+				env,
+				createExecutionContext(),
+			);
+			
+			expect(response.status).toBe(200);
+			const result = (await response.json()) as { message: string };
+			expect(result.message).toBe("Scheduled action updated successfully");
+			
+			// Verify start date is unchanged
+			const updatedAction = await db
+				.select()
+				.from(scheduledActions)
+				.where(eq(scheduledActions.id, actionId))
+				.limit(1);
+			
+			expect(updatedAction[0].startDate).toBe(originalStartDate); // Start date should remain unchanged
+			expect(updatedAction[0].frequency).toBe("weekly"); // But frequency should be updated
+		});
+
 		it("should reject update of non-existent action", async () => {
 			const updateRequest: UpdateScheduledActionRequest = {
 				id: "non-existent-id",

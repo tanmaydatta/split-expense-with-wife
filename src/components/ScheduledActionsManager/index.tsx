@@ -361,7 +361,9 @@ export const ScheduledActionsManager: React.FC<
 								value={String(field.state.value ?? "")}
 								min={todayAsLocalISODate}
 								required
+								disabled={mode === "edit"}
 								onChange={(e) => {
+									if (mode === "edit") return; // prevent changing start date in edit
 									const val = e.target.value;
 									const clamped =
 										val && val < todayAsLocalISODate
@@ -370,6 +372,9 @@ export const ScheduledActionsManager: React.FC<
 									field.handleChange(clamped);
 								}}
 								data-test-id="sa-start-date"
+								style={
+									mode === "edit" ? { opacity: 0.6, cursor: "not-allowed" } : {}
+								}
 							/>
 						)}
 					</form.Field>
