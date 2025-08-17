@@ -1125,10 +1125,10 @@ describe("Scheduled Actions Workflows", () => {
 			const budgetResult = await db
 				.select()
 				.from(budgetEntries)
-				.where(eq(budgetEntries.budgetId, budgetId))
+				.where(eq(budgetEntries.budgetEntryId, budgetId))
 				.limit(1);
 			expect(budgetResult).toHaveLength(1);
-			expect(budgetResult[0].budgetId).toBe(budgetId);
+			expect(budgetResult[0].budgetEntryId).toBe(budgetId);
 			expect(budgetResult[0].amount).toBe(800);
 		});
 
@@ -1222,7 +1222,7 @@ describe("Scheduled Actions Workflows", () => {
 			const budgetResult = await db
 				.select()
 				.from(budgetEntries)
-				.where(eq(budgetEntries.budgetId, budgetId));
+				.where(eq(budgetEntries.budgetEntryId, budgetId));
 			expect(budgetResult).toHaveLength(1);
 		});
 	});
@@ -1431,7 +1431,7 @@ describe("Scheduled Actions Workflows", () => {
 			const budgetEntryResult = await db
 				.select()
 				.from(budgetEntries)
-				.where(eq(budgetEntries.budgetId, budgetId))
+				.where(eq(budgetEntries.budgetEntryId, budgetId))
 				.limit(1);
 			expect(budgetEntryResult).toHaveLength(1);
 			expect(budgetEntryResult[0].amount).toBe(800);

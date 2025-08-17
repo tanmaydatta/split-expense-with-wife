@@ -442,7 +442,7 @@ export type ScheduledActionData = AddExpenseActionData | AddBudgetActionData;
 export type ScheduledActionResultData = {
 	message: string;
 	transactionId?: string;
-	budgetId?: string;
+	budgetEntryId?: string;
 } | null;
 
 // Action-specific data types

@@ -1,8 +1,8 @@
 {
 	"version": "6",
 	"dialect": "sqlite",
-	"id": "a592ce24-def7-41c7-aba1-0ae5513dbe65",
-	"prevId": "937a8eed-e7eb-474b-8bd6-c72f4868bcad",
+	"id": "eca4b010-b89e-4726-9eea-4d0040273d33",
+	"prevId": "a592ce24-def7-41c7-aba1-0ae5513dbe65",
 	"tables": {
 		"account": {
 			"name": "account",
@@ -364,8 +364,8 @@
 					"notNull": true,
 					"autoincrement": true
 				},
-				"budget_id": {
-					"name": "budget_id",
+				"budget_entry_id": {
+					"name": "budget_entry_id",
 					"type": "text(100)",
 					"primaryKey": false,
 					"notNull": false,
@@ -471,9 +471,9 @@
 					"columns": ["added_time"],
 					"isUnique": false
 				},
-				"budget_entries_budget_id_idx": {
-					"name": "budget_entries_budget_id_idx",
-					"columns": ["budget_id"],
+				"budget_entries_budget_entry_id_idx": {
+					"name": "budget_entries_budget_entry_id_idx",
+					"columns": ["budget_entry_id"],
 					"isUnique": false
 				}
 			},
@@ -1113,10 +1113,10 @@
 	"enums": {},
 	"_meta": {
 		"schemas": {},
-		"tables": {
-			"\"budget\"": "\"budget_entries\""
-		},
-		"columns": {}
+		"tables": {},
+		"columns": {
+			"\"budget_entries\".\"budget_id\"": "\"budget_entries\".\"budget_entry_id\""
+		}
 	},
 	"internal": {
 		"indexes": {}

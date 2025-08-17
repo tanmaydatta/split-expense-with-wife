@@ -384,7 +384,12 @@ export async function createBudgetEntryStatements(
 	const existingBudget = await db
 		.select()
 		.from(budgetEntries)
-		.where(and(eq(budgetEntries.budgetId, budgetId), isNull(budgetEntries.deleted)))
+		.where(
+			and(
+				eq(budgetEntries.budgetEntryId, budgetId),
+				isNull(budgetEntries.deleted),
+			),
+		)
 		.limit(1);
 
 	if (existingBudget.length > 0) {
@@ -403,7 +408,7 @@ export async function createBudgetEntryStatements(
 	// Create budget entry
 	statements.push({
 		query: db.insert(budgetEntries).values({
-			budgetId,
+			budgetEntryId: budgetId,
 			description: budgetRequest.description,
 			addedTime: timestamp,
 			amount: budgetRequest.amount,
