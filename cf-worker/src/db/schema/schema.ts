@@ -96,8 +96,8 @@ export const transactionUsers = sqliteTable(
 	],
 );
 
-export const budget = sqliteTable(
-	"budget",
+export const budgetEntries = sqliteTable(
+	"budget_entries",
 	{
 		id: integer("id").primaryKey({ autoIncrement: true }),
 		budgetId: text("budget_id", { length: 100 }), // For deterministic creation in scheduled actions
@@ -111,30 +111,30 @@ export const budget = sqliteTable(
 		currency: text("currency", { length: 10 }).notNull().default("GBP"),
 	},
 	(table) => [
-		index("budget_monthly_query_idx").on(
+		index("budget_entries_monthly_query_idx").on(
 			table.name,
 			table.groupid,
 			table.deleted,
 			table.addedTime,
 		),
-		index("budget_name_groupid_deleted_added_time_amount_idx").on(
+		index("budget_entries_name_groupid_deleted_added_time_amount_idx").on(
 			table.name,
 			table.groupid,
 			table.deleted,
 			table.addedTime,
 			table.amount,
 		),
-		index("budget_name_groupid_deleted_idx").on(
+		index("budget_entries_name_groupid_deleted_idx").on(
 			table.name,
 			table.groupid,
 			table.deleted,
 		),
-		index("budget_name_price_idx").on(table.name, table.price),
-		index("budget_name_idx").on(table.name),
-		index("budget_amount_idx").on(table.amount),
-		index("budget_name_added_time_idx").on(table.name, table.addedTime),
-		index("budget_added_time_idx").on(table.addedTime),
-		index("budget_budget_id_idx").on(table.budgetId),
+		index("budget_entries_name_price_idx").on(table.name, table.price),
+		index("budget_entries_name_idx").on(table.name),
+		index("budget_entries_amount_idx").on(table.amount),
+		index("budget_entries_name_added_time_idx").on(table.name, table.addedTime),
+		index("budget_entries_added_time_idx").on(table.addedTime),
+		index("budget_entries_budget_id_idx").on(table.budgetId),
 	],
 );
 
@@ -287,7 +287,7 @@ export const schema = {
 	verification,
 	transactions,
 	transactionUsers,
-	budget,
+	budgetEntries,
 	userBalances,
 	budgetTotals,
 	scheduledActions,
@@ -305,8 +305,8 @@ export type Transaction = typeof transactions.$inferSelect;
 export type NewTransaction = typeof transactions.$inferInsert;
 export type TransactionUser = typeof transactionUsers.$inferSelect;
 export type NewTransactionUser = typeof transactionUsers.$inferInsert;
-export type Budget = typeof budget.$inferSelect;
-export type NewBudget = typeof budget.$inferInsert;
+export type BudgetEntry = typeof budgetEntries.$inferSelect;
+export type NewBudgetEntry = typeof budgetEntries.$inferInsert;
 export type UserBalance = typeof userBalances.$inferSelect;
 export type NewUserBalance = typeof userBalances.$inferInsert;
 export type BudgetTotal = typeof budgetTotals.$inferSelect;

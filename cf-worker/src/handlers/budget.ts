@@ -12,7 +12,7 @@ import type {
 } from "../../../shared-types";
 import type { getDb } from "../db";
 import type { user } from "../db/schema/auth-schema";
-import { budget, budgetTotals, userBalances } from "../db/schema/schema";
+import { budgetEntries, budgetTotals, userBalances } from "../db/schema/schema";
 import {
 	createErrorResponse,
 	createJsonResponse,
@@ -37,23 +37,23 @@ async function getMonthlyBudgetData(
 				"month",
 			),
 			year: sql<number>`CAST(strftime('%Y', added_time) AS INTEGER)`.as("year"),
-			currency: budget.currency,
+			currency: budgetEntries.currency,
 			amount: sql<number>`SUM(amount)`.as("amount"),
 		})
-		.from(budget)
+		.from(budgetEntries)
 		.where(
 			and(
-				eq(budget.name, name),
-				eq(budget.groupid, groupId),
-				isNull(budget.deleted),
-				gte(budget.addedTime, formatSQLiteTime(oldestData)),
-				lt(budget.amount, 0), // Only negative amounts (expenses)
+				eq(budgetEntries.name, name),
+				eq(budgetEntries.groupid, groupId),
+				isNull(budgetEntries.deleted),
+				gte(budgetEntries.addedTime, formatSQLiteTime(oldestData)),
+				lt(budgetEntries.amount, 0), // Only negative amounts (expenses)
 			),
 		)
 		.groupBy(
 			sql`strftime('%Y', added_time)`,
 			sql`strftime('%m', added_time)`,
-			budget.currency,
+			budgetEntries.currency,
 		)
 		.orderBy(
 			sql`strftime('%Y', added_time) DESC`,
@@ -482,12 +482,12 @@ export async function handleBudgetDelete(
 			// Get budget entry to verify ownership and get details for total update
 			const budgetEntry = await db
 				.select()
-				.from(budget)
+				.from(budgetEntries)
 				.where(
 					and(
-						eq(budget.id, body.id),
-						eq(budget.groupid, String(session.group.groupid)),
-						isNull(budget.deleted),
+						eq(budgetEntries.id, body.id),
+						eq(budgetEntries.groupid, String(session.group.groupid)),
+						isNull(budgetEntries.deleted),
 					),
 				)
 				.limit(1);
@@ -507,9 +507,9 @@ export async function handleBudgetDelete(
 
 			// Prepare Drizzle statements for batch operation
 			const deleteBudget = db
-				.update(budget)
+				.update(budgetEntries)
 				.set({ deleted: deletedTime })
-				.where(eq(budget.id, body.id));
+				.where(eq(budgetEntries.id, body.id));
 
 			const updateBudgetTotal = db
 				.update(budgetTotals)
@@ -569,23 +569,23 @@ export async function handleBudgetList(
 			const name = body.name || "house";
 			const currentTime = formatSQLiteTime();
 			// Get budget entries using Drizzle
-			const budgetEntries = await db
+			const budgetEntriesResult = await db
 				.select()
-				.from(budget)
+				.from(budgetEntries)
 				.where(
 					and(
-						lt(budget.addedTime, currentTime),
-						eq(budget.name, name),
-						eq(budget.groupid, String(session.group.groupid)),
-						isNull(budget.deleted),
+						lt(budgetEntries.addedTime, currentTime),
+						eq(budgetEntries.name, name),
+						eq(budgetEntries.groupid, String(session.group.groupid)),
+						isNull(budgetEntries.deleted),
 					),
 				)
-				.orderBy(desc(budget.addedTime))
+				.orderBy(desc(budgetEntries.addedTime))
 				.limit(5)
 				.offset(body.offset);
 
 			// Ensure price field is properly formatted as string
-			const formattedEntries = budgetEntries.map((entry) => ({
+			const formattedEntries = budgetEntriesResult.map((entry) => ({
 				...entry,
 				price:
 					entry.price ||

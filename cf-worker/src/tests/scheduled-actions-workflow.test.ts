@@ -9,7 +9,7 @@ import type {
 import { getDb } from "../db";
 import { user } from "../db/schema/auth-schema";
 import {
-	budget,
+	budgetEntries,
 	groups,
 	scheduledActionHistory,
 	scheduledActions,
@@ -1124,8 +1124,8 @@ describe("Scheduled Actions Workflows", () => {
 			// Verify budget was created with the specified ID
 			const budgetResult = await db
 				.select()
-				.from(budget)
-				.where(eq(budget.budgetId, budgetId))
+				.from(budgetEntries)
+				.where(eq(budgetEntries.budgetId, budgetId))
 				.limit(1);
 			expect(budgetResult).toHaveLength(1);
 			expect(budgetResult[0].budgetId).toBe(budgetId);
@@ -1221,8 +1221,8 @@ describe("Scheduled Actions Workflows", () => {
 			// Verify only one budget entry exists
 			const budgetResult = await db
 				.select()
-				.from(budget)
-				.where(eq(budget.budgetId, budgetId));
+				.from(budgetEntries)
+				.where(eq(budgetEntries.budgetId, budgetId));
 			expect(budgetResult).toHaveLength(1);
 		});
 	});
@@ -1430,8 +1430,8 @@ describe("Scheduled Actions Workflows", () => {
 			// Verify results
 			const budgetEntryResult = await db
 				.select()
-				.from(budget)
-				.where(eq(budget.budgetId, budgetId))
+				.from(budgetEntries)
+				.where(eq(budgetEntries.budgetId, budgetId))
 				.limit(1);
 			expect(budgetEntryResult).toHaveLength(1);
 			expect(budgetEntryResult[0].amount).toBe(800);

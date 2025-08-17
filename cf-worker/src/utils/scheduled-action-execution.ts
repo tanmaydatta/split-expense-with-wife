@@ -9,7 +9,7 @@ import type {
 import type { getDb } from "../db";
 import { user } from "../db/schema/auth-schema";
 import {
-	budget,
+	budgetEntries,
 	budgetTotals,
 	transactions,
 	transactionUsers,
@@ -383,8 +383,8 @@ export async function createBudgetEntryStatements(
 	// Check if budget already exists
 	const existingBudget = await db
 		.select()
-		.from(budget)
-		.where(and(eq(budget.budgetId, budgetId), isNull(budget.deleted)))
+		.from(budgetEntries)
+		.where(and(eq(budgetEntries.budgetId, budgetId), isNull(budgetEntries.deleted)))
 		.limit(1);
 
 	if (existingBudget.length > 0) {
@@ -402,7 +402,7 @@ export async function createBudgetEntryStatements(
 
 	// Create budget entry
 	statements.push({
-		query: db.insert(budget).values({
+		query: db.insert(budgetEntries).values({
 			budgetId,
 			description: budgetRequest.description,
 			addedTime: timestamp,
