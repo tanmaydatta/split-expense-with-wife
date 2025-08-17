@@ -10,7 +10,7 @@ import type {
 	MonthlyBudget,
 } from "../../../shared-types";
 import { getDb } from "../db";
-import { budget, transactions, transactionUsers } from "../db/schema/schema";
+import { budgetEntries, transactions, transactionUsers } from "../db/schema/schema";
 import worker from "../index";
 import type { UserBalancesByUser } from "../types";
 import {
@@ -1259,7 +1259,7 @@ describe("Budget Handlers", () => {
 			const db = getDb(env);
 
 			// Create a budget entry to delete with correct schema
-			await db.insert(budget).values({
+			await db.insert(budgetEntries).values({
 				id: 1,
 				description: "Test entry",
 				price: "+100.00",
@@ -1306,7 +1306,7 @@ describe("Budget Handlers", () => {
 			const db = getDb(env);
 
 			// Create budget entries with correct schema
-			await db.insert(budget).values({
+			await db.insert(budgetEntries).values({
 				id: 1,
 				description: "Groceries",
 				price: "+100.00",
@@ -1379,7 +1379,7 @@ describe("Budget Handlers", () => {
 			];
 
 			// Create budget entries with negative amounts for monthly totals (different months)
-			await db.insert(budget).values([
+			await db.insert(budgetEntries).values([
 				{
 					description: "Month1 expense",
 					price: "-500.00",
@@ -1627,7 +1627,7 @@ describe("Budget Handlers", () => {
 					.replace(/\.\d{3}Z$/, "");
 			};
 
-			await db.insert(budget).values([
+			await db.insert(budgetEntries).values([
 				{
 					description: "Month 1 expense",
 					price: "-1000.00",
@@ -1789,7 +1789,7 @@ describe("Budget Handlers", () => {
 
 			// Create a comprehensive scenario with mixed amounts across multiple months and currencies
 			// Month 1: +800 USD budget allocation, -250 USD groceries, -150 USD utilities
-			await db.insert(budget).values([
+			await db.insert(budgetEntries).values([
 				{
 					description: "Month1 Budget",
 					price: "+800.00",
@@ -1824,7 +1824,7 @@ describe("Budget Handlers", () => {
 			]);
 
 			// Month 2: +800 USD budget, -300 USD groceries, -200 USD utilities, +50 GBP extra budget, -75 GBP transport
-			await db.insert(budget).values([
+			await db.insert(budgetEntries).values([
 				{
 					description: "Month2 Budget",
 					price: "+800.00",
@@ -1881,7 +1881,7 @@ describe("Budget Handlers", () => {
 			]);
 
 			// Month 3: Only positive amounts (budget allocations), no expenses
-			await db.insert(budget).values([
+			await db.insert(budgetEntries).values([
 				{
 					description: "Month3 Budget",
 					price: "+900.00",
@@ -1905,7 +1905,7 @@ describe("Budget Handlers", () => {
 			]);
 
 			// Month 4: Only negative amounts (expenses), no budget allocations
-			await db.insert(budget).values([
+			await db.insert(budgetEntries).values([
 				{
 					description: "Month4 Groceries",
 					price: "-400.00",
@@ -2136,7 +2136,7 @@ describe("Budget Handlers", () => {
 			];
 
 			// Create scenario where one currency has only positive amounts
-			await db.insert(budget).values([
+			await db.insert(budgetEntries).values([
 				{
 					description: "USD Expense",
 					price: "-500.00",
@@ -2255,7 +2255,7 @@ describe("Budget Handlers", () => {
 			const db = getDb(env);
 
 			// Create budget entries with correct schema
-			await db.insert(budget).values([
+			await db.insert(budgetEntries).values([
 				{
 					description: "Entry 1",
 					price: "+500.00",

@@ -4,7 +4,7 @@ import { auth } from "../auth";
 import { getDb } from "../db";
 import { account, session, user, verification } from "../db/schema/auth-schema";
 import {
-	budget,
+	budgetEntries,
 	budgetTotals,
 	groups,
 	scheduledActionHistory,
@@ -129,7 +129,7 @@ export async function setupDatabase(env: Env): Promise<void> {
 
 	// Create legacy tables (for backward compatibility during migration)
 	await env.DB.exec(
-		"CREATE TABLE IF NOT EXISTS budget (id INTEGER PRIMARY KEY AUTOINCREMENT, budget_id VARCHAR(100), description VARCHAR(100) NOT NULL, added_time DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL, price VARCHAR(100), amount REAL NOT NULL, name VARCHAR(100) NOT NULL, deleted DATETIME DEFAULT NULL, groupid TEXT NOT NULL, currency VARCHAR(10) DEFAULT 'GBP' NOT NULL)",
+		"CREATE TABLE IF NOT EXISTS budget_entries (id INTEGER PRIMARY KEY AUTOINCREMENT, budget_id VARCHAR(100), description VARCHAR(100) NOT NULL, added_time DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL, price VARCHAR(100), amount REAL NOT NULL, name VARCHAR(100) NOT NULL, deleted DATETIME DEFAULT NULL, groupid TEXT NOT NULL, currency VARCHAR(10) DEFAULT 'GBP' NOT NULL)",
 	);
 	await env.DB.exec(
 		"CREATE TABLE IF NOT EXISTS groups (groupid TEXT PRIMARY KEY, group_name VARCHAR(50) NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, userids VARCHAR(1000), budgets VARCHAR(1000), metadata TEXT)",
@@ -210,13 +210,13 @@ export async function completeCleanupDatabase(env: Env): Promise<void> {
 	await db.delete(userBalances);
 	await db.delete(transactionUsers);
 	await db.delete(transactions);
-	await db.delete(budget);
+	await db.delete(budgetEntries);
 	await db.delete(groups);
 
 	// Reset autoincrement sequence for tables that have it
 	try {
 		await db.run(
-			sql`DELETE FROM sqlite_sequence WHERE name IN ('budget', 'groups', 'transactions')`,
+			sql`DELETE FROM sqlite_sequence WHERE name IN ('budget_entries', 'groups', 'transactions')`,
 		);
 	} catch (_error) {
 		// Ignore if sqlite_sequence doesn't exist (e.g., first run)
@@ -339,7 +339,7 @@ export async function populateMaterializedTables(env: Env): Promise<void> {
       currency,
       SUM(amount) as total_amount,
       datetime('now') as updated_at
-    FROM budget
+    FROM budget_entries
     WHERE deleted IS NULL
     GROUP BY groupid, name, currency
   `);

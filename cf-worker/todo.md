@@ -29,6 +29,11 @@
 - history entry on manual run ✅
     - idempotency check ✅
     - insert before calling workflow ✅
+- budget 
+    - budget to budget entries
+    - new table for budget group mapping with budget id as primary key. use this table instead of budgets column in groups
+        - name should be replaced in budgetTotals, scheduled actions
+    - budget entries primary key change
 - edit action, start date should not be mutated ever
 - scan receipt
 - full text search
