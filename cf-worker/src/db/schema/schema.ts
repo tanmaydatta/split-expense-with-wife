@@ -19,7 +19,6 @@ export const groups = sqliteTable("groups", {
 	groupName: text("group_name", { length: 50 }).notNull(),
 	createdAt: text("created_at").notNull().default("CURRENT_TIMESTAMP"),
 	userids: text("userids", { length: 1000 }),
-	budgets: text("budgets", { length: 1000 }),
 	metadata: text("metadata", { length: 2000 }),
 });
 

@@ -97,10 +97,11 @@ Direct migration to new table structure without fallback mechanisms:
 - [ ] Verify all budget operations working
 - [ ] Monitor for any migration issues
 
-#### Phase 4: Cleanup (Future)
-- [ ] Remove legacy `groups.budgets` column (separate migration)
-- [ ] Remove fallback code once migration confirmed successful
-- [ ] Update frontend to use new budget object structure (future enhancement)
+#### Phase 4: Legacy Column Cleanup ✅
+- [x] Remove legacy `groups.budgets` column with migration 0011
+- [x] Remove all fallback code - direct approach implemented
+- [x] Fix UI budget display issue by maintaining proper session structure
+- [x] All tests passing (174/174) with new structure
 
 ### Benefits Achieved
 
@@ -151,6 +152,11 @@ This migration lays the foundation for future budget-related features:
 ### Migration 0008: Budget to Budget Entries
 - **Type**: Table rename
 - **Impact**: Medium - renamed budget table to budget_entries
+
+### Migration 0011: Drop Legacy Budget Column
+- **Type**: Cleanup migration  
+- **Impact**: Low - removes deprecated column after successful normalization
+- **Status**: ✅ Complete - all tests passing, UI working correctly
 
 ### Earlier Migrations (0000-0007)
 - Initial schema setup

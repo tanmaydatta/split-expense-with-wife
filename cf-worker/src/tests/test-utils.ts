@@ -133,7 +133,7 @@ export async function setupDatabase(env: Env): Promise<void> {
 		"CREATE TABLE IF NOT EXISTS budget_entries (id INTEGER PRIMARY KEY AUTOINCREMENT, budget_entry_id VARCHAR(100), description VARCHAR(100) NOT NULL, added_time DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL, price VARCHAR(100), amount REAL NOT NULL, name VARCHAR(100) NOT NULL, deleted DATETIME DEFAULT NULL, groupid TEXT NOT NULL, currency VARCHAR(10) DEFAULT 'GBP' NOT NULL)",
 	);
 	await env.DB.exec(
-		"CREATE TABLE IF NOT EXISTS groups (groupid TEXT PRIMARY KEY, group_name VARCHAR(50) NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, userids VARCHAR(1000), budgets VARCHAR(1000), metadata TEXT)",
+		"CREATE TABLE IF NOT EXISTS groups (groupid TEXT PRIMARY KEY, group_name VARCHAR(50) NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, userids VARCHAR(1000), metadata TEXT)",
 	);
 	
 	// Create new group_budgets table
@@ -303,7 +303,6 @@ export async function createTestUserData(
 			groupid: testGroupId,
 			groupName: "Test Group",
 			userids: `["${user1.user.id}", "${user2.user.id}", "${user3.user.id}", "${user4.user.id}"]`,
-			budgets: '["house", "food"]', // Keep for backward compatibility, but new budgets go in group_budgets table
 			metadata: `{"defaultShare": {"${user1.user.id}": 25, "${user2.user.id}": 25, "${user3.user.id}": 25, "${user4.user.id}": 25}, "defaultCurrency": "USD"}`,
 		});
 

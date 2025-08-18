@@ -989,7 +989,6 @@ describe("Extended Group Metadata Handler", () => {
 			const groupResult = await db
 				.select({
 					groupName: groups.groupName,
-					budgets: groups.budgets,
 					metadata: groups.metadata,
 				})
 				.from(groups)
@@ -1045,7 +1044,6 @@ describe("Extended Group Metadata Handler", () => {
 			const groupResult = await db
 				.select({
 					groupName: groups.groupName,
-					budgets: groups.budgets,
 					metadata: groups.metadata,
 				})
 				.from(groups)

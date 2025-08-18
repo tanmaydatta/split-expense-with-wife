@@ -17,7 +17,7 @@ import {
 } from "../../../shared-types";
 import { auth } from "../auth";
 import { getDb } from "../db";
-import { groups, scheduledActionHistory, scheduledActions } from "../db/schema/schema";
+import { groupBudgets, groups, scheduledActionHistory, scheduledActions } from "../db/schema/schema";
 import { calculateNextExecutionDate } from "../handlers/scheduled-actions";
 import worker from "../index";
 import { formatSQLiteTime } from "../utils";
@@ -53,9 +53,18 @@ async function createUserInNewGroup(env: Env): Promise<{ id: string; email: stri
 		groupid,
 		groupName: `Other Group ${groupid}`,
 		userids: `["${signupRes.user.id}"]`,
-		budgets: "[\"house\"]",
 		metadata: `{"defaultShare": {"${signupRes.user.id}": 100}, "defaultCurrency": "USD"}`,
 	});
+	
+	// Insert budget into the group_budgets table
+	await db.insert(groupBudgets).values({
+		id: `budget_${Date.now()}_other`,
+		groupId: groupid,
+		budgetName: "house",
+		createdAt: new Date().toISOString(),
+		updatedAt: new Date().toISOString(),
+	});
+	
 	const cookies = await signInAndGetCookies(env, email, password);
 	return { id: signupRes.user.id, email, cookies };
 }
