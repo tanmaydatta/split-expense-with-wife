@@ -460,7 +460,12 @@ function processSingleBudget(
 	db: ReturnType<typeof getDb>,
 ) {
 	if (budget.id && activeBudgets.has(budget.id)) {
-		const statement = handleActiveBudgetUpdate(budget, activeBudgets, currentTime, db);
+		const statement = handleActiveBudgetUpdate(
+			budget,
+			activeBudgets,
+			currentTime,
+			db,
+		);
 		return { statement, budgetId: budget.id };
 	}
 
@@ -469,7 +474,13 @@ function processSingleBudget(
 		return { statement, budgetId: budget.id };
 	}
 
-	return handleNewBudgetCreation(budget, activeBudgets, groupId, currentTime, db);
+	return handleNewBudgetCreation(
+		budget,
+		activeBudgets,
+		groupId,
+		currentTime,
+		db,
+	);
 }
 
 // Helper function to process budget updates and creates
