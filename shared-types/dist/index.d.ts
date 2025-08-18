@@ -16,6 +16,11 @@ export interface Group {
 	userids: string;
 	metadata: string;
 }
+export interface GroupBudgetData {
+	id: string;
+	budgetName: string;
+	description: string | null;
+}
 export interface BudgetEntry {
 	id: number;
 	description: string;
@@ -241,7 +246,7 @@ export interface FullAuthSession {
 }
 export interface ParsedGroupData {
 	groupid: string;
-	budgets: string[];
+	budgets: GroupBudgetData[];
 	userids: string[];
 	metadata: GroupMetadata;
 }

@@ -23,6 +23,13 @@ export interface Group {
 	metadata: string; // JSON string
 }
 
+// New budget structure from the group_budgets table
+export interface GroupBudgetData {
+	id: string;
+	budgetName: string;
+	description: string | null;
+}
+
 // Budget types
 export interface BudgetEntry {
 	id: number;
@@ -295,7 +302,7 @@ export interface FullAuthSession {
 // Parsed group data for frontend use (same structure as backend ParsedGroup)
 export interface ParsedGroupData {
 	groupid: string;
-	budgets: string[];
+	budgets: GroupBudgetData[];
 	userids: string[];
 	metadata: GroupMetadata;
 }
