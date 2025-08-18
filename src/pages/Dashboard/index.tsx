@@ -116,7 +116,7 @@ function Dashboard(): JSX.Element {
 				data.extra.group.budgets.length > 0 &&
 				!budget
 			) {
-				setBudget(data.extra.group.budgets[0]);
+				setBudget(data.extra.group.budgets[0].budgetName);
 			}
 
 			// Set default paid by to current user

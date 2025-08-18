@@ -28,6 +28,7 @@ import type {
 	AddExpenseActionData,
 	AuthenticatedUser,
 	CreateScheduledActionRequest,
+	GroupBudgetData,
 	ReduxState,
 } from "split-expense-shared-types";
 import { CreateScheduledActionSchema } from "split-expense-shared-types";
@@ -56,7 +57,10 @@ export const ScheduledActionsManager: React.FC<
 		return Object.values(usersById || {});
 	}, [session]);
 	const budgets: string[] = useMemo(
-		() => session?.extra?.group?.budgets || [],
+		() =>
+			session?.extra?.group?.budgets?.map(
+				(b: GroupBudgetData) => b.budgetName,
+			) || [],
 		[session],
 	);
 	const currencies: string[] = useMemo(
