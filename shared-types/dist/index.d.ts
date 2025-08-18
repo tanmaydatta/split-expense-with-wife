@@ -194,7 +194,7 @@ export interface BudgetTotal {
 export interface GroupDetailsResponse {
 	groupid: string;
 	groupName: string;
-	budgets: string[];
+	budgets: GroupBudgetData[];
 	metadata: GroupMetadata;
 	users: User[];
 }
@@ -203,7 +203,7 @@ export interface UpdateGroupMetadataRequest {
 	defaultShare?: Record<string, number>;
 	defaultCurrency?: string;
 	groupName?: string;
-	budgets?: string[];
+	budgets?: GroupBudgetData[];
 }
 export interface UpdateGroupMetadataResponse {
 	message: string;

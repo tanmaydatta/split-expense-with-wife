@@ -149,6 +149,7 @@ async function handleBasicApiRoutes(
 	env: Env,
 	apiPath: string,
 ): Promise<Response | null> {
+	console.log("handleBasicApiRoutes", apiPath);
 	switch (apiPath) {
 		case "balances":
 			return await handleBalances(request, env);

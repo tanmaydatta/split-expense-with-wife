@@ -1,7 +1,7 @@
 // Import all shared types
 export * from "../../shared-types";
 
-import type { GroupMetadata } from "../../shared-types";
+import type { GroupMetadata, GroupBudgetData } from "../../shared-types";
 import type { auth } from "./auth";
 import type { user } from "./db/schema/auth-schema";
 
@@ -19,13 +19,6 @@ export interface CurrentSession {
 	usersById: Record<string, typeof user.$inferSelect>;
 	group: ParsedGroup | null;
 	currencies?: string[];
-}
-
-// Budget data from group_budgets table
-export interface GroupBudgetData {
-	id: string;
-	budgetName: string;
-	description?: string | null;
 }
 
 // Parsed group data (JSON strings parsed into structured data)

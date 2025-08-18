@@ -1,5 +1,7 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { eq } from "drizzle-orm";
+import type { BatchItem } from "drizzle-orm/batch";
 import type {
+	GroupBudgetData,
 	GroupDetailsResponse,
 	GroupMetadata,
 	UpdateGroupMetadataRequest,
@@ -7,9 +9,16 @@ import type {
 	User,
 } from "../../../shared-types";
 import type { getDb } from "../db";
+import type { GroupBudget } from "../db/schema/schema";
 import { groupBudgets, groups } from "../db/schema/schema";
 import type { CurrentSession } from "../types";
-import { createErrorResponse, createJsonResponse, withAuth } from "../utils";
+import {
+	createErrorResponse,
+	createJsonResponse,
+	formatSQLiteTime,
+	generateRandomId,
+	withAuth,
+} from "../utils";
 
 // Handle getting group details
 export async function handleGroupDetails(
@@ -58,7 +67,7 @@ export async function handleGroupDetails(
 		const response: GroupDetailsResponse = {
 			groupName: group.groupName,
 			groupid: group.groupid,
-			budgets: session.group.budgets.map((budget) => budget.budgetName),
+			budgets: session.group.budgets,
 			users: groupUsers,
 			metadata: JSON.parse(group.metadata || "{}") as GroupMetadata,
 		};
@@ -171,12 +180,20 @@ function validateGroupName(groupName: string): string | null {
 }
 
 // Helper function to validate budgets
-function validateBudgets(budgets: string[]): string | null {
-	for (const budgetName of budgets) {
-		if (!/^[a-zA-Z0-9\s\-_]+$/.test(budgetName)) {
+function validateBudgets(budgets: GroupBudgetData[]): string | null {
+	for (const budget of budgets) {
+		if (!/^[a-zA-Z0-9\s\-_]+$/.test(budget.budgetName)) {
 			return "Budget names can only contain letters, numbers, spaces, hyphens, and underscores";
 		}
+		if (budget.budgetName.trim().length === 0) {
+			return "Budget names cannot be empty";
+		}
+		if (budget.budgetName.length > 60) {
+			return "Budget names cannot exceed 60 characters";
+		}
 	}
+
+	// Note: Duplicate checking is handled in the processing phase via deduplication
 	return null;
 }
 
@@ -215,7 +232,24 @@ function validateAndProcessBudgets(
 	const error = validateBudgets(body.budgets);
 	if (error) return error;
 
-	body.budgets = [...new Set(body.budgets)];
+	// Deduplicate budgets by ID first, then by name
+	const uniqueBudgets = [];
+	const seenIds = new Set<string>();
+	const seenNames = new Set<string>();
+
+	for (const budget of body.budgets) {
+		const normalizedName = budget.budgetName.toLowerCase();
+
+		// Skip if we've seen this ID or name before
+		if (budget.id && seenIds.has(budget.id)) continue;
+		if (seenNames.has(normalizedName)) continue;
+
+		if (budget.id) seenIds.add(budget.id);
+		seenNames.add(normalizedName);
+		uniqueBudgets.push(budget);
+	}
+
+	body.budgets = uniqueBudgets;
 	return null;
 }
 
@@ -308,31 +342,228 @@ async function updateMetadata(
 	return JSON.stringify(newMetadata);
 }
 
-// Helper function to update group budgets in the new table
+// Helper function to categorize existing budgets
+function categorizeBudgets(existingBudgets: GroupBudget[]) {
+	const activeBudgets = new Map<string, GroupBudget>();
+	const deletedBudgets = new Map<string, GroupBudget>();
+	const allBudgets = new Map<string, GroupBudget>();
+
+	for (const budget of existingBudgets) {
+		allBudgets.set(budget.id, budget);
+		if (budget.deleted) {
+			deletedBudgets.set(budget.id, budget);
+		} else {
+			activeBudgets.set(budget.id, budget);
+		}
+	}
+
+	return { activeBudgets, deletedBudgets, allBudgets };
+}
+
+// Helper function to handle active budget updates
+function handleActiveBudgetUpdate(
+	budget: GroupBudgetData,
+	activeBudgets: Map<string, GroupBudget>,
+	currentTime: string,
+	db: ReturnType<typeof getDb>,
+) {
+	if (!budget.id) return null;
+	const existing = activeBudgets.get(budget.id);
+	if (
+		existing &&
+		(existing.budgetName !== budget.budgetName ||
+			existing.description !== budget.description)
+	) {
+		return db
+			.update(groupBudgets)
+			.set({
+				budgetName: budget.budgetName,
+				description: budget.description || null,
+				updatedAt: currentTime,
+			})
+			.where(eq(groupBudgets.id, budget.id));
+	}
+	return null;
+}
+
+// Helper function to handle deleted budget resurrection
+function handleDeletedBudgetResurrection(
+	budget: GroupBudgetData,
+	currentTime: string,
+	db: ReturnType<typeof getDb>,
+) {
+	if (!budget.id) throw new Error("Budget ID required for resurrection");
+	return db
+		.update(groupBudgets)
+		.set({
+			budgetName: budget.budgetName,
+			description: budget.description || null,
+			deleted: null,
+			updatedAt: currentTime,
+		})
+		.where(eq(groupBudgets.id, budget.id));
+}
+
+// Helper function to handle new budget creation
+function handleNewBudgetCreation(
+	budget: GroupBudgetData,
+	activeBudgets: Map<string, GroupBudget>,
+	groupId: string,
+	currentTime: string,
+	db: ReturnType<typeof getDb>,
+) {
+	const nameConflict = Array.from(activeBudgets.values()).find(
+		(b) => b.budgetName.toLowerCase() === budget.budgetName.toLowerCase(),
+	);
+
+	if (nameConflict) {
+		if (
+			nameConflict.budgetName !== budget.budgetName ||
+			nameConflict.description !== budget.description
+		) {
+			return {
+				statement: db
+					.update(groupBudgets)
+					.set({
+						budgetName: budget.budgetName,
+						description: budget.description || null,
+						updatedAt: currentTime,
+					})
+					.where(eq(groupBudgets.id, nameConflict.id)),
+				budgetId: nameConflict.id,
+			};
+		}
+		return { statement: null, budgetId: nameConflict.id };
+	}
+
+	const budgetId = `budget_${generateRandomId()}`;
+	return {
+		statement: db.insert(groupBudgets).values({
+			id: budgetId,
+			groupId: groupId,
+			budgetName: budget.budgetName,
+			description: budget.description || null,
+			createdAt: currentTime,
+			updatedAt: currentTime,
+		}),
+		budgetId,
+	};
+}
+
+// Helper function to process a single budget
+function processSingleBudget(
+	budget: GroupBudgetData,
+	activeBudgets: Map<string, GroupBudget>,
+	deletedBudgets: Map<string, GroupBudget>,
+	groupId: string,
+	currentTime: string,
+	db: ReturnType<typeof getDb>,
+) {
+	if (budget.id && activeBudgets.has(budget.id)) {
+		const statement = handleActiveBudgetUpdate(budget, activeBudgets, currentTime, db);
+		return { statement, budgetId: budget.id };
+	}
+
+	if (budget.id && deletedBudgets.has(budget.id)) {
+		const statement = handleDeletedBudgetResurrection(budget, currentTime, db);
+		return { statement, budgetId: budget.id };
+	}
+
+	return handleNewBudgetCreation(budget, activeBudgets, groupId, currentTime, db);
+}
+
+// Helper function to process budget updates and creates
+function processBudgetUpdates(
+	newBudgets: GroupBudgetData[],
+	activeBudgets: Map<string, GroupBudget>,
+	deletedBudgets: Map<string, GroupBudget>,
+	groupId: string,
+	currentTime: string,
+	db: ReturnType<typeof getDb>,
+) {
+	const batchStatements: BatchItem<"sqlite">[] = [];
+	const budgetsToKeep = new Set<string>();
+
+	for (const budget of newBudgets) {
+		const { statement, budgetId } = processSingleBudget(
+			budget,
+			activeBudgets,
+			deletedBudgets,
+			groupId,
+			currentTime,
+			db,
+		);
+		budgetsToKeep.add(budgetId);
+		if (statement) batchStatements.push(statement);
+	}
+
+	return { batchStatements, budgetsToKeep };
+}
+
+// Helper function to process budget deletions
+function processBudgetDeletions(
+	activeBudgets: Map<string, GroupBudget>,
+	budgetsToKeep: Set<string>,
+	currentTime: string,
+	db: ReturnType<typeof getDb>,
+) {
+	const deletionStatements: BatchItem<"sqlite">[] = [];
+
+	for (const [budgetId] of activeBudgets) {
+		if (!budgetsToKeep.has(budgetId)) {
+			deletionStatements.push(
+				db
+					.update(groupBudgets)
+					.set({
+						deleted: currentTime,
+						updatedAt: currentTime,
+					})
+					.where(eq(groupBudgets.id, budgetId)),
+			);
+		}
+	}
+
+	return deletionStatements;
+}
+
+// Helper function to update group budgets using D1 batch transactions
 async function updateGroupBudgets(
-	budgets: string[],
+	newBudgets: GroupBudgetData[],
 	groupId: string,
 	db: ReturnType<typeof getDb>,
 ): Promise<void> {
-	// First, soft delete all existing budgets for this group
-	await db
-		.update(groupBudgets)
-		.set({ deleted: new Date().toISOString() })
-		.where(
-			and(eq(groupBudgets.groupId, groupId), isNull(groupBudgets.deleted)),
+	const currentTime = formatSQLiteTime();
+
+	// Get ALL existing budgets for this group
+	const existingBudgets = await db
+		.select()
+		.from(groupBudgets)
+		.where(eq(groupBudgets.groupId, groupId));
+
+	const { activeBudgets, deletedBudgets } = categorizeBudgets(existingBudgets);
+
+	const { batchStatements, budgetsToKeep } = processBudgetUpdates(
+		newBudgets,
+		activeBudgets,
+		deletedBudgets,
+		groupId,
+		currentTime,
+		db,
+	);
+
+	const deletionStatements = processBudgetDeletions(
+		activeBudgets,
+		budgetsToKeep,
+		currentTime,
+		db,
+	);
+
+	const allStatements = [...batchStatements, ...deletionStatements];
+
+	if (allStatements.length > 0) {
+		await db.batch(
+			allStatements as [BatchItem<"sqlite">, ...BatchItem<"sqlite">[]],
 		);
-
-	// Then insert the new budgets
-	if (budgets.length > 0) {
-		const budgetInserts = budgets.map((budgetName) => ({
-			id: `budget_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`,
-			groupId: groupId,
-			budgetName: budgetName,
-			createdAt: new Date().toISOString(),
-			updatedAt: new Date().toISOString(),
-		}));
-
-		await db.insert(groupBudgets).values(budgetInserts);
 	}
 }
 
@@ -367,19 +598,28 @@ export async function handleUpdateGroupMetadata(
 	request: Request,
 	env: Env,
 ): Promise<Response> {
+	console.log("handleUpdateGroupMetadata", request.method);
 	if (request.method !== "POST") {
 		return createErrorResponse("Method not allowed", 405, request, env);
 	}
 
 	return withAuth(request, env, async (session, db) => {
+		console.log("session", session);
 		if (!session.group) {
-			return createErrorResponse("Unauthorized", 401, request, env);
+			console.log("No group found for session");
+			return createErrorResponse(
+				"No group found for session",
+				401,
+				request,
+				env,
+			);
 		}
 		const body = (await request.json()) as UpdateGroupMetadataRequest;
 
 		// Check if user is authorized to modify this group
 		if (body.groupid && body.groupid !== session.group.groupid) {
-			return createErrorResponse("Unauthorized", 401, request, env);
+			console.log("group id mismatch", body.groupid, session.group.groupid);
+			return createErrorResponse("group id mismatch", 401, request, env);
 		}
 
 		// Validate request body

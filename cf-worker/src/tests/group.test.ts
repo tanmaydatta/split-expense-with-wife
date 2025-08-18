@@ -534,8 +534,8 @@ describe("Group Details Handler", () => {
 			const responseData = (await response.json()) as GroupDetailsResponse;
 
 			expect(Array.isArray(responseData.budgets)).toBe(true);
-			expect(responseData.budgets).toContain("house");
-			expect(responseData.budgets).toContain("food");
+			expect(responseData.budgets.some(b => b.budgetName === "house")).toBe(true);
+			expect(responseData.budgets.some(b => b.budgetName === "food")).toBe(true);
 		});
 	});
 
@@ -710,14 +710,15 @@ describe("Extended Group Metadata Handler", () => {
 				TEST_USERS.user1.password,
 			);
 
+			const testId = Date.now().toString();
 			const requestBody: UpdateGroupMetadataRequest = {
 				groupid: TEST_USERS.testGroupId,
 				budgets: [
-					"house",
-					"food",
-					"transportation",
-					"entertainment",
-					"vacation",
+					{ id: `budget_1_${testId}`, budgetName: `house_${testId}`, description: null },
+					{ id: `budget_2_${testId}`, budgetName: `food_${testId}`, description: null },
+					{ id: `budget_3_${testId}`, budgetName: `transportation_${testId}`, description: null },
+					{ id: `budget_4_${testId}`, budgetName: `entertainment_${testId}`, description: null },
+					{ id: `budget_5_${testId}`, budgetName: `vacation_${testId}`, description: null },
 				],
 			};
 
@@ -739,9 +740,9 @@ describe("Extended Group Metadata Handler", () => {
 				);
 			
 			const budgetNames = budgetResults.map(b => b.budgetName);
-			expect(budgetNames).toContain("vacation");
-			expect(budgetNames).toContain("entertainment");
-			expect(budgetNames).toContain("transportation");
+			expect(budgetNames.some(name => name.startsWith("vacation_"))).toBe(true);
+			expect(budgetNames.some(name => name.startsWith("entertainment_"))).toBe(true);
+			expect(budgetNames.some(name => name.startsWith("transportation_"))).toBe(true);
 		});
 
 		it("should remove budget categories from existing list", async () => {
@@ -751,9 +752,26 @@ describe("Extended Group Metadata Handler", () => {
 				TEST_USERS.user1.password,
 			);
 
+			// First, create some initial budgets
+			const testId = Date.now().toString();
+			const initialRequest: UpdateGroupMetadataRequest = {
+				groupid: TEST_USERS.testGroupId,
+				budgets: [
+					{ id: `budget_1_${testId}`, budgetName: `house_${testId}`, description: null },
+					{ id: `budget_2_${testId}`, budgetName: `food_${testId}`, description: null },
+					{ id: `budget_3_${testId}`, budgetName: `transportation_${testId}`, description: null },
+				],
+			};
+			
+			await handleUpdateGroupMetadata(
+				createMockRequest("POST", initialRequest, cookies),
+				env,
+			);
+
+			// Then remove some budgets (keep only food)
 			const requestBody: UpdateGroupMetadataRequest = {
 				groupid: TEST_USERS.testGroupId,
-				budgets: ["food"], // Remove 'house' and 'transportation'
+				budgets: [{ id: `budget_2_${testId}`, budgetName: `food_${testId}`, description: null }], // Remove 'house' and 'transportation'
 			};
 
 			const request = createMockRequest("POST", requestBody, cookies);
@@ -774,8 +792,9 @@ describe("Extended Group Metadata Handler", () => {
 				);
 			
 			const budgetNames = budgetResults.map(b => b.budgetName);
-			expect(budgetNames).toEqual(["food"]);
-			expect(budgetNames).not.toContain("house");
+			expect(budgetNames.length).toBe(1);
+			expect(budgetNames[0].startsWith("food_")).toBe(true);
+			expect(budgetNames.some(name => name.startsWith("house_"))).toBe(false);
 		});
 
 		it("should handle duplicate budget names (deduplicate)", async () => {
@@ -785,15 +804,16 @@ describe("Extended Group Metadata Handler", () => {
 				TEST_USERS.user1.password,
 			);
 
+			const testId = Date.now().toString();
 			const requestBody: UpdateGroupMetadataRequest = {
 				groupid: TEST_USERS.testGroupId,
 				budgets: [
-					"house",
-					"food",
-					"house",
-					"transportation",
-					"food",
-					"entertainment",
+					{ id: `budget_1_${testId}`, budgetName: `house_${testId}`, description: null },
+					{ id: `budget_2_${testId}`, budgetName: `food_${testId}`, description: null },
+					{ id: `budget_1_${testId}`, budgetName: `house_${testId}`, description: null }, // Duplicate ID - should be deduplicated
+					{ id: `budget_3_${testId}`, budgetName: `transportation_${testId}`, description: null },
+					{ id: `budget_4_${testId}`, budgetName: `food_${testId}`, description: null }, // Duplicate name - should be deduplicated
+					{ id: `budget_5_${testId}`, budgetName: `entertainment_${testId}`, description: null },
 				],
 			};
 
@@ -816,10 +836,10 @@ describe("Extended Group Metadata Handler", () => {
 			
 			const budgetNames = budgetResults.map(b => b.budgetName);
 			expect(budgetNames.length).toBe(4); // Should be unique
-			expect(budgetNames).toContain("house");
-			expect(budgetNames).toContain("food");
-			expect(budgetNames).toContain("transportation");
-			expect(budgetNames).toContain("entertainment");
+			expect(budgetNames.some(name => name.startsWith("house_"))).toBe(true);
+			expect(budgetNames.some(name => name.startsWith("food_"))).toBe(true);
+			expect(budgetNames.some(name => name.startsWith("transportation_"))).toBe(true);
+			expect(budgetNames.some(name => name.startsWith("entertainment_"))).toBe(true);
 		});
 
 		it("should handle empty budgets array", async () => {
@@ -862,9 +882,14 @@ describe("Extended Group Metadata Handler", () => {
 			);
 
 			// First update to set initial budgets
+			const testId = Date.now().toString();
 			const initialRequest: UpdateGroupMetadataRequest = {
 				groupid: TEST_USERS.testGroupId,
-				budgets: ["house", "food", "utilities"],
+				budgets: [
+					{ id: `budget_1_${testId}`, budgetName: `house_${testId}`, description: null },
+					{ id: `budget_2_${testId}`, budgetName: `food_${testId}`, description: null },
+					{ id: `budget_3_${testId}`, budgetName: `utilities_${testId}`, description: null }
+				],
 			};
 			await handleUpdateGroupMetadata(
 				createMockRequest("POST", initialRequest, cookies),
@@ -895,9 +920,9 @@ describe("Extended Group Metadata Handler", () => {
 				);
 			
 			const budgetNames = budgetResults.map(b => b.budgetName);
-			expect(budgetNames).toContain("house");
-			expect(budgetNames).toContain("food");
-			expect(budgetNames).toContain("utilities");
+			expect(budgetNames.some(name => name.startsWith("house_"))).toBe(true);
+			expect(budgetNames.some(name => name.startsWith("food_"))).toBe(true);
+			expect(budgetNames.some(name => name.startsWith("utilities_"))).toBe(true);
 		});
 
 		it("should allow budget names with spaces and hyphens", async () => {
@@ -907,9 +932,14 @@ describe("Extended Group Metadata Handler", () => {
 				TEST_USERS.user1.password,
 			);
 
+			const testId = Date.now().toString();
 			const requestBody: UpdateGroupMetadataRequest = {
 				groupid: TEST_USERS.testGroupId,
-				budgets: ["house rent", "food-delivery", "car_maintenance"],
+				budgets: [
+					{ id: `budget_1_${testId}`, budgetName: "house rent", description: null },
+					{ id: `budget_2_${testId}`, budgetName: "food-delivery", description: null },
+					{ id: `budget_3_${testId}`, budgetName: "car_maintenance", description: null }
+				],
 			};
 
 			const request = createMockRequest("POST", requestBody, cookies);
@@ -942,9 +972,13 @@ describe("Extended Group Metadata Handler", () => {
 				TEST_USERS.user1.password,
 			);
 
+			const testId = Date.now().toString();
 			const requestBody: UpdateGroupMetadataRequest = {
 				groupid: TEST_USERS.testGroupId,
-				budgets: ["valid-budget", "invalid!@#"],
+				budgets: [
+					{ id: `budget_1_${testId}`, budgetName: "valid-budget", description: null },
+					{ id: `budget_2_${testId}`, budgetName: "invalid!@#", description: null }
+				],
 			};
 
 			const request = createMockRequest("POST", requestBody, cookies);
@@ -966,10 +1000,15 @@ describe("Extended Group Metadata Handler", () => {
 				TEST_USERS.user1.password,
 			);
 
+			const testId = Date.now().toString();
 			const requestBody: UpdateGroupMetadataRequest = {
 				groupid: TEST_USERS.testGroupId,
 				groupName: "Multi-Update Group",
-				budgets: ["rent", "groceries", "utilities"],
+				budgets: [
+					{ id: `budget_1_${testId}`, budgetName: "rent", description: null },
+					{ id: `budget_2_${testId}`, budgetName: "groceries", description: null },
+					{ id: `budget_3_${testId}`, budgetName: "utilities", description: null }
+				],
 				defaultCurrency: "EUR",
 				defaultShare: {
 					[TEST_USERS.user1.id]: 25,
@@ -1028,10 +1067,11 @@ describe("Extended Group Metadata Handler", () => {
 			);
 
 			// Update only group name and budgets
+			const testId = Date.now().toString();
 			const requestBody: UpdateGroupMetadataRequest = {
 				groupid: TEST_USERS.testGroupId,
 				groupName: "Partial Update Group",
-				budgets: ["new-category"],
+				budgets: [{ id: `budget_1_${testId}`, budgetName: "new-category", description: null }],
 			};
 
 			const request = createMockRequest("POST", requestBody, cookies);

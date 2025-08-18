@@ -15,6 +15,7 @@ import {
 	SuccessContainer,
 } from "@/components/MessageContainer";
 import type {
+	GroupBudgetData,
 	GroupDetailsResponse,
 	ReduxState,
 	UpdateGroupMetadataRequest,
@@ -32,8 +33,9 @@ interface SettingsState {
 	groupName: string;
 	defaultCurrency: string;
 	userPercentages: Record<string, number>;
-	budgets: string[];
+	budgets: GroupBudgetData[];
 	newBudgetName: string;
+	newBudgetDescription: string;
 
 	// Dirty flags
 	groupNameDirty: boolean;
@@ -54,6 +56,7 @@ const Settings: React.FC = () => {
 		userPercentages: {},
 		budgets: [],
 		newBudgetName: "",
+		newBudgetDescription: "",
 		groupNameDirty: false,
 		currencyDirty: false,
 		sharesDirty: false,
@@ -121,20 +124,35 @@ const Settings: React.FC = () => {
 
 	const addBudget = () => {
 		const trimmedName = state.newBudgetName.trim();
-		if (!trimmedName || state.budgets.includes(trimmedName)) return;
+		const trimmedDescription = state.newBudgetDescription.trim();
+
+		if (
+			!trimmedName ||
+			state.budgets.some(
+				(b) => b.budgetName.toLowerCase() === trimmedName.toLowerCase(),
+			)
+		)
+			return;
+
+		const newBudget: GroupBudgetData = {
+			id: `new_${Date.now()}`, // Temporary ID for new budgets
+			budgetName: trimmedName,
+			description: trimmedDescription || null,
+		};
 
 		setState((prev) => ({
 			...prev,
-			budgets: [...prev.budgets, trimmedName],
+			budgets: [...prev.budgets, newBudget],
 			newBudgetName: "",
+			newBudgetDescription: "",
 			budgetsDirty: true,
 		}));
 	};
 
-	const removeBudget = (budgetToRemove: string) => {
+	const removeBudget = (budgetId: string) => {
 		setState((prev) => ({
 			...prev,
-			budgets: prev.budgets.filter((budget) => budget !== budgetToRemove),
+			budgets: prev.budgets.filter((budget) => budget.id !== budgetId),
 			budgetsDirty: true,
 		}));
 	};
@@ -231,11 +249,11 @@ const Settings: React.FC = () => {
 					? {
 							...prev.groupDetails,
 							groupName: state.groupName.trim(),
+							budgets: state.budgets,
 							metadata: {
 								...prev.groupDetails.metadata,
 								defaultCurrency: state.defaultCurrency,
 								defaultShare: state.userPercentages,
-								budgets: state.budgets,
 							},
 						}
 					: null,
@@ -398,10 +416,17 @@ const Settings: React.FC = () => {
 				<div className="budget-manager">
 					<div className="budget-list">
 						{state.budgets.map((budget, index) => (
-							<div key={budget} className="budget-item">
-								<span>{budget}</span>
+							<div key={budget.id} className="budget-item">
+								<div className="budget-info">
+									<span className="budget-name">{budget.budgetName}</span>
+									{budget.description && (
+										<span className="budget-description">
+											{budget.description}
+										</span>
+									)}
+								</div>
 								<Button
-									onClick={() => removeBudget(budget)}
+									onClick={() => removeBudget(budget.id)}
 									className="remove-button"
 									data-test-id={`remove-budget-${index}`}
 								>
@@ -413,7 +438,9 @@ const Settings: React.FC = () => {
 
 					<div className="add-budget">
 						<div className="form-group">
+							<label htmlFor="newBudgetName">Budget Name</label>
 							<Input
+								id="newBudgetName"
 								type="text"
 								value={state.newBudgetName}
 								onChange={(e) =>
@@ -422,9 +449,28 @@ const Settings: React.FC = () => {
 										newBudgetName: e.target.value,
 									}))
 								}
-								placeholder="Enter new budget category"
+								placeholder="Enter budget name"
 								onKeyPress={(e) => e.key === "Enter" && addBudget()}
 								data-test-id="new-budget-input"
+							/>
+						</div>
+						<div className="form-group">
+							<label htmlFor="newBudgetDescription">
+								Description (optional)
+							</label>
+							<Input
+								id="newBudgetDescription"
+								type="text"
+								value={state.newBudgetDescription}
+								onChange={(e) =>
+									setState((prev) => ({
+										...prev,
+										newBudgetDescription: e.target.value,
+									}))
+								}
+								placeholder="Enter budget description"
+								onKeyPress={(e) => e.key === "Enter" && addBudget()}
+								data-test-id="new-budget-description-input"
 							/>
 						</div>
 						<Button
