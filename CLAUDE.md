@@ -149,3 +149,4 @@ This is a full-stack expense splitting application with the following architectu
 - `docs/README.md` - Added reference to migration changelog
 
 **Rollback Strategy:** Migration can be rolled back by regenerating the `groups.budgets` JSON column from the normalized data.
+- always update documentation after implementing changes
