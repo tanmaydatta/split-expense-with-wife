@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import type {
 	GroupDetailsResponse,
 	GroupMetadata,
@@ -7,7 +7,7 @@ import type {
 	User,
 } from "../../../shared-types";
 import type { getDb } from "../db";
-import { groups } from "../db/schema/schema";
+import { groupBudgets, groups } from "../db/schema/schema";
 import type { CurrentSession } from "../types";
 import { createErrorResponse, createJsonResponse, withAuth } from "../utils";
 
@@ -29,7 +29,6 @@ export async function handleGroupDetails(
 			.select({
 				groupid: groups.groupid,
 				groupName: groups.groupName,
-				budgets: groups.budgets,
 				userids: groups.userids,
 				metadata: groups.metadata,
 			})
@@ -59,7 +58,7 @@ export async function handleGroupDetails(
 		const response: GroupDetailsResponse = {
 			groupName: group.groupName,
 			groupid: group.groupid,
-			budgets: JSON.parse(group.budgets || "[]") as string[],
+			budgets: session.group.budgets.map((budget) => budget.budgetName),
 			users: groupUsers,
 			metadata: JSON.parse(group.metadata || "{}") as GroupMetadata,
 		};
@@ -309,14 +308,41 @@ async function updateMetadata(
 	return JSON.stringify(newMetadata);
 }
 
+// Helper function to update group budgets in the new table
+async function updateGroupBudgets(
+	budgets: string[],
+	groupId: string,
+	db: ReturnType<typeof getDb>,
+): Promise<void> {
+	// First, soft delete all existing budgets for this group
+	await db
+		.update(groupBudgets)
+		.set({ deleted: new Date().toISOString() })
+		.where(
+			and(eq(groupBudgets.groupId, groupId), isNull(groupBudgets.deleted)),
+		);
+
+	// Then insert the new budgets
+	if (budgets.length > 0) {
+		const budgetInserts = budgets.map((budgetName) => ({
+			id: `budget_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`,
+			groupId: groupId,
+			budgetName: budgetName,
+			createdAt: new Date().toISOString(),
+			updatedAt: new Date().toISOString(),
+		}));
+
+		await db.insert(groupBudgets).values(budgetInserts);
+	}
+}
+
 // Helper function to build updates object
 async function buildUpdatesObject(
 	body: UpdateGroupMetadataRequest,
 	session: CurrentSession,
 	db: ReturnType<typeof getDb>,
-): Promise<{ metadata?: string; groupName?: string; budgets?: string }> {
-	const updates: { metadata?: string; groupName?: string; budgets?: string } =
-		{};
+): Promise<{ metadata?: string; groupName?: string }> {
+	const updates: { metadata?: string; groupName?: string } = {};
 
 	// Update metadata if provided
 	const metadata = await updateMetadata(body, session, db);
@@ -330,8 +356,8 @@ async function buildUpdatesObject(
 	}
 
 	// Update budgets if provided
-	if (body.budgets !== undefined) {
-		updates.budgets = JSON.stringify(body.budgets);
+	if (body.budgets !== undefined && session.group) {
+		await updateGroupBudgets(body.budgets, session.group.groupid, db);
 	}
 
 	return updates;

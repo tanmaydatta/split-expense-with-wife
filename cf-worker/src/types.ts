@@ -21,10 +21,17 @@ export interface CurrentSession {
 	currencies?: string[];
 }
 
+// Budget data from group_budgets table
+export interface GroupBudgetData {
+	id: string;
+	budgetName: string;
+	description?: string | null;
+}
+
 // Parsed group data (JSON strings parsed into structured data)
 export interface ParsedGroup {
 	groupid: string;
-	budgets: string[];
+	budgets: GroupBudgetData[];
 	userids: string[];
 	metadata: GroupMetadata;
 }

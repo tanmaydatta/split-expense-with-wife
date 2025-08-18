@@ -10,7 +10,8 @@
 			"Bash(npm run build:*)",
 			"Bash(yarn wrangler types:*)",
 			"Bash(env)",
-			"Bash(grep:*)"
+			"Bash(grep:*)",
+			"mcp__cloudflare__search_cloudflare_documentation"
 		],
 		"deny": []
 	}

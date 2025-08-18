@@ -1,14 +1,14 @@
 /// <reference types="vitest" />
 import { env } from "cloudflare:test";
 // Vitest globals are available through the test environment
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import type {
 	GroupDetailsResponse,
 	UpdateGroupMetadataRequest,
 	UpdateGroupMetadataResponse,
 } from "../../../shared-types";
 import { getDb } from "../db";
-import { groups } from "../db/schema/schema";
+import { groupBudgets, groups } from "../db/schema/schema";
 import {
 	handleGroupDetails,
 	handleUpdateGroupMetadata,
@@ -726,19 +726,22 @@ describe("Extended Group Metadata Handler", () => {
 
 			expect(response.status).toBe(200);
 
-			// Verify budgets in database
+			// Verify budgets in new group_budgets table
 			const db = getDb(env);
-			const groupResult = await db
-				.select({ budgets: groups.budgets })
-				.from(groups)
-				.where(eq(groups.groupid, TEST_USERS.testGroupId))
-				.limit(1);
-			expect(groupResult).toHaveLength(1);
-			const budgets = JSON.parse(groupResult[0].budgets || "[]");
-
-			expect(budgets).toContain("vacation");
-			expect(budgets).toContain("entertainment");
-			expect(budgets).toContain("transportation");
+			const budgetResults = await db
+				.select({ budgetName: groupBudgets.budgetName })
+				.from(groupBudgets)
+				.where(
+					and(
+						eq(groupBudgets.groupId, TEST_USERS.testGroupId),
+						isNull(groupBudgets.deleted)
+					)
+				);
+			
+			const budgetNames = budgetResults.map(b => b.budgetName);
+			expect(budgetNames).toContain("vacation");
+			expect(budgetNames).toContain("entertainment");
+			expect(budgetNames).toContain("transportation");
 		});
 
 		it("should remove budget categories from existing list", async () => {
@@ -758,18 +761,21 @@ describe("Extended Group Metadata Handler", () => {
 
 			expect(response.status).toBe(200);
 
-			// Verify budgets in database
+			// Verify budgets in new group_budgets table
 			const db = getDb(env);
-			const groupResult = await db
-				.select({ budgets: groups.budgets })
-				.from(groups)
-				.where(eq(groups.groupid, TEST_USERS.testGroupId))
-				.limit(1);
-			expect(groupResult).toHaveLength(1);
-			const budgets = JSON.parse(groupResult[0].budgets || "[]");
-
-			expect(budgets).toEqual(["food"]);
-			expect(budgets).not.toContain("house");
+			const budgetResults = await db
+				.select({ budgetName: groupBudgets.budgetName })
+				.from(groupBudgets)
+				.where(
+					and(
+						eq(groupBudgets.groupId, TEST_USERS.testGroupId),
+						isNull(groupBudgets.deleted)
+					)
+				);
+			
+			const budgetNames = budgetResults.map(b => b.budgetName);
+			expect(budgetNames).toEqual(["food"]);
+			expect(budgetNames).not.toContain("house");
 		});
 
 		it("should handle duplicate budget names (deduplicate)", async () => {
@@ -796,21 +802,24 @@ describe("Extended Group Metadata Handler", () => {
 
 			expect(response.status).toBe(200);
 
-			// Verify no duplicates in database
+			// Verify no duplicates in new group_budgets table
 			const db = getDb(env);
-			const groupResult = await db
-				.select({ budgets: groups.budgets })
-				.from(groups)
-				.where(eq(groups.groupid, TEST_USERS.testGroupId))
-				.limit(1);
-			expect(groupResult).toHaveLength(1);
-			const budgets = JSON.parse(groupResult[0].budgets || "[]");
-
-			expect(budgets.length).toBe(4); // Should be unique
-			expect(budgets).toContain("house");
-			expect(budgets).toContain("food");
-			expect(budgets).toContain("transportation");
-			expect(budgets).toContain("entertainment");
+			const budgetResults = await db
+				.select({ budgetName: groupBudgets.budgetName })
+				.from(groupBudgets)
+				.where(
+					and(
+						eq(groupBudgets.groupId, TEST_USERS.testGroupId),
+						isNull(groupBudgets.deleted)
+					)
+				);
+			
+			const budgetNames = budgetResults.map(b => b.budgetName);
+			expect(budgetNames.length).toBe(4); // Should be unique
+			expect(budgetNames).toContain("house");
+			expect(budgetNames).toContain("food");
+			expect(budgetNames).toContain("transportation");
+			expect(budgetNames).toContain("entertainment");
 		});
 
 		it("should handle empty budgets array", async () => {
@@ -830,17 +839,19 @@ describe("Extended Group Metadata Handler", () => {
 
 			expect(response.status).toBe(200);
 
-			// Verify empty array in database
+			// Verify no budgets in new group_budgets table
 			const db = getDb(env);
-			const groupResult = await db
-				.select({ budgets: groups.budgets })
-				.from(groups)
-				.where(eq(groups.groupid, TEST_USERS.testGroupId))
-				.limit(1);
-			expect(groupResult).toHaveLength(1);
-			const budgets = JSON.parse(groupResult[0].budgets || "[]");
-
-			expect(budgets).toEqual([]);
+			const budgetResults = await db
+				.select({ budgetName: groupBudgets.budgetName })
+				.from(groupBudgets)
+				.where(
+					and(
+						eq(groupBudgets.groupId, TEST_USERS.testGroupId),
+						isNull(groupBudgets.deleted)
+					)
+				);
+			
+			expect(budgetResults).toEqual([]);
 		});
 
 		it("should preserve existing budgets when not updated", async () => {
@@ -871,19 +882,22 @@ describe("Extended Group Metadata Handler", () => {
 
 			expect(response.status).toBe(200);
 
-			// Verify budgets are preserved
+			// Verify budgets are preserved in new group_budgets table
 			const db = getDb(env);
-			const groupResult = await db
-				.select({ budgets: groups.budgets })
-				.from(groups)
-				.where(eq(groups.groupid, TEST_USERS.testGroupId))
-				.limit(1);
-			expect(groupResult).toHaveLength(1);
-			const budgets = JSON.parse(groupResult[0].budgets || "[]");
-
-			expect(budgets).toContain("house");
-			expect(budgets).toContain("food");
-			expect(budgets).toContain("utilities");
+			const budgetResults = await db
+				.select({ budgetName: groupBudgets.budgetName })
+				.from(groupBudgets)
+				.where(
+					and(
+						eq(groupBudgets.groupId, TEST_USERS.testGroupId),
+						isNull(groupBudgets.deleted)
+					)
+				);
+			
+			const budgetNames = budgetResults.map(b => b.budgetName);
+			expect(budgetNames).toContain("house");
+			expect(budgetNames).toContain("food");
+			expect(budgetNames).toContain("utilities");
 		});
 
 		it("should allow budget names with spaces and hyphens", async () => {
@@ -903,19 +917,22 @@ describe("Extended Group Metadata Handler", () => {
 
 			expect(response.status).toBe(200);
 
-			// Verify budgets in database
+			// Verify budgets in new group_budgets table
 			const db = getDb(env);
-			const groupResult = await db
-				.select({ budgets: groups.budgets })
-				.from(groups)
-				.where(eq(groups.groupid, TEST_USERS.testGroupId))
-				.limit(1);
-			expect(groupResult).toHaveLength(1);
-			const budgets = JSON.parse(groupResult[0].budgets || "[]");
-
-			expect(budgets).toContain("house rent");
-			expect(budgets).toContain("food-delivery");
-			expect(budgets).toContain("car_maintenance");
+			const budgetResults = await db
+				.select({ budgetName: groupBudgets.budgetName })
+				.from(groupBudgets)
+				.where(
+					and(
+						eq(groupBudgets.groupId, TEST_USERS.testGroupId),
+						isNull(groupBudgets.deleted)
+					)
+				);
+			
+			const budgetNames = budgetResults.map(b => b.budgetName);
+			expect(budgetNames).toContain("house rent");
+			expect(budgetNames).toContain("food-delivery");
+			expect(budgetNames).toContain("car_maintenance");
 		});
 
 		it("should reject budget names with invalid characters", async () => {
@@ -982,8 +999,19 @@ describe("Extended Group Metadata Handler", () => {
 
 			expect(groupResult[0].groupName).toBe("Multi-Update Group");
 
-			const budgets = JSON.parse(groupResult[0].budgets || "[]");
-			expect(budgets).toEqual(["rent", "groceries", "utilities"]);
+			// Verify budgets in new group_budgets table
+			const budgetResults = await db
+				.select({ budgetName: groupBudgets.budgetName })
+				.from(groupBudgets)
+				.where(
+					and(
+						eq(groupBudgets.groupId, TEST_USERS.testGroupId),
+						isNull(groupBudgets.deleted)
+					)
+				);
+			
+			const budgetNames = budgetResults.map(b => b.budgetName);
+			expect(budgetNames).toEqual(["rent", "groceries", "utilities"]);
 
 			const metadata = JSON.parse(groupResult[0].metadata || "{}");
 			expect(metadata.defaultCurrency).toBe("EUR");
@@ -1027,8 +1055,19 @@ describe("Extended Group Metadata Handler", () => {
 
 			expect(groupResult[0].groupName).toBe("Partial Update Group");
 
-			const budgets = JSON.parse(groupResult[0].budgets || "[]");
-			expect(budgets).toEqual(["new-category"]);
+			// Verify budgets in new group_budgets table
+			const budgetResults = await db
+				.select({ budgetName: groupBudgets.budgetName })
+				.from(groupBudgets)
+				.where(
+					and(
+						eq(groupBudgets.groupId, TEST_USERS.testGroupId),
+						isNull(groupBudgets.deleted)
+					)
+				);
+			
+			const budgetNames = budgetResults.map(b => b.budgetName);
+			expect(budgetNames).toEqual(["new-category"]);
 
 			// Metadata should preserve existing values
 			const metadata = JSON.parse(groupResult[0].metadata || "{}");

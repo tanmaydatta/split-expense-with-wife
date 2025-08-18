@@ -6,6 +6,7 @@ import { getDb } from "./db";
 import { user } from "./db/schema/auth-schema";
 import {
 	budgetTotals,
+	groupBudgets,
 	groups,
 	transactionUsers,
 	userBalances,
@@ -52,7 +53,6 @@ export async function enrichSession(
 		.select({
 			groupid: user.groupid,
 			metadata: groups.metadata,
-			budgets: groups.budgets,
 			userids: groups.userids,
 		})
 		.from(user)
@@ -67,14 +67,36 @@ export async function enrichSession(
 	if (!currentUser || currentUser.length === 0) {
 		throw new Error("Current user not found");
 	}
-	const group: ParsedGroup | null = getGroup(userGroup);
-	if (!group) {
+
+	// Get the group info first to check if user has a group
+	const groupInfo = getGroup(userGroup);
+	if (!groupInfo) {
 		return {
 			group: null,
 			usersById: {},
 			currentUser: currentUser[0],
 		};
 	}
+
+	// Fetch budgets from the new group_budgets table
+	const budgets = await db
+		.select({
+			id: groupBudgets.id,
+			budgetName: groupBudgets.budgetName,
+			description: groupBudgets.description,
+		})
+		.from(groupBudgets)
+		.where(
+			and(
+				eq(groupBudgets.groupId, groupInfo.groupid),
+				isNull(groupBudgets.deleted),
+			),
+		);
+
+	const group: ParsedGroup = {
+		...groupInfo,
+		budgets: budgets,
+	};
 	const userIds = group.userids;
 	const usersInGroup = await db
 		.select()
@@ -96,10 +118,9 @@ function getGroup(
 	userGroup: {
 		groupid: string | null;
 		metadata: string | null;
-		budgets: string | null;
 		userids: string | null;
 	}[],
-): ParsedGroup | null {
+): Omit<ParsedGroup, "budgets"> | null {
 	if (!userGroup || userGroup.length === 0 || !userGroup[0]?.groupid) {
 		return null;
 	}
@@ -109,9 +130,8 @@ function getGroup(
 		if (!rawGroup.groupid) {
 			throw new Error("Group ID is required");
 		}
-		const group: ParsedGroup = {
+		const group: Omit<ParsedGroup, "budgets"> = {
 			groupid: rawGroup.groupid,
-			budgets: JSON.parse(rawGroup.budgets || "[]") as string[],
 			userids: JSON.parse(rawGroup.userids || "[]") as string[],
 			metadata: JSON.parse(rawGroup.metadata || "{}") as GroupMetadata,
 		};
@@ -121,7 +141,6 @@ function getGroup(
 		// Return a safe default group
 		return {
 			groupid: userGroup[0].groupid || "",
-			budgets: [],
 			userids: [],
 			metadata: { defaultShare: {}, defaultCurrency: "USD" },
 		};
@@ -367,7 +386,9 @@ export function isAuthorizedForBudget(
 	if (!session.group) {
 		return false;
 	}
-	return session.group.budgets.includes(budgetName);
+	return session.group.budgets.some(
+		(budget) => budget.budgetName === budgetName,
+	);
 }
 
 // Currency validation now uses CURRENCIES from shared-types
