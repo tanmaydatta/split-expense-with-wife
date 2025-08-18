@@ -88,7 +88,7 @@ export async function enrichSession(
 		.from(groupBudgets)
 		.where(
 			and(
-				eq(groupBudgets.groupId, groupInfo.groupid),
+				eq(groupBudgets.groupId, String(groupInfo.groupid)),
 				isNull(groupBudgets.deleted),
 			),
 		);
