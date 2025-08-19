@@ -614,25 +614,36 @@ async function validateUpdateRequest(
 	session: CurrentSession,
 	env: Env,
 ): Promise<
-	{ success: true; body: UpdateGroupMetadataRequest } | { success: false; response: Response }
+	| { success: true; body: UpdateGroupMetadataRequest }
+	| { success: false; response: Response }
 > {
 	const body = (await request.json()) as UpdateGroupMetadataRequest;
-	
+
 	// Normalize groupid to string to prevent type mismatch issues
-	if (typeof body.groupid === 'number') {
+	if (typeof body.groupid === "number") {
 		body.groupid = String(body.groupid);
 	}
 
 	// Check if user is authorized to modify this group
-	if (body.groupid && session.group && body.groupid !== String(session.group.groupid)) {
-		return { success: false, response: createErrorResponse("group id mismatch", 401, request, env) };
+	if (
+		body.groupid &&
+		session.group &&
+		body.groupid !== String(session.group.groupid)
+	) {
+		return {
+			success: false,
+			response: createErrorResponse("group id mismatch", 401, request, env),
+		};
 	}
 
 	// Validate request body
 	const groupUserIds = new Set(Object.keys(session.usersById));
 	const validationError = validateRequestBody(body, groupUserIds);
 	if (validationError) {
-		return { success: false, response: createErrorResponse(validationError, 400, request, env) };
+		return {
+			success: false,
+			response: createErrorResponse(validationError, 400, request, env),
+		};
 	}
 
 	return { success: true, body };

@@ -2,7 +2,11 @@ import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { Input } from "@/components/Form/Input";
 import { Select } from "@/components/Form/Select";
-import { useGroupDetails, useUpdateGroupMetadata, useRefreshGroupDetails } from "@/hooks/useGroupDetails";
+import {
+	useGroupDetails,
+	useUpdateGroupMetadata,
+	useRefreshGroupDetails,
+} from "@/hooks/useGroupDetails";
 import { setData } from "@/redux/data";
 import { store } from "@/redux/store";
 import { scrollToTop } from "@/utils/scroll";
@@ -65,7 +69,7 @@ const Settings: React.FC = () => {
 	useEffect(() => {
 		if (groupDetailsQuery.data) {
 			const response = groupDetailsQuery.data;
-			
+
 			// Initialize form with current values
 			const initialPercentages: Record<string, number> = {};
 			response.users.forEach((user: User) => {
@@ -175,7 +179,8 @@ const Settings: React.FC = () => {
 			}
 
 			// Only make API call if there are changes
-			if (Object.keys(updateRequest).length <= 1) { // Only groupid
+			if (Object.keys(updateRequest).length <= 1) {
+				// Only groupid
 				return;
 			}
 
@@ -212,10 +217,12 @@ const Settings: React.FC = () => {
 			if (state.currencyDirty || state.sharesDirty) {
 				updates.group.metadata = {};
 				if (state.currencyDirty) {
-					updates.group.metadata.defaultCurrency = freshGroupDetails.metadata.defaultCurrency;
+					updates.group.metadata.defaultCurrency =
+						freshGroupDetails.metadata.defaultCurrency;
 				}
 				if (state.sharesDirty) {
-					updates.group.metadata.defaultShare = freshGroupDetails.metadata.defaultShare;
+					updates.group.metadata.defaultShare =
+						freshGroupDetails.metadata.defaultShare;
 				}
 			}
 
@@ -253,7 +260,8 @@ const Settings: React.FC = () => {
 		state.currencyDirty ||
 		state.sharesDirty ||
 		state.budgetsDirty;
-	const isLoading = groupDetailsQuery.isLoading || updateGroupMutation.isPending;
+	const isLoading =
+		groupDetailsQuery.isLoading || updateGroupMutation.isPending;
 	const canSave =
 		hasChanges && !isLoading && Math.abs(totalPercentage - 100) <= 0.001;
 
@@ -272,16 +280,20 @@ const Settings: React.FC = () => {
 	return (
 		<div className="settings-container" data-test-id="settings-container">
 			{groupDetailsQuery.error && (
-				<ErrorContainer 
-					message={groupDetailsQuery.error.message || "Failed to load group details"} 
-					onClose={() => groupDetailsQuery.refetch()} 
+				<ErrorContainer
+					message={
+						groupDetailsQuery.error.message || "Failed to load group details"
+					}
+					onClose={() => groupDetailsQuery.refetch()}
 				/>
 			)}
 
 			{updateGroupMutation.error && (
-				<ErrorContainer 
-					message={updateGroupMutation.error.message || "Failed to save settings"} 
-					onClose={updateGroupMutation.reset} 
+				<ErrorContainer
+					message={
+						updateGroupMutation.error.message || "Failed to save settings"
+					}
+					onClose={updateGroupMutation.reset}
 				/>
 			)}
 

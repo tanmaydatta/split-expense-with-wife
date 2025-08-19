@@ -1,9 +1,5 @@
 import { typedApi } from "@/utils/api";
-import {
-	useMutation,
-	useQuery,
-	useQueryClient,
-} from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
 	UpdateGroupMetadataRequest,
 	UpdateGroupMetadataResponse,
@@ -26,7 +22,7 @@ export function useGroupDetails(forceRefresh?: boolean) {
 // Hook for updating group metadata
 export function useUpdateGroupMetadata() {
 	const queryClient = useQueryClient();
-	
+
 	return useMutation<
 		UpdateGroupMetadataResponse,
 		Error,
@@ -44,7 +40,7 @@ export function useUpdateGroupMetadata() {
 // Helper function to manually refetch group details with force refresh
 export function useRefreshGroupDetails() {
 	const queryClient = useQueryClient();
-	
+
 	return async () => {
 		// Manually refetch with force refresh bypassing cache
 		return queryClient.fetchQuery({

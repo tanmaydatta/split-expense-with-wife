@@ -87,7 +87,7 @@ class TypeSafeApiClient implements TypedApiClient {
 				const params = new URLSearchParams(options.queryParams);
 				url += `?${params.toString()}`;
 			}
-			
+
 			const response: AxiosResponse<ApiEndpoints[K]["response"]> =
 				await apiInstance.get(url);
 			return response.data;
