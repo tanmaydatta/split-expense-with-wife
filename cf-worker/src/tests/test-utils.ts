@@ -6,6 +6,7 @@ import { account, session, user, verification } from "../db/schema/auth-schema";
 import {
 	budgetEntries,
 	budgetTotals,
+	groupBudgets,
 	groups,
 	scheduledActionHistory,
 	scheduledActions,
@@ -132,7 +133,20 @@ export async function setupDatabase(env: Env): Promise<void> {
 		"CREATE TABLE IF NOT EXISTS budget_entries (id INTEGER PRIMARY KEY AUTOINCREMENT, budget_entry_id VARCHAR(100), description VARCHAR(100) NOT NULL, added_time DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL, price VARCHAR(100), amount REAL NOT NULL, name VARCHAR(100) NOT NULL, deleted DATETIME DEFAULT NULL, groupid TEXT NOT NULL, currency VARCHAR(10) DEFAULT 'GBP' NOT NULL)",
 	);
 	await env.DB.exec(
-		"CREATE TABLE IF NOT EXISTS groups (groupid TEXT PRIMARY KEY, group_name VARCHAR(50) NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, userids VARCHAR(1000), budgets VARCHAR(1000), metadata TEXT)",
+		"CREATE TABLE IF NOT EXISTS groups (groupid TEXT PRIMARY KEY, group_name VARCHAR(50) NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, userids VARCHAR(1000), metadata TEXT)",
+	);
+	
+	// Create new group_budgets table
+	await env.DB.exec(
+		"CREATE TABLE IF NOT EXISTS group_budgets (id TEXT PRIMARY KEY, group_id TEXT NOT NULL, budget_name TEXT NOT NULL, description TEXT, created_at TEXT DEFAULT 'CURRENT_TIMESTAMP' NOT NULL, updated_at TEXT DEFAULT 'CURRENT_TIMESTAMP' NOT NULL, deleted TEXT, FOREIGN KEY (group_id) REFERENCES groups(groupid))",
+	);
+	
+	// Create indexes for group_budgets table
+	await env.DB.exec(
+		"CREATE INDEX IF NOT EXISTS group_budgets_group_id_idx ON group_budgets (group_id)",
+	);
+	await env.DB.exec(
+		"CREATE UNIQUE INDEX IF NOT EXISTS group_budgets_group_name_active_idx ON group_budgets (group_id, budget_name) WHERE deleted IS NULL",
 	);
 	await env.DB.exec(
 		"CREATE TABLE IF NOT EXISTS sessions_old (username VARCHAR(255) NOT NULL, sessionid VARCHAR(255) NOT NULL, expiry_time DATETIME NOT NULL)",
@@ -211,6 +225,7 @@ export async function completeCleanupDatabase(env: Env): Promise<void> {
 	await db.delete(transactionUsers);
 	await db.delete(transactions);
 	await db.delete(budgetEntries);
+	await db.delete(groupBudgets); // Delete group budgets before groups
 	await db.delete(groups);
 
 	// Reset autoincrement sequence for tables that have it
@@ -288,9 +303,26 @@ export async function createTestUserData(
 			groupid: testGroupId,
 			groupName: "Test Group",
 			userids: `["${user1.user.id}", "${user2.user.id}", "${user3.user.id}", "${user4.user.id}"]`,
-			budgets: '["house", "food"]',
 			metadata: `{"defaultShare": {"${user1.user.id}": 25, "${user2.user.id}": 25, "${user3.user.id}": 25, "${user4.user.id}": 25}, "defaultCurrency": "USD"}`,
 		});
+
+		// Insert budgets into the new group_budgets table
+		await db.insert(groupBudgets).values([
+			{
+				id: `budget_${Date.now()}_1`,
+				groupId: testGroupId,
+				budgetName: "house",
+				createdAt: new Date().toISOString(),
+				updatedAt: new Date().toISOString(),
+			},
+			{
+				id: `budget_${Date.now()}_2`,
+				groupId: testGroupId,
+				budgetName: "food",
+				createdAt: new Date().toISOString(),
+				updatedAt: new Date().toISOString(),
+			},
+		]);
 
 		return {
 			user1: { ...TEST_USERS.user1, id: user1.user.id, email: emails[0] },

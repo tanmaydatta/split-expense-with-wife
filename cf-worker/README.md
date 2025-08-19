@@ -197,6 +197,49 @@ This worker maintains API compatibility with the original Netlify functions, so 
 - All database queries use prepared statements to prevent SQL injection
 - Input validation is performed on all endpoints
 
+## Force Refresh Feature
+
+The worker now supports a `forceRefresh` query parameter that can be used to bypass session caching and fetch fresh data from the database. This is useful for ensuring immediate consistency after data updates.
+
+### Usage
+
+Add `?forceRefresh=true` to any API endpoint to force fresh session data:
+
+```bash
+# Example: Force refresh group details after budget updates
+GET /.netlify/functions/group/details?forceRefresh=true
+```
+
+### When to Use
+
+- **After budget updates**: When you delete/update budgets and need to see changes immediately
+- **After user changes**: When group membership or user data changes
+- **Cache consistency**: When you need guaranteed fresh data from the database
+
+### Technical Details
+
+- Works with all authenticated endpoints that use the `withAuth` middleware
+- Uses better-auth's `disableCookieCache: true` option internally
+- Serverless-friendly (no in-memory state required)
+- Backward compatible - existing API calls work unchanged
+
+### Example Frontend Integration
+
+```javascript
+// After successful budget update, get fresh group details
+const updateResponse = await fetch('/.netlify/functions/group/metadata', {
+  method: 'POST',
+  body: JSON.stringify(budgetData)
+});
+
+if (updateResponse.ok) {
+  // Force refresh to get updated budget data
+  const freshData = await fetch('/.netlify/functions/group/details?forceRefresh=true');
+  const groupDetails = await freshData.json();
+  // UI now shows updated budgets immediately
+}
+```
+
 ## Support
 
 For issues or questions, please refer to the original project documentation or open an issue in the project repository. 

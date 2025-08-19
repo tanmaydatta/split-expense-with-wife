@@ -30,7 +30,7 @@
     - idempotency check ✅
     - insert before calling workflow ✅
 - budget 
-    - budget to budget entries
+    - budget to budget entries ✅
     - new table for budget group mapping with budget id as primary key. use this table instead of budgets column in groups
         - name should be replaced in budgetTotals, scheduled actions
     - budget entries primary key change
@@ -45,3 +45,5 @@
 - roles
 - react query - pagination
 - convert to dropdown if more than 4 budgets
+- force refresh rate limit
+- budget edits

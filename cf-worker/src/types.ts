@@ -1,7 +1,7 @@
 // Import all shared types
 export * from "../../shared-types";
 
-import type { GroupMetadata } from "../../shared-types";
+import type { GroupMetadata, GroupBudgetData } from "../../shared-types";
 import type { auth } from "./auth";
 import type { user } from "./db/schema/auth-schema";
 
@@ -24,7 +24,7 @@ export interface CurrentSession {
 // Parsed group data (JSON strings parsed into structured data)
 export interface ParsedGroup {
 	groupid: string;
-	budgets: string[];
+	budgets: GroupBudgetData[];
 	userids: string[];
 	metadata: GroupMetadata;
 }

@@ -23,6 +23,13 @@ export interface Group {
 	metadata: string; // JSON string
 }
 
+// New budget structure from the group_budgets table
+export interface GroupBudgetData {
+	id: string;
+	budgetName: string;
+	description: string | null;
+}
+
 // Budget types
 export interface BudgetEntry {
 	id: number;
@@ -234,7 +241,7 @@ export interface BudgetTotal {
 export interface GroupDetailsResponse {
 	groupid: string;
 	groupName: string;
-	budgets: string[];
+	budgets: GroupBudgetData[];
 	metadata: GroupMetadata;
 	users: User[];
 }
@@ -244,7 +251,7 @@ export interface UpdateGroupMetadataRequest {
 	defaultShare?: Record<string, number>;
 	defaultCurrency?: string;
 	groupName?: string;
-	budgets?: string[];
+	budgets?: GroupBudgetData[];
 }
 
 export interface UpdateGroupMetadataResponse {
@@ -295,7 +302,7 @@ export interface FullAuthSession {
 // Parsed group data for frontend use (same structure as backend ParsedGroup)
 export interface ParsedGroupData {
 	groupid: string;
-	budgets: string[];
+	budgets: GroupBudgetData[];
 	userids: string[];
 	metadata: GroupMetadata;
 }
@@ -406,6 +413,7 @@ export interface TypedApiClient {
 	): Promise<ApiEndpoints[K]["response"]>;
 	get<K extends keyof ApiEndpoints>(
 		endpoint: K,
+		options?: { queryParams?: Record<string, string> },
 	): Promise<ApiEndpoints[K]["response"]>;
 }
 
@@ -425,6 +433,76 @@ export const CURRENCIES = [
 	"CNY",
 	"SGD",
 ] as const;
+
+// Group Budget Data Schema
+export const GroupBudgetDataSchema = z.object({
+	id: z.string().min(1),
+	budgetName: z
+		.string()
+		.min(1, "Budget name cannot be empty")
+		.max(60, "Budget name cannot exceed 60 characters")
+		.regex(
+			/^[a-zA-Z0-9\s\-_]+$/,
+			"Budget names can only contain letters, numbers, spaces, hyphens, and underscores",
+		)
+		.transform((name) => name.trim()),
+	description: z.string().nullable().optional(),
+});
+
+// Update Group Metadata Request Schema
+export const UpdateGroupMetadataRequestSchema = z
+	.object({
+		groupid: z.union([z.string(), z.number()]).transform((val) => String(val)),
+		defaultShare: z
+			.record(z.string(), z.number())
+			.refine(
+				(shares) => {
+					const values = Object.values(shares);
+					return values.every((v) => v >= 0);
+				},
+				{ message: "Default share percentages must be positive" },
+			)
+			.refine(
+				(shares) => {
+					const total = Object.values(shares).reduce((sum, p) => sum + p, 0);
+					return Math.abs(total - 100) <= 0.001;
+				},
+				{ message: "Default share percentages must add up to 100%" },
+			)
+			.optional(),
+		defaultCurrency: z
+			.enum(CURRENCIES as readonly [string, ...string[]])
+			.optional(),
+		groupName: z
+			.string()
+			.transform((name) => name.trim())
+			.refine((name) => name.length >= 1, {
+				message: "Group name cannot be empty",
+			})
+			.optional(),
+		budgets: z
+			.array(GroupBudgetDataSchema)
+			.refine(
+				(budgets) => {
+					const names = budgets.map((b) => b.budgetName.toLowerCase());
+					return names.length === new Set(names).size;
+				},
+				{ message: "Budget names must be unique" },
+			)
+			.optional(),
+	})
+	.refine(
+		(data) => {
+			// Ensure at least one field is being updated
+			const hasChanges =
+				data.defaultShare !== undefined ||
+				data.defaultCurrency !== undefined ||
+				data.groupName !== undefined ||
+				data.budgets !== undefined;
+			return hasChanges;
+		},
+		{ message: "No changes provided" },
+	);
 
 // Scheduled Actions Types
 export type ScheduledActionFrequency = "daily" | "weekly" | "monthly";
@@ -645,4 +723,7 @@ export type ScheduledActionListQuery = z.infer<
 >;
 export type ScheduledActionHistoryQuery = z.infer<
 	typeof ScheduledActionHistoryQuerySchema
+>;
+export type UpdateGroupMetadataRequestInput = z.infer<
+	typeof UpdateGroupMetadataRequestSchema
 >;

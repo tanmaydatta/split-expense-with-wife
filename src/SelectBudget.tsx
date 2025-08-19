@@ -1,5 +1,5 @@
 import { useSelector } from "react-redux";
-import type { ReduxState } from "split-expense-shared-types";
+import type { GroupBudgetData, ReduxState } from "split-expense-shared-types";
 import {
 	ToggleButton,
 	ToggleButtonGroup,
@@ -32,17 +32,17 @@ export const SelectBudget: React.FC<SelectBudgetProps> = ({
 			onChange={handleChangeBudget}
 			disabled={disabled}
 		>
-			{budgets.map((b: string) => (
+			{budgets.map((b: GroupBudgetData) => (
 				<ToggleButton
-					key={b}
-					id={`radio-${b}`}
-					data-test-id={`budget-radio-${b}`}
+					key={b.id}
+					id={`radio-${b.budgetName}`}
+					data-test-id={`budget-radio-${b.budgetName}`}
 					type="radio"
 					variant="outline-primary"
-					value={b}
-					checked={budget === b}
+					value={b.budgetName}
+					checked={budget === b.budgetName}
 				>
-					{b}
+					{b.budgetName}
 				</ToggleButton>
 			))}
 		</ToggleButtonGroup>

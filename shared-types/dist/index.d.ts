@@ -16,6 +16,11 @@ export interface Group {
 	userids: string;
 	metadata: string;
 }
+export interface GroupBudgetData {
+	id: string;
+	budgetName: string;
+	description: string | null;
+}
 export interface BudgetEntry {
 	id: number;
 	description: string;
@@ -189,7 +194,7 @@ export interface BudgetTotal {
 export interface GroupDetailsResponse {
 	groupid: string;
 	groupName: string;
-	budgets: string[];
+	budgets: GroupBudgetData[];
 	metadata: GroupMetadata;
 	users: User[];
 }
@@ -198,7 +203,7 @@ export interface UpdateGroupMetadataRequest {
 	defaultShare?: Record<string, number>;
 	defaultCurrency?: string;
 	groupName?: string;
-	budgets?: string[];
+	budgets?: GroupBudgetData[];
 }
 export interface UpdateGroupMetadataResponse {
 	message: string;
@@ -241,7 +246,7 @@ export interface FullAuthSession {
 }
 export interface ParsedGroupData {
 	groupid: string;
-	budgets: string[];
+	budgets: GroupBudgetData[];
 	userids: string[];
 	metadata: GroupMetadata;
 }
@@ -370,6 +375,9 @@ export interface TypedApiClient {
 	): Promise<ApiEndpoints[K]["response"]>;
 	get<K extends keyof ApiEndpoints>(
 		endpoint: K,
+		options?: {
+			queryParams?: Record<string, string>;
+		},
 	): Promise<ApiEndpoints[K]["response"]>;
 }
 export type Currency = "USD" | "EUR" | "GBP" | "INR";
@@ -385,6 +393,44 @@ export declare const CURRENCIES: readonly [
 	"CNY",
 	"SGD",
 ];
+export declare const GroupBudgetDataSchema: z.ZodObject<
+	{
+		id: z.ZodString;
+		budgetName: z.ZodPipe<z.ZodString, z.ZodTransform<string, string>>;
+		description: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+	},
+	z.core.$strip
+>;
+export declare const UpdateGroupMetadataRequestSchema: z.ZodObject<
+	{
+		groupid: z.ZodPipe<
+			z.ZodUnion<readonly [z.ZodString, z.ZodNumber]>,
+			z.ZodTransform<string, string | number>
+		>;
+		defaultShare: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodNumber>>;
+		defaultCurrency: z.ZodOptional<
+			z.ZodEnum<{
+				[x: string]: string;
+			}>
+		>;
+		groupName: z.ZodOptional<
+			z.ZodPipe<z.ZodString, z.ZodTransform<string, string>>
+		>;
+		budgets: z.ZodOptional<
+			z.ZodArray<
+				z.ZodObject<
+					{
+						id: z.ZodString;
+						budgetName: z.ZodPipe<z.ZodString, z.ZodTransform<string, string>>;
+						description: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+					},
+					z.core.$strip
+				>
+			>
+		>;
+	},
+	z.core.$strip
+>;
 export type ScheduledActionFrequency = "daily" | "weekly" | "monthly";
 export type ScheduledActionType = "add_expense" | "add_budget";
 export type CreateScheduledActionResponse = {
@@ -639,4 +685,7 @@ export type ScheduledActionListQuery = z.infer<
 >;
 export type ScheduledActionHistoryQuery = z.infer<
 	typeof ScheduledActionHistoryQuerySchema
+>;
+export type UpdateGroupMetadataRequestInput = z.infer<
+	typeof UpdateGroupMetadataRequestSchema
 >;

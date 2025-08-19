@@ -10,7 +10,11 @@
 			"Bash(npm run build:*)",
 			"Bash(yarn wrangler types:*)",
 			"Bash(env)",
-			"Bash(grep:*)"
+			"Bash(grep:*)",
+			"mcp__cloudflare__search_cloudflare_documentation",
+			"WebSearch",
+			"WebFetch(domain:www.better-auth.com)",
+			"WebFetch(domain:www.answeroverflow.com)"
 		],
 		"deny": []
 	}

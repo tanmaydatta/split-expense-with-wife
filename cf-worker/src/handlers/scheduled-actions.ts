@@ -205,7 +205,7 @@ export async function handleScheduledActionCreate(
 		// Parse request strictly with Zod (no manual any checks)
 		const parsed = buildCreateActionSchema(
 			group.userids,
-			group.budgets,
+			group.budgets.map((budget) => budget.budgetName),
 		).safeParse(json as unknown);
 		if (!parsed.success) {
 			return createErrorResponse(
@@ -371,7 +371,7 @@ function validateAndSetActionData(
 	// Validate action data via runtime Zod
 	const { ExpenseValid, BudgetValid } = buildActionDataSchemas(
 		group.userids,
-		group.budgets,
+		group.budgets.map((budget) => budget.budgetName),
 	);
 
 	const actionParsed =

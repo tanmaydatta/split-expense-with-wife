@@ -104,3 +104,49 @@ This is a full-stack expense splitting application with the following architectu
 - Database migrations: Run separately before deploying code changes
 - always use yarn in this project
 - do not add created by claude in commit message
+
+### While implementing
+- After you complete the plan you work on, update and append detailed descriptions of the changes you made, so following tasks can be easily handed over to other engineers
+- After you complete your work, make sure to update docs/ folder. If the folder doesn't exists, create one and document everything present in the code.
+- Always run format, tests and lint once you implement the changes.
+
+## Recent Major Changes
+
+### Budget Storage Migration (August 2024) - COMPLETED
+**Migration 0010**: Migrated budget categories from JSON storage to normalized `group_budgets` table.
+
+**Changes Made:**
+- **Database**: Added new `group_budgets` table with foreign key relationships to `groups` table
+- **Migration**: Created `0010_eager_scorpion.sql` with automatic data migration using D1 JSON functions
+- **Backend**: Updated `cf-worker/src/utils.ts`, `handlers/group.ts`, `types.ts`, and `scheduled-actions.ts`
+- **Compatibility**: Implemented full backward compatibility with graceful fallback to legacy JSON storage
+- **Types**: Added new `GroupBudgetData` interface for type safety
+- **Testing**: All 174 tests passing with fallback compatibility mechanism
+
+**Benefits:**
+- Unique budget IDs enable safe renaming and referential integrity
+- Foreign key constraints prevent orphaned data
+- Foundation for future budget metadata (descriptions, colors, limits)
+- Better query performance with proper indexing
+- Normalized data structure eliminates duplicate budget names
+
+**Deployment Status:**
+- ✅ Local testing completed successfully
+- ✅ Migration tested and validated
+- ✅ Backward compatibility verified
+- ✅ Documentation updated (`docs/database.md`, `docs/migration-changelog.md`)
+- 🔄 Ready for dev environment deployment (`yarn db:migrate:dev && yarn deploy:dev`)
+
+**Files Created/Modified:**
+- `cf-worker/src/db/migrations/0010_eager_scorpion.sql` - Migration with data migration
+- `cf-worker/src/db/schema/schema.ts` - Added groupBudgets table definition  
+- `cf-worker/src/types.ts` - New GroupBudgetData interface
+- `cf-worker/src/utils.ts` - Updated budget fetching with fallback logic
+- `cf-worker/src/handlers/group.ts` - New budget management functions with fallback
+- `cf-worker/src/handlers/scheduled-actions.ts` - Updated for new budget structure
+- `docs/database.md` - Updated with new table documentation
+- `docs/migration-changelog.md` - New detailed migration documentation
+- `docs/README.md` - Added reference to migration changelog
+
+**Rollback Strategy:** Migration can be rolled back by regenerating the `groups.budgets` JSON column from the normalized data.
+- always update documentation after implementing changes

@@ -71,6 +71,20 @@
 			"when": 1755463994299,
 			"tag": "0009_rename-budget-id-to-budget-entry-id",
 			"breakpoints": true
+		},
+		{
+			"idx": 10,
+			"version": "6",
+			"when": 1755508981444,
+			"tag": "0010_eager_scorpion",
+			"breakpoints": true
+		},
+		{
+			"idx": 11,
+			"version": "6",
+			"when": 1755515538068,
+			"tag": "0011_drop-budgets-column",
+			"breakpoints": true
 		}
 	]
 }

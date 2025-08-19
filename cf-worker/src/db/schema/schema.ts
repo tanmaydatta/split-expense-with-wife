@@ -6,6 +6,7 @@ import {
 	sqliteTable,
 	text,
 } from "drizzle-orm/sqlite-core";
+import { isNull } from "drizzle-orm";
 import type {
 	ScheduledActionData,
 	ScheduledActionResultData,
@@ -18,9 +19,29 @@ export const groups = sqliteTable("groups", {
 	groupName: text("group_name", { length: 50 }).notNull(),
 	createdAt: text("created_at").notNull().default("CURRENT_TIMESTAMP"),
 	userids: text("userids", { length: 1000 }),
-	budgets: text("budgets", { length: 1000 }),
 	metadata: text("metadata", { length: 2000 }),
 });
+
+export const groupBudgets = sqliteTable(
+	"group_budgets",
+	{
+		id: text("id").primaryKey(),
+		groupId: text("group_id")
+			.notNull()
+			.references(() => groups.groupid),
+		budgetName: text("budget_name").notNull(),
+		description: text("description"),
+		createdAt: text("created_at").notNull().default("CURRENT_TIMESTAMP"),
+		updatedAt: text("updated_at").notNull().default("CURRENT_TIMESTAMP"),
+		deleted: text("deleted"),
+	},
+	(table) => [
+		index("group_budgets_group_id_idx").on(table.groupId),
+		index("group_budgets_group_name_active_idx")
+			.on(table.groupId, table.budgetName)
+			.where(isNull(table.deleted)),
+	],
+);
 
 export const transactions = sqliteTable(
 	"transactions",
@@ -282,6 +303,7 @@ export const scheduledActionHistory = sqliteTable(
 export const schema = {
 	user,
 	groups,
+	groupBudgets,
 	session,
 	account,
 	verification,
@@ -299,6 +321,8 @@ export type User = typeof user.$inferSelect;
 export type NewUser = typeof user.$inferInsert;
 export type Group = typeof groups.$inferSelect;
 export type NewGroup = typeof groups.$inferInsert;
+export type GroupBudget = typeof groupBudgets.$inferSelect;
+export type NewGroupBudget = typeof groupBudgets.$inferInsert;
 export type Session = typeof session.$inferSelect;
 export type NewSession = typeof session.$inferInsert;
 export type Transaction = typeof transactions.$inferSelect;
