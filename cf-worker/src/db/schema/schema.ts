@@ -126,34 +126,31 @@ export const budgetEntries = sqliteTable(
 		addedTime: text("added_time").notNull().default("CURRENT_TIMESTAMP"),
 		price: text("price", { length: 100 }),
 		amount: real("amount").notNull(),
-		name: text("name", { length: 100 }).notNull(),
+		budgetId: text("budget_id")
+			.notNull()
+			.references(() => groupBudgets.id),
 		deleted: text("deleted"),
-		groupid: text("groupid").notNull(),
 		currency: text("currency", { length: 10 }).notNull().default("GBP"),
 	},
 	(table) => [
 		index("budget_entries_monthly_query_idx").on(
-			table.name,
-			table.groupid,
+			table.budgetId,
 			table.deleted,
 			table.addedTime,
 		),
-		index("budget_entries_name_groupid_deleted_added_time_amount_idx").on(
-			table.name,
-			table.groupid,
+		index("budget_entries_budget_id_deleted_added_time_amount_idx").on(
+			table.budgetId,
 			table.deleted,
 			table.addedTime,
 			table.amount,
 		),
-		index("budget_entries_name_groupid_deleted_idx").on(
-			table.name,
-			table.groupid,
+		index("budget_entries_budget_id_deleted_idx").on(
+			table.budgetId,
 			table.deleted,
 		),
-		index("budget_entries_name_price_idx").on(table.name, table.price),
-		index("budget_entries_name_idx").on(table.name),
+		index("budget_entries_budget_id_idx").on(table.budgetId),
 		index("budget_entries_amount_idx").on(table.amount),
-		index("budget_entries_name_added_time_idx").on(table.name, table.addedTime),
+		index("budget_entries_budget_id_added_time_idx").on(table.budgetId, table.addedTime),
 		index("budget_entries_added_time_idx").on(table.addedTime),
 		index("budget_entries_budget_entry_id_idx").on(table.budgetEntryId),
 	],
@@ -194,15 +191,16 @@ export const userBalances = sqliteTable(
 export const budgetTotals = sqliteTable(
 	"budget_totals",
 	{
-		groupId: text("group_id").notNull(),
-		name: text("name", { length: 100 }).notNull(),
+		budgetId: text("budget_id")
+			.notNull()
+			.references(() => groupBudgets.id),
 		currency: text("currency", { length: 10 }).notNull(),
 		totalAmount: real("total_amount").notNull().default(0),
 		updatedAt: text("updated_at").notNull(),
 	},
 	(table) => [
-		primaryKey({ columns: [table.groupId, table.name, table.currency] }),
-		index("budget_totals_group_name_idx").on(table.groupId, table.name),
+		primaryKey({ columns: [table.budgetId, table.currency] }),
+		index("budget_totals_budget_id_idx").on(table.budgetId),
 	],
 );
 

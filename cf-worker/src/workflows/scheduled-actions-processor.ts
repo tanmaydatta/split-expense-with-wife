@@ -286,7 +286,7 @@ export async function processBudgetAction(
 		amount:
 			budgetData.type === "Credit" ? budgetData.amount : -budgetData.amount,
 		description: budgetData.description,
-		name: budgetData.budgetName,
+		budgetId: budgetData.budgetId,
 		groupid: userData.groupid || "",
 		currency: budgetData.currency,
 	};

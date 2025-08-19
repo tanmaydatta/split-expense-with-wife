@@ -6,13 +6,13 @@ import {
 } from "./components/ToggleButtonGroup";
 
 interface SelectBudgetProps {
-	budget: string;
+	budgetId: string;
 	handleChangeBudget: (val: string) => void;
 	disabled?: boolean;
 }
 
 export const SelectBudget: React.FC<SelectBudgetProps> = ({
-	budget,
+	budgetId,
 	handleChangeBudget,
 	disabled = false,
 }) => {
@@ -28,7 +28,7 @@ export const SelectBudget: React.FC<SelectBudgetProps> = ({
 			className="mb-2 BudgetSelectionGroup"
 			data-test-id="budget-selection-group"
 			name="budget"
-			value={budget}
+			value={budgetId}
 			onChange={handleChangeBudget}
 			disabled={disabled}
 		>
@@ -39,8 +39,8 @@ export const SelectBudget: React.FC<SelectBudgetProps> = ({
 					data-test-id={`budget-radio-${b.budgetName}`}
 					type="radio"
 					variant="outline-primary"
-					value={b.budgetName}
-					checked={budget === b.budgetName}
+					value={b.id}
+					checked={budgetId === b.id}
 				>
 					{b.budgetName}
 				</ToggleButton>

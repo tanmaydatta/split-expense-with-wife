@@ -33,6 +33,9 @@
     - budget to budget entries ✅
     - new table for budget group mapping with budget id as primary key. use this table instead of budgets column in groups
         - name should be replaced in budgetTotals, scheduled actions
+    - replace name in budget entry
+    - replace name in scheduled actions
+    - replace name in budget totals
     - budget entries primary key change
 - edit action, start date should not be mutated ever
 - scan receipt

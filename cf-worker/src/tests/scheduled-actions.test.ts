@@ -57,8 +57,9 @@ async function createUserInNewGroup(env: Env): Promise<{ id: string; email: stri
 	});
 	
 	// Insert budget into the group_budgets table
+	const budgetId = `budget_${Date.now()}_other`;
 	await db.insert(groupBudgets).values({
-		id: `budget_${Date.now()}_other`,
+		id: budgetId,
 		groupId: groupid,
 		budgetName: "house",
 		createdAt: new Date().toISOString(),
@@ -76,6 +77,10 @@ describe("Scheduled Actions Handlers", () => {
 		user3: Record<string, string>;
 		user4: Record<string, string>;
 		testGroupId: string;
+		budgetIds: {
+			house: string;
+			food: string;
+		};
 	};
 	let userCookies: string;
 
@@ -249,13 +254,13 @@ describe("Scheduled Actions Handlers", () => {
 			const validBudgetData: AddBudgetActionData = {
 				amount: 50,
 				description: "Monthly groceries",
-				budgetName: "food", // Use an available budget category from test setup
+				budgetId: TEST_USERS.budgetIds.food, // Use actual budget ID from test setup
 				currency: "USD",
 				type: "Debit",
 			};
 
 			const userIds = [TEST_USERS.user1.id, TEST_USERS.user2.id];
-			const budgets = ["house", "food"]; // Use available budget categories from test setup
+			const budgets = [TEST_USERS.budgetIds.house, TEST_USERS.budgetIds.food]; // Use actual budget IDs from test setup
 
 			const result = validateActionData(
 				"add_budget",
@@ -270,13 +275,13 @@ describe("Scheduled Actions Handlers", () => {
 			const invalidBudgetData: AddBudgetActionData = {
 				amount: 50,
 				description: "Monthly entertainment",
-				budgetName: "entertainment", // Not in available budgets
+				budgetId: "invalid_budget_id", // Not in available budgets
 				currency: "USD",
 				type: "Debit",
 			};
 
 			const userIds = [TEST_USERS.user1.id, TEST_USERS.user2.id];
-			const budgets = ["house", "food"]; // Use available budget categories from test setup
+			const budgets = [TEST_USERS.budgetIds.house, TEST_USERS.budgetIds.food]; // Use actual budget IDs from test setup
 
 			const result = validateActionData(
 				"add_budget",
@@ -284,7 +289,7 @@ describe("Scheduled Actions Handlers", () => {
 				userIds,
 				budgets,
 			);
-			expect(result).toContain("Invalid budget name - not available in group");
+			expect(result).toContain("Invalid budget ID - not available in group");
 		});
 	});
 
@@ -340,7 +345,7 @@ describe("Scheduled Actions Handlers", () => {
 			const budgetData: AddBudgetActionData = {
 				amount: 200,
 				description: "Monthly utilities budget",
-				budgetName: "house", // Use an available budget category from test setup
+				budgetId: TEST_USERS.budgetIds.house, // Use actual budget ID from test setup
 				currency: "USD",
 				type: "Credit",
 			};
@@ -485,7 +490,7 @@ describe("Scheduled Actions Handlers", () => {
 					actionData: {
 						amount: 200,
 						description: "Monthly budget",
-						budgetName: "utilities",
+						budgetId: "utilities",
 						currency: "USD",
 						type: "Credit",
 					},
@@ -1551,7 +1556,7 @@ function validateActionData(
 		if (
 			!data.amount ||
 			!data.description ||
-			!data.budgetName ||
+			!data.budgetId ||
 			!data.currency ||
 			!data.type
 		) {
@@ -1568,9 +1573,9 @@ function validateActionData(
 			return `Invalid currency. Supported: ${CURRENCIES.join(", ")}`;
 		}
 
-		// Validate budget name
-		if (!budgets.includes(data.budgetName)) {
-			return "Invalid budget name - not available in group";
+		// Validate budget ID
+		if (!budgets.includes(data.budgetId)) {
+			return "Invalid budget ID - not available in group";
 		}
 
 		// Validate type

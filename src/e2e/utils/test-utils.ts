@@ -23,7 +23,8 @@ export interface TestExpense {
 }
 
 export interface TestBudget {
-	name: string;
+	budgetId: string;
+	name: string; // Keep for backward compatibility with existing tests
 	amount: number;
 	currency: string;
 	type: "Credit" | "Debit";

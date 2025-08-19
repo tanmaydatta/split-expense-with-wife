@@ -68,8 +68,8 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 export const MonthlyBudgetPage: React.FC = () => {
-	const { budgetName } = useParams<{ budgetName: string }>();
-	const [budget, setBudget] = useState(budgetName || "house");
+	const { budgetId } = useParams<{ budgetId: string }>();
+	const [budget, setBudget] = useState(budgetId || "");
 	const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
 	const [averageExpense, setAverageExpense] = useState<number>(0);
 	const [currency, setCurrency] = useState<string>("GBP");
@@ -160,7 +160,7 @@ export const MonthlyBudgetPage: React.FC = () => {
 			const response: BudgetMonthlyResponse = await typedApi.post(
 				"/budget_monthly",
 				{
-					name: budget,
+					budgetId: budget,
 				},
 			);
 
@@ -274,10 +274,10 @@ export const MonthlyBudgetPage: React.FC = () => {
 	}, [fetchMonthlyData]);
 
 	useEffect(() => {
-		if (budgetName) {
-			setBudget(budgetName);
+		if (budgetId) {
+			setBudget(budgetId);
 		}
-	}, [budgetName]);
+	}, [budgetId]);
 
 	if (loading) {
 		return (
@@ -330,7 +330,7 @@ export const MonthlyBudgetPage: React.FC = () => {
 				{/* Budget Selector */}
 				<div className="budget-selector-section">
 					<SelectBudget
-						budget={budget}
+						budgetId={budget}
 						handleChangeBudget={handleChangeBudget}
 					/>
 				</div>

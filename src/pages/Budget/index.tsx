@@ -22,7 +22,7 @@ import "./index.css";
 
 export const Budget: React.FC = () => {
 	const [budgetHistory, setBudgetHistory] = useState<BudgetEntry[]>([]);
-	const [budget, setBudget] = useState("house");
+	const [budget, setBudget] = useState("");
 	const [budgetsLeft, setBudgetsLeft] = useState<
 		{ currency: string; amount: number }[]
 	>([]);
@@ -35,7 +35,7 @@ export const Budget: React.FC = () => {
 	const fetchTotal = useCallback(async () => {
 		try {
 			const request: BudgetTotalRequest = {
-				name: budget,
+				budgetId: budget,
 			};
 
 			const response: BudgetTotal[] = await typedApi.post(
@@ -56,7 +56,7 @@ export const Budget: React.FC = () => {
 			setLoading(true);
 			try {
 				const request: BudgetListRequest = {
-					name: budget,
+					budgetId: budget,
 					offset: offset,
 				};
 
@@ -141,7 +141,7 @@ export const Budget: React.FC = () => {
 						<AmountGrid amounts={budgetsLeft} />
 					</Card>
 					<SelectBudget
-						budget={budget}
+						budgetId={budget}
 						handleChangeBudget={handleChangeBudget}
 					/>
 					<Button onClick={() => navigate(`/monthly-budget/${budget}`)}>

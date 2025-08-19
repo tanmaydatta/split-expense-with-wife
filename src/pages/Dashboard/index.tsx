@@ -116,7 +116,7 @@ function Dashboard(): JSX.Element {
 				data.extra.group.budgets.length > 0 &&
 				!budget
 			) {
-				setBudget(data.extra.group.budgets[0].budgetName);
+				setBudget(data.extra.group.budgets[0].id);
 			}
 
 			// Set default paid by to current user
@@ -184,7 +184,7 @@ function Dashboard(): JSX.Element {
 		const budgetPayload: BudgetRequest = {
 			amount: creditDebit === "Debit" ? -amount! : amount!,
 			description: description!,
-			name: budget,
+			budgetId: budget,
 			groupid: data?.extra?.group?.groupid ?? "",
 			currency: currency,
 		};
@@ -397,7 +397,7 @@ function Dashboard(): JSX.Element {
 							disabled={loading}
 						/>
 						<SelectBudget
-							budget={budget}
+							budgetId={budget}
 							handleChangeBudget={setBudget}
 							disabled={loading}
 						/>

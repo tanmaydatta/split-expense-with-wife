@@ -87,18 +87,18 @@ export interface LoginRequest {
 export interface BudgetRequest {
 	amount: number;
 	description: string;
-	name: string;
+	budgetId: string;
 	groupid: string;
 	currency: string;
 }
 
 export interface BudgetListRequest {
 	offset: number;
-	name: string;
+	budgetId: string;
 }
 
 export interface BudgetTotalRequest {
-	name: string;
+	budgetId: string;
 }
 
 export interface BudgetDeleteRequest {
@@ -106,7 +106,7 @@ export interface BudgetDeleteRequest {
 }
 
 export interface BudgetMonthlyRequest {
-	name: string;
+	budgetId: string;
 	timeRange?: "6M" | "1Y" | "2Y" | "All";
 	currency?: string;
 }
@@ -535,7 +535,7 @@ export interface AddExpenseActionData {
 export interface AddBudgetActionData {
 	amount: number;
 	description: string;
-	budgetName: string; // From available budget categories in user's group
+	budgetId: string; // Budget ID from group_budgets table
 	currency: string; // Will be validated against supported currencies
 	type: "Credit" | "Debit"; // Credit adds to budget, Debit subtracts from budget
 }
@@ -639,7 +639,7 @@ export const AddExpenseActionSchema = z.object({
 export const AddBudgetActionSchema = z.object({
 	amount: z.number().positive(),
 	description: z.string().min(2).max(100),
-	budgetName: z.string().min(1),
+	budgetId: z.string().min(1),
 	currency: z.string(),
 	type: z.union([z.literal("Credit"), z.literal("Debit")]),
 });

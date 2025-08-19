@@ -141,8 +141,8 @@ function buildActionDataSchemas(userIds: string[], budgets: string[]) {
 
 	const BudgetValid = AddBudgetActionSchema.extend({
 		currency: currencySchema,
-		budgetName: z.string().refine((name) => budgets.includes(name), {
-			message: "Invalid budget name - not available in group",
+		budgetId: z.string().refine((id) => budgets.includes(id), {
+			message: "Invalid budget ID - not available in group",
 		}),
 	});
 
@@ -205,7 +205,7 @@ export async function handleScheduledActionCreate(
 		// Parse request strictly with Zod (no manual any checks)
 		const parsed = buildCreateActionSchema(
 			group.userids,
-			group.budgets.map((budget) => budget.budgetName),
+			group.budgets.map((budget) => budget.id),
 		).safeParse(json as unknown);
 		if (!parsed.success) {
 			return createErrorResponse(
@@ -371,7 +371,7 @@ function validateAndSetActionData(
 	// Validate action data via runtime Zod
 	const { ExpenseValid, BudgetValid } = buildActionDataSchemas(
 		group.userids,
-		group.budgets.map((budget) => budget.budgetName),
+		group.budgets.map((budget) => budget.id),
 	);
 
 	const actionParsed =

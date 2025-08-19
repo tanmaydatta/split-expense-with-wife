@@ -387,13 +387,13 @@ export function addCORSHeaders(
 // Helper function to check if user is authorized for a budget
 export function isAuthorizedForBudget(
 	session: CurrentSession,
-	budgetName: string,
+	budgetId: string,
 ): boolean {
 	if (!session.group) {
 		return false;
 	}
 	return session.group.budgets.some(
-		(budget) => budget.budgetName === budgetName,
+		(budget) => budget.id === budgetId,
 	);
 }
 
@@ -624,8 +624,8 @@ export async function getUserBalances(
 // Get budget totals using Drizzle
 export async function getBudgetTotals(
 	env: Env,
-	groupId: string,
-	name: string,
+	_groupId: string,
+	budgetId: string,
 ): Promise<BudgetTotal[]> {
 	const db = getDb(env);
 
@@ -635,9 +635,7 @@ export async function getBudgetTotals(
 			amount: budgetTotals.totalAmount,
 		})
 		.from(budgetTotals)
-		.where(
-			sql`${budgetTotals.groupId} = ${groupId} AND ${budgetTotals.name} = ${name}`,
-		);
+		.where(eq(budgetTotals.budgetId, budgetId));
 
 	return totals;
 }

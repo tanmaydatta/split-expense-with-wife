@@ -128,9 +128,9 @@ export async function setupDatabase(env: Env): Promise<void> {
 		"CREATE TABLE IF NOT EXISTS verification (id TEXT PRIMARY KEY, identifier TEXT NOT NULL, value TEXT NOT NULL, expires_at INTEGER NOT NULL, created_at INTEGER, updated_at INTEGER)",
 	);
 
-	// Create legacy tables (for backward compatibility during migration)
+	// Create budget_entries table with new budgetId schema
 	await env.DB.exec(
-		"CREATE TABLE IF NOT EXISTS budget_entries (id INTEGER PRIMARY KEY AUTOINCREMENT, budget_entry_id VARCHAR(100), description VARCHAR(100) NOT NULL, added_time DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL, price VARCHAR(100), amount REAL NOT NULL, name VARCHAR(100) NOT NULL, deleted DATETIME DEFAULT NULL, groupid TEXT NOT NULL, currency VARCHAR(10) DEFAULT 'GBP' NOT NULL)",
+		"CREATE TABLE IF NOT EXISTS budget_entries (id INTEGER PRIMARY KEY AUTOINCREMENT, budget_entry_id VARCHAR(100), description VARCHAR(100) NOT NULL, added_time DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL, price VARCHAR(100), amount REAL NOT NULL, budget_id TEXT NOT NULL, deleted DATETIME DEFAULT NULL, currency VARCHAR(10) DEFAULT 'GBP' NOT NULL, FOREIGN KEY (budget_id) REFERENCES group_budgets(id))",
 	);
 	await env.DB.exec(
 		"CREATE TABLE IF NOT EXISTS groups (groupid TEXT PRIMARY KEY, group_name VARCHAR(50) NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, userids VARCHAR(1000), metadata TEXT)",
@@ -166,9 +166,9 @@ export async function setupDatabase(env: Env): Promise<void> {
 		"CREATE TABLE IF NOT EXISTS user_balances (group_id TEXT NOT NULL, user_id TEXT NOT NULL, owed_to_user_id TEXT NOT NULL, currency VARCHAR(10) NOT NULL, balance REAL NOT NULL DEFAULT 0, updated_at DATETIME NOT NULL, PRIMARY KEY (group_id, user_id, owed_to_user_id, currency))",
 	);
 
-	// Create budget totals table
+	// Create budget totals table with budgetId schema
 	await env.DB.exec(
-		"CREATE TABLE IF NOT EXISTS budget_totals (group_id TEXT NOT NULL, name VARCHAR(100) NOT NULL, currency VARCHAR(10) NOT NULL, total_amount REAL NOT NULL DEFAULT 0, updated_at DATETIME NOT NULL, PRIMARY KEY (group_id, name, currency))",
+		"CREATE TABLE IF NOT EXISTS budget_totals (budget_id TEXT NOT NULL, currency VARCHAR(10) NOT NULL, total_amount REAL NOT NULL DEFAULT 0, updated_at DATETIME NOT NULL, PRIMARY KEY (budget_id, currency), FOREIGN KEY (budget_id) REFERENCES group_budgets(id))",
 	);
 
 	// Create scheduled actions tables
@@ -188,7 +188,7 @@ export async function setupDatabase(env: Env): Promise<void> {
 		"CREATE INDEX IF NOT EXISTS transaction_users_balances_idx ON transaction_users (group_id, deleted, user_id, owed_to_user_id, currency)",
 	);
 	await env.DB.exec(
-		"CREATE INDEX IF NOT EXISTS budget_totals_group_name_idx ON budget_totals (group_id, name)",
+		"CREATE INDEX IF NOT EXISTS budget_totals_budget_id_idx ON budget_totals (budget_id)",
 	);
 	await env.DB.exec(
 		"CREATE INDEX IF NOT EXISTS scheduled_actions_user_next_execution_idx ON scheduled_actions (user_id, next_execution_date)",
@@ -254,6 +254,10 @@ export async function createTestUserData(
 	user3: Record<string, string>;
 	user4: Record<string, string>;
 	testGroupId: string;
+	budgetIds: {
+		house: string;
+		food: string;
+	};
 }> {
 	const authInstance = auth(env);
 	const emails = [
@@ -306,17 +310,20 @@ export async function createTestUserData(
 			metadata: `{"defaultShare": {"${user1.user.id}": 25, "${user2.user.id}": 25, "${user3.user.id}": 25, "${user4.user.id}": 25}, "defaultCurrency": "USD"}`,
 		});
 
-		// Insert budgets into the new group_budgets table
+		// Insert budgets into the new group_budgets table with predictable IDs for testing
+		const houseBudgetId = `budget_house_${testGroupId}`;
+		const foodBudgetId = `budget_food_${testGroupId}`;
+		
 		await db.insert(groupBudgets).values([
 			{
-				id: `budget_${Date.now()}_1`,
+				id: houseBudgetId,
 				groupId: testGroupId,
 				budgetName: "house",
 				createdAt: new Date().toISOString(),
 				updatedAt: new Date().toISOString(),
 			},
 			{
-				id: `budget_${Date.now()}_2`,
+				id: foodBudgetId,
 				groupId: testGroupId,
 				budgetName: "food",
 				createdAt: new Date().toISOString(),
@@ -330,6 +337,10 @@ export async function createTestUserData(
 			user3: { ...TEST_USERS.user3, id: user3.user.id, email: emails[2] },
 			user4: { ...TEST_USERS.user4, id: user4.user.id, email: emails[3] },
 			testGroupId,
+			budgetIds: {
+				house: houseBudgetId,
+				food: foodBudgetId,
+			},
 		};
 	} catch (error) {
 		console.error("Failed to create test user data:", error);
@@ -364,16 +375,15 @@ export async function populateMaterializedTables(env: Env): Promise<void> {
 
 	// Rebuild budget totals
 	await db.run(sql`
-    INSERT INTO budget_totals (group_id, name, currency, total_amount, updated_at)
+    INSERT INTO budget_totals (budget_id, currency, total_amount, updated_at)
     SELECT
-      groupid as group_id,
-      name,
+      budget_id,
       currency,
       SUM(amount) as total_amount,
       datetime('now') as updated_at
     FROM budget_entries
     WHERE deleted IS NULL
-    GROUP BY groupid, name, currency
+    GROUP BY budget_id, currency
   `);
 }
 

@@ -412,8 +412,7 @@ export async function createBudgetEntryStatements(
 			description: budgetRequest.description,
 			addedTime: timestamp,
 			amount: budgetRequest.amount,
-			name: budgetRequest.name,
-			groupid: budgetRequest.groupid,
+			budgetId: budgetRequest.budgetId,
 			currency: budgetRequest.currency,
 		}),
 	});
@@ -423,16 +422,14 @@ export async function createBudgetEntryStatements(
 		query: db
 			.insert(budgetTotals)
 			.values({
-				groupId: budgetRequest.groupid,
-				name: budgetRequest.name,
+				budgetId: budgetRequest.budgetId,
 				currency: budgetRequest.currency,
 				totalAmount: budgetRequest.amount,
 				updatedAt: timestamp,
 			})
 			.onConflictDoUpdate({
 				target: [
-					budgetTotals.groupId,
-					budgetTotals.name,
+					budgetTotals.budgetId,
 					budgetTotals.currency,
 				],
 				set: {

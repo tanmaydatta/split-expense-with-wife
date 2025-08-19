@@ -10,6 +10,7 @@ import { getDb } from "../db";
 import { user } from "../db/schema/auth-schema";
 import {
 	budgetEntries,
+	groupBudgets,
 	groups,
 	scheduledActionHistory,
 	scheduledActions,
@@ -36,6 +37,8 @@ describe("Scheduled Actions Workflows", () => {
 	let testUserId: string;
 	let testActionId: string;
 	let testGroupId: string;
+	let houseBudgetId: string;
+	let foodBudgetId: string;
 	beforeAll(async () => {
 		await setupAndCleanDatabase(testEnv);
 	});
@@ -62,9 +65,29 @@ describe("Scheduled Actions Workflows", () => {
 			groupid: testGroupId,
 			groupName: "Test Group",
 			userids: "[]", // Will update after creating user
-			budgets: '["house", "food"]',
 			metadata: "{}",
 		});
+
+		// Create budget IDs and insert into group_budgets table
+		houseBudgetId = `budget_house_${testGroupId}`;
+		foodBudgetId = `budget_food_${testGroupId}`;
+		
+		await db.insert(groupBudgets).values([
+			{
+				id: houseBudgetId,
+				groupId: testGroupId,
+				budgetName: "house",
+				createdAt: new Date().toISOString(),
+				updatedAt: new Date().toISOString(),
+			},
+			{
+				id: foodBudgetId,
+				groupId: testGroupId,
+				budgetName: "food",
+				createdAt: new Date().toISOString(),
+				updatedAt: new Date().toISOString(),
+			},
+		]);
 
 		// Set required environment variables for cron handler
 		testEnv.GROUP_IDS = "";
@@ -181,8 +204,25 @@ describe("Scheduled Actions Workflows", () => {
 			await db.insert(groups).values({
 				groupid: "1",
 				groupName: "Test Group",
-				budgets: JSON.stringify(["house", "groceries"]),
 			});
+			
+			// Create budget entries for this group
+			await db.insert(groupBudgets).values([
+				{
+					id: "budget_house_1",
+					groupId: "1",
+					budgetName: "house",
+					createdAt: new Date().toISOString(),
+					updatedAt: new Date().toISOString(),
+				},
+				{
+					id: "budget_groceries_1",
+					groupId: "1",
+					budgetName: "groceries",
+					createdAt: new Date().toISOString(),
+					updatedAt: new Date().toISOString(),
+				},
+			]);
 		});
 
 		it("should get pending scheduled actions correctly", async () => {
@@ -489,7 +529,7 @@ describe("Scheduled Actions Workflows", () => {
 						description: "B1",
 						amount: 30,
 						currency: "GBP",
-						budgetName: "house",
+						budgetId: houseBudgetId,
 						type: "Credit" as const,
 					},
 					lastExecutedAt: null,
@@ -556,7 +596,7 @@ describe("Scheduled Actions Workflows", () => {
 						description: "B1",
 						amount: 30,
 						currency: "GBP",
-						budgetName: "house",
+						budgetId: houseBudgetId,
 						type: "Credit" as const,
 					},
 					lastExecutedAt: null,
@@ -753,8 +793,25 @@ describe("Scheduled Actions Workflows", () => {
 			await db.insert(groups).values({
 				groupid: "1",
 				groupName: "Test Group",
-				budgets: JSON.stringify(["house", "groceries"]),
 			});
+			
+			// Create budget entries for this group
+			await db.insert(groupBudgets).values([
+				{
+					id: "budget_house_1",
+					groupId: "1",
+					budgetName: "house",
+					createdAt: new Date().toISOString(),
+					updatedAt: new Date().toISOString(),
+				},
+				{
+					id: "budget_groceries_1",
+					groupId: "1",
+					budgetName: "groceries",
+					createdAt: new Date().toISOString(),
+					updatedAt: new Date().toISOString(),
+				},
+			]);
 		});
 		it("fetchActionsWithUsers throws when no matching actions", async () => {
 			const { fetchActionsWithUsers } = await import(
@@ -776,7 +833,7 @@ describe("Scheduled Actions Workflows", () => {
 					description: "Monthly house budget",
 					amount: 100,
 					currency: "GBP",
-					budgetName: "house",
+					budgetId: "budget_house_1",
 					type: "Credit",
 				},
 			});
@@ -925,7 +982,7 @@ describe("Scheduled Actions Workflows", () => {
 					description: "Monthly house budget",
 					amount: 800.0,
 					currency: "GBP",
-					budgetName: "house",
+					budgetId: "budget_house_1",
 					type: "Credit" as const,
 				},
 			});
@@ -956,7 +1013,7 @@ describe("Scheduled Actions Workflows", () => {
 					description: "Monthly house budget",
 					amount: 100,
 					currency: "GBP",
-					budgetName: "house",
+					budgetId: "budget_house_1",
 					type: "Credit",
 				},
 			});
@@ -1017,8 +1074,25 @@ describe("Scheduled Actions Workflows", () => {
 			await db.insert(groups).values({
 				groupid: "1",
 				groupName: "Test Group",
-				budgets: JSON.stringify(["house", "groceries"]),
 			});
+			
+			// Create budget entries for this group
+			await db.insert(groupBudgets).values([
+				{
+					id: "budget_house_1",
+					groupId: "1",
+					budgetName: "house",
+					createdAt: new Date().toISOString(),
+					updatedAt: new Date().toISOString(),
+				},
+				{
+					id: "budget_groceries_1",
+					groupId: "1",
+					budgetName: "groceries",
+					createdAt: new Date().toISOString(),
+					updatedAt: new Date().toISOString(),
+				},
+			]);
 		});
 
 		it("should generate deterministic transaction IDs", async () => {
@@ -1100,7 +1174,7 @@ describe("Scheduled Actions Workflows", () => {
 			const budgetRequest = {
 				amount: 800,
 				description: "Monthly house budget",
-				name: "house",
+				budgetId: "budget_house_1",
 				groupid: "1",
 				currency: "GBP" as const,
 			};
@@ -1189,7 +1263,7 @@ describe("Scheduled Actions Workflows", () => {
 			const budgetRequest = {
 				amount: 800,
 				description: "Monthly house budget",
-				name: "house",
+				budgetId: "budget_house_1",
 				groupid: "1",
 				currency: "GBP" as const,
 			};
@@ -1233,8 +1307,25 @@ describe("Scheduled Actions Workflows", () => {
 			await db.insert(groups).values({
 				groupid: "1",
 				groupName: "Test Group",
-				budgets: JSON.stringify(["house", "groceries"]),
 			});
+			
+			// Create budget entries for this group
+			await db.insert(groupBudgets).values([
+				{
+					id: "budget_house_1",
+					groupId: "1",
+					budgetName: "house",
+					createdAt: new Date().toISOString(),
+					updatedAt: new Date().toISOString(),
+				},
+				{
+					id: "budget_groceries_1",
+					groupId: "1",
+					budgetName: "groceries",
+					createdAt: new Date().toISOString(),
+					updatedAt: new Date().toISOString(),
+				},
+			]);
 		});
 
 		it("should handle end-to-end expense workflow simulation", async () => {
@@ -1351,7 +1442,7 @@ describe("Scheduled Actions Workflows", () => {
 				description: "Monthly house budget",
 				amount: 800.0,
 				currency: "GBP",
-				budgetName: "house",
+				budgetId: houseBudgetId,
 				type: "Credit",
 			};
 
@@ -1391,7 +1482,7 @@ describe("Scheduled Actions Workflows", () => {
 						? budgetActionData.amount
 						: -budgetActionData.amount,
 				description: budgetActionData.description,
-				name: budgetActionData.budgetName,
+				budgetId: budgetActionData.budgetId,
 				groupid: "1",
 				currency: budgetActionData.currency,
 			};
@@ -1435,7 +1526,7 @@ describe("Scheduled Actions Workflows", () => {
 				.limit(1);
 			expect(budgetEntryResult).toHaveLength(1);
 			expect(budgetEntryResult[0].amount).toBe(800);
-			expect(budgetEntryResult[0].name).toBe("house");
+			expect(budgetEntryResult[0].budgetId).toBe(houseBudgetId);
 
 			const historyResult = await db
 				.select()

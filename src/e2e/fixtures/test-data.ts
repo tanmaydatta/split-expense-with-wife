@@ -86,24 +86,28 @@ export function createTestExpenses(
 // Test budgets for different scenarios
 export const testBudgets: Record<string, TestBudget> = {
 	houseCredit: {
+		budgetId: "budget_house_01",
 		name: "house",
 		amount: 500.0,
 		currency: "USD",
 		type: "Credit",
 	},
 	houseDebit: {
+		budgetId: "budget_house_01",
 		name: "house",
 		amount: 200.0,
 		currency: "USD",
 		type: "Debit",
 	},
 	foodCredit: {
+		budgetId: "budget_food_01",
 		name: "food",
 		amount: 300.0,
 		currency: "USD",
 		type: "Credit",
 	},
 	transportDebit: {
+		budgetId: "budget_transport_01",
 		name: "transport",
 		amount: 150.0,
 		currency: "USD",
@@ -127,7 +131,12 @@ export const mockApiResponses = {
 			metadata: {
 				defaultCurrency: "USD",
 				defaultShare: { "1": 50, "2": 50 },
-				budgets: ["house", "food", "transport", "entertainment"],
+				budgets: [
+					{ id: "budget_house_01", budgetName: "house", description: null },
+					{ id: "budget_food_01", budgetName: "food", description: null },
+					{ id: "budget_transport_01", budgetName: "transport", description: null },
+					{ id: "budget_entertainment_01", budgetName: "entertainment", description: null },
+				],
 			},
 		},
 		error: {

@@ -59,7 +59,7 @@ export const ScheduledActionsManager: React.FC<
 	const budgets: string[] = useMemo(
 		() =>
 			session?.extra?.group?.budgets?.map(
-				(b: GroupBudgetData) => b.budgetName,
+				(b: GroupBudgetData) => b.id,
 			) || [],
 		[session],
 	);
@@ -232,7 +232,7 @@ export const ScheduledActionsManager: React.FC<
 
 	const existingBudget = useStore(
 		form.store,
-		(s) => (s.values as any)?.actionData?.budgetName,
+		(s) => (s.values as any)?.actionData?.budgetId,
 	);
 	const existingType = useStore(
 		form.store,
@@ -263,7 +263,7 @@ export const ScheduledActionsManager: React.FC<
 				amount: currentAmount,
 				description: currentDescription,
 				currency: currentCurrency,
-				budgetName: (existingBudget as string) ?? (budgets[0] || ""),
+				budgetId: (existingBudget as string) ?? (budgets[0] || ""),
 				type: (existingType as any) ?? ("Credit" as any),
 			} as AddBudgetActionData);
 		}
@@ -527,10 +527,10 @@ export const ScheduledActionsManager: React.FC<
 							</form.Field>
 
 							<label>Budget Category</label>
-							<form.Field name="actionData.budgetName">
+							<form.Field name="actionData.budgetId">
 								{(field) => (
 									<SelectBudget
-										budget={String(field.state.value ?? (budgets[0] || ""))}
+										budgetId={String(field.state.value ?? (budgets[0] || ""))}
 										handleChangeBudget={(val: string) =>
 											field.handleChange(val)
 										}
