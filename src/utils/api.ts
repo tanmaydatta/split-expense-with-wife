@@ -79,10 +79,17 @@ class TypeSafeApiClient implements TypedApiClient {
 
 	async get<K extends keyof ApiEndpoints>(
 		endpoint: K,
+		options?: { queryParams?: Record<string, string> },
 	): Promise<ApiEndpoints[K]["response"]> {
 		try {
+			let url = endpoint as string;
+			if (options?.queryParams) {
+				const params = new URLSearchParams(options.queryParams);
+				url += `?${params.toString()}`;
+			}
+			
 			const response: AxiosResponse<ApiEndpoints[K]["response"]> =
-				await apiInstance.get(endpoint as string);
+				await apiInstance.get(url);
 			return response.data;
 		} catch (error) {
 			return this.handleError(error);

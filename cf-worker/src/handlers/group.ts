@@ -549,10 +549,12 @@ async function updateGroupBudgets(
 	const existingBudgets = await db
 		.select()
 		.from(groupBudgets)
-		.where(eq(groupBudgets.groupId, groupId));
+		.where(eq(groupBudgets.groupId, String(groupId)));
+	console.log("existingBudgets", existingBudgets.length);
 
 	const { activeBudgets, deletedBudgets } = categorizeBudgets(existingBudgets);
-
+	console.log("activeBudgets", activeBudgets.size);
+	console.log("deletedBudgets", deletedBudgets.size);
 	const { batchStatements, budgetsToKeep } = processBudgetUpdates(
 		newBudgets,
 		activeBudgets,
@@ -568,7 +570,8 @@ async function updateGroupBudgets(
 		currentTime,
 		db,
 	);
-
+	console.log("deletionStatements", deletionStatements.length);
+	console.log("batchStatements", batchStatements.length);
 	const allStatements = [...batchStatements, ...deletionStatements];
 
 	if (allStatements.length > 0) {
@@ -596,26 +599,84 @@ async function buildUpdatesObject(
 	if (body.groupName !== undefined) {
 		updates.groupName = body.groupName;
 	}
-
+	console.log("session.group", session.group, body.budgets);
 	// Update budgets if provided
 	if (body.budgets !== undefined && session.group) {
-		await updateGroupBudgets(body.budgets, session.group.groupid, db);
+		await updateGroupBudgets(body.budgets, String(session.group.groupid), db);
 	}
 
 	return updates;
+}
+
+// Helper function to validate and normalize update request
+async function validateUpdateRequest(
+	request: Request,
+	session: CurrentSession,
+	env: Env,
+): Promise<
+	{ success: true; body: UpdateGroupMetadataRequest } | { success: false; response: Response }
+> {
+	const body = (await request.json()) as UpdateGroupMetadataRequest;
+	
+	// Normalize groupid to string to prevent type mismatch issues
+	if (typeof body.groupid === 'number') {
+		body.groupid = String(body.groupid);
+	}
+
+	// Check if user is authorized to modify this group
+	if (body.groupid && session.group && body.groupid !== String(session.group.groupid)) {
+		return { success: false, response: createErrorResponse("group id mismatch", 401, request, env) };
+	}
+
+	// Validate request body
+	const groupUserIds = new Set(Object.keys(session.usersById));
+	const validationError = validateRequestBody(body, groupUserIds);
+	if (validationError) {
+		return { success: false, response: createErrorResponse(validationError, 400, request, env) };
+	}
+
+	return { success: true, body };
+}
+
+// Helper function to prepare the response after updates
+async function prepareUpdateResponse(
+	session: CurrentSession,
+	db: ReturnType<typeof getDb>,
+	request: Request,
+	env: Env,
+): Promise<Response> {
+	if (!session.group) {
+		return createErrorResponse("No group found", 401, request, env);
+	}
+
+	// Get updated metadata for response
+	const updatedGroup = await db
+		.select({ metadata: groups.metadata })
+		.from(groups)
+		.where(eq(groups.groupid, String(session.group.groupid)))
+		.limit(1);
+
+	const updatedMetadata = JSON.parse(
+		updatedGroup[0]?.metadata || "{}",
+	) as GroupMetadata;
+
+	const response: UpdateGroupMetadataResponse = {
+		message: "Group metadata updated successfully",
+		metadata: updatedMetadata,
+	};
+
+	return createJsonResponse(response, 200, {}, request, env);
 }
 
 export async function handleUpdateGroupMetadata(
 	request: Request,
 	env: Env,
 ): Promise<Response> {
-	console.log("handleUpdateGroupMetadata", request.method);
 	if (request.method !== "POST") {
 		return createErrorResponse("Method not allowed", 405, request, env);
 	}
 
 	return withAuth(request, env, async (session, db) => {
-		console.log("session", session);
 		if (!session.group) {
 			console.log("No group found for session");
 			return createErrorResponse(
@@ -625,24 +686,15 @@ export async function handleUpdateGroupMetadata(
 				env,
 			);
 		}
-		const body = (await request.json()) as UpdateGroupMetadataRequest;
 
-		// Check if user is authorized to modify this group
-		if (body.groupid && body.groupid !== session.group.groupid) {
-			console.log("group id mismatch", body.groupid, session.group.groupid);
-			return createErrorResponse("group id mismatch", 401, request, env);
+		// Validate and normalize the request
+		const validation = await validateUpdateRequest(request, session, env);
+		if (!validation.success) {
+			return validation.response;
 		}
 
-		// Validate request body
-		const groupUserIds = new Set(Object.keys(session.usersById));
-		const validationError = validateRequestBody(body, groupUserIds);
-		if (validationError) {
-			return createErrorResponse(validationError, 400, request, env);
-		}
-
-		// Build updates object
-		const updates = await buildUpdatesObject(body, session, db);
-		// Update group using Drizzle
+		// Build and execute updates
+		const updates = await buildUpdatesObject(validation.body, session, db);
 		if (Object.keys(updates).length > 0) {
 			await db
 				.update(groups)
@@ -650,22 +702,7 @@ export async function handleUpdateGroupMetadata(
 				.where(eq(groups.groupid, String(session.group.groupid)));
 		}
 
-		// Get updated metadata for response
-		const updatedGroup = await db
-			.select({ metadata: groups.metadata })
-			.from(groups)
-			.where(eq(groups.groupid, String(session.group.groupid)))
-			.limit(1);
-
-		const updatedMetadata = JSON.parse(
-			updatedGroup[0]?.metadata || "{}",
-		) as GroupMetadata;
-
-		const response: UpdateGroupMetadataResponse = {
-			message: "Group metadata updated successfully",
-			metadata: updatedMetadata,
-		};
-
-		return createJsonResponse(response, 200, {}, request, env);
+		// Prepare and return response
+		return await prepareUpdateResponse(session, db, request, env);
 	});
 }

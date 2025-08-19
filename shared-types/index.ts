@@ -413,6 +413,7 @@ export interface TypedApiClient {
 	): Promise<ApiEndpoints[K]["response"]>;
 	get<K extends keyof ApiEndpoints>(
 		endpoint: K,
+		options?: { queryParams?: Record<string, string> },
 	): Promise<ApiEndpoints[K]["response"]>;
 }
 

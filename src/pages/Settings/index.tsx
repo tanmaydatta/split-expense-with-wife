@@ -2,9 +2,9 @@ import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { Input } from "@/components/Form/Input";
 import { Select } from "@/components/Form/Select";
+import { useGroupDetails, useUpdateGroupMetadata, useRefreshGroupDetails } from "@/hooks/useGroupDetails";
 import { setData } from "@/redux/data";
 import { store } from "@/redux/store";
-import { typedApi } from "@/utils/api";
 import { scrollToTop } from "@/utils/scroll";
 import React, { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
@@ -16,7 +16,6 @@ import {
 } from "@/components/MessageContainer";
 import type {
 	GroupBudgetData,
-	GroupDetailsResponse,
 	ReduxState,
 	UpdateGroupMetadataRequest,
 	User,
@@ -24,10 +23,7 @@ import type {
 import "./index.css";
 
 interface SettingsState {
-	loading: boolean;
-	error: string;
 	success: string;
-	groupDetails: GroupDetailsResponse | null;
 
 	// Form fields
 	groupName: string;
@@ -46,11 +42,13 @@ interface SettingsState {
 
 const Settings: React.FC = () => {
 	const data = useSelector((state: ReduxState) => state.value);
+	// React Query hooks
+	const groupDetailsQuery = useGroupDetails();
+	const updateGroupMutation = useUpdateGroupMetadata();
+	const refreshGroupDetails = useRefreshGroupDetails();
+
 	const [state, setState] = useState<SettingsState>({
-		loading: false,
-		error: "",
 		success: "",
-		groupDetails: null,
 		groupName: "",
 		defaultCurrency: "USD",
 		userPercentages: {},
@@ -63,53 +61,43 @@ const Settings: React.FC = () => {
 		budgetsDirty: false,
 	});
 
-	// Load group details on mount
+	// Initialize form state when React Query data changes
 	useEffect(() => {
-		const fetchGroupDetails = async () => {
-			setState((prev) => ({ ...prev, loading: true, error: "" }));
+		if (groupDetailsQuery.data) {
+			const response = groupDetailsQuery.data;
+			
+			// Initialize form with current values
+			const initialPercentages: Record<string, number> = {};
+			response.users.forEach((user: User) => {
+				const userIdStr = user.Id.toString();
+				initialPercentages[userIdStr] =
+					response.metadata.defaultShare[userIdStr] || 0;
+			});
 
-			try {
-				const response: GroupDetailsResponse =
-					await typedApi.get("/group/details");
-
-				// Initialize form with current values
-				const initialPercentages: Record<string, number> = {};
-				response.users.forEach((user: User) => {
-					const userIdStr = user.Id.toString();
-					initialPercentages[userIdStr] =
-						response.metadata.defaultShare[userIdStr] || 0;
-				});
-
-				setState((prev) => ({
-					...prev,
-					loading: false,
-					groupDetails: response,
-					groupName: response.groupName,
-					defaultCurrency: response.metadata.defaultCurrency,
-					userPercentages: initialPercentages,
-					budgets: [...response.budgets],
-				}));
-			} catch (error: any) {
-				setState((prev) => ({
-					...prev,
-					loading: false,
-					error: error.message || "Failed to load group details",
-				}));
-			}
-		};
-
-		fetchGroupDetails();
-	}, []);
+			setState((prev) => ({
+				...prev,
+				groupName: response.groupName,
+				defaultCurrency: response.metadata.defaultCurrency,
+				userPercentages: initialPercentages,
+				budgets: [...response.budgets],
+				// Reset dirty flags when fresh data loads
+				groupNameDirty: false,
+				currencyDirty: false,
+				sharesDirty: false,
+				budgetsDirty: false,
+			}));
+		}
+	}, [groupDetailsQuery.data]);
 
 	const clearMessages = () => {
-		setState((prev) => ({ ...prev, error: "", success: "" }));
+		setState((prev) => ({ ...prev, success: "" }));
 	};
 
 	const updateUserPercentage = (userId: string, percentage: number) => {
 		setState((prev) => {
 			const newPercentages = { ...prev.userPercentages, [userId]: percentage };
 			const originalPercentages =
-				prev.groupDetails?.metadata.defaultShare || {};
+				groupDetailsQuery.data?.metadata.defaultShare || {};
 			const isDirty = Object.keys(newPercentages).some(
 				(id) => newPercentages[id] !== (originalPercentages[id] || 0),
 			);
@@ -158,11 +146,15 @@ const Settings: React.FC = () => {
 	};
 
 	const saveAllChanges = async () => {
-		setState((prev) => ({ ...prev, loading: true, error: "", success: "" }));
+		setState((prev) => ({ ...prev, success: "" }));
+
+		if (!groupDetailsQuery.data) {
+			return;
+		}
 
 		try {
 			const updateRequest: UpdateGroupMetadataRequest = {
-				groupid: state.groupDetails!.groupid,
+				groupid: groupDetailsQuery.data.groupid,
 			};
 
 			// Add changes to the request
@@ -183,18 +175,17 @@ const Settings: React.FC = () => {
 			}
 
 			// Only make API call if there are changes
-			if (Object.keys(updateRequest).length === 0) {
-				setState((prev) => ({
-					...prev,
-					loading: false,
-					error: "No changes to save",
-				}));
+			if (Object.keys(updateRequest).length <= 1) { // Only groupid
 				return;
 			}
 
-			await typedApi.post("/group/metadata", updateRequest);
+			// Update via React Query mutation
+			await updateGroupMutation.mutateAsync(updateRequest);
 
-			// Update Redux store with new data
+			// Force refresh to get fresh data from backend bypassing session cache
+			const freshGroupDetails = await refreshGroupDetails();
+
+			// Update Redux store with fresh data (preserve existing pattern)
 			let updatedData = { ...data };
 
 			// Helper function to safely update nested properties
@@ -215,55 +206,38 @@ const Settings: React.FC = () => {
 				};
 			};
 
-			// Prepare updates object
+			// Prepare updates object with fresh data
 			const updates: any = { group: {} };
 
 			if (state.currencyDirty || state.sharesDirty) {
 				updates.group.metadata = {};
 				if (state.currencyDirty) {
-					updates.group.metadata.defaultCurrency = state.defaultCurrency;
+					updates.group.metadata.defaultCurrency = freshGroupDetails.metadata.defaultCurrency;
 				}
 				if (state.sharesDirty) {
-					updates.group.metadata.defaultShare = state.userPercentages;
+					updates.group.metadata.defaultShare = freshGroupDetails.metadata.defaultShare;
 				}
 			}
 
 			if (state.budgetsDirty) {
-				updates.group.budgets = state.budgets;
+				updates.group.budgets = freshGroupDetails.budgets;
 			}
 
-			// Apply updates
+			// Apply updates with fresh data
 			updatedData = updateNestedData(updatedData, updates);
-			console.log("updatedData", updatedData);
 			store.dispatch(setData(updatedData));
 
 			setState((prev) => ({
 				...prev,
-				loading: false,
 				success: "Settings saved successfully!",
 				groupNameDirty: false,
 				currencyDirty: false,
 				sharesDirty: false,
 				budgetsDirty: false,
-				groupDetails: prev.groupDetails
-					? {
-							...prev.groupDetails,
-							groupName: state.groupName.trim(),
-							budgets: state.budgets,
-							metadata: {
-								...prev.groupDetails.metadata,
-								defaultCurrency: state.defaultCurrency,
-								defaultShare: state.userPercentages,
-							},
-						}
-					: null,
 			}));
 		} catch (error: any) {
-			setState((prev) => ({
-				...prev,
-				loading: false,
-				error: error.message || "Failed to save settings",
-			}));
+			// Error is handled by React Query, but we can show user-friendly message
+			console.error("Failed to save settings:", error);
 		} finally {
 			// Scroll to top to show success or error message
 			scrollToTop();
@@ -279,10 +253,11 @@ const Settings: React.FC = () => {
 		state.currencyDirty ||
 		state.sharesDirty ||
 		state.budgetsDirty;
+	const isLoading = groupDetailsQuery.isLoading || updateGroupMutation.isPending;
 	const canSave =
-		hasChanges && !state.loading && Math.abs(totalPercentage - 100) <= 0.001;
+		hasChanges && !isLoading && Math.abs(totalPercentage - 100) <= 0.001;
 
-	if (state.loading && !state.groupDetails) {
+	if (groupDetailsQuery.isLoading) {
 		return (
 			<div className="settings-container">
 				<div
@@ -296,8 +271,18 @@ const Settings: React.FC = () => {
 
 	return (
 		<div className="settings-container" data-test-id="settings-container">
-			{state.error && (
-				<ErrorContainer message={state.error} onClose={clearMessages} />
+			{groupDetailsQuery.error && (
+				<ErrorContainer 
+					message={groupDetailsQuery.error.message || "Failed to load group details"} 
+					onClose={() => groupDetailsQuery.refetch()} 
+				/>
+			)}
+
+			{updateGroupMutation.error && (
+				<ErrorContainer 
+					message={updateGroupMutation.error.message || "Failed to save settings"} 
+					onClose={updateGroupMutation.reset} 
+				/>
 			)}
 
 			{state.success && (
@@ -318,7 +303,7 @@ const Settings: React.FC = () => {
 								...prev,
 								groupName: e.target.value,
 								groupNameDirty:
-									e.target.value.trim() !== state.groupDetails?.groupName,
+									e.target.value.trim() !== groupDetailsQuery.data?.groupName,
 							}))
 						}
 						placeholder="Enter group name"
@@ -341,13 +326,13 @@ const Settings: React.FC = () => {
 								defaultCurrency: e.target.value,
 								currencyDirty:
 									e.target.value !==
-									state.groupDetails?.metadata.defaultCurrency,
+									groupDetailsQuery.data?.metadata.defaultCurrency,
 							}))
 						}
 						className="currency-select"
 						name="defaultCurrency"
 						data-test-id="currency-select"
-						disabled={state.loading}
+						disabled={isLoading}
 						required
 						title="Please select a currency"
 					>
@@ -364,7 +349,7 @@ const Settings: React.FC = () => {
 			<Card className="settings-card" data-test-id="shares-section">
 				<h3>Default Share Percentages</h3>
 				<div className="shares-form">
-					{state.groupDetails?.users.map((user: User) => (
+					{groupDetailsQuery.data?.users.map((user: User) => (
 						<div key={user.Id} className="form-group">
 							<label htmlFor={`user-${user.Id}`}>
 								{user.FirstName}
@@ -492,7 +477,7 @@ const Settings: React.FC = () => {
 					className="save-all-button"
 					data-test-id="save-all-button"
 				>
-					{state.loading ? (
+					{isLoading ? (
 						<Loader data-test-id="loading-indicator" />
 					) : (
 						"Save All Changes"

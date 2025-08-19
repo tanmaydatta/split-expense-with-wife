@@ -159,9 +159,15 @@ export async function withAuth(
 	try {
 		const authInstance = auth(env);
 		const db = getDb(env);
-		// Get session from better-auth
+		
+		// Check for forceRefresh query parameter
+		const url = new URL(request.url);
+		const forceRefresh = url.searchParams.get('forceRefresh') === 'true';
+		
+		// Get session from better-auth, with optional cache bypass
 		const sessionData = await authInstance.api.getSession({
 			headers: request.headers,
+			...(forceRefresh && { query: { disableCookieCache: true } }),
 		});
 
 		if (!sessionData || !sessionData.user) {
