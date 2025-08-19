@@ -8,9 +8,7 @@ import type {
 	UpdateGroupMetadataResponse,
 	User,
 } from "../../../shared-types";
-import {
-	UpdateGroupMetadataRequestSchema,
-} from "../../../shared-types";
+import { UpdateGroupMetadataRequestSchema } from "../../../shared-types";
 import type { getDb } from "../db";
 import type { GroupBudget } from "../db/schema/schema";
 import { groupBudgets, groups } from "../db/schema/schema";
@@ -27,7 +25,9 @@ import {
 // Custom error classes
 export class BudgetConflictError extends Error {
 	constructor(budgetName: string, existingBudgetId: string) {
-		super(`Budget name '${budgetName}' already exists (ID: ${existingBudgetId})`);
+		super(
+			`Budget name '${budgetName}' already exists (ID: ${existingBudgetId})`,
+		);
 		this.name = "BudgetConflictError";
 	}
 }
@@ -328,7 +328,7 @@ async function updateGroupBudgets(
 		.where(eq(groupBudgets.groupId, String(groupId)));
 
 	const { activeBudgets, deletedBudgets } = categorizeBudgets(existingBudgets);
-	
+
 	const { batchStatements, budgetsToKeep } = processBudgetUpdates(
 		newBudgets,
 		activeBudgets,
@@ -344,7 +344,7 @@ async function updateGroupBudgets(
 		currentTime,
 		db,
 	);
-	
+
 	return [...batchStatements, ...deletionStatements];
 }
 
@@ -353,9 +353,9 @@ async function buildUpdatesObject(
 	body: UpdateGroupMetadataRequest,
 	session: CurrentSession,
 	db: ReturnType<typeof getDb>,
-): Promise<{ 
-	updates: { metadata?: string; groupName?: string }, 
-	statements: BatchItem<"sqlite">[] 
+): Promise<{
+	updates: { metadata?: string; groupName?: string };
+	statements: BatchItem<"sqlite">[];
 }> {
 	const updates: { metadata?: string; groupName?: string } = {};
 	const statements: BatchItem<"sqlite">[] = [];
@@ -370,13 +370,13 @@ async function buildUpdatesObject(
 	if (body.groupName !== undefined) {
 		updates.groupName = body.groupName;
 	}
-	
+
 	// Get budget statements if provided
 	if (body.budgets !== undefined && session.group) {
 		const budgetStatements = await updateGroupBudgets(
-			body.budgets, 
-			String(session.group.groupid), 
-			db
+			body.budgets,
+			String(session.group.groupid),
+			db,
 		);
 		statements.push(...budgetStatements);
 	}
@@ -393,27 +393,37 @@ function validateUserShares(
 ): { success: false; response: Response } | null {
 	const groupUserIds = new Set(Object.keys(session.usersById));
 	const shareUserIds = new Set(Object.keys(defaultShare));
-	
+
 	// Check if all group members are included
 	for (const userId of groupUserIds) {
 		if (!shareUserIds.has(userId)) {
 			return {
 				success: false,
-				response: createErrorResponse("All group members must have a default share percentage", 400, request, env),
+				response: createErrorResponse(
+					"All group members must have a default share percentage",
+					400,
+					request,
+					env,
+				),
 			};
 		}
 	}
-	
+
 	// Check if any invalid user IDs are included
 	for (const userId of shareUserIds) {
 		if (!groupUserIds.has(userId)) {
 			return {
 				success: false,
-				response: createErrorResponse("Invalid user IDs: users not in group", 400, request, env),
+				response: createErrorResponse(
+					"Invalid user IDs: users not in group",
+					400,
+					request,
+					env,
+				),
 			};
 		}
 	}
-	
+
 	return null; // No validation errors
 }
 
@@ -428,10 +438,10 @@ async function validateUpdateRequest(
 > {
 	try {
 		const rawBody = await request.json();
-		
+
 		// Parse and validate with Zod schema
 		const body = UpdateGroupMetadataRequestSchema.parse(rawBody);
-		
+
 		// Additional validation: Check if user is authorized to modify this group
 		if (session.group && body.groupid !== String(session.group.groupid)) {
 			return {
@@ -439,10 +449,15 @@ async function validateUpdateRequest(
 				response: createErrorResponse("group id mismatch", 401, request, env),
 			};
 		}
-		
+
 		// Additional validation: Check user membership for defaultShare
 		if (body.defaultShare) {
-			const shareValidation = validateUserShares(body.defaultShare, session, request, env);
+			const shareValidation = validateUserShares(
+				body.defaultShare,
+				session,
+				request,
+				env,
+			);
 			if (shareValidation) {
 				return shareValidation;
 			}
@@ -497,7 +512,11 @@ async function executeUpdate(
 	env: Env,
 ): Promise<Response> {
 	// Build updates and statements
-	const { updates, statements } = await buildUpdatesObject(validation.body, session, db);
+	const { updates, statements } = await buildUpdatesObject(
+		validation.body,
+		session,
+		db,
+	);
 	const allStatements: BatchItem<"sqlite">[] = [];
 
 	// Add group table update statement if there are updates
@@ -506,7 +525,7 @@ async function executeUpdate(
 			db
 				.update(groups)
 				.set(updates)
-				.where(eq(groups.groupid, String(session.group?.groupid)))
+				.where(eq(groups.groupid, String(session.group?.groupid))),
 		);
 	}
 
@@ -557,7 +576,12 @@ export async function handleUpdateGroupMetadata(
 				return createErrorResponse(error.message, 400, request, env);
 			}
 			console.error("Error updating group metadata:", error);
-			return createErrorResponse("Failed to update group metadata", 500, request, env);
+			return createErrorResponse(
+				"Failed to update group metadata",
+				500,
+				request,
+				env,
+			);
 		}
 	});
 }

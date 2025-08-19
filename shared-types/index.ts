@@ -434,6 +434,76 @@ export const CURRENCIES = [
 	"SGD",
 ] as const;
 
+// Group Budget Data Schema
+export const GroupBudgetDataSchema = z.object({
+	id: z.string().min(1),
+	budgetName: z
+		.string()
+		.min(1, "Budget name cannot be empty")
+		.max(60, "Budget name cannot exceed 60 characters")
+		.regex(
+			/^[a-zA-Z0-9\s\-_]+$/,
+			"Budget names can only contain letters, numbers, spaces, hyphens, and underscores",
+		)
+		.transform((name) => name.trim()),
+	description: z.string().nullable().optional(),
+});
+
+// Update Group Metadata Request Schema
+export const UpdateGroupMetadataRequestSchema = z
+	.object({
+		groupid: z.union([z.string(), z.number()]).transform((val) => String(val)),
+		defaultShare: z
+			.record(z.string(), z.number())
+			.refine(
+				(shares) => {
+					const values = Object.values(shares);
+					return values.every((v) => v >= 0);
+				},
+				{ message: "Default share percentages must be positive" },
+			)
+			.refine(
+				(shares) => {
+					const total = Object.values(shares).reduce((sum, p) => sum + p, 0);
+					return Math.abs(total - 100) <= 0.001;
+				},
+				{ message: "Default share percentages must add up to 100%" },
+			)
+			.optional(),
+		defaultCurrency: z
+			.enum(CURRENCIES as readonly [string, ...string[]])
+			.optional(),
+		groupName: z
+			.string()
+			.transform((name) => name.trim())
+			.refine((name) => name.length >= 1, {
+				message: "Group name cannot be empty",
+			})
+			.optional(),
+		budgets: z
+			.array(GroupBudgetDataSchema)
+			.refine(
+				(budgets) => {
+					const names = budgets.map((b) => b.budgetName.toLowerCase());
+					return names.length === new Set(names).size;
+				},
+				{ message: "Budget names must be unique" },
+			)
+			.optional(),
+	})
+	.refine(
+		(data) => {
+			// Ensure at least one field is being updated
+			const hasChanges =
+				data.defaultShare !== undefined ||
+				data.defaultCurrency !== undefined ||
+				data.groupName !== undefined ||
+				data.budgets !== undefined;
+			return hasChanges;
+		},
+		{ message: "No changes provided" },
+	);
+
 // Scheduled Actions Types
 export type ScheduledActionFrequency = "daily" | "weekly" | "monthly";
 export type ScheduledActionType = "add_expense" | "add_budget";
@@ -653,4 +723,7 @@ export type ScheduledActionListQuery = z.infer<
 >;
 export type ScheduledActionHistoryQuery = z.infer<
 	typeof ScheduledActionHistoryQuerySchema
+>;
+export type UpdateGroupMetadataRequestInput = z.infer<
+	typeof UpdateGroupMetadataRequestSchema
 >;
