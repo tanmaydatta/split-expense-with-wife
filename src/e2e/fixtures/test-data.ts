@@ -134,8 +134,16 @@ export const mockApiResponses = {
 				budgets: [
 					{ id: "budget_house_01", budgetName: "house", description: null },
 					{ id: "budget_food_01", budgetName: "food", description: null },
-					{ id: "budget_transport_01", budgetName: "transport", description: null },
-					{ id: "budget_entertainment_01", budgetName: "entertainment", description: null },
+					{
+						id: "budget_transport_01",
+						budgetName: "transport",
+						description: null,
+					},
+					{
+						id: "budget_entertainment_01",
+						budgetName: "entertainment",
+						description: null,
+					},
 				],
 			},
 		},

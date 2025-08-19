@@ -428,10 +428,7 @@ export async function createBudgetEntryStatements(
 				updatedAt: timestamp,
 			})
 			.onConflictDoUpdate({
-				target: [
-					budgetTotals.budgetId,
-					budgetTotals.currency,
-				],
+				target: [budgetTotals.budgetId, budgetTotals.currency],
 				set: {
 					totalAmount: sql`${budgetTotals.totalAmount} + ${budgetRequest.amount}`,
 					updatedAt: timestamp,

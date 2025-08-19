@@ -392,9 +392,7 @@ export function isAuthorizedForBudget(
 	if (!session.group) {
 		return false;
 	}
-	return session.group.budgets.some(
-		(budget) => budget.id === budgetId,
-	);
+	return session.group.budgets.some((budget) => budget.id === budgetId);
 }
 
 // Currency validation now uses CURRENCIES from shared-types

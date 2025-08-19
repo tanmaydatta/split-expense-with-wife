@@ -150,7 +150,10 @@ export const budgetEntries = sqliteTable(
 		),
 		index("budget_entries_budget_id_idx").on(table.budgetId),
 		index("budget_entries_amount_idx").on(table.amount),
-		index("budget_entries_budget_id_added_time_idx").on(table.budgetId, table.addedTime),
+		index("budget_entries_budget_id_added_time_idx").on(
+			table.budgetId,
+			table.addedTime,
+		),
 		index("budget_entries_added_time_idx").on(table.addedTime),
 		index("budget_entries_budget_entry_id_idx").on(table.budgetEntryId),
 	],

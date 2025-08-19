@@ -58,9 +58,7 @@ export const ScheduledActionsManager: React.FC<
 	}, [session]);
 	const budgets: string[] = useMemo(
 		() =>
-			session?.extra?.group?.budgets?.map(
-				(b: GroupBudgetData) => b.id,
-			) || [],
+			session?.extra?.group?.budgets?.map((b: GroupBudgetData) => b.id) || [],
 		[session],
 	);
 	const currencies: string[] = useMemo(

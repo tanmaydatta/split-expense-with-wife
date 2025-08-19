@@ -483,10 +483,7 @@ export async function handleBudgetDelete(
 				.select()
 				.from(budgetEntries)
 				.where(
-					and(
-						eq(budgetEntries.id, body.id),
-						isNull(budgetEntries.deleted),
-					),
+					and(eq(budgetEntries.id, body.id), isNull(budgetEntries.deleted)),
 				)
 				.limit(1);
 
