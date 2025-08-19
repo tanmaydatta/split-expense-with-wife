@@ -46,3 +46,4 @@
 - react query - pagination
 - convert to dropdown if more than 4 budgets
 - force refresh rate limit
+- budget edits

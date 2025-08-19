@@ -8,6 +8,9 @@ import type {
 	UpdateGroupMetadataResponse,
 	User,
 } from "../../../shared-types";
+import {
+	UpdateGroupMetadataRequestSchema,
+} from "../../../shared-types";
 import type { getDb } from "../db";
 import type { GroupBudget } from "../db/schema/schema";
 import { groupBudgets, groups } from "../db/schema/schema";
@@ -16,9 +19,18 @@ import {
 	createErrorResponse,
 	createJsonResponse,
 	formatSQLiteTime,
+	formatZodError,
 	generateRandomId,
 	withAuth,
 } from "../utils";
+
+// Custom error classes
+export class BudgetConflictError extends Error {
+	constructor(budgetName: string, existingBudgetId: string) {
+		super(`Budget name '${budgetName}' already exists (ID: ${existingBudgetId})`);
+		this.name = "BudgetConflictError";
+	}
+}
 
 // Handle getting group details
 export async function handleGroupDetails(
@@ -77,228 +89,6 @@ export async function handleGroupDetails(
 }
 
 // Handle updating group metadata
-// Helper function to validate currency
-function validateCurrency(currency: string): boolean {
-	const validCurrencies = [
-		"USD",
-		"EUR",
-		"GBP",
-		"CAD",
-		"AUD",
-		"JPY",
-		"CHF",
-		"CNY",
-		"INR",
-		"SEK",
-		"NOK",
-		"DKK",
-		"PLN",
-		"CZK",
-		"HUF",
-		"BGN",
-		"RON",
-		"HRK",
-		"RUB",
-		"TRY",
-		"BRL",
-		"MXN",
-		"ZAR",
-		"KRW",
-		"SGD",
-		"HKD",
-		"NZD",
-		"THB",
-		"MYR",
-		"IDR",
-		"PHP",
-		"VND",
-	];
-	return validCurrencies.includes(currency);
-}
-
-// Helper function to check user membership
-function validateUserMembership(
-	defaultShare: Record<string, number>,
-	groupUserIds: Set<string>,
-): string | null {
-	const shareUserIds = new Set(Object.keys(defaultShare));
-
-	// Check if all group members are included
-	for (const userId of groupUserIds) {
-		if (!shareUserIds.has(userId)) {
-			return "All group members must have a default share percentage";
-		}
-	}
-
-	// Check if any invalid user IDs are included
-	for (const userId of shareUserIds) {
-		if (!groupUserIds.has(userId)) {
-			return "Invalid user IDs: users not in group";
-		}
-	}
-
-	return null;
-}
-
-// Helper function to validate percentages
-function validatePercentages(percentages: number[]): string | null {
-	if (percentages.some((p) => p < 0)) {
-		return "Default share percentages must be positive";
-	}
-
-	const total = percentages.reduce((sum, p) => sum + p, 0);
-	if (Math.abs(total - 100) > 0.001) {
-		return "Default share percentages must add up to 100%";
-	}
-
-	return null;
-}
-
-// Helper function to validate default share
-function validateDefaultShare(
-	defaultShare: Record<string, number>,
-	groupUserIds: Set<string>,
-): string | null {
-	if (Object.keys(defaultShare).length === 0) {
-		return "All group members must have a default share percentage";
-	}
-
-	const membershipError = validateUserMembership(defaultShare, groupUserIds);
-	if (membershipError) return membershipError;
-
-	const percentages = Object.values(defaultShare);
-	return validatePercentages(percentages);
-}
-
-// Helper function to validate group name
-function validateGroupName(groupName: string): string | null {
-	const trimmedName = groupName.trim();
-	if (trimmedName.length === 0) {
-		return "Group name cannot be empty";
-	}
-	return null;
-}
-
-// Helper function to validate budgets
-function validateBudgets(budgets: GroupBudgetData[]): string | null {
-	for (const budget of budgets) {
-		if (!/^[a-zA-Z0-9\s\-_]+$/.test(budget.budgetName)) {
-			return "Budget names can only contain letters, numbers, spaces, hyphens, and underscores";
-		}
-		if (budget.budgetName.trim().length === 0) {
-			return "Budget names cannot be empty";
-		}
-		if (budget.budgetName.length > 60) {
-			return "Budget names cannot exceed 60 characters";
-		}
-	}
-
-	// Note: Duplicate checking is handled in the processing phase via deduplication
-	return null;
-}
-
-// Helper function to validate currency
-function validateCurrencyField(
-	body: UpdateGroupMetadataRequest,
-): string | null {
-	if (
-		body.defaultCurrency !== undefined &&
-		!validateCurrency(body.defaultCurrency)
-	) {
-		return "Invalid currency code";
-	}
-	return null;
-}
-
-// Helper function to validate and process group name
-function validateAndProcessGroupName(
-	body: UpdateGroupMetadataRequest,
-): string | null {
-	if (body.groupName === undefined) return null;
-
-	const error = validateGroupName(body.groupName);
-	if (error) return error;
-
-	body.groupName = body.groupName.trim();
-	return null;
-}
-
-// Helper function to validate and process budgets
-function validateAndProcessBudgets(
-	body: UpdateGroupMetadataRequest,
-): string | null {
-	if (body.budgets === undefined) return null;
-
-	const error = validateBudgets(body.budgets);
-	if (error) return error;
-
-	// Deduplicate budgets by ID first, then by name
-	const uniqueBudgets = [];
-	const seenIds = new Set<string>();
-	const seenNames = new Set<string>();
-
-	for (const budget of body.budgets) {
-		const normalizedName = budget.budgetName.toLowerCase();
-
-		// Skip if we've seen this ID or name before
-		if (budget.id && seenIds.has(budget.id)) continue;
-		if (seenNames.has(normalizedName)) continue;
-
-		if (budget.id) seenIds.add(budget.id);
-		seenNames.add(normalizedName);
-		uniqueBudgets.push(budget);
-	}
-
-	body.budgets = uniqueBudgets;
-	return null;
-}
-
-// Helper function to validate and process individual fields
-function validateAndProcessFields(
-	body: UpdateGroupMetadataRequest,
-	groupUserIds: Set<string>,
-): string | null {
-	const currencyError = validateCurrencyField(body);
-	if (currencyError) return currencyError;
-
-	if (body.defaultShare !== undefined) {
-		const error = validateDefaultShare(body.defaultShare, groupUserIds);
-		if (error) return error;
-	}
-
-	const groupNameError = validateAndProcessGroupName(body);
-	if (groupNameError) return groupNameError;
-
-	const budgetsError = validateAndProcessBudgets(body);
-	if (budgetsError) return budgetsError;
-
-	return null;
-}
-
-// Helper function to check if any changes are provided
-function hasAnyChanges(body: UpdateGroupMetadataRequest): boolean {
-	return (
-		body.defaultShare !== undefined ||
-		body.defaultCurrency !== undefined ||
-		body.groupName !== undefined ||
-		body.budgets !== undefined
-	);
-}
-
-// Helper function to validate request body
-function validateRequestBody(
-	body: UpdateGroupMetadataRequest,
-	groupUserIds: Set<string>,
-): string | null {
-	const fieldError = validateAndProcessFields(body, groupUserIds);
-	if (fieldError) return fieldError;
-
-	if (!hasAnyChanges(body)) {
-		return "No changes provided";
-	}
-
-	return null;
-}
 
 // Helper function to update metadata
 async function updateMetadata(
@@ -412,31 +202,17 @@ function handleNewBudgetCreation(
 	currentTime: string,
 	db: ReturnType<typeof getDb>,
 ) {
+	// Check for name conflicts and throw error
 	const nameConflict = Array.from(activeBudgets.values()).find(
 		(b) => b.budgetName.toLowerCase() === budget.budgetName.toLowerCase(),
 	);
 
 	if (nameConflict) {
-		if (
-			nameConflict.budgetName !== budget.budgetName ||
-			nameConflict.description !== budget.description
-		) {
-			return {
-				statement: db
-					.update(groupBudgets)
-					.set({
-						budgetName: budget.budgetName,
-						description: budget.description || null,
-						updatedAt: currentTime,
-					})
-					.where(eq(groupBudgets.id, nameConflict.id)),
-				budgetId: nameConflict.id,
-			};
-		}
-		return { statement: null, budgetId: nameConflict.id };
+		throw new BudgetConflictError(budget.budgetName, nameConflict.id);
 	}
 
-	const budgetId = `budget_${generateRandomId()}`;
+	// Create new budget - use provided ID or generate random one
+	const budgetId = budget.id || `budget_${generateRandomId()}`;
 	return {
 		statement: db.insert(groupBudgets).values({
 			id: budgetId,
@@ -537,12 +313,12 @@ function processBudgetDeletions(
 	return deletionStatements;
 }
 
-// Helper function to update group budgets using D1 batch transactions
+// Helper function to prepare group budget statements for batch execution
 async function updateGroupBudgets(
 	newBudgets: GroupBudgetData[],
 	groupId: string,
 	db: ReturnType<typeof getDb>,
-): Promise<void> {
+): Promise<BatchItem<"sqlite">[]> {
 	const currentTime = formatSQLiteTime();
 
 	// Get ALL existing budgets for this group
@@ -550,11 +326,9 @@ async function updateGroupBudgets(
 		.select()
 		.from(groupBudgets)
 		.where(eq(groupBudgets.groupId, String(groupId)));
-	console.log("existingBudgets", existingBudgets.length);
 
 	const { activeBudgets, deletedBudgets } = categorizeBudgets(existingBudgets);
-	console.log("activeBudgets", activeBudgets.size);
-	console.log("deletedBudgets", deletedBudgets.size);
+	
 	const { batchStatements, budgetsToKeep } = processBudgetUpdates(
 		newBudgets,
 		activeBudgets,
@@ -570,24 +344,21 @@ async function updateGroupBudgets(
 		currentTime,
 		db,
 	);
-	console.log("deletionStatements", deletionStatements.length);
-	console.log("batchStatements", batchStatements.length);
-	const allStatements = [...batchStatements, ...deletionStatements];
-
-	if (allStatements.length > 0) {
-		await db.batch(
-			allStatements as [BatchItem<"sqlite">, ...BatchItem<"sqlite">[]],
-		);
-	}
+	
+	return [...batchStatements, ...deletionStatements];
 }
 
-// Helper function to build updates object
+// Helper function to build updates object and statements
 async function buildUpdatesObject(
 	body: UpdateGroupMetadataRequest,
 	session: CurrentSession,
 	db: ReturnType<typeof getDb>,
-): Promise<{ metadata?: string; groupName?: string }> {
+): Promise<{ 
+	updates: { metadata?: string; groupName?: string }, 
+	statements: BatchItem<"sqlite">[] 
+}> {
 	const updates: { metadata?: string; groupName?: string } = {};
+	const statements: BatchItem<"sqlite">[] = [];
 
 	// Update metadata if provided
 	const metadata = await updateMetadata(body, session, db);
@@ -599,16 +370,54 @@ async function buildUpdatesObject(
 	if (body.groupName !== undefined) {
 		updates.groupName = body.groupName;
 	}
-	console.log("session.group", session.group, body.budgets);
-	// Update budgets if provided
+	
+	// Get budget statements if provided
 	if (body.budgets !== undefined && session.group) {
-		await updateGroupBudgets(body.budgets, String(session.group.groupid), db);
+		const budgetStatements = await updateGroupBudgets(
+			body.budgets, 
+			String(session.group.groupid), 
+			db
+		);
+		statements.push(...budgetStatements);
 	}
 
-	return updates;
+	return { updates, statements };
 }
 
-// Helper function to validate and normalize update request
+// Helper function to validate user shares
+function validateUserShares(
+	defaultShare: Record<string, number>,
+	session: CurrentSession,
+	request: Request,
+	env: Env,
+): { success: false; response: Response } | null {
+	const groupUserIds = new Set(Object.keys(session.usersById));
+	const shareUserIds = new Set(Object.keys(defaultShare));
+	
+	// Check if all group members are included
+	for (const userId of groupUserIds) {
+		if (!shareUserIds.has(userId)) {
+			return {
+				success: false,
+				response: createErrorResponse("All group members must have a default share percentage", 400, request, env),
+			};
+		}
+	}
+	
+	// Check if any invalid user IDs are included
+	for (const userId of shareUserIds) {
+		if (!groupUserIds.has(userId)) {
+			return {
+				success: false,
+				response: createErrorResponse("Invalid user IDs: users not in group", 400, request, env),
+			};
+		}
+	}
+	
+	return null; // No validation errors
+}
+
+// Helper function to validate request using Zod schema
 async function validateUpdateRequest(
 	request: Request,
 	session: CurrentSession,
@@ -617,36 +426,36 @@ async function validateUpdateRequest(
 	| { success: true; body: UpdateGroupMetadataRequest }
 	| { success: false; response: Response }
 > {
-	const body = (await request.json()) as UpdateGroupMetadataRequest;
+	try {
+		const rawBody = await request.json();
+		
+		// Parse and validate with Zod schema
+		const body = UpdateGroupMetadataRequestSchema.parse(rawBody);
+		
+		// Additional validation: Check if user is authorized to modify this group
+		if (session.group && body.groupid !== String(session.group.groupid)) {
+			return {
+				success: false,
+				response: createErrorResponse("group id mismatch", 401, request, env),
+			};
+		}
+		
+		// Additional validation: Check user membership for defaultShare
+		if (body.defaultShare) {
+			const shareValidation = validateUserShares(body.defaultShare, session, request, env);
+			if (shareValidation) {
+				return shareValidation;
+			}
+		}
 
-	// Normalize groupid to string to prevent type mismatch issues
-	if (typeof body.groupid === "number") {
-		body.groupid = String(body.groupid);
-	}
-
-	// Check if user is authorized to modify this group
-	if (
-		body.groupid &&
-		session.group &&
-		body.groupid !== String(session.group.groupid)
-	) {
+		return { success: true, body: body as UpdateGroupMetadataRequest };
+	} catch (error) {
+		const errorMessage = formatZodError(error);
 		return {
 			success: false,
-			response: createErrorResponse("group id mismatch", 401, request, env),
+			response: createErrorResponse(errorMessage, 400, request, env),
 		};
 	}
-
-	// Validate request body
-	const groupUserIds = new Set(Object.keys(session.usersById));
-	const validationError = validateRequestBody(body, groupUserIds);
-	if (validationError) {
-		return {
-			success: false,
-			response: createErrorResponse(validationError, 400, request, env),
-		};
-	}
-
-	return { success: true, body };
 }
 
 // Helper function to prepare the response after updates
@@ -679,6 +488,42 @@ async function prepareUpdateResponse(
 	return createJsonResponse(response, 200, {}, request, env);
 }
 
+// Helper function to execute the update logic
+async function executeUpdate(
+	validation: { success: true; body: UpdateGroupMetadataRequest },
+	session: CurrentSession,
+	db: ReturnType<typeof getDb>,
+	request: Request,
+	env: Env,
+): Promise<Response> {
+	// Build updates and statements
+	const { updates, statements } = await buildUpdatesObject(validation.body, session, db);
+	const allStatements: BatchItem<"sqlite">[] = [];
+
+	// Add group table update statement if there are updates
+	if (Object.keys(updates).length > 0) {
+		allStatements.push(
+			db
+				.update(groups)
+				.set(updates)
+				.where(eq(groups.groupid, String(session.group?.groupid)))
+		);
+	}
+
+	// Add budget statements
+	allStatements.push(...statements);
+
+	// Execute all statements in a single batch transaction
+	if (allStatements.length > 0) {
+		await db.batch(
+			allStatements as [BatchItem<"sqlite">, ...BatchItem<"sqlite">[]],
+		);
+	}
+
+	// Prepare and return response
+	return await prepareUpdateResponse(session, db, request, env);
+}
+
 export async function handleUpdateGroupMetadata(
 	request: Request,
 	env: Env,
@@ -704,16 +549,15 @@ export async function handleUpdateGroupMetadata(
 			return validation.response;
 		}
 
-		// Build and execute updates
-		const updates = await buildUpdatesObject(validation.body, session, db);
-		if (Object.keys(updates).length > 0) {
-			await db
-				.update(groups)
-				.set(updates)
-				.where(eq(groups.groupid, String(session.group.groupid)));
+		try {
+			return await executeUpdate(validation, session, db, request, env);
+		} catch (error) {
+			// Handle budget conflicts and other errors
+			if (error instanceof BudgetConflictError) {
+				return createErrorResponse(error.message, 400, request, env);
+			}
+			console.error("Error updating group metadata:", error);
+			return createErrorResponse("Failed to update group metadata", 500, request, env);
 		}
-
-		// Prepare and return response
-		return await prepareUpdateResponse(session, db, request, env);
 	});
 }

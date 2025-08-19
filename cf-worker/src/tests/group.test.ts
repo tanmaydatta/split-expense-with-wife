@@ -231,7 +231,7 @@ describe("Group Metadata Handler", () => {
 
 		expect(response.status).toBe(400);
 		const responseData = (await response.json()) as { error: string };
-		expect(responseData.error).toBe("Invalid currency code");
+		expect(responseData.error).toContain("Invalid option");
 	});
 
 	it("should return 400 when percentages do not add up to 100", async () => {
@@ -256,7 +256,7 @@ describe("Group Metadata Handler", () => {
 
 		expect(response.status).toBe(400);
 		const responseData = (await response.json()) as { error: string };
-		expect(responseData.error).toBe(
+		expect(responseData.error).toContain(
 			"Default share percentages must add up to 100%",
 		);
 	});
@@ -280,7 +280,7 @@ describe("Group Metadata Handler", () => {
 
 		expect(response.status).toBe(400);
 		const responseData = (await response.json()) as { error: string };
-		expect(responseData.error).toBe(
+		expect(responseData.error).toContain(
 			"All group members must have a default share percentage",
 		);
 	});
@@ -333,7 +333,7 @@ describe("Group Metadata Handler", () => {
 
 		expect(response.status).toBe(400);
 		const responseData = (await response.json()) as { error: string };
-		expect(responseData.error).toBe(
+		expect(responseData.error).toContain(
 			"Default share percentages must be positive",
 		);
 	});
@@ -355,8 +355,8 @@ describe("Group Metadata Handler", () => {
 
 		expect(response.status).toBe(400);
 		const responseData = (await response.json()) as { error: string };
-		expect(responseData.error).toBe(
-			"All group members must have a default share percentage",
+		expect(responseData.error).toContain(
+			"Default share percentages must add up to 100%",
 		);
 	});
 
@@ -753,7 +753,7 @@ describe("Extended Group Metadata Handler", () => {
 			);
 
 			// First, create some initial budgets
-			const testId = Date.now().toString();
+			const testId = `removal_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 			const initialRequest: UpdateGroupMetadataRequest = {
 				groupid: TEST_USERS.testGroupId,
 				budgets: [
@@ -797,7 +797,7 @@ describe("Extended Group Metadata Handler", () => {
 			expect(budgetNames.some(name => name.startsWith("house_"))).toBe(false);
 		});
 
-		it("should handle duplicate budget names (deduplicate)", async () => {
+		it("should return 400 for duplicate budget names in request", async () => {
 			const cookies = await signInAndGetCookies(
 				env,
 				TEST_USERS.user1.email,
@@ -810,36 +810,53 @@ describe("Extended Group Metadata Handler", () => {
 				budgets: [
 					{ id: `budget_1_${testId}`, budgetName: `house_${testId}`, description: null },
 					{ id: `budget_2_${testId}`, budgetName: `food_${testId}`, description: null },
-					{ id: `budget_1_${testId}`, budgetName: `house_${testId}`, description: null }, // Duplicate ID - should be deduplicated
-					{ id: `budget_3_${testId}`, budgetName: `transportation_${testId}`, description: null },
-					{ id: `budget_4_${testId}`, budgetName: `food_${testId}`, description: null }, // Duplicate name - should be deduplicated
-					{ id: `budget_5_${testId}`, budgetName: `entertainment_${testId}`, description: null },
+					{ id: `budget_3_${testId}`, budgetName: `house_${testId}`, description: null }, // Duplicate name
 				],
 			};
 
 			const request = createMockRequest("POST", requestBody, cookies);
 			const response = await handleUpdateGroupMetadata(request, env);
 
-			expect(response.status).toBe(200);
+			expect(response.status).toBe(400);
+			const result = (await response.json()) as { error: string };
+			expect(result.error).toContain("Budget names must be unique");
+		});
 
-			// Verify no duplicates in new group_budgets table
-			const db = getDb(env);
-			const budgetResults = await db
-				.select({ budgetName: groupBudgets.budgetName })
-				.from(groupBudgets)
-				.where(
-					and(
-						eq(groupBudgets.groupId, TEST_USERS.testGroupId),
-						isNull(groupBudgets.deleted)
-					)
-				);
+		it("should return 400 for budget name conflict with existing budget", async () => {
+			const cookies = await signInAndGetCookies(
+				env,
+				TEST_USERS.user1.email,
+				TEST_USERS.user1.password,
+			);
+
+			const testId = Date.now().toString();
 			
-			const budgetNames = budgetResults.map(b => b.budgetName);
-			expect(budgetNames.length).toBe(4); // Should be unique
-			expect(budgetNames.some(name => name.startsWith("house_"))).toBe(true);
-			expect(budgetNames.some(name => name.startsWith("food_"))).toBe(true);
-			expect(budgetNames.some(name => name.startsWith("transportation_"))).toBe(true);
-			expect(budgetNames.some(name => name.startsWith("entertainment_"))).toBe(true);
+			// First, add some budgets
+			const setupRequest: UpdateGroupMetadataRequest = {
+				groupid: TEST_USERS.testGroupId,
+				budgets: [
+					{ id: `budget_existing_${testId}`, budgetName: `existing_budget_${testId}`, description: null },
+				],
+			};
+			const setupReq = createMockRequest("POST", setupRequest, cookies);
+			const setupResponse = await handleUpdateGroupMetadata(setupReq, env);
+			expect(setupResponse.status).toBe(200);
+
+			// Now try to add a budget with the same name (but different ID)
+			const conflictRequest: UpdateGroupMetadataRequest = {
+				groupid: TEST_USERS.testGroupId,
+				budgets: [
+					{ id: `budget_existing_${testId}`, budgetName: `existing_budget_${testId}`, description: null }, // Keep existing
+					{ id: `budget_new_${testId}`, budgetName: `existing_budget_${testId}`, description: null }, // Conflict!
+				],
+			};
+
+			const request = createMockRequest("POST", conflictRequest, cookies);
+			const response = await handleUpdateGroupMetadata(request, env);
+
+			expect(response.status).toBe(400);
+			const result = (await response.json()) as { error: string };
+			expect(result.error).toContain("Budget names must be unique");
 		});
 
 		it("should handle empty budgets array", async () => {
