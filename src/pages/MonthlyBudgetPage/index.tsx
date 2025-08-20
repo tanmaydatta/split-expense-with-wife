@@ -82,18 +82,21 @@ export const MonthlyBudgetPage: React.FC = () => {
 
 	// Get session data from Redux store
 	const data = useSelector((state: ReduxState) => state.value);
-	const budgets = useMemo(() => data?.extra?.group?.budgets || [], [data?.extra?.group?.budgets]);
+	const budgets = useMemo(
+		() => data?.extra?.group?.budgets || [],
+		[data?.extra?.group?.budgets],
+	);
 
 	// Initialize budget with first available budget from session if budgetId param is invalid
 	useEffect(() => {
 		if (budgets.length > 0) {
 			// If budgetId param exists and is valid, use it
-			const validBudget = budgets.find(b => b.id === budgetId);
+			const validBudget = budgets.find((b) => b.id === budgetId);
 			if (validBudget) {
 				setBudget(budgetId!);
 			} else {
 				// Otherwise, use first available budget if current budget is empty or invalid
-				const currentBudgetIsValid = budgets.find(b => b.id === budget);
+				const currentBudgetIsValid = budgets.find((b) => b.id === budget);
 				if (!currentBudgetIsValid) {
 					setBudget(budgets[0].id);
 				}

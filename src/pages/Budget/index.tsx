@@ -34,7 +34,10 @@ export const Budget: React.FC = () => {
 
 	// Get session data from Redux store
 	const data = useSelector((state: ReduxState) => state.value);
-	const budgets = useMemo(() => data?.extra?.group?.budgets || [], [data?.extra?.group?.budgets]);
+	const budgets = useMemo(
+		() => data?.extra?.group?.budgets || [],
+		[data?.extra?.group?.budgets],
+	);
 
 	const handleChangeBudget = (val: string) => setBudget(val);
 	const navigate = useNavigate();
