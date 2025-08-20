@@ -68,22 +68,22 @@ export interface LoginRequest {
 export interface BudgetRequest {
 	amount: number;
 	description: string;
-	name: string;
+	budgetId: string;
 	groupid: string;
 	currency: string;
 }
 export interface BudgetListRequest {
 	offset: number;
-	name: string;
+	budgetId: string;
 }
 export interface BudgetTotalRequest {
-	name: string;
+	budgetId: string;
 }
 export interface BudgetDeleteRequest {
 	id: number;
 }
 export interface BudgetMonthlyRequest {
-	name: string;
+	budgetId: string;
 	timeRange?: "6M" | "1Y" | "2Y" | "All";
 	currency?: string;
 }
@@ -462,7 +462,7 @@ export interface AddExpenseActionData {
 export interface AddBudgetActionData {
 	amount: number;
 	description: string;
-	budgetName: string;
+	budgetId: string;
 	currency: string;
 	type: "Credit" | "Debit";
 }
@@ -544,7 +544,7 @@ export declare const AddBudgetActionSchema: z.ZodObject<
 	{
 		amount: z.ZodNumber;
 		description: z.ZodString;
-		budgetName: z.ZodString;
+		budgetId: z.ZodString;
 		currency: z.ZodString;
 		type: z.ZodUnion<readonly [z.ZodLiteral<"Credit">, z.ZodLiteral<"Debit">]>;
 	},
@@ -579,7 +579,7 @@ export declare const CreateScheduledActionSchema: z.ZodObject<
 					{
 						amount: z.ZodNumber;
 						description: z.ZodString;
-						budgetName: z.ZodString;
+						budgetId: z.ZodString;
 						currency: z.ZodString;
 						type: z.ZodUnion<
 							readonly [z.ZodLiteral<"Credit">, z.ZodLiteral<"Debit">]
@@ -622,7 +622,7 @@ export declare const UpdateScheduledActionSchema: z.ZodObject<
 						{
 							amount: z.ZodNumber;
 							description: z.ZodString;
-							budgetName: z.ZodString;
+							budgetId: z.ZodString;
 							currency: z.ZodString;
 							type: z.ZodUnion<
 								readonly [z.ZodLiteral<"Credit">, z.ZodLiteral<"Debit">]

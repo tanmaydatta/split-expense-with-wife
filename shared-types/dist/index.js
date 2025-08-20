@@ -99,7 +99,7 @@ export const AddExpenseActionSchema = z.object({
 export const AddBudgetActionSchema = z.object({
 	amount: z.number().positive(),
 	description: z.string().min(2).max(100),
-	budgetName: z.string().min(1),
+	budgetId: z.string().min(1),
 	currency: z.string(),
 	type: z.union([z.literal("Credit"), z.literal("Debit")]),
 });

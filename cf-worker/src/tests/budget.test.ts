@@ -33,6 +33,10 @@ describe("Budget Handlers", () => {
 		user3: Record<string, string>;
 		user4: Record<string, string>;
 		testGroupId: string;
+		budgetIds: {
+			house: string;
+			food: string;
+		};
 	};
 	beforeAll(async () => {
 		await setupAndCleanDatabase(env);
@@ -1196,8 +1200,7 @@ describe("Budget Handlers", () => {
 					body: JSON.stringify({
 						amount: 100,
 						description: "Groceries",
-						name: "house",
-						groupid: TEST_USERS.testGroupId,
+						budgetId: TEST_USERS.budgetIds.house,
 						currency: "USD",
 					}),
 				},
@@ -1233,7 +1236,6 @@ describe("Budget Handlers", () => {
 						amount: 100,
 						description: "Groceries",
 						name: "unauthorized_budget",
-						groupid: TEST_USERS.testGroupId,
 						currency: "USD",
 					}),
 				},
@@ -1265,8 +1267,7 @@ describe("Budget Handlers", () => {
 				price: "+100.00",
 				addedTime: "2024-01-01 00:00:00",
 				amount: 100,
-				name: "house",
-				groupid: TEST_USERS.testGroupId,
+				budgetId: TEST_USERS.budgetIds.house,
 				currency: "USD",
 			});
 
@@ -1312,8 +1313,7 @@ describe("Budget Handlers", () => {
 				price: "+100.00",
 				addedTime: "2024-01-01 00:00:00",
 				amount: 100,
-				name: "house",
-				groupid: TEST_USERS.testGroupId,
+				budgetId: TEST_USERS.budgetIds.house,
 				currency: "USD",
 			});
 
@@ -1326,7 +1326,7 @@ describe("Budget Handlers", () => {
 						"Content-Type": "application/json",
 					},
 					body: JSON.stringify({
-						name: "house",
+						budgetId: TEST_USERS.budgetIds.house,
 						offset: 0,
 					}),
 				},
@@ -1385,8 +1385,7 @@ describe("Budget Handlers", () => {
 					price: "-500.00",
 					addedTime: formatDate(month1),
 					amount: -500,
-					name: "house",
-					groupid: TEST_USERS.testGroupId,
+					budgetId: TEST_USERS.budgetIds.house,
 					currency: "USD",
 				},
 				{
@@ -1394,8 +1393,7 @@ describe("Budget Handlers", () => {
 					price: "-600.00",
 					addedTime: formatDate(month2),
 					amount: -600,
-					name: "house",
-					groupid: TEST_USERS.testGroupId,
+					budgetId: TEST_USERS.budgetIds.house,
 					currency: "USD",
 				},
 				{
@@ -1403,8 +1401,7 @@ describe("Budget Handlers", () => {
 					price: "-400.00",
 					addedTime: formatDate(month3),
 					amount: -400,
-					name: "house",
-					groupid: TEST_USERS.testGroupId,
+					budgetId: TEST_USERS.budgetIds.house,
 					currency: "USD",
 				},
 			]);
@@ -1418,7 +1415,7 @@ describe("Budget Handlers", () => {
 						"Content-Type": "application/json",
 					},
 					body: JSON.stringify({
-						name: "house",
+						budgetId: TEST_USERS.budgetIds.house,
 					}),
 				},
 			);
@@ -1539,7 +1536,7 @@ describe("Budget Handlers", () => {
 						"Content-Type": "application/json",
 					},
 					body: JSON.stringify({
-						name: "house",
+						budgetId: TEST_USERS.budgetIds.house,
 					}),
 				},
 			);
@@ -1633,8 +1630,7 @@ describe("Budget Handlers", () => {
 					price: "-1000.00",
 					addedTime: getRecentDate(5),
 					amount: -1000,
-					name: "house",
-					groupid: TEST_USERS.testGroupId,
+					budgetId: TEST_USERS.budgetIds.house,
 					currency: "USD",
 				},
 				{
@@ -1642,8 +1638,7 @@ describe("Budget Handlers", () => {
 					price: "-1200.00",
 					addedTime: getRecentDate(4),
 					amount: -1200,
-					name: "house",
-					groupid: TEST_USERS.testGroupId,
+					budgetId: TEST_USERS.budgetIds.house,
 					currency: "USD",
 				},
 				{
@@ -1651,8 +1646,7 @@ describe("Budget Handlers", () => {
 					price: "-800.00",
 					addedTime: getRecentDate(3),
 					amount: -800,
-					name: "house",
-					groupid: TEST_USERS.testGroupId,
+					budgetId: TEST_USERS.budgetIds.house,
 					currency: "USD",
 				},
 				{
@@ -1660,8 +1654,7 @@ describe("Budget Handlers", () => {
 					price: "-1100.00",
 					addedTime: getRecentDate(2),
 					amount: -1100,
-					name: "house",
-					groupid: TEST_USERS.testGroupId,
+					budgetId: TEST_USERS.budgetIds.house,
 					currency: "USD",
 				},
 				{
@@ -1669,8 +1662,7 @@ describe("Budget Handlers", () => {
 					price: "-900.00",
 					addedTime: getRecentDate(1),
 					amount: -900,
-					name: "house",
-					groupid: TEST_USERS.testGroupId,
+					budgetId: TEST_USERS.budgetIds.house,
 					currency: "USD",
 				},
 				{
@@ -1678,8 +1670,7 @@ describe("Budget Handlers", () => {
 					price: "-1300.00",
 					addedTime: getRecentDate(0),
 					amount: -1300,
-					name: "house",
-					groupid: TEST_USERS.testGroupId,
+					budgetId: TEST_USERS.budgetIds.house,
 					currency: "USD",
 				},
 			]);
@@ -1693,7 +1684,7 @@ describe("Budget Handlers", () => {
 						"Content-Type": "application/json",
 					},
 					body: JSON.stringify({
-						name: "house",
+						budgetId: TEST_USERS.budgetIds.house,
 					}),
 				},
 			);
@@ -1795,8 +1786,7 @@ describe("Budget Handlers", () => {
 					price: "+800.00",
 					addedTime: formatDate(month1),
 					amount: 800,
-					name: "house",
-					groupid: TEST_USERS.testGroupId,
+					budgetId: TEST_USERS.budgetIds.house,
 					currency: "USD",
 				},
 				{
@@ -1806,8 +1796,7 @@ describe("Budget Handlers", () => {
 						new Date(month1.getTime() + 5 * 24 * 60 * 60 * 1000),
 					), // 5 days later
 					amount: -250,
-					name: "house",
-					groupid: TEST_USERS.testGroupId,
+					budgetId: TEST_USERS.budgetIds.house,
 					currency: "USD",
 				},
 				{
@@ -1817,8 +1806,7 @@ describe("Budget Handlers", () => {
 						new Date(month1.getTime() + 10 * 24 * 60 * 60 * 1000),
 					), // 10 days later
 					amount: -150,
-					name: "house",
-					groupid: TEST_USERS.testGroupId,
+					budgetId: TEST_USERS.budgetIds.house,
 					currency: "USD",
 				},
 			]);
@@ -1830,8 +1818,7 @@ describe("Budget Handlers", () => {
 					price: "+800.00",
 					addedTime: formatDate(month2),
 					amount: 800,
-					name: "house",
-					groupid: TEST_USERS.testGroupId,
+					budgetId: TEST_USERS.budgetIds.house,
 					currency: "USD",
 				},
 				{
@@ -1841,8 +1828,7 @@ describe("Budget Handlers", () => {
 						new Date(month2.getTime() + 3 * 24 * 60 * 60 * 1000),
 					), // 3 days later
 					amount: -300,
-					name: "house",
-					groupid: TEST_USERS.testGroupId,
+					budgetId: TEST_USERS.budgetIds.house,
 					currency: "USD",
 				},
 				{
@@ -1852,8 +1838,7 @@ describe("Budget Handlers", () => {
 						new Date(month2.getTime() + 7 * 24 * 60 * 60 * 1000),
 					), // 7 days later
 					amount: -200,
-					name: "house",
-					groupid: TEST_USERS.testGroupId,
+					budgetId: TEST_USERS.budgetIds.house,
 					currency: "USD",
 				},
 				{
@@ -1863,8 +1848,7 @@ describe("Budget Handlers", () => {
 						new Date(month2.getTime() - 5 * 24 * 60 * 60 * 1000),
 					), // 5 days before
 					amount: 50,
-					name: "house",
-					groupid: TEST_USERS.testGroupId,
+					budgetId: TEST_USERS.budgetIds.house,
 					currency: "GBP",
 				},
 				{
@@ -1874,8 +1858,7 @@ describe("Budget Handlers", () => {
 						new Date(month2.getTime() + 13 * 24 * 60 * 60 * 1000),
 					), // 13 days later
 					amount: -75,
-					name: "house",
-					groupid: TEST_USERS.testGroupId,
+					budgetId: TEST_USERS.budgetIds.house,
 					currency: "GBP",
 				},
 			]);
@@ -1887,8 +1870,7 @@ describe("Budget Handlers", () => {
 					price: "+900.00",
 					addedTime: formatDate(month3),
 					amount: 900,
-					name: "house",
-					groupid: TEST_USERS.testGroupId,
+					budgetId: TEST_USERS.budgetIds.house,
 					currency: "USD",
 				},
 				{
@@ -1898,8 +1880,7 @@ describe("Budget Handlers", () => {
 						new Date(month3.getTime() + 5 * 24 * 60 * 60 * 1000),
 					), // 5 days later
 					amount: 100,
-					name: "house",
-					groupid: TEST_USERS.testGroupId,
+					budgetId: TEST_USERS.budgetIds.house,
 					currency: "GBP",
 				},
 			]);
@@ -1911,8 +1892,7 @@ describe("Budget Handlers", () => {
 					price: "-400.00",
 					addedTime: formatDate(month4),
 					amount: -400,
-					name: "house",
-					groupid: TEST_USERS.testGroupId,
+					budgetId: TEST_USERS.budgetIds.house,
 					currency: "USD",
 				},
 				{
@@ -1922,8 +1902,7 @@ describe("Budget Handlers", () => {
 						new Date(month4.getTime() + 5 * 24 * 60 * 60 * 1000),
 					), // 5 days later
 					amount: -180,
-					name: "house",
-					groupid: TEST_USERS.testGroupId,
+					budgetId: TEST_USERS.budgetIds.house,
 					currency: "USD",
 				},
 				{
@@ -1933,8 +1912,7 @@ describe("Budget Handlers", () => {
 						new Date(month4.getTime() + 10 * 24 * 60 * 60 * 1000),
 					), // 10 days later
 					amount: -60,
-					name: "house",
-					groupid: TEST_USERS.testGroupId,
+					budgetId: TEST_USERS.budgetIds.house,
 					currency: "GBP",
 				},
 			]);
@@ -1948,7 +1926,7 @@ describe("Budget Handlers", () => {
 						"Content-Type": "application/json",
 					},
 					body: JSON.stringify({
-						name: "house",
+						budgetId: TEST_USERS.budgetIds.house,
 					}),
 				},
 			);
@@ -2142,8 +2120,7 @@ describe("Budget Handlers", () => {
 					price: "-500.00",
 					addedTime: formatDate(testMonth),
 					amount: -500,
-					name: "house",
-					groupid: TEST_USERS.testGroupId,
+					budgetId: TEST_USERS.budgetIds.house,
 					currency: "USD",
 				},
 				{
@@ -2153,8 +2130,7 @@ describe("Budget Handlers", () => {
 						new Date(testMonth.getTime() + 5 * 24 * 60 * 60 * 1000),
 					), // 5 days later
 					amount: 100,
-					name: "house",
-					groupid: TEST_USERS.testGroupId,
+					budgetId: TEST_USERS.budgetIds.house,
 					currency: "GBP",
 				},
 			]);
@@ -2168,7 +2144,7 @@ describe("Budget Handlers", () => {
 						"Content-Type": "application/json",
 					},
 					body: JSON.stringify({
-						name: "house",
+						budgetId: TEST_USERS.budgetIds.house,
 					}),
 				},
 			);
@@ -2261,8 +2237,7 @@ describe("Budget Handlers", () => {
 					price: "+500.00",
 					addedTime: "2024-01-01 00:00:00",
 					amount: 500,
-					name: "house",
-					groupid: TEST_USERS.testGroupId,
+					budgetId: TEST_USERS.budgetIds.house,
 					currency: "USD",
 				},
 				{
@@ -2270,8 +2245,7 @@ describe("Budget Handlers", () => {
 					price: "+1000.00",
 					addedTime: "2024-02-01 00:00:00",
 					amount: 1000,
-					name: "house",
-					groupid: TEST_USERS.testGroupId,
+					budgetId: TEST_USERS.budgetIds.house,
 					currency: "USD",
 				},
 			]);
@@ -2288,7 +2262,7 @@ describe("Budget Handlers", () => {
 						"Content-Type": "application/json",
 					},
 					body: JSON.stringify({
-						name: "house",
+						budgetId: TEST_USERS.budgetIds.house,
 					}),
 				},
 			);

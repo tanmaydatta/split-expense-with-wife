@@ -27,8 +27,8 @@ import { createBudgetEntryStatements } from "../utils/scheduled-action-execution
 // Helper function to get monthly budget data from database
 async function getMonthlyBudgetData(
 	db: ReturnType<typeof getDb>,
-	name: string,
-	groupId: string,
+	budgetId: string,
+	_groupId: string,
 	oldestData: Date,
 ) {
 	return await db
@@ -43,8 +43,7 @@ async function getMonthlyBudgetData(
 		.from(budgetEntries)
 		.where(
 			and(
-				eq(budgetEntries.name, name),
-				eq(budgetEntries.groupid, groupId),
+				eq(budgetEntries.budgetId, budgetId),
 				isNull(budgetEntries.deleted),
 				gte(budgetEntries.addedTime, formatSQLiteTime(oldestData)),
 				lt(budgetEntries.amount, 0), // Only negative amounts (expenses)
@@ -444,8 +443,8 @@ export async function handleBudget(
 			}
 			const body = (await request.json()) as BudgetRequest;
 
-			// Validate budget name
-			if (!isAuthorizedForBudget(session, body.name)) {
+			// Validate budget ID
+			if (!isAuthorizedForBudget(session, body.budgetId)) {
 				return createErrorResponse("Unauthorized", 401, request, env);
 			}
 
@@ -484,11 +483,7 @@ export async function handleBudgetDelete(
 				.select()
 				.from(budgetEntries)
 				.where(
-					and(
-						eq(budgetEntries.id, body.id),
-						eq(budgetEntries.groupid, String(session.group.groupid)),
-						isNull(budgetEntries.deleted),
-					),
+					and(eq(budgetEntries.id, body.id), isNull(budgetEntries.deleted)),
 				)
 				.limit(1);
 
@@ -499,7 +494,7 @@ export async function handleBudgetDelete(
 			const entry = budgetEntry[0];
 
 			// Check authorization
-			if (!isAuthorizedForBudget(session, entry.name)) {
+			if (!isAuthorizedForBudget(session, entry.budgetId)) {
 				return createErrorResponse("Unauthorized", 401, request, env);
 			}
 
@@ -519,8 +514,7 @@ export async function handleBudgetDelete(
 				})
 				.where(
 					and(
-						eq(budgetTotals.groupId, String(session.group.groupid)),
-						eq(budgetTotals.name, entry.name),
+						eq(budgetTotals.budgetId, entry.budgetId),
 						eq(budgetTotals.currency, entry.currency),
 					),
 				);
@@ -561,12 +555,11 @@ export async function handleBudgetList(
 			}
 			const body = (await request.json()) as BudgetListRequest;
 
-			// Validate budget name
-			if (!isAuthorizedForBudget(session, body.name)) {
+			// Validate budget ID
+			if (!isAuthorizedForBudget(session, body.budgetId)) {
 				return createErrorResponse("Unauthorized", 401, request, env);
 			}
 
-			const name = body.name || "house";
 			const currentTime = formatSQLiteTime();
 			// Get budget entries using Drizzle
 			const budgetEntriesResult = await db
@@ -575,8 +568,7 @@ export async function handleBudgetList(
 				.where(
 					and(
 						lt(budgetEntries.addedTime, currentTime),
-						eq(budgetEntries.name, name),
-						eq(budgetEntries.groupid, String(session.group.groupid)),
+						eq(budgetEntries.budgetId, body.budgetId),
 						isNull(budgetEntries.deleted),
 					),
 				)
@@ -618,19 +610,18 @@ export async function handleBudgetMonthly(
 			}
 			const body = (await request.json()) as BudgetMonthlyRequest;
 
-			// Validate budget name
-			if (!isAuthorizedForBudget(session, body.name)) {
+			// Validate budget ID
+			if (!isAuthorizedForBudget(session, body.budgetId)) {
 				return createErrorResponse("Unauthorized", 401, request, env);
 			}
 
-			const name = body.name || "house";
 			const oldestData = new Date();
 			oldestData.setFullYear(oldestData.getFullYear() - 2);
 
 			// Get monthly budget data
 			const monthlyData = await getMonthlyBudgetData(
 				db,
-				name,
+				body.budgetId,
 				String(session.group.groupid),
 				oldestData,
 			);
@@ -683,8 +674,8 @@ export async function handleBudgetTotal(
 			}
 			const body = (await request.json()) as BudgetTotalRequest;
 
-			// Validate budget name
-			if (!isAuthorizedForBudget(session, body.name)) {
+			// Validate budget ID
+			if (!isAuthorizedForBudget(session, body.budgetId)) {
 				return createErrorResponse("Unauthorized", 401, request, env);
 			}
 
@@ -692,7 +683,7 @@ export async function handleBudgetTotal(
 			const totals = await getBudgetTotals(
 				env,
 				String(session.group.groupid),
-				body.name,
+				body.budgetId,
 			);
 
 			return createJsonResponse(totals, 200, {}, request, env);
