@@ -2,8 +2,9 @@ import { Card } from "@/components/Card";
 import { SelectBudget } from "@/SelectBudget";
 import { typedApi } from "@/utils/api";
 import getSymbolFromCurrency from "currency-symbol-map";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useSelector } from "react-redux";
 import {
 	Bar,
 	BarChart,
@@ -18,6 +19,7 @@ import {
 import type {
 	BudgetMonthlyResponse,
 	MonthlyBudget,
+	ReduxState,
 } from "split-expense-shared-types";
 import "./index.css";
 
@@ -77,6 +79,27 @@ export const MonthlyBudgetPage: React.FC = () => {
 	const [availableCurrencies, setAvailableCurrencies] = useState<string[]>([]);
 	const [loading, setLoading] = useState<boolean>(true);
 	const [timeRange, setTimeRange] = useState<TimeRange>("6M");
+
+	// Get session data from Redux store
+	const data = useSelector((state: ReduxState) => state.value);
+	const budgets = useMemo(() => data?.extra?.group?.budgets || [], [data?.extra?.group?.budgets]);
+
+	// Initialize budget with first available budget from session if budgetId param is invalid
+	useEffect(() => {
+		if (budgets.length > 0) {
+			// If budgetId param exists and is valid, use it
+			const validBudget = budgets.find(b => b.id === budgetId);
+			if (validBudget) {
+				setBudget(budgetId!);
+			} else {
+				// Otherwise, use first available budget if current budget is empty or invalid
+				const currentBudgetIsValid = budgets.find(b => b.id === budget);
+				if (!currentBudgetIsValid) {
+					setBudget(budgets[0].id);
+				}
+			}
+		}
+	}, [budgets, budgetId, budget]);
 	const navigate = useNavigate();
 	// Using JavaScript-based responsive design instead of CSS media queries
 	// because Recharts component props (margin, height, etc.) need JS values
@@ -155,6 +178,11 @@ export const MonthlyBudgetPage: React.FC = () => {
 	);
 
 	const fetchMonthlyData = useCallback(async () => {
+		// Don't fetch if budget is empty
+		if (!budget) {
+			return;
+		}
+
 		setLoading(true);
 		try {
 			const response: BudgetMonthlyResponse = await typedApi.post(

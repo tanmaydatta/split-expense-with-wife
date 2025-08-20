@@ -15,7 +15,7 @@ import {
 import { SelectBudget } from "@/SelectBudget";
 import { ApiError, typedApi } from "@/utils/api";
 import { scrollToTop } from "@/utils/scroll";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import type {
 	ApiOperationResponses,
 	BudgetRequest,
@@ -52,6 +52,15 @@ function Dashboard(): JSX.Element {
 
 	// Get auth data from the data store (where login puts it)
 	const data = useSelector((state: ReduxState) => state.value);
+	const budgets = useMemo(() => data?.extra?.group?.budgets || [], [data?.extra?.group?.budgets]);
+
+	// Initialize budget with first available budget from session
+	useEffect(() => {
+		if (budgets.length > 0 && !budget) {
+			setBudget(budgets[0].id);
+		}
+	}, [budgets, budget]);
+
 	// Helper function to calculate default user percentages from metadata
 	const calculateDefaultUserPercentages = useCallback(
 		(usersFromAuth: DashboardUser[]): DashboardUser[] => {
