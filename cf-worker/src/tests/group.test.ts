@@ -1,7 +1,7 @@
 /// <reference types="vitest" />
 import { env } from "cloudflare:test";
 // Vitest globals are available through the test environment
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, isNotNull, or } from "drizzle-orm";
 import type {
 	GroupDetailsResponse,
 	UpdateGroupMetadataRequest,
@@ -713,12 +713,12 @@ describe("Extended Group Metadata Handler", () => {
 			const testId = Date.now().toString();
 			const requestBody: UpdateGroupMetadataRequest = {
 				groupid: TEST_USERS.testGroupId,
-				budgets: [
-					{ id: `budget_1_${testId}`, budgetName: `house_${testId}`, description: null },
-					{ id: `budget_2_${testId}`, budgetName: `food_${testId}`, description: null },
-					{ id: `budget_3_${testId}`, budgetName: `transportation_${testId}`, description: null },
-					{ id: `budget_4_${testId}`, budgetName: `entertainment_${testId}`, description: null },
-					{ id: `budget_5_${testId}`, budgetName: `vacation_${testId}`, description: null },
+				newBudgets: [
+					{ budgetName: `house_${testId}`, description: null },
+					{ budgetName: `food_${testId}`, description: null },
+					{ budgetName: `transportation_${testId}`, description: null },
+					{ budgetName: `entertainment_${testId}`, description: null },
+					{ budgetName: `vacation_${testId}`, description: null },
 				],
 			};
 
@@ -752,14 +752,14 @@ describe("Extended Group Metadata Handler", () => {
 				TEST_USERS.user1.password,
 			);
 
-			// First, create some initial budgets
+			// First, create some initial budgets using newBudgets
 			const testId = `removal_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 			const initialRequest: UpdateGroupMetadataRequest = {
 				groupid: TEST_USERS.testGroupId,
-				budgets: [
-					{ id: `budget_1_${testId}`, budgetName: `house_${testId}`, description: null },
-					{ id: `budget_2_${testId}`, budgetName: `food_${testId}`, description: null },
-					{ id: `budget_3_${testId}`, budgetName: `transportation_${testId}`, description: null },
+				newBudgets: [
+					{ budgetName: `house_${testId}`, description: null },
+					{ budgetName: `food_${testId}`, description: null },
+					{ budgetName: `transportation_${testId}`, description: null },
 				],
 			};
 			
@@ -768,10 +768,29 @@ describe("Extended Group Metadata Handler", () => {
 				env,
 			);
 
+			// Get the actual IDs of the created budgets
+			const db = getDb(env);
+			const createdBudgets = await db
+				.select()
+				.from(groupBudgets)
+				.where(
+					and(
+						eq(groupBudgets.groupId, TEST_USERS.testGroupId),
+						or(
+							eq(groupBudgets.budgetName, `house_${testId}`),
+							eq(groupBudgets.budgetName, `food_${testId}`),
+							eq(groupBudgets.budgetName, `transportation_${testId}`)
+						),
+						isNull(groupBudgets.deleted)
+					)
+				);
+			
+			const foodBudgetId = createdBudgets.find(b => b.budgetName === `food_${testId}`)!.id;
+
 			// Then remove some budgets (keep only food)
 			const requestBody: UpdateGroupMetadataRequest = {
 				groupid: TEST_USERS.testGroupId,
-				budgets: [{ id: `budget_2_${testId}`, budgetName: `food_${testId}`, description: null }], // Remove 'house' and 'transportation'
+				budgets: [{ id: foodBudgetId, budgetName: `food_${testId}`, description: null }], // Remove 'house' and 'transportation'
 			};
 
 			const request = createMockRequest("POST", requestBody, cookies);
@@ -780,7 +799,6 @@ describe("Extended Group Metadata Handler", () => {
 			expect(response.status).toBe(200);
 
 			// Verify budgets in new group_budgets table
-			const db = getDb(env);
 			const budgetResults = await db
 				.select({ budgetName: groupBudgets.budgetName })
 				.from(groupBudgets)
@@ -898,14 +916,14 @@ describe("Extended Group Metadata Handler", () => {
 				TEST_USERS.user1.password,
 			);
 
-			// First update to set initial budgets
+			// First update to set initial budgets using newBudgets
 			const testId = Date.now().toString();
 			const initialRequest: UpdateGroupMetadataRequest = {
 				groupid: TEST_USERS.testGroupId,
-				budgets: [
-					{ id: `budget_1_${testId}`, budgetName: `house_${testId}`, description: null },
-					{ id: `budget_2_${testId}`, budgetName: `food_${testId}`, description: null },
-					{ id: `budget_3_${testId}`, budgetName: `utilities_${testId}`, description: null }
+				newBudgets: [
+					{ budgetName: `house_${testId}`, description: null },
+					{ budgetName: `food_${testId}`, description: null },
+					{ budgetName: `utilities_${testId}`, description: null }
 				],
 			};
 			await handleUpdateGroupMetadata(
@@ -952,10 +970,10 @@ describe("Extended Group Metadata Handler", () => {
 			const testId = Date.now().toString();
 			const requestBody: UpdateGroupMetadataRequest = {
 				groupid: TEST_USERS.testGroupId,
-				budgets: [
-					{ id: `budget_1_${testId}`, budgetName: "house rent", description: null },
-					{ id: `budget_2_${testId}`, budgetName: "food-delivery", description: null },
-					{ id: `budget_3_${testId}`, budgetName: "car_maintenance", description: null }
+				newBudgets: [
+					{ budgetName: "house rent", description: null },
+					{ budgetName: "food-delivery", description: null },
+					{ budgetName: "car_maintenance", description: null }
 				],
 			};
 
@@ -1009,6 +1027,418 @@ describe("Extended Group Metadata Handler", () => {
 		});
 	});
 
+	describe("Budget Separation Logic (budgets vs newBudgets)", () => {
+		it("should ignore non-existent budget IDs in body.budgets", async () => {
+			const cookies = await signInAndGetCookies(
+				env,
+				TEST_USERS.user1.email,
+				TEST_USERS.user1.password,
+			);
+
+			const testId = `separation_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+			
+			// First create one existing budget using newBudgets (correct way)
+			const setupRequest: UpdateGroupMetadataRequest = {
+				groupid: TEST_USERS.testGroupId,
+				newBudgets: [
+					{ budgetName: `existing_${testId}`, description: null },
+				],
+			};
+			await handleUpdateGroupMetadata(
+				createMockRequest("POST", setupRequest, cookies),
+				env,
+			);
+
+			const db = getDb(env);
+			
+			// Get the actual ID of the created budget
+			const createdBudgets = await db
+				.select()
+				.from(groupBudgets)
+				.where(
+					and(
+						eq(groupBudgets.groupId, TEST_USERS.testGroupId),
+						eq(groupBudgets.budgetName, `existing_${testId}`),
+						isNull(groupBudgets.deleted)
+					)
+				);
+			expect(createdBudgets.length).toBe(1);
+			const existingBudgetId = createdBudgets[0].id;
+			
+			// Count budgets before the problematic request
+			const budgetsBeforeRequest = await db
+				.select()
+				.from(groupBudgets)
+				.where(
+					and(
+						eq(groupBudgets.groupId, TEST_USERS.testGroupId),
+						isNull(groupBudgets.deleted)
+					)
+				);
+
+			// Now send a request with mix of existing and non-existent budget IDs
+			const requestBody: UpdateGroupMetadataRequest = {
+				groupid: TEST_USERS.testGroupId,
+				budgets: [
+					// This exists, should be processed
+					{ id: existingBudgetId, budgetName: `existing_updated_${testId}`, description: "updated" },
+					// These don't exist, should be IGNORED (not created)
+					{ id: `budget_nonexistent_1_${testId}`, budgetName: `fake1_${testId}`, description: null },
+					{ id: `budget_nonexistent_2_${testId}`, budgetName: `fake2_${testId}`, description: null },
+				],
+			};
+
+			const request = createMockRequest("POST", requestBody, cookies);
+			const response = await handleUpdateGroupMetadata(request, env);
+
+			expect(response.status).toBe(200);
+
+			// Verify that only existing budget was updated, non-existent ones were ignored
+			const budgetsAfterRequest = await db
+				.select()
+				.from(groupBudgets)
+				.where(
+					and(
+						eq(groupBudgets.groupId, TEST_USERS.testGroupId),
+						isNull(groupBudgets.deleted)
+					)
+				);
+
+			// The key test: non-existent budget IDs should be ignored (not created)
+			// Our specific budget should be updated, others from previous tests may be deleted (that's expected behavior)
+			// So let's focus on testing the specific behavior we care about
+
+			// The existing budget should be updated
+			const existingBudget = budgetsAfterRequest.find(b => b.id === existingBudgetId);
+			expect(existingBudget).toBeDefined();
+			expect(existingBudget?.budgetName).toBe(`existing_updated_${testId}`);
+			expect(existingBudget?.description).toBe("updated");
+
+			// Non-existent budget names should not appear anywhere (key test: they were ignored, not created)
+			const budgetNames = budgetsAfterRequest.map(b => b.budgetName);
+			expect(budgetNames.some(name => name.includes(`fake1_${testId}`))).toBe(false);
+			expect(budgetNames.some(name => name.includes(`fake2_${testId}`))).toBe(false);
+			
+			// Verify that only 1 budget exists now (our updated budget - the fake ones were ignored)
+			// Other budgets from previous tests getting deleted is expected behavior for body.budgets
+			expect(budgetsAfterRequest.length).toBe(1);
+		});
+
+		it("should create new budgets only from body.newBudgets", async () => {
+			const cookies = await signInAndGetCookies(
+				env,
+				TEST_USERS.user1.email,
+				TEST_USERS.user1.password,
+			);
+
+			const testId = `newbudgets_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+			const db = getDb(env);
+			
+			// Count budgets before request
+			const budgetsBeforeRequest = await db
+				.select()
+				.from(groupBudgets)
+				.where(
+					and(
+						eq(groupBudgets.groupId, TEST_USERS.testGroupId),
+						isNull(groupBudgets.deleted)
+					)
+				);
+
+			// Send request with newBudgets only
+			const requestBody: UpdateGroupMetadataRequest = {
+				groupid: TEST_USERS.testGroupId,
+				newBudgets: [
+					{ budgetName: `newbudget1_${testId}`, description: "First new budget" },
+					{ budgetName: `newbudget2_${testId}`, description: null },
+					{ budgetName: `newbudget3_${testId}`, description: "Third new budget" },
+				],
+			};
+
+			const request = createMockRequest("POST", requestBody, cookies);
+			const response = await handleUpdateGroupMetadata(request, env);
+
+			expect(response.status).toBe(200);
+
+			// Verify new budgets were created
+			const budgetsAfterRequest = await db
+				.select()
+				.from(groupBudgets)
+				.where(
+					and(
+						eq(groupBudgets.groupId, TEST_USERS.testGroupId),
+						isNull(groupBudgets.deleted)
+					)
+				);
+
+			// Should have 3 more budgets than before
+			expect(budgetsAfterRequest.length).toBe(budgetsBeforeRequest.length + 3);
+
+			// All new budgets should exist with proper generated IDs
+			const budgetNames = budgetsAfterRequest.map(b => b.budgetName);
+			expect(budgetNames).toContain(`newbudget1_${testId}`);
+			expect(budgetNames).toContain(`newbudget2_${testId}`);
+			expect(budgetNames).toContain(`newbudget3_${testId}`);
+
+			// New budgets should have generated IDs starting with 'budget_'
+			const newBudgets = budgetsAfterRequest.filter(b => b.budgetName.includes(`newbudget`));
+			expect(newBudgets.length).toBe(3);
+			newBudgets.forEach(budget => {
+				expect(budget.id).toMatch(/^budget_[a-zA-Z0-9]+$/);
+			});
+		});
+
+		it("should handle mixed scenario: existing budgets + new budgets", async () => {
+			const cookies = await signInAndGetCookies(
+				env,
+				TEST_USERS.user1.email,
+				TEST_USERS.user1.password,
+			);
+
+			const testId = `mixed_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+			
+			// First create some existing budgets using newBudgets
+			const setupRequest: UpdateGroupMetadataRequest = {
+				groupid: TEST_USERS.testGroupId,
+				newBudgets: [
+					{ budgetName: `existing1_${testId}`, description: null },
+					{ budgetName: `existing2_${testId}`, description: null },
+				],
+			};
+			await handleUpdateGroupMetadata(
+				createMockRequest("POST", setupRequest, cookies),
+				env,
+			);
+
+			const db = getDb(env);
+			
+			// Get the actual IDs of the created budgets
+			const createdBudgets = await db
+				.select()
+				.from(groupBudgets)
+				.where(
+					and(
+						eq(groupBudgets.groupId, TEST_USERS.testGroupId),
+						or(
+							eq(groupBudgets.budgetName, `existing1_${testId}`),
+							eq(groupBudgets.budgetName, `existing2_${testId}`)
+						),
+						isNull(groupBudgets.deleted)
+					)
+				);
+			expect(createdBudgets.length).toBe(2);
+			const existing1Id = createdBudgets.find(b => b.budgetName === `existing1_${testId}`)!.id;
+			const existing2Id = createdBudgets.find(b => b.budgetName === `existing2_${testId}`)!.id;
+			
+			const budgetsBeforeRequest = await db
+				.select()
+				.from(groupBudgets)
+				.where(
+					and(
+						eq(groupBudgets.groupId, TEST_USERS.testGroupId),
+						isNull(groupBudgets.deleted)
+					)
+				);
+
+			// Mixed request: update existing + ignore non-existent + create new
+			const requestBody: UpdateGroupMetadataRequest = {
+				groupid: TEST_USERS.testGroupId,
+				budgets: [
+					// Update existing
+					{ id: existing1Id, budgetName: `existing1_updated_${testId}`, description: "updated" },
+					// Keep existing 
+					{ id: existing2Id, budgetName: `existing2_${testId}`, description: null },
+					// Non-existent (should be ignored)
+					{ id: `budget_fake_${testId}`, budgetName: `fake_${testId}`, description: null },
+				],
+				newBudgets: [
+					// Create new budgets
+					{ budgetName: `brand_new1_${testId}`, description: "New budget 1" },
+					{ budgetName: `brand_new2_${testId}`, description: null },
+				],
+			};
+
+			const request = createMockRequest("POST", requestBody, cookies);
+			const response = await handleUpdateGroupMetadata(request, env);
+
+			expect(response.status).toBe(200);
+
+			const budgetsAfterRequest = await db
+				.select()
+				.from(groupBudgets)
+				.where(
+					and(
+						eq(groupBudgets.groupId, TEST_USERS.testGroupId),
+						isNull(groupBudgets.deleted)
+					)
+				);
+
+			// Should have 4 total budgets: 2 existing (kept/updated) + 2 new budgets (created)
+			// Previous tests' budgets get deleted by the replacement logic (expected behavior)
+			expect(budgetsAfterRequest.length).toBe(4);
+
+			const budgetNames = budgetsAfterRequest.map(b => b.budgetName);
+
+			// Existing budget should be updated
+			expect(budgetNames).toContain(`existing1_updated_${testId}`);
+			expect(budgetNames).toContain(`existing2_${testId}`);
+
+			// New budgets should be created
+			expect(budgetNames).toContain(`brand_new1_${testId}`);
+			expect(budgetNames).toContain(`brand_new2_${testId}`);
+
+			// Non-existent budget should be ignored
+			expect(budgetNames.some(name => name.includes(`fake_${testId}`))).toBe(false);
+		});
+
+		it("should handle edge case: only non-existent budget IDs in body.budgets", async () => {
+			const cookies = await signInAndGetCookies(
+				env,
+				TEST_USERS.user1.email,
+				TEST_USERS.user1.password,
+			);
+
+			const testId = `edge_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+			const db = getDb(env);
+			
+			const budgetsBeforeRequest = await db
+				.select()
+				.from(groupBudgets)
+				.where(
+					and(
+						eq(groupBudgets.groupId, TEST_USERS.testGroupId),
+						isNull(groupBudgets.deleted)
+					)
+				);
+
+			// Send request with only non-existent budget IDs
+			const requestBody: UpdateGroupMetadataRequest = {
+				groupid: TEST_USERS.testGroupId,
+				budgets: [
+					// All non-existent, should all be ignored
+					{ id: `budget_fake1_${testId}`, budgetName: `fake1_${testId}`, description: null },
+					{ id: `budget_fake2_${testId}`, budgetName: `fake2_${testId}`, description: null },
+					{ id: `budget_fake3_${testId}`, budgetName: `fake3_${testId}`, description: null },
+				],
+			};
+
+			const request = createMockRequest("POST", requestBody, cookies);
+			const response = await handleUpdateGroupMetadata(request, env);
+
+			expect(response.status).toBe(200);
+
+			// Should have 0 budgets because all budget IDs were non-existent (ignored)
+			// and body.budgets is a replacement operation, so all existing budgets get deleted
+			const budgetsAfterRequest = await db
+				.select()
+				.from(groupBudgets)
+				.where(
+					and(
+						eq(groupBudgets.groupId, TEST_USERS.testGroupId),
+						isNull(groupBudgets.deleted)
+					)
+				);
+
+			expect(budgetsAfterRequest.length).toBe(0);
+
+			// None of the fake budget names should exist
+			const budgetNames = budgetsAfterRequest.map(b => b.budgetName);
+			expect(budgetNames.some(name => name.includes(`fake1_${testId}`))).toBe(false);
+			expect(budgetNames.some(name => name.includes(`fake2_${testId}`))).toBe(false);
+			expect(budgetNames.some(name => name.includes(`fake3_${testId}`))).toBe(false);
+		});
+
+		it("should delete all existing budgets when empty budgets array is provided", async () => {
+			const cookies = await signInAndGetCookies(
+				env,
+				TEST_USERS.user1.email,
+				TEST_USERS.user1.password,
+			);
+
+			const testId = `delete_all_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+			const db = getDb(env);
+			
+			// First create some budgets to delete
+			const setupRequest: UpdateGroupMetadataRequest = {
+				groupid: TEST_USERS.testGroupId,
+				newBudgets: [
+					{ budgetName: `budget1_${testId}`, description: "Budget 1" },
+					{ budgetName: `budget2_${testId}`, description: "Budget 2" },
+					{ budgetName: `budget3_${testId}`, description: "Budget 3" },
+				],
+			};
+			await handleUpdateGroupMetadata(
+				createMockRequest("POST", setupRequest, cookies),
+				env,
+			);
+
+			// Verify budgets were created
+			const budgetsBeforeDelete = await db
+				.select()
+				.from(groupBudgets)
+				.where(
+					and(
+						eq(groupBudgets.groupId, TEST_USERS.testGroupId),
+						isNull(groupBudgets.deleted)
+					)
+				);
+
+			expect(budgetsBeforeDelete.length).toBeGreaterThanOrEqual(3);
+			
+			// Find our test budgets
+			const testBudgets = budgetsBeforeDelete.filter(b => b.budgetName.includes(`${testId}`));
+			expect(testBudgets.length).toBe(3);
+
+			// Now delete all budgets by providing empty budgets array
+			const deleteRequest: UpdateGroupMetadataRequest = {
+				groupid: TEST_USERS.testGroupId,
+				budgets: [], // Empty array should delete all existing budgets
+			};
+
+			const request = createMockRequest("POST", deleteRequest, cookies);
+			const response = await handleUpdateGroupMetadata(request, env);
+
+			expect(response.status).toBe(200);
+
+			// Verify all budgets are deleted
+			const budgetsAfterDelete = await db
+				.select()
+				.from(groupBudgets)
+				.where(
+					and(
+						eq(groupBudgets.groupId, TEST_USERS.testGroupId),
+						isNull(groupBudgets.deleted)
+					)
+				);
+
+			expect(budgetsAfterDelete.length).toBe(0);
+
+			// Double-check by looking for our specific test budgets
+			const testBudgetsAfterDelete = budgetsAfterDelete.filter(b => b.budgetName.includes(`${testId}`));
+			expect(testBudgetsAfterDelete.length).toBe(0);
+
+			// Verify the budgets are marked as deleted (soft delete), not actually removed from DB
+			const deletedBudgets = await db
+				.select()
+				.from(groupBudgets)
+				.where(
+					and(
+						eq(groupBudgets.groupId, TEST_USERS.testGroupId),
+						isNotNull(groupBudgets.deleted)
+					)
+				);
+
+			const deletedTestBudgets = deletedBudgets.filter(b => b.budgetName.includes(`${testId}`));
+			expect(deletedTestBudgets.length).toBe(3);
+
+			// Verify deleted timestamp is set
+			deletedTestBudgets.forEach(budget => {
+				expect(budget.deleted).not.toBeNull();
+				expect(budget.deleted).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/); // SQLite datetime format
+			});
+		});
+	});
+
 	describe("Combined Updates", () => {
 		it("should update multiple fields in single request (groupName + budgets + currency + shares)", async () => {
 			const cookies = await signInAndGetCookies(
@@ -1017,14 +1447,24 @@ describe("Extended Group Metadata Handler", () => {
 				TEST_USERS.user1.password,
 			);
 
+			// First clear any existing budgets by setting empty budgets array
+			const clearRequest: UpdateGroupMetadataRequest = {
+				groupid: TEST_USERS.testGroupId,
+				budgets: [], // Clear all existing budgets
+			};
+			await handleUpdateGroupMetadata(
+				createMockRequest("POST", clearRequest, cookies),
+				env,
+			);
+
 			const testId = Date.now().toString();
 			const requestBody: UpdateGroupMetadataRequest = {
 				groupid: TEST_USERS.testGroupId,
 				groupName: "Multi-Update Group",
-				budgets: [
-					{ id: `budget_1_${testId}`, budgetName: "rent", description: null },
-					{ id: `budget_2_${testId}`, budgetName: "groceries", description: null },
-					{ id: `budget_3_${testId}`, budgetName: "utilities", description: null }
+				newBudgets: [
+					{ budgetName: "rent", description: null },
+					{ budgetName: "groceries", description: null },
+					{ budgetName: "utilities", description: null }
 				],
 				defaultCurrency: "EUR",
 				defaultShare: {
@@ -1083,12 +1523,22 @@ describe("Extended Group Metadata Handler", () => {
 				TEST_USERS.user1.password,
 			);
 
+			// First clear any existing budgets by setting empty budgets array
+			const clearRequest: UpdateGroupMetadataRequest = {
+				groupid: TEST_USERS.testGroupId,
+				budgets: [], // Clear all existing budgets
+			};
+			await handleUpdateGroupMetadata(
+				createMockRequest("POST", clearRequest, cookies),
+				env,
+			);
+
 			// Update only group name and budgets
 			const testId = Date.now().toString();
 			const requestBody: UpdateGroupMetadataRequest = {
 				groupid: TEST_USERS.testGroupId,
 				groupName: "Partial Update Group",
-				budgets: [{ id: `budget_1_${testId}`, budgetName: "new-category", description: null }],
+				newBudgets: [{ budgetName: "new-category", description: null }],
 			};
 
 			const request = createMockRequest("POST", requestBody, cookies);

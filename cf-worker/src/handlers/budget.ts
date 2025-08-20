@@ -244,14 +244,14 @@ async function createBudgetEntry(
 	env: Env,
 ) {
 	try {
-		// Generate unique budget ID using ULID for regular handler
-		const budgetId = `budget_${ulid()}`;
+		// Generate unique budget entry ID using ULID for regular handler
+		const budgetEntryId = `bge_${ulid()}`;
 
 		// Use the reusable utility function
 		const result = await createBudgetEntryStatements(
 			budgetRequest,
 			db,
-			budgetId,
+			budgetEntryId,
 		);
 
 		// Execute all statements in a single batch

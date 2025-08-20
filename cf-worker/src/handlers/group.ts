@@ -226,7 +226,7 @@ function handleNewBudgetCreation(
 	};
 }
 
-// Helper function to process a single budget
+// Helper function to process a single budget (existing budgets only)
 function processSingleBudget(
 	budget: GroupBudgetData,
 	activeBudgets: Map<string, GroupBudget>,
@@ -250,18 +250,14 @@ function processSingleBudget(
 		return { statement, budgetId: budget.id };
 	}
 
-	return handleNewBudgetCreation(
-		budget,
-		activeBudgets,
-		groupId,
-		currentTime,
-		db,
-	);
+	// If budget ID doesn't exist in database, ignore it (don't create new budgets here)
+	// New budgets should only be created via the newBudgets field
+	return null;
 }
 
-// Helper function to process budget updates and creates
+// Helper function to process budget updates (existing budgets only)
 function processBudgetUpdates(
-	newBudgets: GroupBudgetData[],
+	existingBudgets: GroupBudgetData[],
 	activeBudgets: Map<string, GroupBudget>,
 	deletedBudgets: Map<string, GroupBudget>,
 	groupId: string,
@@ -271,8 +267,8 @@ function processBudgetUpdates(
 	const batchStatements: BatchItem<"sqlite">[] = [];
 	const budgetsToKeep = new Set<string>();
 
-	for (const budget of newBudgets) {
-		const { statement, budgetId } = processSingleBudget(
+	for (const budget of existingBudgets) {
+		const result = processSingleBudget(
 			budget,
 			activeBudgets,
 			deletedBudgets,
@@ -280,8 +276,14 @@ function processBudgetUpdates(
 			currentTime,
 			db,
 		);
-		budgetsToKeep.add(budgetId);
-		if (statement) batchStatements.push(statement);
+		
+		// Only process if the budget exists in database
+		if (result !== null) {
+			const { statement, budgetId } = result;
+			budgetsToKeep.add(budgetId);
+			if (statement) batchStatements.push(statement);
+		}
+		// If result is null, the budget ID doesn't exist, so we ignore it
 	}
 
 	return { batchStatements, budgetsToKeep };
@@ -313,24 +315,24 @@ function processBudgetDeletions(
 	return deletionStatements;
 }
 
-// Helper function to prepare group budget statements for batch execution
+// Helper function to prepare group budget statements for batch execution (existing budgets only)
 async function updateGroupBudgets(
-	newBudgets: GroupBudgetData[],
+	existingBudgets: GroupBudgetData[],
 	groupId: string,
 	db: ReturnType<typeof getDb>,
 ): Promise<BatchItem<"sqlite">[]> {
 	const currentTime = formatSQLiteTime();
 
-	// Get ALL existing budgets for this group
-	const existingBudgets = await db
+	// Get ALL existing budgets for this group from database
+	const dbBudgets = await db
 		.select()
 		.from(groupBudgets)
 		.where(eq(groupBudgets.groupId, String(groupId)));
 
-	const { activeBudgets, deletedBudgets } = categorizeBudgets(existingBudgets);
+	const { activeBudgets, deletedBudgets } = categorizeBudgets(dbBudgets);
 
 	const { batchStatements, budgetsToKeep } = processBudgetUpdates(
-		newBudgets,
+		existingBudgets,
 		activeBudgets,
 		deletedBudgets,
 		groupId,
@@ -346,6 +348,56 @@ async function updateGroupBudgets(
 	);
 
 	return [...batchStatements, ...deletionStatements];
+}
+
+// Helper function to create new group budgets with generated IDs
+async function createNewGroupBudgets(
+	newBudgets: Omit<GroupBudgetData, 'id'>[],
+	groupId: string,
+	db: ReturnType<typeof getDb>,
+): Promise<BatchItem<"sqlite">[]> {
+	const currentTime = formatSQLiteTime();
+	const statements: BatchItem<"sqlite">[] = [];
+
+	// Check for conflicts with existing budget names
+	if (newBudgets.length > 0) {
+		const existingBudgets = await db
+			.select()
+			.from(groupBudgets)
+			.where(eq(groupBudgets.groupId, String(groupId)));
+
+		const existingNames = new Set(
+			existingBudgets
+				.filter((b) => !b.deleted)
+				.map((b) => b.budgetName.toLowerCase())
+		);
+
+		for (const newBudget of newBudgets) {
+			if (existingNames.has(newBudget.budgetName.toLowerCase())) {
+				throw new BudgetConflictError(
+					newBudget.budgetName,
+					"existing budget"
+				);
+			}
+		}
+
+		// Create insert statements for new budgets
+		const budgetsToInsert = newBudgets.map((budget) => ({
+			id: `budget_${generateRandomId()}`,
+			groupId: String(groupId),
+			budgetName: budget.budgetName,
+			description: budget.description,
+			createdAt: currentTime,
+			updatedAt: currentTime,
+			deleted: null,
+		}));
+
+		if (budgetsToInsert.length > 0) {
+			statements.push(db.insert(groupBudgets).values(budgetsToInsert));
+		}
+	}
+
+	return statements;
 }
 
 // Helper function to build updates object and statements
@@ -379,6 +431,16 @@ async function buildUpdatesObject(
 			db,
 		);
 		statements.push(...budgetStatements);
+	}
+
+	// Process new budgets if provided
+	if (body.newBudgets !== undefined && session.group) {
+		const newBudgetStatements = await createNewGroupBudgets(
+			body.newBudgets,
+			String(session.group.groupid),
+			db,
+		);
+		statements.push(...newBudgetStatements);
 	}
 
 	return { updates, statements };

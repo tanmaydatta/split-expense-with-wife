@@ -175,7 +175,17 @@ const Settings: React.FC = () => {
 			}
 
 			if (state.budgetsDirty) {
-				updateRequest.budgets = state.budgets;
+				// Separate new budgets from existing ones
+				const existingBudgets = state.budgets.filter(budget => !budget.id.startsWith('new_'));
+				const newBudgets = state.budgets.filter(budget => budget.id.startsWith('new_'))
+					.map(budget => ({ budgetName: budget.budgetName, description: budget.description }));
+				
+				if (existingBudgets.length > 0) {
+					updateRequest.budgets = existingBudgets;
+				}
+				if (newBudgets.length > 0) {
+					updateRequest.newBudgets = newBudgets;
+				}
 			}
 
 			// Only make API call if there are changes

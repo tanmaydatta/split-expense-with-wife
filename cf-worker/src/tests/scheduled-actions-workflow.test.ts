@@ -1110,20 +1110,6 @@ describe("Scheduled Actions Workflows", () => {
 			expect(id1).toBe(`tx_${actionId}_${date}`);
 		});
 
-		it("should generate deterministic budget IDs", async () => {
-			const { generateDeterministicBudgetId } = await import(
-				"../utils/scheduled-action-execution"
-			);
-
-			const actionId = "test-action-123";
-			const date = "2024-01-15";
-
-			const id1 = generateDeterministicBudgetId(actionId, date);
-			const id2 = generateDeterministicBudgetId(actionId, date);
-
-			expect(id1).toBe(id2);
-			expect(id1).toBe(`bg_${actionId}_${date}`);
-		});
 
 		it("should create split transaction statements with deterministic ID", async () => {
 			const { createSplitTransactionStatements } = await import(

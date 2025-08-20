@@ -31,11 +31,12 @@
     - insert before calling workflow ✅
 - budget 
     - budget to budget entries ✅
-    - new table for budget group mapping with budget id as primary key. use this table instead of budgets column in groups
-        - name should be replaced in budgetTotals, scheduled actions
-    - replace name in budget entry
-    - replace name in scheduled actions
-    - replace name in budget totals
+    - new table for budget group mapping with budget id as primary key. use this table instead of budgets column in groups ✅
+        - name should be replaced in budgetTotals, scheduled actions ✅
+    - replace name in budget entry ✅
+    - replace name in scheduled actions ✅ 
+    - replace name in budget totals ✅
+    - budget entries budgetentryid is undefined in some cases, fix it
     - budget entries primary key change
 - edit action, start date should not be mutated ever
 - scan receipt
@@ -47,6 +48,7 @@
 - rate limiting
 - roles
 - react query - pagination
+- react-form
 - convert to dropdown if more than 4 budgets
 - force refresh rate limit
 - budget edits

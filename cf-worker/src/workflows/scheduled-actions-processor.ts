@@ -19,7 +19,6 @@ import { createHistoryId, formatSQLiteTime } from "../utils";
 import {
 	createBudgetEntryStatementsForScheduledAction,
 	createSplitTransactionStatements,
-	generateDeterministicBudgetId,
 	generateDeterministicTransactionId,
 } from "../utils/scheduled-action-execution";
 
@@ -291,11 +290,11 @@ export async function processBudgetAction(
 		currency: budgetData.currency,
 	};
 
-	const budgetId = generateDeterministicBudgetId(action.id, currentDate);
+	const budgetEntryId = `bge_${action.id}_${currentDate}`;
 	const budgetResult = await createBudgetEntryStatementsForScheduledAction(
 		budgetRequest,
 		db,
-		budgetId,
+		budgetEntryId,
 	);
 
 	return {

@@ -37,15 +37,6 @@ export function generateDeterministicTransactionId(
 	return `tx_${actionId}_${currentDate}`;
 }
 
-/**
- * Generate deterministic budget ID for scheduled actions
- */
-export function generateDeterministicBudgetId(
-	actionId: string,
-	currentDate: string,
-): string {
-	return `bg_${actionId}_${currentDate}`;
-}
 
 // Helper function to validate split request
 function validateSplitRequest(splitRequest: SplitRequest): void {

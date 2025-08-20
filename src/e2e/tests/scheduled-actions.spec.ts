@@ -77,12 +77,13 @@ test.describe("Scheduled Actions", () => {
       ? authenticatedPage.page.locator(`[data-test-id="sa-toggle-${actionId}"]`)
       : card.locator('[data-test-id^="sa-toggle-"]').first();
     await toggleBtn.click();
-
+    await authenticatedPage.page.waitForTimeout(getCITimeout(2000));
     // After toggle, the button aria-label should flip to Activate action
     await expect(toggleBtn).toHaveAttribute("aria-label", /Activate action/i);
 
     // Toggle back to active and expect aria-label to flip to Deactivate action
     await toggleBtn.click();
+    await authenticatedPage.page.waitForTimeout(getCITimeout(2000));
     await expect(toggleBtn).toHaveAttribute("aria-label", /Deactivate action/i);
   });
 

@@ -1,0 +1,1 @@
+UPDATE `budget_entries` SET `budget_entry_id` = 'bge_' || `id` WHERE `budget_entry_id` IS NULL OR `budget_entry_id` = '';

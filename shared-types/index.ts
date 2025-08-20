@@ -252,6 +252,7 @@ export interface UpdateGroupMetadataRequest {
 	defaultCurrency?: string;
 	groupName?: string;
 	budgets?: GroupBudgetData[];
+	newBudgets?: Omit<GroupBudgetData, 'id'>[];
 }
 
 export interface UpdateGroupMetadataResponse {
@@ -490,6 +491,16 @@ export const UpdateGroupMetadataRequestSchema = z
 				{ message: "Budget names must be unique" },
 			)
 			.optional(),
+		newBudgets: z
+			.array(GroupBudgetDataSchema.omit({ id: true }))
+			.refine(
+				(budgets) => {
+					const names = budgets.map((b) => b.budgetName.toLowerCase());
+					return names.length === new Set(names).size;
+				},
+				{ message: "New budget names must be unique" },
+			)
+			.optional(),
 	})
 	.refine(
 		(data) => {
@@ -498,7 +509,8 @@ export const UpdateGroupMetadataRequestSchema = z
 				data.defaultShare !== undefined ||
 				data.defaultCurrency !== undefined ||
 				data.groupName !== undefined ||
-				data.budgets !== undefined;
+				data.budgets !== undefined ||
+				data.newBudgets !== undefined;
 			return hasChanges;
 		},
 		{ message: "No changes provided" },
