@@ -579,9 +579,10 @@ export async function handleBudgetList(
 				.limit(5)
 				.offset(body.offset);
 
-			// Ensure price field is properly formatted as string
+			// Ensure price field is properly formatted as string and map budgetEntryId to id
 			const formattedEntries = budgetEntriesResult.map((entry) => ({
 				...entry,
+				id: entry.budgetEntryId, // Map budgetEntryId to id for frontend compatibility
 				price:
 					entry.price ||
 					(entry.amount >= 0

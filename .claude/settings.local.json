@@ -1,21 +1,25 @@
 {
-	"permissions": {
-		"allow": [
-			"Bash(yarn db:generate:*)",
-			"Bash(yarn test)",
-			"Bash(yarn test:*)",
-			"WebFetch(domain:developers.cloudflare.com)",
-			"WebFetch(domain:sqlite.org)",
-			"Bash(yarn lint)",
-			"Bash(npm run build:*)",
-			"Bash(yarn wrangler types:*)",
-			"Bash(env)",
-			"Bash(grep:*)",
-			"mcp__cloudflare__search_cloudflare_documentation",
-			"WebSearch",
-			"WebFetch(domain:www.better-auth.com)",
-			"WebFetch(domain:www.answeroverflow.com)"
-		],
-		"deny": []
-	}
+  "permissions": {
+    "allow": [
+      "Bash(yarn db:generate:*)",
+      "Bash(yarn test)",
+      "Bash(yarn test:*)",
+      "WebFetch(domain:developers.cloudflare.com)",
+      "WebFetch(domain:sqlite.org)",
+      "Bash(yarn lint)",
+      "Bash(npm run build:*)",
+      "Bash(yarn wrangler types:*)",
+      "Bash(env)",
+      "Bash(grep:*)",
+      "mcp__cloudflare__search_cloudflare_documentation",
+      "WebSearch",
+      "WebFetch(domain:www.better-auth.com)",
+      "WebFetch(domain:www.answeroverflow.com)",
+      "mcp__playwright__browser_navigate",
+      "mcp__playwright__browser_type",
+      "mcp__playwright__browser_click",
+      "mcp__playwright__browser_wait_for"
+    ],
+    "deny": []
+  }
 }
