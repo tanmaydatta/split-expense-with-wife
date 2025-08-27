@@ -1,0 +1,1 @@
+UPDATE `budget_entries` SET `budget_entry_id` = 'bge_' || lower(hex(randomblob(8))) || '_' || `id` WHERE `budget_entry_id` IS NULL;

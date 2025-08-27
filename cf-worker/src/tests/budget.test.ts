@@ -1262,7 +1262,7 @@ describe("Budget Handlers", () => {
 
 			// Create a budget entry to delete with correct schema
 			await db.insert(budgetEntries).values({
-				id: 1,
+				budgetEntryId: "bge_test_delete_entry",
 				description: "Test entry",
 				price: "+100.00",
 				addedTime: "2024-01-01 00:00:00",
@@ -1308,7 +1308,7 @@ describe("Budget Handlers", () => {
 
 			// Create budget entries with correct schema
 			await db.insert(budgetEntries).values({
-				id: 1,
+				budgetEntryId: "bge_test_list_entry",
 				description: "Groceries",
 				price: "+100.00",
 				addedTime: "2024-01-01 00:00:00",
@@ -1381,6 +1381,7 @@ describe("Budget Handlers", () => {
 			// Create budget entries with negative amounts for monthly totals (different months)
 			await db.insert(budgetEntries).values([
 				{
+					budgetEntryId: "bge_test_month1_expense",
 					description: "Month1 expense",
 					price: "-500.00",
 					addedTime: formatDate(month1),
@@ -1389,6 +1390,7 @@ describe("Budget Handlers", () => {
 					currency: "USD",
 				},
 				{
+					budgetEntryId: "bge_test_month2_expense",
 					description: "Month2 expense",
 					price: "-600.00",
 					addedTime: formatDate(month2),
@@ -1397,6 +1399,7 @@ describe("Budget Handlers", () => {
 					currency: "USD",
 				},
 				{
+					budgetEntryId: "bge_test_month3_expense",
 					description: "Month3 expense",
 					price: "-400.00",
 					addedTime: formatDate(month3),
@@ -1626,6 +1629,7 @@ describe("Budget Handlers", () => {
 
 			await db.insert(budgetEntries).values([
 				{
+					budgetEntryId: "bge_test_average_month1",
 					description: "Month 1 expense",
 					price: "-1000.00",
 					addedTime: getRecentDate(5),
@@ -1634,6 +1638,7 @@ describe("Budget Handlers", () => {
 					currency: "USD",
 				},
 				{
+					budgetEntryId: "bge_test_average_month2",
 					description: "Month 2 expense",
 					price: "-1200.00",
 					addedTime: getRecentDate(4),
@@ -1642,6 +1647,7 @@ describe("Budget Handlers", () => {
 					currency: "USD",
 				},
 				{
+					budgetEntryId: "bge_test_average_month3",
 					description: "Month 3 expense",
 					price: "-800.00",
 					addedTime: getRecentDate(3),
@@ -1650,6 +1656,7 @@ describe("Budget Handlers", () => {
 					currency: "USD",
 				},
 				{
+					budgetEntryId: "bge_test_average_month4",
 					description: "Month 4 expense",
 					price: "-1100.00",
 					addedTime: getRecentDate(2),
@@ -1658,6 +1665,7 @@ describe("Budget Handlers", () => {
 					currency: "USD",
 				},
 				{
+					budgetEntryId: "bge_test_average_month5",
 					description: "Month 5 expense",
 					price: "-900.00",
 					addedTime: getRecentDate(1),
@@ -1666,6 +1674,7 @@ describe("Budget Handlers", () => {
 					currency: "USD",
 				},
 				{
+					budgetEntryId: "bge_test_average_month6",
 					description: "Month 6 expense",
 					price: "-1300.00",
 					addedTime: getRecentDate(0),
@@ -1782,6 +1791,7 @@ describe("Budget Handlers", () => {
 			// Month 1: +800 USD budget allocation, -250 USD groceries, -150 USD utilities
 			await db.insert(budgetEntries).values([
 				{
+					budgetEntryId: "bge_test_scenario_month1_budget",
 					description: "Month1 Budget",
 					price: "+800.00",
 					addedTime: formatDate(month1),
@@ -1790,6 +1800,7 @@ describe("Budget Handlers", () => {
 					currency: "USD",
 				},
 				{
+					budgetEntryId: "bge_test_scenario_month1_groceries",
 					description: "Groceries",
 					price: "-250.00",
 					addedTime: formatDate(
@@ -1800,6 +1811,7 @@ describe("Budget Handlers", () => {
 					currency: "USD",
 				},
 				{
+					budgetEntryId: "bge_test_scenario_month1_utilities",
 					description: "Utilities",
 					price: "-150.00",
 					addedTime: formatDate(
@@ -1814,6 +1826,7 @@ describe("Budget Handlers", () => {
 			// Month 2: +800 USD budget, -300 USD groceries, -200 USD utilities, +50 GBP extra budget, -75 GBP transport
 			await db.insert(budgetEntries).values([
 				{
+					budgetEntryId: "bge_test_scenario_month2_budget",
 					description: "Month2 Budget",
 					price: "+800.00",
 					addedTime: formatDate(month2),
@@ -1822,6 +1835,7 @@ describe("Budget Handlers", () => {
 					currency: "USD",
 				},
 				{
+					budgetEntryId: "bge_test_scenario_month2_groceries",
 					description: "Groceries Month2",
 					price: "-300.00",
 					addedTime: formatDate(
@@ -1832,6 +1846,7 @@ describe("Budget Handlers", () => {
 					currency: "USD",
 				},
 				{
+					budgetEntryId: "bge_test_scenario_month2_utilities",
 					description: "Utilities Month2",
 					price: "-200.00",
 					addedTime: formatDate(
@@ -1842,6 +1857,7 @@ describe("Budget Handlers", () => {
 					currency: "USD",
 				},
 				{
+					budgetEntryId: "bge_test_scenario_month2_extra_gbp",
 					description: "Extra Budget GBP",
 					price: "+50.00",
 					addedTime: formatDate(
@@ -1852,6 +1868,7 @@ describe("Budget Handlers", () => {
 					currency: "GBP",
 				},
 				{
+					budgetEntryId: "bge_test_scenario_month2_transport",
 					description: "Transport",
 					price: "-75.00",
 					addedTime: formatDate(
@@ -1866,6 +1883,7 @@ describe("Budget Handlers", () => {
 			// Month 3: Only positive amounts (budget allocations), no expenses
 			await db.insert(budgetEntries).values([
 				{
+					budgetEntryId: "bge_test_month3_budget",
 					description: "Month3 Budget",
 					price: "+900.00",
 					addedTime: formatDate(month3),
@@ -1874,6 +1892,7 @@ describe("Budget Handlers", () => {
 					currency: "USD",
 				},
 				{
+					budgetEntryId: "bge_test_month3_bonus",
 					description: "Month3 Bonus",
 					price: "+100.00",
 					addedTime: formatDate(
@@ -1888,6 +1907,7 @@ describe("Budget Handlers", () => {
 			// Month 4: Only negative amounts (expenses), no budget allocations
 			await db.insert(budgetEntries).values([
 				{
+					budgetEntryId: "bge_test_month4_groceries",
 					description: "Month4 Groceries",
 					price: "-400.00",
 					addedTime: formatDate(month4),
@@ -1896,6 +1916,7 @@ describe("Budget Handlers", () => {
 					currency: "USD",
 				},
 				{
+					budgetEntryId: "bge_test_month4_utilities",
 					description: "Month4 Utilities",
 					price: "-180.00",
 					addedTime: formatDate(
@@ -1906,6 +1927,7 @@ describe("Budget Handlers", () => {
 					currency: "USD",
 				},
 				{
+					budgetEntryId: "bge_test_month4_transport",
 					description: "Month4 Transport",
 					price: "-60.00",
 					addedTime: formatDate(
@@ -2116,6 +2138,7 @@ describe("Budget Handlers", () => {
 			// Create scenario where one currency has only positive amounts
 			await db.insert(budgetEntries).values([
 				{
+					budgetEntryId: "bge_test_usd_expense",
 					description: "USD Expense",
 					price: "-500.00",
 					addedTime: formatDate(testMonth),
@@ -2124,6 +2147,7 @@ describe("Budget Handlers", () => {
 					currency: "USD",
 				},
 				{
+					budgetEntryId: "bge_test_gbp_budget",
 					description: "GBP Budget Only",
 					price: "+100.00",
 					addedTime: formatDate(
@@ -2233,6 +2257,7 @@ describe("Budget Handlers", () => {
 			// Create budget entries with correct schema
 			await db.insert(budgetEntries).values([
 				{
+					budgetEntryId: "bge_test_total_entry1",
 					description: "Entry 1",
 					price: "+500.00",
 					addedTime: "2024-01-01 00:00:00",
@@ -2241,6 +2266,7 @@ describe("Budget Handlers", () => {
 					currency: "USD",
 				},
 				{
+					budgetEntryId: "bge_test_total_entry2",
 					description: "Entry 2",
 					price: "+1000.00",
 					addedTime: "2024-02-01 00:00:00",

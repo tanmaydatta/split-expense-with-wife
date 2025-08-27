@@ -44,7 +44,7 @@ export function generateDeterministicBudgetId(
 	actionId: string,
 	currentDate: string,
 ): string {
-	return `bg_${actionId}_${currentDate}`;
+	return `bge_${actionId}_${currentDate}`;
 }
 
 // Helper function to validate split request
