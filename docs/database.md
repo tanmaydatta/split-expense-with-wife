@@ -162,8 +162,7 @@ CREATE TABLE transaction_users (
 #### `budget_entries` Table
 ```sql
 CREATE TABLE budget_entries (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    budget_entry_id VARCHAR(100),          -- For deterministic creation in scheduled actions
+    budget_entry_id VARCHAR(100) PRIMARY KEY,  -- Deterministic ID for budget entries
     description VARCHAR(100) NOT NULL,
     added_time DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
     price VARCHAR(100),                    -- Formatted display price
@@ -281,8 +280,7 @@ CREATE INDEX budget_entries_name_groupid_deleted_idx
 ON budget_entries (name, groupid, deleted);
 
 -- Budget entry lookups
-CREATE INDEX budget_entries_budget_entry_id_idx 
-ON budget_entries (budget_entry_id);
+-- budget_entry_id is now the primary key, no separate index needed
 ```
 
 #### Scheduled Actions
@@ -425,14 +423,14 @@ export const budgetEntries = sqliteTable("budget_entries", {
 
 #### Renaming Column
 ```typescript
-// 1. Update schema with new name
-budgetEntryId: text("budget_entry_id", { length: 100 }),
+// 1. Change primary key to budget_entry_id
+budgetEntryId: text("budget_entry_id", { length: 100 }).primaryKey(),
 
 // 2. Generate migration  
-// yarn db:generate --name rename-column
+// yarn db:generate
 
-// 3. Generated SQL:
-// ALTER TABLE budget_entries RENAME COLUMN budget_id TO budget_entry_id;
+// 3. Generated SQL creates new table with budget_entry_id as primary key
+// and migrates all existing data
 ```
 
 #### Adding Index

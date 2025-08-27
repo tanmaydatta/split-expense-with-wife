@@ -1280,7 +1280,7 @@ describe("Budget Handlers", () => {
 						"Content-Type": "application/json",
 					},
 					body: JSON.stringify({
-						id: 1,
+						id: "bge_test_delete_entry",
 					}),
 				},
 			);

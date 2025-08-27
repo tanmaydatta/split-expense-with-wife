@@ -32,7 +32,7 @@ export interface GroupBudgetData {
 
 // Budget types
 export interface BudgetEntry {
-	id: number;
+	id: string;
 	description: string;
 	addedTime: string; // ISO string format
 	price: string;
@@ -102,7 +102,7 @@ export interface BudgetTotalRequest {
 }
 
 export interface BudgetDeleteRequest {
-	id: number;
+	id: string;
 }
 
 export interface BudgetMonthlyRequest {
@@ -224,7 +224,7 @@ export interface FrontendUser {
 
 // Budget display types
 export interface BudgetDisplayEntry {
-	id: number;
+	id: string;
 	date: string;
 	description: string;
 	amount: string;

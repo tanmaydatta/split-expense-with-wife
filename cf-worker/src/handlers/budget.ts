@@ -483,7 +483,10 @@ export async function handleBudgetDelete(
 				.select()
 				.from(budgetEntries)
 				.where(
-					and(eq(budgetEntries.id, body.id), isNull(budgetEntries.deleted)),
+					and(
+						eq(budgetEntries.budgetEntryId, body.id),
+						isNull(budgetEntries.deleted),
+					),
 				)
 				.limit(1);
 
@@ -504,7 +507,7 @@ export async function handleBudgetDelete(
 			const deleteBudget = db
 				.update(budgetEntries)
 				.set({ deleted: deletedTime })
-				.where(eq(budgetEntries.id, body.id));
+				.where(eq(budgetEntries.budgetEntryId, body.id));
 
 			const updateBudgetTotal = db
 				.update(budgetTotals)

@@ -22,7 +22,7 @@ export interface GroupBudgetData {
 	description: string | null;
 }
 export interface BudgetEntry {
-	id: number;
+	id: string;
 	description: string;
 	addedTime: string;
 	price: string;
@@ -80,7 +80,7 @@ export interface BudgetTotalRequest {
 	budgetId: string;
 }
 export interface BudgetDeleteRequest {
-	id: number;
+	id: string;
 }
 export interface BudgetMonthlyRequest {
 	budgetId: string;
@@ -180,7 +180,7 @@ export interface FrontendUser {
 	Name: string;
 }
 export interface BudgetDisplayEntry {
-	id: number;
+	id: string;
 	date: string;
 	description: string;
 	amount: string;

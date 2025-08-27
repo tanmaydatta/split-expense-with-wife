@@ -7,7 +7,7 @@ import type { BudgetEntry } from "split-expense-shared-types";
 
 interface Props {
 	entries: BudgetEntry[]; // TODO: change to BudgetEntry[]
-	onDelete(id: number): void;
+	onDelete(id: string): void;
 }
 
 export default function BudgetTable(props: Props): JSX.Element {

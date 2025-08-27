@@ -1,4 +1,5 @@
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
+import { ulid } from "ulid";
 import type { z } from "zod";
 import { CURRENCIES } from "../../shared-types";
 import { auth } from "./auth";
@@ -21,14 +22,8 @@ import type {
 	UserBalance,
 } from "./types";
 // Generate random ID
-export function generateRandomId(length = 16): string {
-	const chars =
-		"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-	let result = "";
-	for (let i = 0; i < length; i++) {
-		result += chars.charAt(Math.floor(Math.random() * chars.length));
-	}
-	return result;
+export function generateRandomId(): string {
+	return ulid();
 }
 
 // Format date for SQLite
