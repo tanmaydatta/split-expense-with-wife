@@ -158,6 +158,24 @@ This migration lays the foundation for future budget-related features:
 - **Impact**: Low - removes deprecated column after successful normalization
 - **Status**: ✅ Complete - all tests passing, UI working correctly
 
+### Migration 0013: Backfill Budget Entry IDs (August 2024)
+- **Type**: Data backfill migration  
+- **Impact**: Low - adds unique identifiers to existing budget entries
+- **Status**: ✅ Complete - tested locally, all 174 tests passing
+
+**Problem**: Many existing `budget_entries` records had NULL `budget_entry_id` values. This field is used for deterministic creation in scheduled actions and needed unique identifiers for proper tracking.
+
+**Solution**: Backfilled all NULL `budget_entry_id` values with unique identifiers using "bge_" prefix:
+```sql
+UPDATE `budget_entries` SET `budget_entry_id` = 'bge_' || lower(hex(randomblob(8))) || '_' || `id` WHERE `budget_entry_id` IS NULL;
+```
+
+**Benefits**:
+- Unique identifiers for all budget entries
+- Consistent format with "bge_" prefix as requested
+- Uses established SQLite randomblob pattern from migration 0010
+- Ensures combination of `id` and generated ID is unique
+
 ### Earlier Migrations (0000-0007)
 - Initial schema setup
 - Authentication system setup (better-auth)

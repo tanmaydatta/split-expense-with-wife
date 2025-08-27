@@ -1,1338 +1,1199 @@
 {
-  "id": "959d0f30-7ad5-4503-9ff4-78cadce8d197",
-  "prevId": "3f0d3e29-613e-4981-9719-516042d9ba16",
-  "version": "6",
-  "dialect": "sqlite",
-  "tables": {
-    "account": {
-      "name": "account",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "account_id": {
-          "name": "account_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "provider_id": {
-          "name": "provider_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "access_token": {
-          "name": "access_token",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "refresh_token": {
-          "name": "refresh_token",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "id_token": {
-          "name": "id_token",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "access_token_expires_at": {
-          "name": "access_token_expires_at",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "refresh_token_expires_at": {
-          "name": "refresh_token_expires_at",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "scope": {
-          "name": "scope",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "password": {
-          "name": "password",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "account_user_id_user_id_fk": {
-          "name": "account_user_id_user_id_fk",
-          "tableFrom": "account",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "tableTo": "user",
-          "columnsTo": [
-            "id"
-          ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "session": {
-      "name": "session",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "expires_at": {
-          "name": "expires_at",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "token": {
-          "name": "token",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "ip_address": {
-          "name": "ip_address",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "user_agent": {
-          "name": "user_agent",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "session_token_unique": {
-          "name": "session_token_unique",
-          "columns": [
-            "token"
-          ],
-          "isUnique": true
-        }
-      },
-      "foreignKeys": {
-        "session_user_id_user_id_fk": {
-          "name": "session_user_id_user_id_fk",
-          "tableFrom": "session",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "tableTo": "user",
-          "columnsTo": [
-            "id"
-          ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "user": {
-      "name": "user",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "email": {
-          "name": "email",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "email_verified": {
-          "name": "email_verified",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "image": {
-          "name": "image",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "username": {
-          "name": "username",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "display_username": {
-          "name": "display_username",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "groupid": {
-          "name": "groupid",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "first_name": {
-          "name": "first_name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "last_name": {
-          "name": "last_name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "user_email_unique": {
-          "name": "user_email_unique",
-          "columns": [
-            "email"
-          ],
-          "isUnique": true
-        },
-        "user_username_unique": {
-          "name": "user_username_unique",
-          "columns": [
-            "username"
-          ],
-          "isUnique": true
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "verification": {
-      "name": "verification",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "identifier": {
-          "name": "identifier",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "value": {
-          "name": "value",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "expires_at": {
-          "name": "expires_at",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "budget_entries": {
-      "name": "budget_entries",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "integer",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": true
-        },
-        "budget_entry_id": {
-          "name": "budget_entry_id",
-          "type": "text(100)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "description": {
-          "name": "description",
-          "type": "text(100)",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "added_time": {
-          "name": "added_time",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'CURRENT_TIMESTAMP'"
-        },
-        "price": {
-          "name": "price",
-          "type": "text(100)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "amount": {
-          "name": "amount",
-          "type": "real",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "budget_id": {
-          "name": "budget_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "deleted": {
-          "name": "deleted",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "currency": {
-          "name": "currency",
-          "type": "text(10)",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'GBP'"
-        }
-      },
-      "indexes": {
-        "budget_entries_monthly_query_idx": {
-          "name": "budget_entries_monthly_query_idx",
-          "columns": [
-            "budget_id",
-            "deleted",
-            "added_time"
-          ],
-          "isUnique": false
-        },
-        "budget_entries_budget_id_deleted_added_time_amount_idx": {
-          "name": "budget_entries_budget_id_deleted_added_time_amount_idx",
-          "columns": [
-            "budget_id",
-            "deleted",
-            "added_time",
-            "amount"
-          ],
-          "isUnique": false
-        },
-        "budget_entries_budget_id_deleted_idx": {
-          "name": "budget_entries_budget_id_deleted_idx",
-          "columns": [
-            "budget_id",
-            "deleted"
-          ],
-          "isUnique": false
-        },
-        "budget_entries_budget_id_idx": {
-          "name": "budget_entries_budget_id_idx",
-          "columns": [
-            "budget_id"
-          ],
-          "isUnique": false
-        },
-        "budget_entries_amount_idx": {
-          "name": "budget_entries_amount_idx",
-          "columns": [
-            "amount"
-          ],
-          "isUnique": false
-        },
-        "budget_entries_budget_id_added_time_idx": {
-          "name": "budget_entries_budget_id_added_time_idx",
-          "columns": [
-            "budget_id",
-            "added_time"
-          ],
-          "isUnique": false
-        },
-        "budget_entries_added_time_idx": {
-          "name": "budget_entries_added_time_idx",
-          "columns": [
-            "added_time"
-          ],
-          "isUnique": false
-        },
-        "budget_entries_budget_entry_id_idx": {
-          "name": "budget_entries_budget_entry_id_idx",
-          "columns": [
-            "budget_entry_id"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "budget_entries_budget_id_group_budgets_id_fk": {
-          "name": "budget_entries_budget_id_group_budgets_id_fk",
-          "tableFrom": "budget_entries",
-          "columnsFrom": [
-            "budget_id"
-          ],
-          "tableTo": "group_budgets",
-          "columnsTo": [
-            "id"
-          ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "budget_totals": {
-      "name": "budget_totals",
-      "columns": {
-        "budget_id": {
-          "name": "budget_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "currency": {
-          "name": "currency",
-          "type": "text(10)",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "total_amount": {
-          "name": "total_amount",
-          "type": "real",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 0
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "budget_totals_budget_id_idx": {
-          "name": "budget_totals_budget_id_idx",
-          "columns": [
-            "budget_id"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "budget_totals_budget_id_group_budgets_id_fk": {
-          "name": "budget_totals_budget_id_group_budgets_id_fk",
-          "tableFrom": "budget_totals",
-          "columnsFrom": [
-            "budget_id"
-          ],
-          "tableTo": "group_budgets",
-          "columnsTo": [
-            "id"
-          ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "budget_totals_budget_id_currency_pk": {
-          "columns": [
-            "budget_id",
-            "currency"
-          ],
-          "name": "budget_totals_budget_id_currency_pk"
-        }
-      },
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "group_budgets": {
-      "name": "group_budgets",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "group_id": {
-          "name": "group_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "budget_name": {
-          "name": "budget_name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "description": {
-          "name": "description",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'CURRENT_TIMESTAMP'"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'CURRENT_TIMESTAMP'"
-        },
-        "deleted": {
-          "name": "deleted",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "group_budgets_group_id_idx": {
-          "name": "group_budgets_group_id_idx",
-          "columns": [
-            "group_id"
-          ],
-          "isUnique": false
-        },
-        "group_budgets_group_name_active_idx": {
-          "name": "group_budgets_group_name_active_idx",
-          "columns": [
-            "group_id",
-            "budget_name"
-          ],
-          "where": "\"group_budgets\".\"deleted\" is null",
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "group_budgets_group_id_groups_groupid_fk": {
-          "name": "group_budgets_group_id_groups_groupid_fk",
-          "tableFrom": "group_budgets",
-          "columnsFrom": [
-            "group_id"
-          ],
-          "tableTo": "groups",
-          "columnsTo": [
-            "groupid"
-          ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "groups": {
-      "name": "groups",
-      "columns": {
-        "groupid": {
-          "name": "groupid",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "group_name": {
-          "name": "group_name",
-          "type": "text(50)",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'CURRENT_TIMESTAMP'"
-        },
-        "userids": {
-          "name": "userids",
-          "type": "text(1000)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "metadata": {
-          "name": "metadata",
-          "type": "text(2000)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "scheduled_action_history": {
-      "name": "scheduled_action_history",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "scheduled_action_id": {
-          "name": "scheduled_action_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "action_type": {
-          "name": "action_type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "executed_at": {
-          "name": "executed_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "execution_status": {
-          "name": "execution_status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "workflow_instance_id": {
-          "name": "workflow_instance_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "workflow_status": {
-          "name": "workflow_status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "action_data": {
-          "name": "action_data",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "result_data": {
-          "name": "result_data",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "error_message": {
-          "name": "error_message",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "execution_duration_ms": {
-          "name": "execution_duration_ms",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "scheduled_action_history_user_executed_idx": {
-          "name": "scheduled_action_history_user_executed_idx",
-          "columns": [
-            "user_id",
-            "executed_at"
-          ],
-          "isUnique": false
-        },
-        "scheduled_action_history_scheduled_action_idx": {
-          "name": "scheduled_action_history_scheduled_action_idx",
-          "columns": [
-            "scheduled_action_id",
-            "executed_at"
-          ],
-          "isUnique": false
-        },
-        "scheduled_action_history_status_idx": {
-          "name": "scheduled_action_history_status_idx",
-          "columns": [
-            "execution_status"
-          ],
-          "isUnique": false
-        },
-        "scheduled_action_history_workflow_instance_idx": {
-          "name": "scheduled_action_history_workflow_instance_idx",
-          "columns": [
-            "workflow_instance_id"
-          ],
-          "isUnique": false
-        },
-        "scheduled_action_history_action_date_unique_idx": {
-          "name": "scheduled_action_history_action_date_unique_idx",
-          "columns": [
-            "scheduled_action_id",
-            "executed_at"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "scheduled_action_history_scheduled_action_id_scheduled_actions_id_fk": {
-          "name": "scheduled_action_history_scheduled_action_id_scheduled_actions_id_fk",
-          "tableFrom": "scheduled_action_history",
-          "columnsFrom": [
-            "scheduled_action_id"
-          ],
-          "tableTo": "scheduled_actions",
-          "columnsTo": [
-            "id"
-          ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
-        },
-        "scheduled_action_history_user_id_user_id_fk": {
-          "name": "scheduled_action_history_user_id_user_id_fk",
-          "tableFrom": "scheduled_action_history",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "tableTo": "user",
-          "columnsTo": [
-            "id"
-          ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "scheduled_actions": {
-      "name": "scheduled_actions",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "action_type": {
-          "name": "action_type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "frequency": {
-          "name": "frequency",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "start_date": {
-          "name": "start_date",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "is_active": {
-          "name": "is_active",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "action_data": {
-          "name": "action_data",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "last_executed_at": {
-          "name": "last_executed_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "next_execution_date": {
-          "name": "next_execution_date",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "scheduled_actions_user_next_execution_idx": {
-          "name": "scheduled_actions_user_next_execution_idx",
-          "columns": [
-            "user_id",
-            "next_execution_date"
-          ],
-          "isUnique": false
-        },
-        "scheduled_actions_user_active_idx": {
-          "name": "scheduled_actions_user_active_idx",
-          "columns": [
-            "user_id",
-            "is_active"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "scheduled_actions_user_id_user_id_fk": {
-          "name": "scheduled_actions_user_id_user_id_fk",
-          "tableFrom": "scheduled_actions",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "tableTo": "user",
-          "columnsTo": [
-            "id"
-          ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "transaction_users": {
-      "name": "transaction_users",
-      "columns": {
-        "transaction_id": {
-          "name": "transaction_id",
-          "type": "text(100)",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "amount": {
-          "name": "amount",
-          "type": "real",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "owed_to_user_id": {
-          "name": "owed_to_user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "group_id": {
-          "name": "group_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "currency": {
-          "name": "currency",
-          "type": "text(10)",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "deleted": {
-          "name": "deleted",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "transaction_users_transaction_group_idx": {
-          "name": "transaction_users_transaction_group_idx",
-          "columns": [
-            "transaction_id",
-            "group_id",
-            "deleted"
-          ],
-          "isUnique": false
-        },
-        "transaction_users_transaction_idx": {
-          "name": "transaction_users_transaction_idx",
-          "columns": [
-            "transaction_id",
-            "deleted"
-          ],
-          "isUnique": false
-        },
-        "transaction_users_group_owed_idx": {
-          "name": "transaction_users_group_owed_idx",
-          "columns": [
-            "group_id",
-            "owed_to_user_id",
-            "deleted"
-          ],
-          "isUnique": false
-        },
-        "transaction_users_group_user_idx": {
-          "name": "transaction_users_group_user_idx",
-          "columns": [
-            "group_id",
-            "user_id",
-            "deleted"
-          ],
-          "isUnique": false
-        },
-        "transaction_users_balances_idx": {
-          "name": "transaction_users_balances_idx",
-          "columns": [
-            "group_id",
-            "deleted",
-            "user_id",
-            "owed_to_user_id",
-            "currency"
-          ],
-          "isUnique": false
-        },
-        "transaction_users_group_id_deleted_idx": {
-          "name": "transaction_users_group_id_deleted_idx",
-          "columns": [
-            "group_id",
-            "deleted"
-          ],
-          "isUnique": false
-        },
-        "transaction_users_user_id_idx": {
-          "name": "transaction_users_user_id_idx",
-          "columns": [
-            "user_id"
-          ],
-          "isUnique": false
-        },
-        "transaction_users_owed_to_user_id_idx": {
-          "name": "transaction_users_owed_to_user_id_idx",
-          "columns": [
-            "owed_to_user_id"
-          ],
-          "isUnique": false
-        },
-        "transaction_users_group_id_idx": {
-          "name": "transaction_users_group_id_idx",
-          "columns": [
-            "group_id"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {
-        "transaction_users_transaction_id_user_id_owed_to_user_id_pk": {
-          "columns": [
-            "transaction_id",
-            "user_id",
-            "owed_to_user_id"
-          ],
-          "name": "transaction_users_transaction_id_user_id_owed_to_user_id_pk"
-        }
-      },
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "transactions": {
-      "name": "transactions",
-      "columns": {
-        "transaction_id": {
-          "name": "transaction_id",
-          "type": "text(100)",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "description": {
-          "name": "description",
-          "type": "text(255)",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "amount": {
-          "name": "amount",
-          "type": "real",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'CURRENT_TIMESTAMP'"
-        },
-        "metadata": {
-          "name": "metadata",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "currency": {
-          "name": "currency",
-          "type": "text(10)",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "group_id": {
-          "name": "group_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "deleted": {
-          "name": "deleted",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "transactions_group_id_deleted_created_at_idx": {
-          "name": "transactions_group_id_deleted_created_at_idx",
-          "columns": [
-            "group_id",
-            "deleted",
-            "created_at"
-          ],
-          "isUnique": false
-        },
-        "transactions_created_at_idx": {
-          "name": "transactions_created_at_idx",
-          "columns": [
-            "created_at"
-          ],
-          "isUnique": false
-        },
-        "transactions_group_id_idx": {
-          "name": "transactions_group_id_idx",
-          "columns": [
-            "group_id"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "user_balances": {
-      "name": "user_balances",
-      "columns": {
-        "group_id": {
-          "name": "group_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "owed_to_user_id": {
-          "name": "owed_to_user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "currency": {
-          "name": "currency",
-          "type": "text(10)",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "balance": {
-          "name": "balance",
-          "type": "real",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 0
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "user_balances_group_owed_idx": {
-          "name": "user_balances_group_owed_idx",
-          "columns": [
-            "group_id",
-            "owed_to_user_id",
-            "currency"
-          ],
-          "isUnique": false
-        },
-        "user_balances_group_user_idx": {
-          "name": "user_balances_group_user_idx",
-          "columns": [
-            "group_id",
-            "user_id",
-            "currency"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {
-        "user_balances_group_id_user_id_owed_to_user_id_currency_pk": {
-          "columns": [
-            "group_id",
-            "user_id",
-            "owed_to_user_id",
-            "currency"
-          ],
-          "name": "user_balances_group_id_user_id_owed_to_user_id_currency_pk"
-        }
-      },
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    }
-  },
-  "views": {},
-  "enums": {},
-  "_meta": {
-    "columns": {},
-    "schemas": {},
-    "tables": {}
-  },
-  "internal": {
-    "indexes": {}
-  }
+	"id": "959d0f30-7ad5-4503-9ff4-78cadce8d197",
+	"prevId": "3f0d3e29-613e-4981-9719-516042d9ba16",
+	"version": "6",
+	"dialect": "sqlite",
+	"tables": {
+		"account": {
+			"name": "account",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text",
+					"primaryKey": true,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"account_id": {
+					"name": "account_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"provider_id": {
+					"name": "provider_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"user_id": {
+					"name": "user_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"access_token": {
+					"name": "access_token",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"refresh_token": {
+					"name": "refresh_token",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"id_token": {
+					"name": "id_token",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"access_token_expires_at": {
+					"name": "access_token_expires_at",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"refresh_token_expires_at": {
+					"name": "refresh_token_expires_at",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"scope": {
+					"name": "scope",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"password": {
+					"name": "password",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"updated_at": {
+					"name": "updated_at",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				}
+			},
+			"indexes": {},
+			"foreignKeys": {
+				"account_user_id_user_id_fk": {
+					"name": "account_user_id_user_id_fk",
+					"tableFrom": "account",
+					"columnsFrom": ["user_id"],
+					"tableTo": "user",
+					"columnsTo": ["id"],
+					"onUpdate": "no action",
+					"onDelete": "cascade"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		},
+		"session": {
+			"name": "session",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text",
+					"primaryKey": true,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"expires_at": {
+					"name": "expires_at",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"token": {
+					"name": "token",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"updated_at": {
+					"name": "updated_at",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"ip_address": {
+					"name": "ip_address",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"user_agent": {
+					"name": "user_agent",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"user_id": {
+					"name": "user_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				}
+			},
+			"indexes": {
+				"session_token_unique": {
+					"name": "session_token_unique",
+					"columns": ["token"],
+					"isUnique": true
+				}
+			},
+			"foreignKeys": {
+				"session_user_id_user_id_fk": {
+					"name": "session_user_id_user_id_fk",
+					"tableFrom": "session",
+					"columnsFrom": ["user_id"],
+					"tableTo": "user",
+					"columnsTo": ["id"],
+					"onUpdate": "no action",
+					"onDelete": "cascade"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		},
+		"user": {
+			"name": "user",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text",
+					"primaryKey": true,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"name": {
+					"name": "name",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"email": {
+					"name": "email",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"email_verified": {
+					"name": "email_verified",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"image": {
+					"name": "image",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"updated_at": {
+					"name": "updated_at",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"username": {
+					"name": "username",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"display_username": {
+					"name": "display_username",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"groupid": {
+					"name": "groupid",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"first_name": {
+					"name": "first_name",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"last_name": {
+					"name": "last_name",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				}
+			},
+			"indexes": {
+				"user_email_unique": {
+					"name": "user_email_unique",
+					"columns": ["email"],
+					"isUnique": true
+				},
+				"user_username_unique": {
+					"name": "user_username_unique",
+					"columns": ["username"],
+					"isUnique": true
+				}
+			},
+			"foreignKeys": {},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		},
+		"verification": {
+			"name": "verification",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text",
+					"primaryKey": true,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"identifier": {
+					"name": "identifier",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"value": {
+					"name": "value",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"expires_at": {
+					"name": "expires_at",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"updated_at": {
+					"name": "updated_at",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				}
+			},
+			"indexes": {},
+			"foreignKeys": {},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		},
+		"budget_entries": {
+			"name": "budget_entries",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "integer",
+					"primaryKey": true,
+					"notNull": true,
+					"autoincrement": true
+				},
+				"budget_entry_id": {
+					"name": "budget_entry_id",
+					"type": "text(100)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"description": {
+					"name": "description",
+					"type": "text(100)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"added_time": {
+					"name": "added_time",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": "'CURRENT_TIMESTAMP'"
+				},
+				"price": {
+					"name": "price",
+					"type": "text(100)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"amount": {
+					"name": "amount",
+					"type": "real",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"budget_id": {
+					"name": "budget_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"deleted": {
+					"name": "deleted",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"currency": {
+					"name": "currency",
+					"type": "text(10)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": "'GBP'"
+				}
+			},
+			"indexes": {
+				"budget_entries_monthly_query_idx": {
+					"name": "budget_entries_monthly_query_idx",
+					"columns": ["budget_id", "deleted", "added_time"],
+					"isUnique": false
+				},
+				"budget_entries_budget_id_deleted_added_time_amount_idx": {
+					"name": "budget_entries_budget_id_deleted_added_time_amount_idx",
+					"columns": ["budget_id", "deleted", "added_time", "amount"],
+					"isUnique": false
+				},
+				"budget_entries_budget_id_deleted_idx": {
+					"name": "budget_entries_budget_id_deleted_idx",
+					"columns": ["budget_id", "deleted"],
+					"isUnique": false
+				},
+				"budget_entries_budget_id_idx": {
+					"name": "budget_entries_budget_id_idx",
+					"columns": ["budget_id"],
+					"isUnique": false
+				},
+				"budget_entries_amount_idx": {
+					"name": "budget_entries_amount_idx",
+					"columns": ["amount"],
+					"isUnique": false
+				},
+				"budget_entries_budget_id_added_time_idx": {
+					"name": "budget_entries_budget_id_added_time_idx",
+					"columns": ["budget_id", "added_time"],
+					"isUnique": false
+				},
+				"budget_entries_added_time_idx": {
+					"name": "budget_entries_added_time_idx",
+					"columns": ["added_time"],
+					"isUnique": false
+				},
+				"budget_entries_budget_entry_id_idx": {
+					"name": "budget_entries_budget_entry_id_idx",
+					"columns": ["budget_entry_id"],
+					"isUnique": false
+				}
+			},
+			"foreignKeys": {
+				"budget_entries_budget_id_group_budgets_id_fk": {
+					"name": "budget_entries_budget_id_group_budgets_id_fk",
+					"tableFrom": "budget_entries",
+					"columnsFrom": ["budget_id"],
+					"tableTo": "group_budgets",
+					"columnsTo": ["id"],
+					"onUpdate": "no action",
+					"onDelete": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		},
+		"budget_totals": {
+			"name": "budget_totals",
+			"columns": {
+				"budget_id": {
+					"name": "budget_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"currency": {
+					"name": "currency",
+					"type": "text(10)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"total_amount": {
+					"name": "total_amount",
+					"type": "real",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": 0
+				},
+				"updated_at": {
+					"name": "updated_at",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				}
+			},
+			"indexes": {
+				"budget_totals_budget_id_idx": {
+					"name": "budget_totals_budget_id_idx",
+					"columns": ["budget_id"],
+					"isUnique": false
+				}
+			},
+			"foreignKeys": {
+				"budget_totals_budget_id_group_budgets_id_fk": {
+					"name": "budget_totals_budget_id_group_budgets_id_fk",
+					"tableFrom": "budget_totals",
+					"columnsFrom": ["budget_id"],
+					"tableTo": "group_budgets",
+					"columnsTo": ["id"],
+					"onUpdate": "no action",
+					"onDelete": "no action"
+				}
+			},
+			"compositePrimaryKeys": {
+				"budget_totals_budget_id_currency_pk": {
+					"columns": ["budget_id", "currency"],
+					"name": "budget_totals_budget_id_currency_pk"
+				}
+			},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		},
+		"group_budgets": {
+			"name": "group_budgets",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text",
+					"primaryKey": true,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"group_id": {
+					"name": "group_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"budget_name": {
+					"name": "budget_name",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"description": {
+					"name": "description",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": "'CURRENT_TIMESTAMP'"
+				},
+				"updated_at": {
+					"name": "updated_at",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": "'CURRENT_TIMESTAMP'"
+				},
+				"deleted": {
+					"name": "deleted",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				}
+			},
+			"indexes": {
+				"group_budgets_group_id_idx": {
+					"name": "group_budgets_group_id_idx",
+					"columns": ["group_id"],
+					"isUnique": false
+				},
+				"group_budgets_group_name_active_idx": {
+					"name": "group_budgets_group_name_active_idx",
+					"columns": ["group_id", "budget_name"],
+					"where": "\"group_budgets\".\"deleted\" is null",
+					"isUnique": false
+				}
+			},
+			"foreignKeys": {
+				"group_budgets_group_id_groups_groupid_fk": {
+					"name": "group_budgets_group_id_groups_groupid_fk",
+					"tableFrom": "group_budgets",
+					"columnsFrom": ["group_id"],
+					"tableTo": "groups",
+					"columnsTo": ["groupid"],
+					"onUpdate": "no action",
+					"onDelete": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		},
+		"groups": {
+			"name": "groups",
+			"columns": {
+				"groupid": {
+					"name": "groupid",
+					"type": "text",
+					"primaryKey": true,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"group_name": {
+					"name": "group_name",
+					"type": "text(50)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": "'CURRENT_TIMESTAMP'"
+				},
+				"userids": {
+					"name": "userids",
+					"type": "text(1000)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"metadata": {
+					"name": "metadata",
+					"type": "text(2000)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				}
+			},
+			"indexes": {},
+			"foreignKeys": {},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		},
+		"scheduled_action_history": {
+			"name": "scheduled_action_history",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text",
+					"primaryKey": true,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"scheduled_action_id": {
+					"name": "scheduled_action_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"user_id": {
+					"name": "user_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"action_type": {
+					"name": "action_type",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"executed_at": {
+					"name": "executed_at",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"execution_status": {
+					"name": "execution_status",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"workflow_instance_id": {
+					"name": "workflow_instance_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"workflow_status": {
+					"name": "workflow_status",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"action_data": {
+					"name": "action_data",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"result_data": {
+					"name": "result_data",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"error_message": {
+					"name": "error_message",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"execution_duration_ms": {
+					"name": "execution_duration_ms",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				}
+			},
+			"indexes": {
+				"scheduled_action_history_user_executed_idx": {
+					"name": "scheduled_action_history_user_executed_idx",
+					"columns": ["user_id", "executed_at"],
+					"isUnique": false
+				},
+				"scheduled_action_history_scheduled_action_idx": {
+					"name": "scheduled_action_history_scheduled_action_idx",
+					"columns": ["scheduled_action_id", "executed_at"],
+					"isUnique": false
+				},
+				"scheduled_action_history_status_idx": {
+					"name": "scheduled_action_history_status_idx",
+					"columns": ["execution_status"],
+					"isUnique": false
+				},
+				"scheduled_action_history_workflow_instance_idx": {
+					"name": "scheduled_action_history_workflow_instance_idx",
+					"columns": ["workflow_instance_id"],
+					"isUnique": false
+				},
+				"scheduled_action_history_action_date_unique_idx": {
+					"name": "scheduled_action_history_action_date_unique_idx",
+					"columns": ["scheduled_action_id", "executed_at"],
+					"isUnique": false
+				}
+			},
+			"foreignKeys": {
+				"scheduled_action_history_scheduled_action_id_scheduled_actions_id_fk": {
+					"name": "scheduled_action_history_scheduled_action_id_scheduled_actions_id_fk",
+					"tableFrom": "scheduled_action_history",
+					"columnsFrom": ["scheduled_action_id"],
+					"tableTo": "scheduled_actions",
+					"columnsTo": ["id"],
+					"onUpdate": "no action",
+					"onDelete": "cascade"
+				},
+				"scheduled_action_history_user_id_user_id_fk": {
+					"name": "scheduled_action_history_user_id_user_id_fk",
+					"tableFrom": "scheduled_action_history",
+					"columnsFrom": ["user_id"],
+					"tableTo": "user",
+					"columnsTo": ["id"],
+					"onUpdate": "no action",
+					"onDelete": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		},
+		"scheduled_actions": {
+			"name": "scheduled_actions",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text",
+					"primaryKey": true,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"user_id": {
+					"name": "user_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"action_type": {
+					"name": "action_type",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"frequency": {
+					"name": "frequency",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"start_date": {
+					"name": "start_date",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"is_active": {
+					"name": "is_active",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": true
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"updated_at": {
+					"name": "updated_at",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"action_data": {
+					"name": "action_data",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"last_executed_at": {
+					"name": "last_executed_at",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"next_execution_date": {
+					"name": "next_execution_date",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				}
+			},
+			"indexes": {
+				"scheduled_actions_user_next_execution_idx": {
+					"name": "scheduled_actions_user_next_execution_idx",
+					"columns": ["user_id", "next_execution_date"],
+					"isUnique": false
+				},
+				"scheduled_actions_user_active_idx": {
+					"name": "scheduled_actions_user_active_idx",
+					"columns": ["user_id", "is_active"],
+					"isUnique": false
+				}
+			},
+			"foreignKeys": {
+				"scheduled_actions_user_id_user_id_fk": {
+					"name": "scheduled_actions_user_id_user_id_fk",
+					"tableFrom": "scheduled_actions",
+					"columnsFrom": ["user_id"],
+					"tableTo": "user",
+					"columnsTo": ["id"],
+					"onUpdate": "no action",
+					"onDelete": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		},
+		"transaction_users": {
+			"name": "transaction_users",
+			"columns": {
+				"transaction_id": {
+					"name": "transaction_id",
+					"type": "text(100)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"user_id": {
+					"name": "user_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"amount": {
+					"name": "amount",
+					"type": "real",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"owed_to_user_id": {
+					"name": "owed_to_user_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"group_id": {
+					"name": "group_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"currency": {
+					"name": "currency",
+					"type": "text(10)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"deleted": {
+					"name": "deleted",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				}
+			},
+			"indexes": {
+				"transaction_users_transaction_group_idx": {
+					"name": "transaction_users_transaction_group_idx",
+					"columns": ["transaction_id", "group_id", "deleted"],
+					"isUnique": false
+				},
+				"transaction_users_transaction_idx": {
+					"name": "transaction_users_transaction_idx",
+					"columns": ["transaction_id", "deleted"],
+					"isUnique": false
+				},
+				"transaction_users_group_owed_idx": {
+					"name": "transaction_users_group_owed_idx",
+					"columns": ["group_id", "owed_to_user_id", "deleted"],
+					"isUnique": false
+				},
+				"transaction_users_group_user_idx": {
+					"name": "transaction_users_group_user_idx",
+					"columns": ["group_id", "user_id", "deleted"],
+					"isUnique": false
+				},
+				"transaction_users_balances_idx": {
+					"name": "transaction_users_balances_idx",
+					"columns": [
+						"group_id",
+						"deleted",
+						"user_id",
+						"owed_to_user_id",
+						"currency"
+					],
+					"isUnique": false
+				},
+				"transaction_users_group_id_deleted_idx": {
+					"name": "transaction_users_group_id_deleted_idx",
+					"columns": ["group_id", "deleted"],
+					"isUnique": false
+				},
+				"transaction_users_user_id_idx": {
+					"name": "transaction_users_user_id_idx",
+					"columns": ["user_id"],
+					"isUnique": false
+				},
+				"transaction_users_owed_to_user_id_idx": {
+					"name": "transaction_users_owed_to_user_id_idx",
+					"columns": ["owed_to_user_id"],
+					"isUnique": false
+				},
+				"transaction_users_group_id_idx": {
+					"name": "transaction_users_group_id_idx",
+					"columns": ["group_id"],
+					"isUnique": false
+				}
+			},
+			"foreignKeys": {},
+			"compositePrimaryKeys": {
+				"transaction_users_transaction_id_user_id_owed_to_user_id_pk": {
+					"columns": ["transaction_id", "user_id", "owed_to_user_id"],
+					"name": "transaction_users_transaction_id_user_id_owed_to_user_id_pk"
+				}
+			},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		},
+		"transactions": {
+			"name": "transactions",
+			"columns": {
+				"transaction_id": {
+					"name": "transaction_id",
+					"type": "text(100)",
+					"primaryKey": true,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"description": {
+					"name": "description",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"amount": {
+					"name": "amount",
+					"type": "real",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": "'CURRENT_TIMESTAMP'"
+				},
+				"metadata": {
+					"name": "metadata",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"currency": {
+					"name": "currency",
+					"type": "text(10)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"group_id": {
+					"name": "group_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"deleted": {
+					"name": "deleted",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				}
+			},
+			"indexes": {
+				"transactions_group_id_deleted_created_at_idx": {
+					"name": "transactions_group_id_deleted_created_at_idx",
+					"columns": ["group_id", "deleted", "created_at"],
+					"isUnique": false
+				},
+				"transactions_created_at_idx": {
+					"name": "transactions_created_at_idx",
+					"columns": ["created_at"],
+					"isUnique": false
+				},
+				"transactions_group_id_idx": {
+					"name": "transactions_group_id_idx",
+					"columns": ["group_id"],
+					"isUnique": false
+				}
+			},
+			"foreignKeys": {},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		},
+		"user_balances": {
+			"name": "user_balances",
+			"columns": {
+				"group_id": {
+					"name": "group_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"user_id": {
+					"name": "user_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"owed_to_user_id": {
+					"name": "owed_to_user_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"currency": {
+					"name": "currency",
+					"type": "text(10)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"balance": {
+					"name": "balance",
+					"type": "real",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": 0
+				},
+				"updated_at": {
+					"name": "updated_at",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				}
+			},
+			"indexes": {
+				"user_balances_group_owed_idx": {
+					"name": "user_balances_group_owed_idx",
+					"columns": ["group_id", "owed_to_user_id", "currency"],
+					"isUnique": false
+				},
+				"user_balances_group_user_idx": {
+					"name": "user_balances_group_user_idx",
+					"columns": ["group_id", "user_id", "currency"],
+					"isUnique": false
+				}
+			},
+			"foreignKeys": {},
+			"compositePrimaryKeys": {
+				"user_balances_group_id_user_id_owed_to_user_id_currency_pk": {
+					"columns": ["group_id", "user_id", "owed_to_user_id", "currency"],
+					"name": "user_balances_group_id_user_id_owed_to_user_id_currency_pk"
+				}
+			},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		}
+	},
+	"views": {},
+	"enums": {},
+	"_meta": {
+		"columns": {},
+		"schemas": {},
+		"tables": {}
+	},
+	"internal": {
+		"indexes": {}
+	}
 }
