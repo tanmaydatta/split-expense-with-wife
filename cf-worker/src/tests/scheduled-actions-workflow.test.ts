@@ -1122,7 +1122,7 @@ describe("Scheduled Actions Workflows", () => {
 			const id2 = generateDeterministicBudgetId(actionId, date);
 
 			expect(id1).toBe(id2);
-			expect(id1).toBe(`bg_${actionId}_${date}`);
+			expect(id1).toBe(`bge_${actionId}_${date}`);
 		});
 
 		it("should create split transaction statements with deterministic ID", async () => {

@@ -245,7 +245,7 @@ async function createBudgetEntry(
 ) {
 	try {
 		// Generate unique budget ID using ULID for regular handler
-		const budgetId = `budget_${ulid()}`;
+		const budgetId = `bge_${ulid()}`;
 
 		// Use the reusable utility function
 		const result = await createBudgetEntryStatements(

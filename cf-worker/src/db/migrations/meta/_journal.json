@@ -1,97 +1,111 @@
 {
-	"version": "7",
-	"dialect": "sqlite",
-	"entries": [
-		{
-			"idx": 0,
-			"version": "6",
-			"when": 1753562098470,
-			"tag": "0000_rich_psylocke",
-			"breakpoints": true
-		},
-		{
-			"idx": 1,
-			"version": "6",
-			"when": 1753714477002,
-			"tag": "0001_volatile_darwin",
-			"breakpoints": true
-		},
-		{
-			"idx": 2,
-			"version": "6",
-			"when": 1753740936582,
-			"tag": "0002_unique_bastion",
-			"breakpoints": true
-		},
-		{
-			"idx": 3,
-			"version": "6",
-			"when": 1754399339381,
-			"tag": "0003_friendly_exodus",
-			"breakpoints": true
-		},
-		{
-			"idx": 4,
-			"version": "6",
-			"when": 1754570877458,
-			"tag": "0004_sleepy_silverclaw",
-			"breakpoints": true
-		},
-		{
-			"idx": 5,
-			"version": "6",
-			"when": 1754572921204,
-			"tag": "0005_natural_chameleon",
-			"breakpoints": true
-		},
-		{
-			"idx": 6,
-			"version": "6",
-			"when": 1755029250923,
-			"tag": "0006_real_lyja",
-			"breakpoints": true
-		},
-		{
-			"idx": 7,
-			"version": "6",
-			"when": 1755250750657,
-			"tag": "0007_make-transaction-id-primary-key",
-			"breakpoints": true
-		},
-		{
-			"idx": 8,
-			"version": "6",
-			"when": 1755452931780,
-			"tag": "0008_budget_to_budget_entries",
-			"breakpoints": true
-		},
-		{
-			"idx": 9,
-			"version": "6",
-			"when": 1755463994299,
-			"tag": "0009_rename-budget-id-to-budget-entry-id",
-			"breakpoints": true
-		},
-		{
-			"idx": 10,
-			"version": "6",
-			"when": 1755508981444,
-			"tag": "0010_eager_scorpion",
-			"breakpoints": true
-		},
-		{
-			"idx": 11,
-			"version": "6",
-			"when": 1755515538068,
-			"tag": "0011_drop-budgets-column",
-			"breakpoints": true
-		},
-		{
-			"idx": 12,
-			"version": "6",
-			"when": 1755642153060,
-			"tag": "0012_demonic_iron_patriot",
-			"breakpoints": true
-		}
-	]
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1753562098470,
+      "tag": "0000_rich_psylocke",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1753714477002,
+      "tag": "0001_volatile_darwin",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1753740936582,
+      "tag": "0002_unique_bastion",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1754399339381,
+      "tag": "0003_friendly_exodus",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1754570877458,
+      "tag": "0004_sleepy_silverclaw",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1754572921204,
+      "tag": "0005_natural_chameleon",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1755029250923,
+      "tag": "0006_real_lyja",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1755250750657,
+      "tag": "0007_make-transaction-id-primary-key",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1755452931780,
+      "tag": "0008_budget_to_budget_entries",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1755463994299,
+      "tag": "0009_rename-budget-id-to-budget-entry-id",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1755508981444,
+      "tag": "0010_eager_scorpion",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1755515538068,
+      "tag": "0011_drop-budgets-column",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1755642153060,
+      "tag": "0012_demonic_iron_patriot",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1756289496267,
+      "tag": "0013_backfill_budget_entry_id",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1756290838383,
+      "tag": "0014_budget_entry_id_constraints",
+      "breakpoints": true
+    }
+  ]
 }
