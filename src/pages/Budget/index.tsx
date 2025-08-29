@@ -103,7 +103,7 @@ export const Budget: React.FC = () => {
 		},
 		[budget, navigate],
 	);
-	const deleteBudgetEntry = async (id: number) => {
+	const deleteBudgetEntry = async (id: string) => {
 		setLoading(true);
 
 		// Clear any previous messages

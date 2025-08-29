@@ -8,7 +8,7 @@ import "./BudgetCard.css";
 
 interface BudgetCardProps {
 	entry: BudgetEntry;
-	onDelete: (id: number) => void;
+	onDelete: (id: string) => void;
 }
 
 export const BudgetCard: React.FC<BudgetCardProps> = ({ entry, onDelete }) => {

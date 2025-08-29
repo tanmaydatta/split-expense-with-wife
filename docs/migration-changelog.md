@@ -176,6 +176,44 @@ UPDATE `budget_entries` SET `budget_entry_id` = 'bge_' || lower(hex(randomblob(8
 - Uses established SQLite randomblob pattern from migration 0010
 - Ensures combination of `id` and generated ID is unique
 
+### Migration 0015: Make budget_entry_id Primary Key
+
+**Date**: 2025-08-27
+**File**: `0015_perfect_the_watchers.sql`
+
+**Problem**: The `budget_entries` table used an auto-increment integer `id` as primary key, but `budget_entry_id` (string) was the actual identifier used throughout the application for deterministic creation and API operations.
+
+**Solution**: Changed the primary key from `id` to `budget_entry_id`:
+
+```sql
+-- Create new table with budget_entry_id as primary key
+CREATE TABLE `__new_budget_entries` (
+    `budget_entry_id` text(100) PRIMARY KEY NOT NULL,
+    -- ... other columns
+);
+
+-- Migrate existing data
+INSERT INTO `__new_budget_entries` 
+SELECT "budget_entry_id", "description", "added_time", "price", "amount", "budget_id", "deleted", "currency" 
+FROM `budget_entries`;
+
+-- Replace old table
+DROP TABLE `budget_entries`;
+ALTER TABLE `__new_budget_entries` RENAME TO `budget_entries`;
+```
+
+**Breaking Changes**:
+- Budget entry IDs are now strings instead of numbers in all APIs
+- `BudgetDeleteRequest.id` changed from `number` to `string`
+- `BudgetDisplayEntry.id` changed from `number` to `string` 
+- Frontend components updated to handle string IDs
+
+**Benefits**:
+- Eliminates dual ID system (integer + string)
+- Makes `budget_entry_id` the single source of truth
+- Consistent with deterministic ID pattern used in scheduled actions
+- Removes need for separate unique index on `budget_entry_id`
+
 ### Earlier Migrations (0000-0007)
 - Initial schema setup
 - Authentication system setup (better-auth)

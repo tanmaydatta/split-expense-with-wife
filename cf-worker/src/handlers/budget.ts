@@ -483,7 +483,10 @@ export async function handleBudgetDelete(
 				.select()
 				.from(budgetEntries)
 				.where(
-					and(eq(budgetEntries.id, body.id), isNull(budgetEntries.deleted)),
+					and(
+						eq(budgetEntries.budgetEntryId, body.id),
+						isNull(budgetEntries.deleted),
+					),
 				)
 				.limit(1);
 
@@ -504,7 +507,7 @@ export async function handleBudgetDelete(
 			const deleteBudget = db
 				.update(budgetEntries)
 				.set({ deleted: deletedTime })
-				.where(eq(budgetEntries.id, body.id));
+				.where(eq(budgetEntries.budgetEntryId, body.id));
 
 			const updateBudgetTotal = db
 				.update(budgetTotals)
@@ -576,9 +579,10 @@ export async function handleBudgetList(
 				.limit(5)
 				.offset(body.offset);
 
-			// Ensure price field is properly formatted as string
+			// Ensure price field is properly formatted as string and map budgetEntryId to id
 			const formattedEntries = budgetEntriesResult.map((entry) => ({
 				...entry,
+				id: entry.budgetEntryId, // Map budgetEntryId to id for frontend compatibility
 				price:
 					entry.price ||
 					(entry.amount >= 0

@@ -14,7 +14,11 @@
 			"mcp__cloudflare__search_cloudflare_documentation",
 			"WebSearch",
 			"WebFetch(domain:www.better-auth.com)",
-			"WebFetch(domain:www.answeroverflow.com)"
+			"WebFetch(domain:www.answeroverflow.com)",
+			"mcp__playwright__browser_navigate",
+			"mcp__playwright__browser_type",
+			"mcp__playwright__browser_click",
+			"mcp__playwright__browser_wait_for"
 		],
 		"deny": []
 	}

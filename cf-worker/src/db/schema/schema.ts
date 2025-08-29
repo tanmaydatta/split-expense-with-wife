@@ -120,8 +120,7 @@ export const transactionUsers = sqliteTable(
 export const budgetEntries = sqliteTable(
 	"budget_entries",
 	{
-		id: integer("id").primaryKey({ autoIncrement: true }),
-		budgetEntryId: text("budget_entry_id", { length: 100 }).notNull().unique(), // For deterministic creation in scheduled actions
+		budgetEntryId: text("budget_entry_id", { length: 100 }).primaryKey(), // For deterministic creation in scheduled actions
 		description: text("description", { length: 100 }).notNull(),
 		addedTime: text("added_time").notNull().default("CURRENT_TIMESTAMP"),
 		price: text("price", { length: 100 }),
@@ -155,7 +154,6 @@ export const budgetEntries = sqliteTable(
 			table.addedTime,
 		),
 		index("budget_entries_added_time_idx").on(table.addedTime),
-		index("budget_entries_budget_entry_id_idx").on(table.budgetEntryId),
 	],
 );
 
