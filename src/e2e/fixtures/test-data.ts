@@ -216,22 +216,72 @@ export const mockApiResponses = {
 		],
 	},
 	budgetMonthly: {
-		success: [
-			{
-				month: "2024-01",
-				totalCredit: 1000.0,
-				totalDebit: 800.0,
-				net: 200.0,
-				currency: "USD",
+		success: {
+			monthlyBudgets: [
+				{
+					month: "January",
+					year: 2024,
+					amounts: [
+						{
+							currency: "USD",
+							amount: -800.0,
+						},
+						{
+							currency: "GBP",
+							amount: -600.0,
+						},
+					],
+				},
+				{
+					month: "February",
+					year: 2024,
+					amounts: [
+						{
+							currency: "USD",
+							amount: -900.0,
+						},
+						{
+							currency: "GBP",
+							amount: -700.0,
+						},
+					],
+				},
+				{
+					month: "March",
+					year: 2024,
+					amounts: [
+						{
+							currency: "USD",
+							amount: -950.0,
+						},
+						{
+							currency: "GBP",
+							amount: -750.0,
+						},
+					],
+				},
+			],
+			averageMonthlySpend: [
+				{
+					currency: "USD",
+					averageMonthlySpend: 883.33,
+					totalSpend: 2650.0,
+					periodMonths: 3,
+					averages: [],
+				},
+				{
+					currency: "GBP",
+					averageMonthlySpend: 683.33,
+					totalSpend: 2050.0,
+					periodMonths: 3,
+					averages: [],
+				},
+			],
+			periodAnalyzed: {
+				startDate: "2024-01-01",
+				endDate: "2024-03-31",
 			},
-			{
-				month: "2024-02",
-				totalCredit: 1200.0,
-				totalDebit: 900.0,
-				net: 300.0,
-				currency: "USD",
-			},
-		],
+		},
 	},
 	getSession: {
 		user: {

@@ -1,6 +1,6 @@
 import { Card } from "@/components/Card";
 import { SelectBudget } from "@/SelectBudget";
-import { typedApi } from "@/utils/api";
+import { useMonthlyBudget } from "@/hooks/useMonthlyBudget";
 import getSymbolFromCurrency from "currency-symbol-map";
 import { useCallback, useEffect, useState, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -16,11 +16,7 @@ import {
 	XAxis,
 	YAxis,
 } from "recharts";
-import type {
-	BudgetMonthlyResponse,
-	MonthlyBudget,
-	ReduxState,
-} from "split-expense-shared-types";
+import type { ReduxState } from "split-expense-shared-types";
 import "./index.css";
 
 interface ChartDataPoint {
@@ -76,8 +72,6 @@ export const MonthlyBudgetPage: React.FC = () => {
 	const [averageExpense, setAverageExpense] = useState<number>(0);
 	const [currency, setCurrency] = useState<string>("GBP");
 	const [selectedCurrency, setSelectedCurrency] = useState<string>("GBP");
-	const [availableCurrencies, setAvailableCurrencies] = useState<string[]>([]);
-	const [loading, setLoading] = useState<boolean>(true);
 	const [timeRange, setTimeRange] = useState<TimeRange>("6M");
 
 	// Get session data from Redux store
@@ -86,6 +80,23 @@ export const MonthlyBudgetPage: React.FC = () => {
 		() => data?.extra?.group?.budgets || [],
 		[data?.extra?.group?.budgets],
 	);
+
+	// React Query hook for monthly budget data
+	const timeRangeMapping: Record<
+		TimeRange,
+		"All" | "Last 6 months" | "Last 12 months"
+	> = {
+		"6M": "Last 6 months",
+		"1Y": "Last 12 months",
+		"2Y": "Last 12 months", // Treat 2Y same as 1Y for now
+		All: "All",
+	};
+
+	const monthlyBudgetQuery = useMonthlyBudget({
+		budgetId: budget,
+		timeRange: timeRangeMapping[timeRange] || "Last 6 months",
+		selectedCurrency,
+	});
 
 	// Initialize budget with first available budget from session if budgetId param is invalid
 	useEffect(() => {
@@ -126,183 +137,52 @@ export const MonthlyBudgetPage: React.FC = () => {
 		setCurrency(newCurrency);
 	};
 
-	const computeTargetMonths = useCallback(
-		(range: TimeRange, periods: Array<{ periodMonths: number }>): number => {
-			switch (range) {
-				case "6M":
-					return 6;
-				case "1Y":
-					return 12;
-				case "2Y":
-					return 24;
-				case "All":
-					return periods.length > 0
-						? Math.max(...periods.map((p) => p.periodMonths))
-						: 6;
-				default:
-					return 6;
-			}
-		},
-		[],
-	);
+	// Process monthly budget data from React Query
+	useEffect(() => {
+		if (monthlyBudgetQuery.data) {
+			const { monthlyBudgets, availableCurrencies, defaultCurrency } =
+				monthlyBudgetQuery.data;
 
-	const findAverageForCurrency = useCallback(
-		(
-			periods: Array<{
-				periodMonths: number;
-				averages: Array<{ currency: string; averageMonthlySpend: number }>;
-			}>,
-			targetMonths: number,
-			curr: string,
-		): number | null => {
-			const target = periods.find((p) => p.periodMonths === targetMonths);
-			if (!target) return null;
-			const avg = target.averages.find((a) => a.currency === curr);
-			return avg ? avg.averageMonthlySpend : null;
-		},
-		[],
-	);
-
-	const findFallbackAverageForCurrency = useCallback(
-		(
-			periods: Array<{
-				periodMonths: number;
-				averages: Array<{ currency: string; averageMonthlySpend: number }>;
-			}>,
-			curr: string,
-		): number | null => {
-			for (const p of periods) {
-				const avg = p.averages.find((a) => a.currency === curr);
-				if (avg) return avg.averageMonthlySpend;
-			}
-			return null;
-		},
-		[],
-	);
-
-	const fetchMonthlyData = useCallback(async () => {
-		// Don't fetch if budget is empty
-		if (!budget) {
-			return;
-		}
-
-		setLoading(true);
-		try {
-			const response: BudgetMonthlyResponse = await typedApi.post(
-				"/budget_monthly",
-				{
-					budgetId: budget,
-				},
-			);
-
-			// Collect all available currencies from the data
-			const allCurrencies = new Set<string>();
-			response.monthlyBudgets.forEach((monthData) => {
-				monthData.amounts.forEach((amount) => {
-					allCurrencies.add(amount.currency);
-				});
-			});
-
-			// Convert to array and sort (GBP first, then others)
-			const currencyList = Array.from(allCurrencies).sort((a, b) => {
-				if (a === "GBP") return -1;
-				if (b === "GBP") return 1;
-				return a.localeCompare(b);
-			});
-
-			// Set available currencies and ensure selected currency is valid
-			setAvailableCurrencies(currencyList);
-
-			// Use selectedCurrency if available, otherwise default to first currency
-			const currentCurrency = currencyList.includes(selectedCurrency)
+			// Update currencies
+			const currentCurrency = availableCurrencies.includes(selectedCurrency)
 				? selectedCurrency
-				: currencyList[0] || "GBP";
+				: defaultCurrency;
+
 			if (currentCurrency !== selectedCurrency) {
 				setSelectedCurrency(currentCurrency);
 			}
 			setCurrency(currentCurrency);
 
-			// Filter monthlyBudgets based on timeRange
-			let filteredMonthlyBudgets = response.monthlyBudgets;
-
-			if (timeRange !== "All") {
-				let monthsToShow: number;
-				switch (timeRange) {
-					case "6M":
-						monthsToShow = 6;
-						break;
-					case "1Y":
-						monthsToShow = 12;
-						break;
-					case "2Y":
-						monthsToShow = 24;
-						break;
-					default:
-						monthsToShow = 6;
-				}
-
-				// Take only the first N months (data is already sorted by newest first)
-				filteredMonthlyBudgets = response.monthlyBudgets.slice(0, monthsToShow);
-			}
-
-			// Process filtered monthly budgets into chart data for selected currency only
-			const processedData: ChartDataPoint[] = filteredMonthlyBudgets
-				.map((monthData: MonthlyBudget) => {
-					// Format month label (e.g., "Feb 2025")
-					const monthLabel = `${monthData.month} ${monthData.year}`;
-
-					// Find amount for selected currency
-					const currencyAmount = monthData.amounts.find(
+			// Process data for chart display for the selected currency
+			const processedChartData: ChartDataPoint[] = monthlyBudgets.map(
+				(monthData) => {
+					const monthAmount = monthData.amounts.find(
 						(amount) => amount.currency === currentCurrency,
 					);
-					const totalExpenses = currencyAmount
-						? Math.abs(currencyAmount.amount)
-						: 0;
 
 					return {
-						month: monthLabel,
-						expenses: totalExpenses,
+						month: monthData.month,
+						expenses: Math.abs(monthAmount?.amount || 0),
 						currency: currentCurrency,
 					};
-				})
-				.reverse(); // Reverse to show oldest to newest (left to right ascending)
-
-			setChartData(processedData);
-
-			const targetMonths = computeTargetMonths(
-				timeRange,
-				response.averageMonthlySpend,
+				},
 			);
-			const directAvg = findAverageForCurrency(
-				response.averageMonthlySpend,
-				targetMonths,
-				currentCurrency,
-			);
-			const fallbackAvg =
-				directAvg ??
-				findFallbackAverageForCurrency(
-					response.averageMonthlySpend,
-					currentCurrency,
-				);
-			setAverageExpense(Math.abs(fallbackAvg ?? 0));
-		} catch (e: any) {
-			console.log(e);
-			// Note: 401 errors are now handled globally by API interceptor
-		} finally {
-			setLoading(false);
+
+			// Calculate average for the selected currency only
+			const validAmounts = processedChartData
+				.map((item) => item.expenses)
+				.filter((amount) => amount > 0);
+
+			const average =
+				validAmounts.length > 0
+					? validAmounts.reduce((sum, amount) => sum + amount, 0) /
+						validAmounts.length
+					: 0;
+
+			setChartData(processedChartData);
+			setAverageExpense(average);
 		}
-	}, [
-		budget,
-		timeRange,
-		selectedCurrency,
-		computeTargetMonths,
-		findAverageForCurrency,
-		findFallbackAverageForCurrency,
-	]);
-
-	useEffect(() => {
-		fetchMonthlyData();
-	}, [fetchMonthlyData]);
+	}, [monthlyBudgetQuery.data, selectedCurrency]);
 
 	useEffect(() => {
 		if (budgetId) {
@@ -310,14 +190,19 @@ export const MonthlyBudgetPage: React.FC = () => {
 		}
 	}, [budgetId]);
 
-	if (loading) {
+	if (
+		monthlyBudgetQuery.isLoading ||
+		(!!budget && budget.length > 0 && !monthlyBudgetQuery.data)
+	) {
 		return (
 			<div
 				className="monthly-budget-container"
 				data-test-id="monthly-budget-container"
 			>
 				<Card>
-					<p>Loading monthly budget data...</p>
+					<p data-test-id="monthly-budget-loading">
+						Loading monthly budget data...
+					</p>
 				</Card>
 			</div>
 		);
@@ -337,6 +222,7 @@ export const MonthlyBudgetPage: React.FC = () => {
 							<button
 								key={range}
 								className={`time-range-btn ${timeRange === range ? "active" : ""}`}
+								data-test-id={`time-range-${range}`}
 								onClick={() => handleTimeRangeChange(range)}
 							>
 								{range}
@@ -347,15 +233,18 @@ export const MonthlyBudgetPage: React.FC = () => {
 
 				{/* Currency Selector */}
 				<div className="currency-selector">
-					{availableCurrencies.map((curr) => (
-						<button
-							key={curr}
-							className={`currency-btn ${selectedCurrency === curr ? "active" : ""}`}
-							onClick={() => handleCurrencyChange(curr)}
-						>
-							{getSymbolFromCurrency(curr)} {curr}
-						</button>
-					))}
+					{(monthlyBudgetQuery.data?.availableCurrencies || []).map(
+						(curr: string) => (
+							<button
+								key={curr}
+								className={`currency-btn ${selectedCurrency === curr ? "active" : ""}`}
+								data-test-id={`currency-${curr}`}
+								onClick={() => handleCurrencyChange(curr)}
+							>
+								{getSymbolFromCurrency(curr)} {curr}
+							</button>
+						),
+					)}
 				</div>
 
 				{/* Budget Selector */}
@@ -368,7 +257,7 @@ export const MonthlyBudgetPage: React.FC = () => {
 
 				{/* Chart Section */}
 				{chartData.length > 0 ? (
-					<div className="chart-wrapper">
+					<div className="chart-wrapper" data-test-id="monthly-budget-chart">
 						<ResponsiveContainer
 							width="100%"
 							height={width <= 480 ? 300 : width <= 768 ? 350 : 400}
@@ -456,7 +345,7 @@ export const MonthlyBudgetPage: React.FC = () => {
 						</ResponsiveContainer>
 					</div>
 				) : (
-					<div className="no-data">
+					<div className="no-data" data-test-id="no-data-message">
 						<p>No monthly budget data available for the selected period.</p>
 					</div>
 				)}

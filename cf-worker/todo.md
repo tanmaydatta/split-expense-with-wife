@@ -38,7 +38,9 @@
     - replace name in budget totals ✅
     - backfill null budget entry ids ✅
     - budget entries primary key change ✅
-- edit action, start date should not be mutated ever
+- edit action, start date should not be mutated ever ✅
+- react query
+- react form
 - scan receipt
 - full text search
 - transaction/add

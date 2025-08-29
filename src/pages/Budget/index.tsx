@@ -7,30 +7,22 @@ import {
 	SuccessContainer,
 } from "@/components/MessageContainer";
 import { SelectBudget } from "@/SelectBudget";
-import { ApiError, typedApi } from "@/utils/api";
-import { useCallback, useEffect, useState, useMemo } from "react";
+import {
+	useBudgetTotal,
+	useDeleteBudgetEntry,
+	useInfiniteBudgetHistory,
+	useLoadMoreBudgetHistory,
+} from "@/hooks/useBudget";
+import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
-import {
-	BudgetDeleteRequest,
-	BudgetEntry,
-	BudgetListRequest,
-	BudgetTotal,
-	BudgetTotalRequest,
-	ReduxState,
-} from "split-expense-shared-types";
+import { BudgetEntry, ReduxState } from "split-expense-shared-types";
 import BudgetTable from "./BudgetTable";
 import "./index.css";
 
 export const Budget: React.FC = () => {
-	const [budgetHistory, setBudgetHistory] = useState<BudgetEntry[]>([]);
 	const [budget, setBudget] = useState("");
-	const [budgetsLeft, setBudgetsLeft] = useState<
-		{ currency: string; amount: number }[]
-	>([]);
-	const [loading, setLoading] = useState<boolean>(false);
-	const [error, setError] = useState<string>("");
-	const [success, setSuccess] = useState<string>("");
+	const [budgetHistory, setBudgetHistory] = useState<BudgetEntry[]>([]);
 
 	// Get session data from Redux store
 	const data = useSelector((state: ReduxState) => state.value);
@@ -38,6 +30,12 @@ export const Budget: React.FC = () => {
 		() => data?.extra?.group?.budgets || [],
 		[data?.extra?.group?.budgets],
 	);
+
+	// React Query hooks
+	const budgetTotalQuery = useBudgetTotal(budget);
+	const budgetHistoryQuery = useInfiniteBudgetHistory(budget);
+	const deleteBudgetMutation = useDeleteBudgetEntry();
+	const loadMoreHistory = useLoadMoreBudgetHistory();
 
 	const handleChangeBudget = (val: string) => setBudget(val);
 	const navigate = useNavigate();
@@ -48,119 +46,72 @@ export const Budget: React.FC = () => {
 			setBudget(budgets[0].id);
 		}
 	}, [budgets, budget]);
-	const fetchTotal = useCallback(async () => {
-		// Don't fetch if budget is empty
-		if (!budget) {
-			return;
+
+	// Initialize budget history from React Query data
+	useEffect(() => {
+		if (budgetHistoryQuery.data) {
+			setBudgetHistory(budgetHistoryQuery.data);
 		}
+	}, [budgetHistoryQuery.data]);
 
+	// Handle delete budget entry
+	const handleDeleteBudgetEntry = (id: string) => {
+		deleteBudgetMutation.mutate(id);
+	};
+
+	// Handle load more budget history
+	const handleLoadMoreHistory = async () => {
 		try {
-			const request: BudgetTotalRequest = {
-				budgetId: budget,
-			};
-
-			const response: BudgetTotal[] = await typedApi.post(
-				"/budget_total",
-				request,
-			);
-			setBudgetsLeft(response);
-		} catch (e: any) {
-			console.log(e);
-			if (e.response?.status === 401) {
-				navigate("/login");
+			const newEntries = await loadMoreHistory(budget, budgetHistory);
+			if (newEntries && newEntries.length > 0) {
+				setBudgetHistory((prev) => [...prev, ...newEntries]);
 			}
-		}
-	}, [budget, navigate]);
-
-	const fetchHistory = useCallback(
-		async (offset: number, history: BudgetEntry[]) => {
-			// Don't fetch if budget is empty
-			if (!budget) {
-				return;
-			}
-
-			setLoading(true);
-			try {
-				const request: BudgetListRequest = {
-					budgetId: budget,
-					offset: offset,
-				};
-
-				const response: BudgetEntry[] = await typedApi.post(
-					"/budget_list",
-					request,
-				);
-				console.log(response);
-				setBudgetHistory([...history, ...response]);
-			} catch (e: any) {
-				console.log(e);
-				if (e.response?.status === 401) {
-					navigate("/login");
-				}
-			} finally {
-				setLoading(false);
-			}
-		},
-		[budget, navigate],
-	);
-	const deleteBudgetEntry = async (id: string) => {
-		setLoading(true);
-
-		// Clear any previous messages
-		setError("");
-		setSuccess("");
-
-		try {
-			const request: BudgetDeleteRequest = {
-				id: id,
-			};
-
-			const response: { message: string } = await typedApi.post(
-				"/budget_delete",
-				request,
-			);
-			setSuccess(response.message);
-			fetchTotal();
-			fetchHistory(0, []);
-		} catch (e: any) {
-			let statusCode = 500;
-			if (e instanceof ApiError) {
-				setError(e.errorMessage);
-				statusCode = e.statusCode;
-			} else {
-				setError(
-					e.response?.data ||
-						"An error occurred while deleting the budget entry",
-				);
-				statusCode = e.response?.status || 500;
-			}
-			if (statusCode === 401) {
-				navigate("/login");
-			}
-		} finally {
-			setLoading(false);
+		} catch (error) {
+			console.error("Error loading more history:", error);
 		}
 	};
-	useEffect(() => {
-		fetchTotal();
-		fetchHistory(0, []);
-	}, [fetchTotal, fetchHistory]);
+
+	// Determine loading state
+	const isLoading =
+		budgetTotalQuery.isLoading ||
+		budgetHistoryQuery.isLoading ||
+		deleteBudgetMutation.isPending;
+
+	// Determine error state
+	const error =
+		budgetTotalQuery.error?.message ||
+		budgetHistoryQuery.error?.message ||
+		deleteBudgetMutation.error?.message ||
+		"";
+
+	// Determine success state
+	const success = deleteBudgetMutation.isSuccess
+		? deleteBudgetMutation.data?.message || "Budget entry deleted successfully"
+		: "";
+
+	// Get budget totals
+	const budgetsLeft = budgetTotalQuery.data || [];
 	return (
 		<div className="budget-container" data-test-id="budget-container">
 			{/* Error Container */}
-			{error && <ErrorContainer message={error} onClose={() => setError("")} />}
+			{error && (
+				<ErrorContainer
+					message={error}
+					onClose={() => deleteBudgetMutation.reset()}
+				/>
+			)}
 
 			{/* Success Container */}
 			{success && (
 				<SuccessContainer
 					message={success}
-					onClose={() => setSuccess("")}
+					onClose={() => deleteBudgetMutation.reset()}
 					data-test-id="success-container"
 				/>
 			)}
 
-			{loading && <Loader />}
-			{!loading && (
+			{isLoading && <Loader />}
+			{!isLoading && (
 				<>
 					<Card className="budget-card">
 						<h3>Budget left</h3>
@@ -173,12 +124,11 @@ export const Budget: React.FC = () => {
 					<Button onClick={() => navigate(`/monthly-budget/${budget}`)}>
 						View Monthly Budget Breakdown
 					</Button>
-					<BudgetTable entries={budgetHistory} onDelete={deleteBudgetEntry} />
-					<Button
-						onClick={() => fetchHistory(budgetHistory.length, budgetHistory)}
-					>
-						Show more
-					</Button>
+					<BudgetTable
+						entries={budgetHistory}
+						onDelete={handleDeleteBudgetEntry}
+					/>
+					<Button onClick={handleLoadMoreHistory}>Show more</Button>
 				</>
 			)}
 		</div>

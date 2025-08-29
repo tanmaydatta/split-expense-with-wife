@@ -617,11 +617,20 @@ test.describe("Budget Management", () => {
 		// Navigate to monthly budget page
 		await authenticatedPage.navigateToPage("Monthly Budget");
 
+		// Wait for page to finish loading (either loading indicator disappears or budget selector appears)
+		const loadingPromise = authenticatedPage.page.locator('[data-test-id="monthly-budget-loading"]').waitFor({ state: 'detached', timeout: 10000 });
+		const selectorPromise = authenticatedPage.page.locator('[data-test-id="budget-selection-group"]').waitFor({ state: 'visible', timeout: 10000 });
+		
+		try {
+			await Promise.race([loadingPromise, selectorPromise]);
+		} catch (error) {
+			// Continue if either condition times out
+		}
+
 		// Verify monthly budget page elements
 		await expect(
 			authenticatedPage.page.locator('[data-test-id="budget-selection-group"]'),
 		).toBeVisible(); // Budget selector
-		// Remove chart container check as it might not exist
 
 		// Click a budget toggle button
 		await authenticatedPage.page
