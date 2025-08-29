@@ -16,10 +16,7 @@ import {
 import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
-import {
-	BudgetEntry,
-	ReduxState,
-} from "split-expense-shared-types";
+import { BudgetEntry, ReduxState } from "split-expense-shared-types";
 import BudgetTable from "./BudgetTable";
 import "./index.css";
 
@@ -62,12 +59,12 @@ export const Budget: React.FC = () => {
 		deleteBudgetMutation.mutate(id);
 	};
 
-	// Handle load more budget history  
+	// Handle load more budget history
 	const handleLoadMoreHistory = async () => {
 		try {
 			const newEntries = await loadMoreHistory(budget, budgetHistory);
 			if (newEntries && newEntries.length > 0) {
-				setBudgetHistory(prev => [...prev, ...newEntries]);
+				setBudgetHistory((prev) => [...prev, ...newEntries]);
 			}
 		} catch (error) {
 			console.error("Error loading more history:", error);
@@ -75,17 +72,20 @@ export const Budget: React.FC = () => {
 	};
 
 	// Determine loading state
-	const isLoading = budgetTotalQuery.isLoading || 
-		budgetHistoryQuery.isLoading || 
+	const isLoading =
+		budgetTotalQuery.isLoading ||
+		budgetHistoryQuery.isLoading ||
 		deleteBudgetMutation.isPending;
 
 	// Determine error state
-	const error = budgetTotalQuery.error?.message || 
-		budgetHistoryQuery.error?.message || 
-		deleteBudgetMutation.error?.message || "";
+	const error =
+		budgetTotalQuery.error?.message ||
+		budgetHistoryQuery.error?.message ||
+		deleteBudgetMutation.error?.message ||
+		"";
 
 	// Determine success state
-	const success = deleteBudgetMutation.isSuccess 
+	const success = deleteBudgetMutation.isSuccess
 		? deleteBudgetMutation.data?.message || "Budget entry deleted successfully"
 		: "";
 
@@ -94,7 +94,12 @@ export const Budget: React.FC = () => {
 	return (
 		<div className="budget-container" data-test-id="budget-container">
 			{/* Error Container */}
-			{error && <ErrorContainer message={error} onClose={() => deleteBudgetMutation.reset()} />}
+			{error && (
+				<ErrorContainer
+					message={error}
+					onClose={() => deleteBudgetMutation.reset()}
+				/>
+			)}
 
 			{/* Success Container */}
 			{success && (
@@ -119,10 +124,11 @@ export const Budget: React.FC = () => {
 					<Button onClick={() => navigate(`/monthly-budget/${budget}`)}>
 						View Monthly Budget Breakdown
 					</Button>
-					<BudgetTable entries={budgetHistory} onDelete={handleDeleteBudgetEntry} />
-					<Button onClick={handleLoadMoreHistory}>
-						Show more
-					</Button>
+					<BudgetTable
+						entries={budgetHistory}
+						onDelete={handleDeleteBudgetEntry}
+					/>
+					<Button onClick={handleLoadMoreHistory}>Show more</Button>
 				</>
 			)}
 		</div>

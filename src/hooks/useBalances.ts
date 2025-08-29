@@ -7,7 +7,7 @@ export type BalanceResponse = Record<string, Record<string, number>>;
 // Helper function to convert API response to Map structure
 export function processBalanceData(response: BalanceResponse): BalanceData {
 	const localBalances = new Map<string, Map<string, number>>();
-	
+
 	Object.keys(response).forEach((userName) => {
 		const currencyBalances = new Map<string, number>();
 		Object.keys(response[userName]).forEach((currency) => {
@@ -15,7 +15,7 @@ export function processBalanceData(response: BalanceResponse): BalanceData {
 		});
 		localBalances.set(userName, currencyBalances);
 	});
-	
+
 	return localBalances;
 }
 

@@ -16,9 +16,7 @@ import {
 	XAxis,
 	YAxis,
 } from "recharts";
-import type {
-	ReduxState,
-} from "split-expense-shared-types";
+import type { ReduxState } from "split-expense-shared-types";
 import "./index.css";
 
 interface ChartDataPoint {
@@ -84,13 +82,16 @@ export const MonthlyBudgetPage: React.FC = () => {
 	);
 
 	// React Query hook for monthly budget data
-	const timeRangeMapping: Record<TimeRange, "All" | "Last 6 months" | "Last 12 months"> = {
-		"6M": "Last 6 months", 
+	const timeRangeMapping: Record<
+		TimeRange,
+		"All" | "Last 6 months" | "Last 12 months"
+	> = {
+		"6M": "Last 6 months",
 		"1Y": "Last 12 months",
 		"2Y": "Last 12 months", // Treat 2Y same as 1Y for now
-		"All": "All"
+		All: "All",
 	};
-	
+
 	const monthlyBudgetQuery = useMonthlyBudget({
 		budgetId: budget,
 		timeRange: timeRangeMapping[timeRange] || "Last 6 months",
@@ -193,13 +194,14 @@ export const MonthlyBudgetPage: React.FC = () => {
 	// Process monthly budget data from React Query
 	useEffect(() => {
 		if (monthlyBudgetQuery.data) {
-			const { monthlyBudgets, availableCurrencies, defaultCurrency } = monthlyBudgetQuery.data;
-			
+			const { monthlyBudgets, availableCurrencies, defaultCurrency } =
+				monthlyBudgetQuery.data;
+
 			// Update currencies
 			const currentCurrency = availableCurrencies.includes(selectedCurrency)
 				? selectedCurrency
 				: defaultCurrency;
-				
+
 			if (currentCurrency !== selectedCurrency) {
 				setSelectedCurrency(currentCurrency);
 			}
@@ -242,7 +244,10 @@ export const MonthlyBudgetPage: React.FC = () => {
 		}
 	}, [budgetId]);
 
-	if (monthlyBudgetQuery.isLoading || (!!budget && budget.length > 0 && !monthlyBudgetQuery.data)) {
+	if (
+		monthlyBudgetQuery.isLoading ||
+		(!!budget && budget.length > 0 && !monthlyBudgetQuery.data)
+	) {
 		return (
 			<div
 				className="monthly-budget-container"
@@ -279,15 +284,17 @@ export const MonthlyBudgetPage: React.FC = () => {
 
 				{/* Currency Selector */}
 				<div className="currency-selector">
-					{(monthlyBudgetQuery.data?.availableCurrencies || []).map((curr: string) => (
-						<button
-							key={curr}
-							className={`currency-btn ${selectedCurrency === curr ? "active" : ""}`}
-							onClick={() => handleCurrencyChange(curr)}
-						>
-							{getSymbolFromCurrency(curr)} {curr}
-						</button>
-					))}
+					{(monthlyBudgetQuery.data?.availableCurrencies || []).map(
+						(curr: string) => (
+							<button
+								key={curr}
+								className={`currency-btn ${selectedCurrency === curr ? "active" : ""}`}
+								onClick={() => handleCurrencyChange(curr)}
+							>
+								{getSymbolFromCurrency(curr)} {curr}
+							</button>
+						),
+					)}
 				</div>
 
 				{/* Budget Selector */}

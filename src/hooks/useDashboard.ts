@@ -35,7 +35,11 @@ export interface DashboardFormData {
 export function useCreateExpense() {
 	const queryClient = useQueryClient();
 
-	return useMutation<{ message: string; transactionId: string }, Error, ExpenseFormData>({
+	return useMutation<
+		{ message: string; transactionId: string },
+		Error,
+		ExpenseFormData
+	>({
 		mutationFn: async (data) => {
 			const splits = data.users.map((u) => ({
 				ShareUserId: u.Id,
@@ -47,7 +51,7 @@ export function useCreateExpense() {
 				description: data.description,
 				paidByShares: { [data.paidBy]: data.amount },
 				splitPctShares: Object.fromEntries(
-					splits.map((s) => [s.ShareUserId.toString(), s.SharePercentage])
+					splits.map((s) => [s.ShareUserId.toString(), s.SharePercentage]),
 				),
 				currency: data.currency,
 			};

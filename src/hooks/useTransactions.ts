@@ -12,13 +12,14 @@ import type {
 // Helper function to process transaction data
 export function processTransactionData(
 	response: TransactionsListResponse,
-	userId?: string
+	userId?: string,
 ): FrontendTransaction[] {
 	return response.transactions.map((e) => {
 		let totalOwed = 0.0;
 		const txnDetails =
-			(response.transactionDetails[e.transaction_id] as TransactionUser[]) || [];
-		
+			(response.transactionDetails[e.transaction_id] as TransactionUser[]) ||
+			[];
+
 		txnDetails.forEach((txn) => {
 			if (userId === txn.owed_to_user_id) {
 				totalOwed += txn.amount;
@@ -56,7 +57,7 @@ export function useTransactionsList(offset: number = 0, userId?: string) {
 			const request: TransactionsListRequest = { offset };
 			const response: TransactionsListResponse = await typedApi.post(
 				"/transactions_list",
-				request
+				request,
 			);
 			return processTransactionData(response, userId);
 		},
@@ -68,55 +69,59 @@ export function useTransactionsList(offset: number = 0, userId?: string) {
 // Hook for infinite loading transactions
 export function useInfiniteTransactionsList(userId?: string) {
 	const queryClient = useQueryClient();
-	
+
 	return {
 		// Get current transactions from cache
-		transactions: queryClient.getQueryData<FrontendTransaction[]>(["transactions", "infinite"]) || [],
-		
+		transactions:
+			queryClient.getQueryData<FrontendTransaction[]>([
+				"transactions",
+				"infinite",
+			]) || [],
+
 		// Load more transactions
 		loadMore: async (currentTransactions: FrontendTransaction[]) => {
 			const offset = currentTransactions.length;
 			const request: TransactionsListRequest = { offset };
-			
+
 			try {
 				const response: TransactionsListResponse = await typedApi.post(
 					"/transactions_list",
-					request
+					request,
 				);
-				
+
 				const newTransactions = processTransactionData(response, userId);
 				const allTransactions = [...currentTransactions, ...newTransactions];
-				
+
 				// Update cache
 				queryClient.setQueryData<FrontendTransaction[]>(
 					["transactions", "infinite"],
-					allTransactions
+					allTransactions,
 				);
-				
+
 				return newTransactions;
 			} catch (error) {
 				throw error;
 			}
 		},
-		
+
 		// Reset to initial load
 		reset: async () => {
 			const request: TransactionsListRequest = { offset: 0 };
 			const response: TransactionsListResponse = await typedApi.post(
 				"/transactions_list",
-				request
+				request,
 			);
-			
+
 			const transactions = processTransactionData(response, userId);
-			
+
 			// Update cache
 			queryClient.setQueryData<FrontendTransaction[]>(
 				["transactions", "infinite"],
-				transactions
+				transactions,
 			);
-			
+
 			return transactions;
-		}
+		},
 	};
 }
 
@@ -132,14 +137,16 @@ export function useDeleteTransaction() {
 		onSuccess: (_, deletedId) => {
 			// Invalidate transaction queries to refresh data
 			queryClient.invalidateQueries({ queryKey: ["transactions"] });
-			
+
 			// Optimistically remove the deleted transaction from cache
 			queryClient.setQueriesData<FrontendTransaction[]>(
 				{ queryKey: ["transactions"] },
 				(oldData) => {
 					if (!oldData) return oldData;
-					return oldData.filter((transaction) => transaction.transactionId !== deletedId);
-				}
+					return oldData.filter(
+						(transaction) => transaction.transactionId !== deletedId,
+					);
+				},
 			);
 		},
 	});

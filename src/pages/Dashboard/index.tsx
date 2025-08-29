@@ -14,15 +14,10 @@ import {
 } from "@/components/MessageContainer";
 import { SelectBudget } from "@/SelectBudget";
 import { useDashboardSubmit } from "@/hooks/useDashboard";
-import type {
-	DashboardFormData,
-} from "@/hooks/useDashboard";
+import type { DashboardFormData } from "@/hooks/useDashboard";
 import { scrollToTop } from "@/utils/scroll";
 import { useCallback, useEffect, useState, useMemo } from "react";
-import type {
-	DashboardUser,
-	ReduxState,
-} from "split-expense-shared-types";
+import type { DashboardUser, ReduxState } from "split-expense-shared-types";
 import { CreditDebit } from "./CreditDebit";
 import "./index.css";
 
@@ -229,9 +224,12 @@ function Dashboard(): JSX.Element {
 	const loading = dashboardSubmit.isPending;
 	const error = dashboardSubmit.error?.message || "";
 	const success = dashboardSubmit.isSuccess
-		? (dashboardSubmit.data?.expense?.message && dashboardSubmit.data?.budget?.message)
+		? dashboardSubmit.data?.expense?.message &&
+			dashboardSubmit.data?.budget?.message
 			? `${dashboardSubmit.data.expense.message} and ${dashboardSubmit.data.budget.message}`
-			: (dashboardSubmit.data?.expense?.message || dashboardSubmit.data?.budget?.message || "Success!")
+			: dashboardSubmit.data?.expense?.message ||
+				dashboardSubmit.data?.budget?.message ||
+				"Success!"
 		: "";
 
 	// Show loading while session data is being fetched
@@ -244,7 +242,10 @@ function Dashboard(): JSX.Element {
 			<FormContainer data-test-id="expense-form">
 				{/* Error Container */}
 				{error && (
-					<ErrorContainer message={error} onClose={() => dashboardSubmit.reset()} />
+					<ErrorContainer
+						message={error}
+						onClose={() => dashboardSubmit.reset()}
+					/>
 				)}
 
 				{/* Success Container */}

@@ -52,28 +52,31 @@ export function useDeleteBudgetEntry() {
 		onSuccess: (_, deletedId) => {
 			// Invalidate budget queries to refresh data
 			queryClient.invalidateQueries({ queryKey: ["budget"] });
-			
+
 			// Optimistically remove the deleted entry from cache
 			queryClient.setQueriesData<BudgetEntry[]>(
 				{ queryKey: ["budget", "history"] },
 				(oldData) => {
 					if (!oldData) return oldData;
 					return oldData.filter((entry) => entry.id !== deletedId);
-				}
+				},
 			);
 		},
 	});
 }
 
 // Hook for infinite loading budget history (for "Load More" functionality)
-export function useInfiniteBudgetHistory(budgetId?: string, _limit: number = 25) {
+export function useInfiniteBudgetHistory(
+	budgetId?: string,
+	_limit: number = 25,
+) {
 	return useQuery({
 		queryKey: ["budget", "history", "infinite", budgetId],
 		queryFn: async () => {
 			if (!budgetId) {
 				return [];
 			}
-			
+
 			// For initial load, get first batch
 			const request: BudgetListRequest = { budgetId, offset: 0 };
 			return typedApi.post("/budget_list", request);
@@ -86,20 +89,23 @@ export function useInfiniteBudgetHistory(budgetId?: string, _limit: number = 25)
 // Helper function to load more budget entries
 export function useLoadMoreBudgetHistory() {
 	const queryClient = useQueryClient();
-	
+
 	return async (budgetId: string, currentHistory: BudgetEntry[]) => {
 		const offset = currentHistory.length;
 		const request: BudgetListRequest = { budgetId, offset };
-		
+
 		try {
-			const newEntries: BudgetEntry[] = await typedApi.post("/budget_list", request);
-			
+			const newEntries: BudgetEntry[] = await typedApi.post(
+				"/budget_list",
+				request,
+			);
+
 			// Update cache with combined data
 			queryClient.setQueryData<BudgetEntry[]>(
 				["budget", "history", "infinite", budgetId],
-				[...currentHistory, ...newEntries]
+				[...currentHistory, ...newEntries],
 			);
-			
+
 			return newEntries;
 		} catch (error) {
 			throw error;

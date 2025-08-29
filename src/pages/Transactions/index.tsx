@@ -229,7 +229,7 @@ const Transactions: React.FC = () => {
 	const [transactions, setTransactions] = useState<FrontendTransaction[]>([]);
 
 	const data = useSelector((state: ReduxState) => state.value);
-	
+
 	// React Query hooks
 	const infiniteTransactions = useInfiniteTransactionsList(data?.user?.id);
 	const deleteTransactionMutation = useDeleteTransaction();
@@ -253,7 +253,7 @@ const Transactions: React.FC = () => {
 		try {
 			const newTransactions = await infiniteTransactions.loadMore(transactions);
 			if (newTransactions && newTransactions.length > 0) {
-				setTransactions(prev => [...prev, ...newTransactions]);
+				setTransactions((prev) => [...prev, ...newTransactions]);
 			}
 		} catch (error) {
 			console.error("Error loading more transactions:", error);
@@ -277,14 +277,20 @@ const Transactions: React.FC = () => {
 	// Determine loading and error states
 	const isLoading = deleteTransactionMutation.isPending;
 	const error = deleteTransactionMutation.error?.message || "";
-	const success = deleteTransactionMutation.isSuccess 
-		? deleteTransactionMutation.data?.message || "Transaction deleted successfully"
+	const success = deleteTransactionMutation.isSuccess
+		? deleteTransactionMutation.data?.message ||
+			"Transaction deleted successfully"
 		: "";
 
 	return (
 		<div className="transactions-container" data-test-id="expenses-container">
 			{/* Error Container */}
-			{error && <ErrorContainer message={error} onClose={() => deleteTransactionMutation.reset()} />}
+			{error && (
+				<ErrorContainer
+					message={error}
+					onClose={() => deleteTransactionMutation.reset()}
+				/>
+			)}
 
 			{/* Success Container */}
 			{success && (
