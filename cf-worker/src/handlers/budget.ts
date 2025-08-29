@@ -442,7 +442,9 @@ export async function handleBudget(
 			const body = (await request.json()) as BudgetRequest;
 
 			// Validate budget ID using direct database lookup
-			if (!(await isAuthorizedForBudgetDirect(db, session.user.id, body.budgetId))) {
+			if (
+				!(await isAuthorizedForBudgetDirect(db, session.user.id, body.budgetId))
+			) {
 				return createErrorResponse("Unauthorized", 401, request, env);
 			}
 
@@ -497,7 +499,13 @@ export async function handleBudgetDelete(
 			const entry = budgetEntry[0];
 
 			// Check authorization using direct database lookup
-			if (!(await isAuthorizedForBudgetDirect(db, session.user.id, entry.budgetId))) {
+			if (
+				!(await isAuthorizedForBudgetDirect(
+					db,
+					session.user.id,
+					entry.budgetId,
+				))
+			) {
 				return createErrorResponse("Unauthorized", 401, request, env);
 			}
 
@@ -555,7 +563,9 @@ export async function handleBudgetList(
 			const body = (await request.json()) as BudgetListRequest;
 
 			// Validate budget ID using direct database lookup
-			if (!(await isAuthorizedForBudgetDirect(db, session.user.id, body.budgetId))) {
+			if (
+				!(await isAuthorizedForBudgetDirect(db, session.user.id, body.budgetId))
+			) {
 				return createErrorResponse("Unauthorized", 401, request, env);
 			}
 
@@ -608,7 +618,9 @@ export async function handleBudgetMonthly(
 			const body = (await request.json()) as BudgetMonthlyRequest;
 
 			// Validate budget ID using direct database lookup
-			if (!(await isAuthorizedForBudgetDirect(db, session.user.id, body.budgetId))) {
+			if (
+				!(await isAuthorizedForBudgetDirect(db, session.user.id, body.budgetId))
+			) {
 				return createErrorResponse("Unauthorized", 401, request, env);
 			}
 
@@ -674,7 +686,9 @@ export async function handleBudgetTotal(
 			const body = (await request.json()) as BudgetTotalRequest;
 
 			// Validate budget ID using direct database lookup
-			if (!(await isAuthorizedForBudgetDirect(db, session.user.id, body.budgetId))) {
+			if (
+				!(await isAuthorizedForBudgetDirect(db, session.user.id, body.budgetId))
+			) {
 				return createErrorResponse("Unauthorized", 401, request, env);
 			}
 
