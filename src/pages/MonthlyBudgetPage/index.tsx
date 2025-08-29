@@ -137,60 +137,6 @@ export const MonthlyBudgetPage: React.FC = () => {
 		setCurrency(newCurrency);
 	};
 
-	const _computeTargetMonths = useCallback(
-		(range: TimeRange, periods: Array<{ periodMonths: number }>): number => {
-			switch (range) {
-				case "6M":
-					return 6;
-				case "1Y":
-					return 12;
-				case "2Y":
-					return 24;
-				case "All":
-					return periods.length > 0
-						? Math.max(...periods.map((p) => p.periodMonths))
-						: 6;
-				default:
-					return 6;
-			}
-		},
-		[],
-	);
-
-	const _findAverageForCurrency = useCallback(
-		(
-			periods: Array<{
-				periodMonths: number;
-				averages: Array<{ currency: string; averageMonthlySpend: number }>;
-			}>,
-			targetMonths: number,
-			curr: string,
-		): number | null => {
-			const target = periods.find((p) => p.periodMonths === targetMonths);
-			if (!target) return null;
-			const avg = target.averages.find((a) => a.currency === curr);
-			return avg ? avg.averageMonthlySpend : null;
-		},
-		[],
-	);
-
-	const _findFallbackAverageForCurrency = useCallback(
-		(
-			periods: Array<{
-				periodMonths: number;
-				averages: Array<{ currency: string; averageMonthlySpend: number }>;
-			}>,
-			curr: string,
-		): number | null => {
-			for (const p of periods) {
-				const avg = p.averages.find((a) => a.currency === curr);
-				if (avg) return avg.averageMonthlySpend;
-			}
-			return null;
-		},
-		[],
-	);
-
 	// Process monthly budget data from React Query
 	useEffect(() => {
 		if (monthlyBudgetQuery.data) {
@@ -254,7 +200,9 @@ export const MonthlyBudgetPage: React.FC = () => {
 				data-test-id="monthly-budget-container"
 			>
 				<Card>
-					<p>Loading monthly budget data...</p>
+					<p data-test-id="monthly-budget-loading">
+						Loading monthly budget data...
+					</p>
 				</Card>
 			</div>
 		);
@@ -274,6 +222,7 @@ export const MonthlyBudgetPage: React.FC = () => {
 							<button
 								key={range}
 								className={`time-range-btn ${timeRange === range ? "active" : ""}`}
+								data-test-id={`time-range-${range}`}
 								onClick={() => handleTimeRangeChange(range)}
 							>
 								{range}
@@ -289,6 +238,7 @@ export const MonthlyBudgetPage: React.FC = () => {
 							<button
 								key={curr}
 								className={`currency-btn ${selectedCurrency === curr ? "active" : ""}`}
+								data-test-id={`currency-${curr}`}
 								onClick={() => handleCurrencyChange(curr)}
 							>
 								{getSymbolFromCurrency(curr)} {curr}
@@ -307,7 +257,7 @@ export const MonthlyBudgetPage: React.FC = () => {
 
 				{/* Chart Section */}
 				{chartData.length > 0 ? (
-					<div className="chart-wrapper">
+					<div className="chart-wrapper" data-test-id="monthly-budget-chart">
 						<ResponsiveContainer
 							width="100%"
 							height={width <= 480 ? 300 : width <= 768 ? 350 : 400}
@@ -395,7 +345,7 @@ export const MonthlyBudgetPage: React.FC = () => {
 						</ResponsiveContainer>
 					</div>
 				) : (
-					<div className="no-data">
+					<div className="no-data" data-test-id="no-data-message">
 						<p>No monthly budget data available for the selected period.</p>
 					</div>
 				)}
