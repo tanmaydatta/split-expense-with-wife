@@ -1,0 +1,2 @@
+CREATE INDEX `budget_entries_monthly_aggregation_idx` ON `budget_entries` (`budget_id`,`deleted`,`added_time`,`amount`,`currency`);--> statement-breakpoint
+CREATE INDEX `group_budgets_group_id_deleted_idx` ON `group_budgets` (`group_id`,`deleted`);
