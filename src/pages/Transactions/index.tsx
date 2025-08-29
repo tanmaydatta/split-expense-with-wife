@@ -14,20 +14,17 @@ import {
 } from "@/components/MessageContainer";
 import { Table, TableWrapper } from "@/components/Table";
 import { TransactionCard } from "@/components/TransactionCard";
-import { ApiError, typedApi } from "@/utils/api";
+import {
+	useInfiniteTransactionsList,
+	useDeleteTransaction,
+} from "@/hooks/useTransactions";
 import { dateToFullStr } from "@/utils/date";
 import getSymbolFromCurrency from "currency-symbol-map";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
-import { useNavigate } from "react-router-dom";
 import type {
 	FrontendTransaction,
 	ReduxState,
-	SplitDeleteRequest,
-	TransactionMetadata,
-	TransactionsListRequest,
-	TransactionsListResponse,
-	TransactionUser,
 } from "split-expense-shared-types";
 import "./index.css";
 
@@ -230,141 +227,88 @@ function TransactionDetails(selectedTransaction: FrontendTransaction) {
 
 const Transactions: React.FC = () => {
 	const [transactions, setTransactions] = useState<FrontendTransaction[]>([]);
-	const navigate = useNavigate();
 
 	const data = useSelector((state: ReduxState) => state.value);
-	const [loading, setLoading] = useState<boolean>(false);
-	const [error, setError] = useState<string>("");
-	const [success, setSuccess] = useState<string>("");
-	const fetchTransactions = useCallback(
-		async (offset: number, transactions: FrontendTransaction[]) => {
-			setLoading(true);
-			try {
-				const request: TransactionsListRequest = { offset };
-				const response: TransactionsListResponse = await typedApi.post(
-					"/transactions_list",
-					request,
-				);
+	
+	// React Query hooks
+	const infiniteTransactions = useInfiniteTransactionsList(data?.user?.id);
+	const deleteTransactionMutation = useDeleteTransaction();
 
-				var entries: FrontendTransaction[] = [];
-				response.transactions.map((e) => {
-					var totalOwed: number = 0.0;
-					const txnDetails =
-						(response.transactionDetails[
-							e.transaction_id
-						] as TransactionUser[]) || [];
-					txnDetails.forEach((txn) => {
-						if (data?.user?.id === txn.owed_to_user_id) {
-							totalOwed += txn.amount;
-						}
-						if (data?.user?.id === txn.user_id) {
-							totalOwed -= txn.amount;
-						}
-					});
-					const metadata = (JSON.parse(e.metadata) as TransactionMetadata) || {
-						owedAmounts: {},
-						paidByShares: {},
-						owedToAmounts: {},
-					};
-					return entries.push({
-						transactionId: e.transaction_id,
-						description: e.description as string,
-						totalAmount: e.amount,
-						date: e.created_at,
-						amountOwed: metadata.owedAmounts,
-						paidBy: metadata.paidByShares,
-						owedTo: metadata.owedToAmounts,
-						totalOwed: totalOwed,
-						currency: e.currency,
-					});
-				});
-				setTransactions([...transactions, ...entries]);
-			} catch (e: any) {
-				console.log(e);
-				if (e.response?.status === 401) {
-					navigate("/login");
-				}
-			} finally {
-				setLoading(false);
-			}
-		},
-		[data?.user?.id, navigate],
-	);
-
+	// Initialize transactions from hook
 	useEffect(() => {
-		fetchTransactions(0, []);
-	}, [fetchTransactions]);
+		if (infiniteTransactions.transactions.length > 0) {
+			setTransactions(infiniteTransactions.transactions);
+		} else {
+			// Load initial data
+			infiniteTransactions.reset().then((initialData) => {
+				if (initialData) {
+					setTransactions(initialData);
+				}
+			});
+		}
+	}, [infiniteTransactions]);
 
-	const deleteTransaction = async (id: string) => {
-		setLoading(true);
-
-		// Clear any previous messages
-		setError("");
-		setSuccess("");
-
+	// Handle load more transactions
+	const handleLoadMoreTransactions = async () => {
 		try {
-			const request: SplitDeleteRequest = {
-				id: id.toString(),
-			};
-
-			const response: { message: string } = await typedApi.post(
-				"/split_delete",
-				request,
-			);
-			setSuccess(response.message);
-			fetchTransactions(0, []);
-		} catch (e: any) {
-			let statusCode = 500;
-			if (e instanceof ApiError) {
-				setError(e.errorMessage);
-				statusCode = e.statusCode;
-			} else {
-				setError(
-					e.response?.data ||
-						"An error occurred while deleting the budget entry",
-				);
-				statusCode = e.response?.status || 500;
+			const newTransactions = await infiniteTransactions.loadMore(transactions);
+			if (newTransactions && newTransactions.length > 0) {
+				setTransactions(prev => [...prev, ...newTransactions]);
 			}
-			if (statusCode === 401) {
-				navigate("/login");
-			}
-		} finally {
-			setLoading(false);
+		} catch (error) {
+			console.error("Error loading more transactions:", error);
 		}
 	};
+
+	// Handle delete transaction
+	const handleDeleteTransaction = (id: string) => {
+		deleteTransactionMutation.mutate(id, {
+			onSuccess: () => {
+				// Reload transactions after successful delete
+				infiniteTransactions.reset().then((freshData) => {
+					if (freshData) {
+						setTransactions(freshData);
+					}
+				});
+			},
+		});
+	};
+
+	// Determine loading and error states
+	const isLoading = deleteTransactionMutation.isPending;
+	const error = deleteTransactionMutation.error?.message || "";
+	const success = deleteTransactionMutation.isSuccess 
+		? deleteTransactionMutation.data?.message || "Transaction deleted successfully"
+		: "";
 
 	return (
 		<div className="transactions-container" data-test-id="expenses-container">
 			{/* Error Container */}
-			{error && <ErrorContainer message={error} onClose={() => setError("")} />}
+			{error && <ErrorContainer message={error} onClose={() => deleteTransactionMutation.reset()} />}
 
 			{/* Success Container */}
 			{success && (
 				<SuccessContainer
 					message={success}
-					onClose={() => setSuccess("")}
+					onClose={() => deleteTransactionMutation.reset()}
 					data-test-id="success-container"
 				/>
 			)}
 
-			{loading && <Loader />}
-			{!loading && (
+			{isLoading && <Loader />}
+			{!isLoading && (
 				<>
 					<TransactionList
 						transactions={transactions}
-						deleteTransaction={deleteTransaction}
+						deleteTransaction={handleDeleteTransaction}
 					/>
+					<Button
+						data-test-id="show-more-button"
+						onClick={handleLoadMoreTransactions}
+					>
+						Show more
+					</Button>
 				</>
-			)}
-			{!loading && (
-				<Button
-					data-test-id="show-more-button"
-					onClick={() => {
-						fetchTransactions(transactions.length, transactions);
-					}}
-				>
-					Show more
-				</Button>
 			)}
 		</div>
 	);

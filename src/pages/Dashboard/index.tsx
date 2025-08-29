@@ -13,15 +13,15 @@ import {
 	SuccessContainer,
 } from "@/components/MessageContainer";
 import { SelectBudget } from "@/SelectBudget";
-import { ApiError, typedApi } from "@/utils/api";
+import { useDashboardSubmit } from "@/hooks/useDashboard";
+import type {
+	DashboardFormData,
+} from "@/hooks/useDashboard";
 import { scrollToTop } from "@/utils/scroll";
 import { useCallback, useEffect, useState, useMemo } from "react";
 import type {
-	ApiOperationResponses,
-	BudgetRequest,
 	DashboardUser,
 	ReduxState,
-	SplitNewRequest,
 } from "split-expense-shared-types";
 import { CreditDebit } from "./CreditDebit";
 import "./index.css";
@@ -29,9 +29,8 @@ import "./index.css";
 import { useSelector } from "react-redux";
 
 function Dashboard(): JSX.Element {
-	const [loading, setLoading] = useState<boolean>(false);
-	const [error, setError] = useState<string>("");
-	const [success, setSuccess] = useState<string>("");
+	// React Query hook for form submission
+	const dashboardSubmit = useDashboardSubmit();
 
 	const [creditDebit, setCreditDebit] = useState("Debit");
 	const [amount, setAmount] = useState<number>();
@@ -155,119 +154,67 @@ function Dashboard(): JSX.Element {
 		calculateDefaultUserPercentages,
 	]);
 
-	const onSubmitExpense = async () => {
-		if (!data?.user.id) {
-			throw new Error("User not authenticated");
-		}
-
-		// Only check percentage total since HTML5 can't validate this complex rule
-		const totalPercentage = users.reduce(
-			(sum, user) => sum + (user.percentage || 0),
-			0,
-		);
-		if (Math.abs(totalPercentage - 100) > 0.01) {
-			throw new Error("Total percentage must equal 100%");
-		}
-
-		const splits = users.map((user) => ({
-			ShareUserId: user.Id,
-			SharePercentage: user.percentage || 0,
-		}));
-
-		const payload: SplitNewRequest = {
-			amount: amount!,
-			description: description!,
-			paidByShares: { [paidBy!]: amount! },
-			splitPctShares: Object.fromEntries(
-				splits.map((s) => [s.ShareUserId.toString(), s.SharePercentage]),
-			),
-			currency: currency,
-		};
-
-		const response = await typedApi.post("/split_new", payload);
-		return response; // Returns { message: string; transactionId: string }
-	};
-
-	const onSubmitBudget = async () => {
-		if (!data?.user.id) {
-			throw new Error("User not authenticated");
-		}
-
-		const budgetPayload: BudgetRequest = {
-			amount: creditDebit === "Debit" ? -amount! : amount!,
-			description: description!,
-			budgetId: budget,
-			groupid: data?.extra?.group?.groupid ?? "",
-			currency: currency,
-		};
-
-		const response = await typedApi.post("/budget", budgetPayload);
-		return response; // Returns { message: string }
-	};
-
-	const onSubmit = async () => {
-		setLoading(true);
-
-		// Clear any previous messages
-		setError("");
-		setSuccess("");
-
-		// HTML5 validation will handle: amount, description, paidBy, currency
-
+	const handleSubmit = () => {
+		// Validation
 		if (!addExpense && !updateBudget) {
-			setError("Please select at least one action to perform");
-			return;
+			return; // Could show error, but form validation handles this
 		}
 
-		try {
-			const responses: ApiOperationResponses = {};
-
-			if (addExpense) {
-				responses.expense = await onSubmitExpense();
-			}
-
-			if (updateBudget) {
-				responses.budget = await onSubmitBudget();
-			}
-
-			// Reset form (but preserve user's percentage splits)
-			setAmount(undefined);
-			setDescription("");
-
-			// Create success message from API responses
-			const messages = [];
-			if (responses.expense) {
-				messages.push(responses.expense.message);
-				// Store transaction ID if needed for future operations
-			}
-			if (responses.budget) {
-				messages.push(responses.budget.message);
-			}
-
-			// Show success message with actual API messages
-			setSuccess(`Success! ${messages.join(" and ")}`);
-		} catch (error: unknown) {
-			console.error("Error:", error);
-
-			// Clear any success message when there's an error
-			setSuccess("");
-
-			// Handle our typed ApiError
-			if (error instanceof ApiError) {
-				setError(error.errorMessage);
-			} else if (error instanceof Error) {
-				// Handle standard Error objects
-				setError(error.message);
-			} else {
-				// Fallback for any unexpected error types
-				setError("An unexpected error occurred. Please try again.");
-			}
-
-			// AppWrapper will handle auth state if 401 error
-		} finally {
-			setLoading(false);
-			scrollToTop();
+		if (!data?.user?.id) {
+			return; // User not authenticated
 		}
+
+		// Validate percentages for expense
+		if (addExpense) {
+			const totalPercentage = users.reduce(
+				(sum, user) => sum + (user.percentage || 0),
+				0,
+			);
+			if (Math.abs(totalPercentage - 100) > 0.01) {
+				return; // Could show error message
+			}
+		}
+
+		// Prepare form data
+		const formData: DashboardFormData = {
+			addExpense,
+			updateBudget,
+		};
+
+		if (addExpense) {
+			formData.expense = {
+				amount: amount!,
+				description: description!,
+				currency,
+				paidBy: paidBy!,
+				users,
+			};
+		}
+
+		if (updateBudget) {
+			formData.budget = {
+				amount: amount!,
+				description: description!,
+				budgetId: budget,
+				currency,
+				creditDebit: creditDebit as "Credit" | "Debit",
+				groupId: data?.extra?.group?.groupid ?? "",
+			};
+		}
+
+		// Submit using React Query
+		dashboardSubmit.mutate(formData, {
+			onSuccess: (_responses) => {
+				// Reset form (but preserve user's percentage splits)
+				setAmount(undefined);
+				setDescription("");
+				scrollToTop();
+			},
+			onError: (error) => {
+				console.error("Error:", error);
+				scrollToTop();
+			},
+		});
 	};
 
 	const updateUserPercentage = (userId: string, percentage: number) => {
@@ -277,6 +224,15 @@ function Dashboard(): JSX.Element {
 			),
 		);
 	};
+
+	// React Query state variables
+	const loading = dashboardSubmit.isPending;
+	const error = dashboardSubmit.error?.message || "";
+	const success = dashboardSubmit.isSuccess
+		? (dashboardSubmit.data?.expense?.message && dashboardSubmit.data?.budget?.message)
+			? `${dashboardSubmit.data.expense.message} and ${dashboardSubmit.data.budget.message}`
+			: (dashboardSubmit.data?.expense?.message || dashboardSubmit.data?.budget?.message || "Success!")
+		: "";
 
 	// Show loading while session data is being fetched
 	if (!data?.extra?.usersById) {
@@ -288,14 +244,14 @@ function Dashboard(): JSX.Element {
 			<FormContainer data-test-id="expense-form">
 				{/* Error Container */}
 				{error && (
-					<ErrorContainer message={error} onClose={() => setError("")} />
+					<ErrorContainer message={error} onClose={() => dashboardSubmit.reset()} />
 				)}
 
 				{/* Success Container */}
 				{success && (
 					<SuccessContainer
 						message={success}
-						onClose={() => setSuccess("")}
+						onClose={() => dashboardSubmit.reset()}
 						data-test-id="success-container"
 					/>
 				)}
@@ -452,7 +408,7 @@ function Dashboard(): JSX.Element {
 							e.preventDefault();
 							const form = e.currentTarget.form;
 							if (form?.checkValidity()) {
-								onSubmit();
+								handleSubmit();
 							} else {
 								form?.reportValidity();
 							}

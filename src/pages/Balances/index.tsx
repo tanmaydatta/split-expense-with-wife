@@ -1,50 +1,27 @@
-import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { typedApi } from "@/utils/api";
+import React from "react";
+import { useBalances } from "@/hooks/useBalances";
 import { Loader } from "@/components/Loader";
 import { AmountGrid, AmountItem } from "@/components/AmountGrid";
 import "./index.css";
 
 const Balances: React.FC = () => {
-	const [balances, setBalances] = useState<Map<string, Map<string, number>>>(
-		new Map(),
-	);
-	const [loading, setLoading] = useState<boolean>(false);
-	const navigate = useNavigate();
+	const { data: balances, isLoading, error } = useBalances();
 
-	useEffect(() => {
-		const fetchBalances = async () => {
-			setLoading(true);
-			try {
-				const response: Record<
-					string,
-					Record<string, number>
-				> = await typedApi.post("/balances", {});
-				var localBalances = new Map<string, Map<string, number>>();
-				Object.keys(response).forEach((key) => {
-					var currencyBalances = new Map<string, number>();
-					Object.keys(response[key]).forEach((key2) => {
-						currencyBalances.set(key2, response[key][key2]);
-					});
-					localBalances.set(key, currencyBalances);
-				});
-				setBalances(localBalances);
-			} catch (e: any) {
-				console.log(e);
-				// Note: 401 errors are now handled globally by API interceptor
-			} finally {
-				setLoading(false);
-			}
-		};
-
-		fetchBalances();
-	}, [navigate]);
-
-	if (loading) {
+	if (isLoading) {
 		return <Loader />;
 	}
 
-	if (balances.size === 0) {
+	if (error) {
+		return (
+			<div className="balances-container" data-test-id="balances-container">
+				<div className="empty-state">
+					Error loading balances: {error.message}
+				</div>
+			</div>
+		);
+	}
+
+	if (!balances || balances.size === 0) {
 		return (
 			<div className="balances-container" data-test-id="balances-container">
 				<div className="empty-state" data-test-id="empty-balances">
