@@ -183,6 +183,57 @@ export async function withAuth(
 	}
 }
 
+// Lightweight auth function for endpoints that don't need budget data (performance optimized)
+export async function withAuthLite(
+	request: Request,
+	env: Env,
+	handler: (
+		session: Session & { currentUser: typeof user.$inferSelect },
+		db: ReturnType<typeof getDb>,
+	) => Promise<Response>,
+): Promise<Response> {
+	try {
+		const authInstance = auth(env);
+		const db = getDb(env);
+		// Check for forceRefresh query parameter
+		const url = new URL(request.url);
+		const forceRefresh = url.searchParams.get("forceRefresh") === "true";
+
+		// Get session from better-auth, with optional cache bypass
+		const sessionData = await authInstance.api.getSession({
+			headers: request.headers,
+			...(forceRefresh && { query: { disableCookieCache: true } }),
+		});
+
+		if (!sessionData || !sessionData.user) {
+			return createErrorResponse("Unauthorized", 401, request, env);
+		}
+
+		// Get only the current user data without loading group budgets
+		const currentUser = await db
+			.select()
+			.from(user)
+			.where(eq(user.id, sessionData.user.id))
+			.limit(1);
+
+		if (!currentUser || currentUser.length === 0) {
+			return createErrorResponse("User not found", 404, request, env);
+		}
+
+		// Call the handler with the session and database
+		return await handler(
+			{
+				...sessionData,
+				currentUser: currentUser[0],
+			},
+			db,
+		);
+	} catch (error) {
+		console.error("Auth middleware error:", error);
+		return createErrorResponse("Authentication failed", 401, request, env);
+	}
+}
+
 // CORS headers
 export function getCORSHeaders(
 	request: Request,
@@ -388,6 +439,44 @@ export function isAuthorizedForBudget(
 		return false;
 	}
 	return session.group.budgets.some((budget) => budget.id === budgetId);
+}
+
+// Direct database authorization check for budget access (performance optimized)
+export async function isAuthorizedForBudgetDirect(
+	db: ReturnType<typeof getDb>,
+	userId: string,
+	budgetId: string,
+): Promise<boolean> {
+	try {
+		// Get user's group ID
+		const userGroup = await db
+			.select({ groupId: user.groupid })
+			.from(user)
+			.where(eq(user.id, userId))
+			.limit(1);
+
+		if (!userGroup || userGroup.length === 0 || !userGroup[0].groupId) {
+			return false;
+		}
+
+		// Check if budget belongs to user's group and is not deleted
+		const budget = await db
+			.select({ id: groupBudgets.id })
+			.from(groupBudgets)
+			.where(
+				and(
+					eq(groupBudgets.id, budgetId),
+					eq(groupBudgets.groupId, String(userGroup[0].groupId)),
+					isNull(groupBudgets.deleted),
+				),
+			)
+			.limit(1);
+
+		return budget.length > 0;
+	} catch (error) {
+		console.error("Budget authorization error:", error);
+		return false;
+	}
 }
 
 // Currency validation now uses CURRENCIES from shared-types

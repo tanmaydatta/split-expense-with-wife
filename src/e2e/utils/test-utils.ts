@@ -175,7 +175,7 @@ export class TestHelper {
 		};
 		console.log("Navigating to page:", page, urlMap[page]);
 		await this.page.goto(urlMap[page]);
-		await this.page.waitForTimeout(2000);
+		await this.page.waitForTimeout(3000);
 	}
 
 	/**

@@ -37,7 +37,7 @@
     - replace name in scheduled actions ✅
     - replace name in budget totals ✅
     - backfill null budget entry ids ✅
-    - budget entries primary key change
+    - budget entries primary key change ✅
 - edit action, start date should not be mutated ever
 - scan receipt
 - full text search

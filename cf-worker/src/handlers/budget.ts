@@ -18,8 +18,9 @@ import {
 	createJsonResponse,
 	formatSQLiteTime,
 	getBudgetTotals,
-	isAuthorizedForBudget,
+	isAuthorizedForBudgetDirect,
 	withAuth,
+	withAuthLite,
 } from "../utils";
 
 import { createBudgetEntryStatements } from "../utils/scheduled-action-execution";
@@ -437,22 +438,26 @@ export async function handleBudget(
 		return createErrorResponse("Method not allowed", 405, request, env);
 	}
 	try {
-		return withAuth(request, env, async (session, db) => {
-			if (!session.group) {
-				return createErrorResponse("Unauthorized", 401, request, env);
-			}
+		return withAuthLite(request, env, async (session, db) => {
 			const body = (await request.json()) as BudgetRequest;
 
-			// Validate budget ID
-			if (!isAuthorizedForBudget(session, body.budgetId)) {
+			// Validate budget ID using direct database lookup
+			if (
+				!(await isAuthorizedForBudgetDirect(db, session.user.id, body.budgetId))
+			) {
 				return createErrorResponse("Unauthorized", 401, request, env);
+			}
+
+			// Get user's group ID
+			if (!session.currentUser.groupid) {
+				return createErrorResponse("User not in a group", 400, request, env);
 			}
 
 			// Set currency default
 			const budgetRequest: BudgetRequest = {
 				...body,
 				currency: body.currency || "GBP",
-				groupid: String(session.group.groupid),
+				groupid: String(session.currentUser.groupid),
 			};
 
 			return await createBudgetEntry(budgetRequest, db, request, env);
@@ -472,10 +477,7 @@ export async function handleBudgetDelete(
 		return createErrorResponse("Method not allowed", 405, request, env);
 	}
 	try {
-		return withAuth(request, env, async (session, db) => {
-			if (!session.group) {
-				return createErrorResponse("Unauthorized", 401, request, env);
-			}
+		return withAuthLite(request, env, async (session, db) => {
 			const body = (await request.json()) as BudgetDeleteRequest;
 
 			// Get budget entry to verify ownership and get details for total update
@@ -496,8 +498,14 @@ export async function handleBudgetDelete(
 
 			const entry = budgetEntry[0];
 
-			// Check authorization
-			if (!isAuthorizedForBudget(session, entry.budgetId)) {
+			// Check authorization using direct database lookup
+			if (
+				!(await isAuthorizedForBudgetDirect(
+					db,
+					session.user.id,
+					entry.budgetId,
+				))
+			) {
 				return createErrorResponse("Unauthorized", 401, request, env);
 			}
 
@@ -551,15 +559,13 @@ export async function handleBudgetList(
 	}
 
 	try {
-		return withAuth(request, env, async (session, db) => {
-			if (!session.group) {
-				console.log("Session group not found", session);
-				return createErrorResponse("Unauthorized", 401, request, env);
-			}
+		return withAuthLite(request, env, async (session, db) => {
 			const body = (await request.json()) as BudgetListRequest;
 
-			// Validate budget ID
-			if (!isAuthorizedForBudget(session, body.budgetId)) {
+			// Validate budget ID using direct database lookup
+			if (
+				!(await isAuthorizedForBudgetDirect(db, session.user.id, body.budgetId))
+			) {
 				return createErrorResponse("Unauthorized", 401, request, env);
 			}
 
@@ -608,25 +614,29 @@ export async function handleBudgetMonthly(
 	}
 
 	try {
-		return withAuth(request, env, async (session, db) => {
-			if (!session.group) {
-				return createErrorResponse("Unauthorized", 401, request, env);
-			}
+		return withAuthLite(request, env, async (session, db) => {
 			const body = (await request.json()) as BudgetMonthlyRequest;
 
-			// Validate budget ID
-			if (!isAuthorizedForBudget(session, body.budgetId)) {
+			// Validate budget ID using direct database lookup
+			if (
+				!(await isAuthorizedForBudgetDirect(db, session.user.id, body.budgetId))
+			) {
 				return createErrorResponse("Unauthorized", 401, request, env);
 			}
 
 			const oldestData = new Date();
 			oldestData.setFullYear(oldestData.getFullYear() - 2);
 
+			// Get user's group ID
+			if (!session.currentUser.groupid) {
+				return createErrorResponse("User not in a group", 400, request, env);
+			}
+
 			// Get monthly budget data
 			const monthlyData = await getMonthlyBudgetData(
 				db,
 				body.budgetId,
-				String(session.group.groupid),
+				String(session.currentUser.groupid),
 				oldestData,
 			);
 
@@ -672,21 +682,25 @@ export async function handleBudgetTotal(
 	}
 
 	try {
-		return withAuth(request, env, async (session, _db) => {
-			if (!session.group) {
-				return createErrorResponse("Unauthorized", 401, request, env);
-			}
+		return withAuthLite(request, env, async (session, db) => {
 			const body = (await request.json()) as BudgetTotalRequest;
 
-			// Validate budget ID
-			if (!isAuthorizedForBudget(session, body.budgetId)) {
+			// Validate budget ID using direct database lookup
+			if (
+				!(await isAuthorizedForBudgetDirect(db, session.user.id, body.budgetId))
+			) {
 				return createErrorResponse("Unauthorized", 401, request, env);
+			}
+
+			// Get user's group ID for the getBudgetTotals call
+			if (!session.currentUser.groupid) {
+				return createErrorResponse("User not in a group", 400, request, env);
 			}
 
 			// Use existing utility function for now (could be migrated to Drizzle later)
 			const totals = await getBudgetTotals(
 				env,
-				String(session.group.groupid),
+				String(session.currentUser.groupid),
 				body.budgetId,
 			);
 

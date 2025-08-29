@@ -40,6 +40,11 @@ export const groupBudgets = sqliteTable(
 		index("group_budgets_group_name_active_idx")
 			.on(table.groupId, table.budgetName)
 			.where(isNull(table.deleted)),
+		// Performance index for session enrichment queries
+		index("group_budgets_group_id_deleted_idx").on(
+			table.groupId,
+			table.deleted,
+		),
 	],
 );
 
@@ -154,6 +159,14 @@ export const budgetEntries = sqliteTable(
 			table.addedTime,
 		),
 		index("budget_entries_added_time_idx").on(table.addedTime),
+		// Performance index for monthly aggregation queries
+		index("budget_entries_monthly_aggregation_idx").on(
+			table.budgetId,
+			table.deleted,
+			table.addedTime,
+			table.amount,
+			table.currency,
+		),
 	],
 );
 
