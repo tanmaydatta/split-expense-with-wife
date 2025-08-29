@@ -44,7 +44,7 @@ export default defineConfig({
 		// Our app uses data-test-id for selectors; align Playwright's getByTestId
 		testIdAttribute: "data-test-id",
 		/* Longer action timeout for CI */
-		actionTimeout: process.env.CI ? 30 * 1000 : 20 * 1000,
+		actionTimeout: 30 * 1000,
 
 		/* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
 		trace: "on-first-retry",

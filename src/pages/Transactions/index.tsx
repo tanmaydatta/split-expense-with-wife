@@ -17,6 +17,7 @@ import { TransactionCard } from "@/components/TransactionCard";
 import {
 	useInfiniteTransactionsList,
 	useDeleteTransaction,
+	useTransactionsList,
 } from "@/hooks/useTransactions";
 import { dateToFullStr } from "@/utils/date";
 import getSymbolFromCurrency from "currency-symbol-map";
@@ -232,26 +233,26 @@ const Transactions: React.FC = () => {
 
 	// React Query hooks
 	const infiniteTransactions = useInfiniteTransactionsList(data?.user?.id);
+	const initialTransactionsQuery = useTransactionsList(0, data?.user?.id);
 	const deleteTransactionMutation = useDeleteTransaction();
 
-	// Initialize transactions from hook
+	// Initialize transactions from initial query, then switch to infinite scroll
 	useEffect(() => {
-		if (infiniteTransactions.transactions.length > 0) {
-			setTransactions(infiniteTransactions.transactions);
-		} else {
-			// Load initial data
-			infiniteTransactions.reset().then((initialData) => {
-				if (initialData) {
-					setTransactions(initialData);
-				}
-			});
+		if (initialTransactionsQuery.data && transactions.length === 0) {
+			setTransactions(initialTransactionsQuery.data);
 		}
-	}, [infiniteTransactions]);
+	}, [initialTransactionsQuery.data, transactions.length]);
 
 	// Handle load more transactions
 	const handleLoadMoreTransactions = async () => {
 		try {
-			const newTransactions = await infiniteTransactions.loadMore(transactions);
+			// Switch to infinite scroll after initial load
+			const currentTransactions =
+				transactions.length > 0
+					? transactions
+					: initialTransactionsQuery.data || [];
+			const newTransactions =
+				await infiniteTransactions.loadMore(currentTransactions);
 			if (newTransactions && newTransactions.length > 0) {
 				setTransactions((prev) => [...prev, ...newTransactions]);
 			}
@@ -264,18 +265,17 @@ const Transactions: React.FC = () => {
 	const handleDeleteTransaction = (id: string) => {
 		deleteTransactionMutation.mutate(id, {
 			onSuccess: () => {
-				// Reload transactions after successful delete
-				infiniteTransactions.reset().then((freshData) => {
-					if (freshData) {
-						setTransactions(freshData);
-					}
+				// Reload transactions after successful delete by refetching initial query
+				initialTransactionsQuery.refetch().then(() => {
+					// The useEffect will handle updating the transactions state
 				});
 			},
 		});
 	};
 
 	// Determine loading and error states
-	const isLoading = deleteTransactionMutation.isPending;
+	const isLoading =
+		deleteTransactionMutation.isPending || initialTransactionsQuery.isLoading;
 	const error = deleteTransactionMutation.error?.message || "";
 	const success = deleteTransactionMutation.isSuccess
 		? deleteTransactionMutation.data?.message ||
