@@ -530,6 +530,109 @@ export interface ScheduledActionHistoryListResponse {
 	hasMore: boolean;
 }
 import { z } from "zod";
+export declare const LoginFormSchema: z.ZodObject<
+	{
+		identifier: z.ZodString;
+		password: z.ZodString;
+	},
+	z.core.$strip
+>;
+export declare const SignUpFormSchema: z.ZodObject<
+	{
+		firstName: z.ZodString;
+		lastName: z.ZodString;
+		username: z.ZodString;
+		email: z.ZodString;
+		password: z.ZodString;
+		confirmPassword: z.ZodString;
+	},
+	z.core.$strip
+>;
+export declare const DashboardUserSchema: z.ZodObject<
+	{
+		Id: z.ZodString;
+		FirstName: z.ZodString;
+		percentage: z.ZodNumber;
+	},
+	z.core.$strip
+>;
+export declare const DashboardCoreFieldsSchema: z.ZodObject<
+	{
+		amount: z.ZodNumber;
+		description: z.ZodString;
+		currency: z.ZodEnum<{
+			USD: "USD";
+			EUR: "EUR";
+			GBP: "GBP";
+			CAD: "CAD";
+		}>;
+	},
+	z.core.$strip
+>;
+export declare const DashboardExpenseFieldsSchema: z.ZodObject<
+	{
+		paidBy: z.ZodString;
+		users: z.ZodArray<
+			z.ZodObject<
+				{
+					Id: z.ZodString;
+					FirstName: z.ZodString;
+					percentage: z.ZodNumber;
+				},
+				z.core.$strip
+			>
+		>;
+	},
+	z.core.$strip
+>;
+export declare const DashboardBudgetFieldsSchema: z.ZodObject<
+	{
+		budgetId: z.ZodString;
+		creditDebit: z.ZodUnion<
+			readonly [z.ZodLiteral<"Credit">, z.ZodLiteral<"Debit">]
+		>;
+	},
+	z.core.$strip
+>;
+export declare const DashboardActionSelectionSchema: z.ZodObject<
+	{
+		addExpense: z.ZodBoolean;
+		updateBudget: z.ZodBoolean;
+	},
+	z.core.$strip
+>;
+export declare const DashboardFormSchema: z.ZodObject<
+	{
+		addExpense: z.ZodBoolean;
+		updateBudget: z.ZodBoolean;
+		amount: z.ZodNumber;
+		description: z.ZodString;
+		currency: z.ZodEnum<{
+			USD: "USD";
+			EUR: "EUR";
+			GBP: "GBP";
+			CAD: "CAD";
+		}>;
+		paidBy: z.ZodOptional<z.ZodString>;
+		users: z.ZodOptional<
+			z.ZodArray<
+				z.ZodObject<
+					{
+						Id: z.ZodString;
+						FirstName: z.ZodString;
+						percentage: z.ZodNumber;
+					},
+					z.core.$strip
+				>
+			>
+		>;
+		budgetId: z.ZodOptional<z.ZodString>;
+		creditDebit: z.ZodOptional<
+			z.ZodUnion<readonly [z.ZodLiteral<"Credit">, z.ZodLiteral<"Debit">]>
+		>;
+	},
+	z.core.$strip
+>;
 export declare const AddExpenseActionSchema: z.ZodObject<
 	{
 		amount: z.ZodNumber;
@@ -673,6 +776,22 @@ export declare const ScheduledActionHistoryQuerySchema: z.ZodObject<
 		>;
 	},
 	z.core.$strip
+>;
+export type LoginFormInput = z.infer<typeof LoginFormSchema>;
+export type SignUpFormInput = z.infer<typeof SignUpFormSchema>;
+export type DashboardFormInput = z.infer<typeof DashboardFormSchema>;
+export type DashboardUserInput = z.infer<typeof DashboardUserSchema>;
+export type DashboardCoreFieldsInput = z.infer<
+	typeof DashboardCoreFieldsSchema
+>;
+export type DashboardExpenseFieldsInput = z.infer<
+	typeof DashboardExpenseFieldsSchema
+>;
+export type DashboardBudgetFieldsInput = z.infer<
+	typeof DashboardBudgetFieldsSchema
+>;
+export type DashboardActionSelectionInput = z.infer<
+	typeof DashboardActionSelectionSchema
 >;
 export type CreateScheduledActionInput = z.infer<
 	typeof CreateScheduledActionSchema

@@ -622,6 +622,170 @@ export interface ScheduledActionHistoryListResponse {
 // ============================
 import { z } from "zod";
 
+// Authentication form schemas
+export const LoginFormSchema = z.object({
+	identifier: z.string().min(1, "Username or email is required"),
+	password: z.string().min(1, "Password is required"),
+});
+
+export const SignUpFormSchema = z
+	.object({
+		firstName: z.string().min(1, "First name is required"),
+		lastName: z.string().min(1, "Last name is required"),
+		username: z.string().min(1, "Username is required"),
+		email: z.string().email("Please enter a valid email address"),
+		password: z.string().min(6, "Password must be at least 6 characters long"),
+		confirmPassword: z.string().min(1, "Please confirm your password"),
+	})
+	.refine((data) => data.password === data.confirmPassword, {
+		message: "Passwords do not match",
+		path: ["confirmPassword"],
+	});
+
+// Dashboard user schema for dynamic percentage fields
+export const DashboardUserSchema = z.object({
+	Id: z.string().min(1),
+	FirstName: z.string().min(1),
+	percentage: z
+		.number()
+		.min(0, "Percentage cannot be negative")
+		.max(100, "Percentage cannot exceed 100%"),
+});
+
+// Core dashboard fields (shared between expense and budget)
+export const DashboardCoreFieldsSchema = z.object({
+	amount: z
+		.number()
+		.positive("Amount must be greater than 0")
+		.max(999999, "Amount cannot exceed 999,999"),
+	description: z
+		.string()
+		.min(2, "Description must be at least 2 characters")
+		.max(100, "Description cannot exceed 100 characters")
+		.trim(),
+	currency: z.enum(["USD", "EUR", "GBP", "CAD"]),
+});
+
+// Dashboard expense-specific fields
+export const DashboardExpenseFieldsSchema = z.object({
+	paidBy: z.string().min(1, "Please select who paid for this expense"),
+	users: z
+		.array(DashboardUserSchema)
+		.min(1, "At least one user is required")
+		.refine(
+			(users) => {
+				const total = users.reduce(
+					(sum, user) => sum + (user.percentage || 0),
+					0,
+				);
+				return Math.abs(total - 100) < 0.01;
+			},
+			{
+				message: "Split percentages must total exactly 100%",
+				path: ["users"],
+			},
+		),
+});
+
+// Dashboard budget-specific fields
+export const DashboardBudgetFieldsSchema = z.object({
+	budgetId: z.string().min(1, "Please select a budget category"),
+	creditDebit: z.union([z.literal("Credit"), z.literal("Debit")]),
+});
+
+// Action selection schema
+export const DashboardActionSelectionSchema = z
+	.object({
+		addExpense: z.boolean(),
+		updateBudget: z.boolean(),
+	})
+	.refine((data) => data.addExpense || data.updateBudget, {
+		message: "Please select at least one action to perform",
+		path: ["addExpense"],
+	});
+
+// Complete dashboard form schema with conditional validation
+export const DashboardFormSchema = z
+	.object({
+		// Action selection
+		addExpense: z.boolean(),
+		updateBudget: z.boolean(),
+
+		// Core fields (always present) - amount can be undefined initially
+		amount: DashboardCoreFieldsSchema.shape.amount.optional(),
+		description: DashboardCoreFieldsSchema.shape.description,
+		currency: DashboardCoreFieldsSchema.shape.currency,
+
+		// Expense-specific fields (conditional)
+		paidBy: z.string().optional(),
+		users: z.array(DashboardUserSchema).optional(),
+
+		// Budget-specific fields (conditional)
+		budgetId: z.string().optional(),
+		creditDebit: z.union([z.literal("Credit"), z.literal("Debit")]).optional(),
+	})
+	.superRefine((data, ctx) => {
+		// Validate expense fields when addExpense is true
+		if (data.addExpense) {
+			if (!data.paidBy) {
+				ctx.addIssue({
+					code: "custom",
+					message: "Please select who paid for this expense",
+					path: ["paidBy"],
+				});
+			}
+
+			if (!data.users || data.users.length === 0) {
+				ctx.addIssue({
+					code: "custom",
+					message: "At least one user is required for expense splitting",
+					path: ["users"],
+				});
+			} else {
+				// Validate percentage totals
+				const total = data.users.reduce(
+					(sum, user) => sum + (user.percentage || 0),
+					0,
+				);
+				if (Math.abs(total - 100) > 0.01) {
+					ctx.addIssue({
+						code: "custom",
+						message: "Split percentages must total exactly 100%",
+						path: ["users"],
+					});
+				}
+			}
+		}
+
+		// Validate budget fields when updateBudget is true
+		if (data.updateBudget) {
+			if (!data.budgetId) {
+				ctx.addIssue({
+					code: "custom",
+					message: "Please select a budget category",
+					path: ["budgetId"],
+				});
+			}
+
+			if (!data.creditDebit) {
+				ctx.addIssue({
+					code: "custom",
+					message: "Please select Credit or Debit",
+					path: ["creditDebit"],
+				});
+			}
+		}
+
+		// Ensure at least one action is selected
+		if (!data.addExpense && !data.updateBudget) {
+			ctx.addIssue({
+				code: "custom",
+				message: "Please select at least one action to perform",
+				path: ["addExpense"],
+			});
+		}
+	});
+
 export const AddExpenseActionSchema = z.object({
 	amount: z.number().positive(),
 	description: z.string().min(2).max(100),
@@ -712,6 +876,23 @@ export const ScheduledActionHistoryQuerySchema = z.object({
 });
 
 // Export types inferred from schemas
+export type LoginFormInput = z.infer<typeof LoginFormSchema>;
+export type SignUpFormInput = z.infer<typeof SignUpFormSchema>;
+export type DashboardFormInput = z.infer<typeof DashboardFormSchema>;
+export type DashboardUserInput = z.infer<typeof DashboardUserSchema>;
+export type DashboardCoreFieldsInput = z.infer<
+	typeof DashboardCoreFieldsSchema
+>;
+export type DashboardExpenseFieldsInput = z.infer<
+	typeof DashboardExpenseFieldsSchema
+>;
+export type DashboardBudgetFieldsInput = z.infer<
+	typeof DashboardBudgetFieldsSchema
+>;
+export type DashboardActionSelectionInput = z.infer<
+	typeof DashboardActionSelectionSchema
+>;
+
 export type CreateScheduledActionInput = z.infer<
 	typeof CreateScheduledActionSchema
 >;

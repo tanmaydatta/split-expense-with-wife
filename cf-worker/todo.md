@@ -39,8 +39,10 @@
     - backfill null budget entry ids ✅
     - budget entries primary key change ✅
 - edit action, start date should not be mutated ever ✅
-- react query
+- react query ✅
 - react form
+- react query - pagination
+- refactor currencies
 - scan receipt
 - full text search
 - transaction/add
@@ -49,7 +51,6 @@
 - add new users
 - rate limiting
 - roles
-- react query - pagination
 - convert to dropdown if more than 4 budgets
 - force refresh rate limit
 - budget edits
