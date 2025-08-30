@@ -20,7 +20,9 @@
 			"mcp__playwright__browser_click",
 			"mcp__playwright__browser_wait_for",
 			"Bash(yarn lint:*)",
-			"Bash(yarn playwright test:*)"
+			"Bash(yarn playwright test:*)",
+			"Bash(yarn build)",
+			"Bash(git add:*)"
 		],
 		"deny": []
 	}

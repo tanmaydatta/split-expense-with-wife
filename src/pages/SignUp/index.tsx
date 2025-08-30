@@ -1,133 +1,154 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useForm } from "@tanstack/react-form";
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Form/Input";
 import { Loader } from "@/components/Loader";
 import { authClient } from "@/utils/authClient";
+import { SignUpFormSchema } from "split-expense-shared-types";
+import type { SignUpFormInput } from "split-expense-shared-types";
 import "./index.css";
 
 function SignUpPage() {
-	const [username, setUsername] = useState("");
-	const [email, setEmail] = useState("");
-	const [password, setPassword] = useState("");
-	const [confirmPassword, setConfirmPassword] = useState("");
-	const [firstName, setFirstName] = useState("");
-	const [lastName, setLastName] = useState("");
 	const navigate = useNavigate();
 	const [loading, setLoading] = useState<boolean>(false);
 	const [error, setError] = useState<string>("");
 
-	const handleSignUp = async (e: React.FormEvent) => {
-		e.preventDefault();
-		setLoading(true);
-		setError("");
+	const form = useForm({
+		defaultValues: {
+			firstName: "",
+			lastName: "",
+			username: "",
+			email: "",
+			password: "",
+			confirmPassword: "",
+		} as SignUpFormInput,
+		validators: {
+			onChange: SignUpFormSchema,
+		},
+		onSubmit: async ({ value }) => {
+			setLoading(true);
+			setError("");
 
-		// Basic validation
-		if (!username || !email || !password || !firstName || !lastName) {
-			setError("All fields are required");
-			setLoading(false);
-			return;
-		}
-
-		if (password !== confirmPassword) {
-			setError("Passwords do not match");
-			setLoading(false);
-			return;
-		}
-
-		if (password.length < 6) {
-			setError("Password must be at least 6 characters long");
-			setLoading(false);
-			return;
-		}
-
-		try {
-			// Use the better-auth client to make the API call
-			const result = await authClient.signUp.email({
-				email,
-				password,
-				username,
-				name: `${firstName} ${lastName}`,
-				firstName,
-				lastName,
-			} as any);
-			if (result.error) {
-				throw new Error(result.error.message);
+			try {
+				// Use the better-auth client to make the API call
+				const result = await authClient.signUp.email({
+					email: value.email,
+					password: value.password,
+					username: value.username,
+					name: `${value.firstName} ${value.lastName}`,
+					firstName: value.firstName,
+					lastName: value.lastName,
+				} as any);
+				if (result.error) {
+					throw new Error(result.error.message);
+				}
+				// On success, redirect the user to the login page
+				navigate("/login", {
+					state: {
+						message: "Account created successfully! Please log in.",
+					},
+				});
+			} catch (err: any) {
+				// Handle errors, e.g., username already exists
+				console.error("Sign-up error:", err);
+				setError(err.message || "Failed to create account. Please try again.");
+			} finally {
+				setLoading(false);
 			}
-			// On success, redirect the user to the login page
-			navigate("/login", {
-				state: {
-					message: "Account created successfully! Please log in.",
-				},
-			});
-		} catch (err: any) {
-			// Handle errors, e.g., username already exists
-			console.error("Sign-up error:", err);
-			setError(err.message || "Failed to create account. Please try again.");
-		}
-		setLoading(false);
-	};
+		},
+	});
 
 	return (
 		<div className="signup-container">
-			<form className="signup-form" onSubmit={handleSignUp}>
+			<form
+				className="signup-form"
+				onSubmit={(e) => {
+					e.preventDefault();
+					form.handleSubmit();
+				}}
+			>
 				<h1 className="signup-title">Create Account</h1>
 
-				<Input
-					type="text"
-					placeholder="First Name"
-					value={firstName}
-					onChange={(e) => setFirstName(e.target.value)}
-					required
-					data-test-id="signup-firstname-input"
-				/>
+				<form.Field name="firstName">
+					{(field) => (
+						<Input
+							type="text"
+							placeholder="First Name"
+							value={field.state.value}
+							onChange={(e) => field.handleChange(e.target.value)}
+							required
+							data-test-id="signup-firstname-input"
+						/>
+					)}
+				</form.Field>
 
-				<Input
-					type="text"
-					placeholder="Last Name"
-					value={lastName}
-					onChange={(e) => setLastName(e.target.value)}
-					required
-					data-test-id="signup-lastname-input"
-				/>
+				<form.Field name="lastName">
+					{(field) => (
+						<Input
+							type="text"
+							placeholder="Last Name"
+							value={field.state.value}
+							onChange={(e) => field.handleChange(e.target.value)}
+							required
+							data-test-id="signup-lastname-input"
+						/>
+					)}
+				</form.Field>
 
-				<Input
-					type="text"
-					placeholder="Username"
-					value={username}
-					onChange={(e) => setUsername(e.target.value)}
-					required
-					data-test-id="signup-username-input"
-				/>
+				<form.Field name="username">
+					{(field) => (
+						<Input
+							type="text"
+							placeholder="Username"
+							value={field.state.value}
+							onChange={(e) => field.handleChange(e.target.value)}
+							required
+							data-test-id="signup-username-input"
+						/>
+					)}
+				</form.Field>
 
-				<Input
-					type="email"
-					placeholder="Email"
-					value={email}
-					onChange={(e) => setEmail(e.target.value)}
-					required
-					data-test-id="signup-email-input"
-				/>
+				<form.Field name="email">
+					{(field) => (
+						<Input
+							type="email"
+							placeholder="Email"
+							value={field.state.value}
+							onChange={(e) => field.handleChange(e.target.value)}
+							required
+							data-test-id="signup-email-input"
+						/>
+					)}
+				</form.Field>
 
-				<Input
-					type="password"
-					placeholder="Password"
-					value={password}
-					onChange={(e) => setPassword(e.target.value)}
-					required
-					minLength={6}
-					data-test-id="signup-password-input"
-				/>
+				<form.Field name="password">
+					{(field) => (
+						<Input
+							type="password"
+							placeholder="Password"
+							value={field.state.value}
+							onChange={(e) => field.handleChange(e.target.value)}
+							required
+							minLength={6}
+							data-test-id="signup-password-input"
+						/>
+					)}
+				</form.Field>
 
-				<Input
-					type="password"
-					placeholder="Confirm Password"
-					value={confirmPassword}
-					onChange={(e) => setConfirmPassword(e.target.value)}
-					required
-					minLength={6}
-					data-test-id="signup-confirm-password-input"
-				/>
+				<form.Field name="confirmPassword">
+					{(field) => (
+						<Input
+							type="password"
+							placeholder="Confirm Password"
+							value={field.state.value}
+							onChange={(e) => field.handleChange(e.target.value)}
+							required
+							minLength={6}
+							data-test-id="signup-confirm-password-input"
+						/>
+					)}
+				</form.Field>
 
 				{error && (
 					<div className="signup-error" data-test-id="signup-error">

@@ -7,6 +7,57 @@
 - **Git** (version control)
 - **Cloudflare Account** (for Workers and D1 database)
 
+## Form Development Patterns
+
+The project uses **TanStack Form** with **Zod validation** for form management. This provides type-safe forms with runtime validation.
+
+### Form Implementation Pattern
+
+```tsx
+import { useForm } from "@tanstack/react-form";
+import { LoginFormSchema, LoginFormInput } from "split-expense-shared-types";
+
+const form = useForm({
+  defaultValues: {
+    identifier: "",
+    password: "",
+  } as LoginFormInput,
+  validators: {
+    onChange: LoginFormSchema, // Zod schema for validation
+  },
+  onSubmit: async ({ value }) => {
+    // Handle form submission
+  },
+});
+
+// In JSX:
+<form.Field name="identifier">
+  {(field) => (
+    <Input
+      value={field.state.value}
+      onChange={(e) => field.handleChange(e.target.value)}
+      data-test-id="identifier-input" // Always preserve test IDs
+    />
+  )}
+</form.Field>
+```
+
+### Validation Schemas
+
+All form validation schemas are defined in `shared-types/index.ts` using Zod:
+
+- `LoginFormSchema` - Login form validation
+- `SignUpFormSchema` - Registration form validation  
+- `DashboardFormSchema` - Dashboard form validation
+- `CreateScheduledActionSchema` - Scheduled actions validation
+
+### Key Benefits
+
+- **Type Safety**: TypeScript types auto-generated from Zod schemas
+- **Runtime Validation**: Client-side validation with clear error messages
+- **Consistency**: Shared schemas between frontend and backend
+- **Maintainability**: Centralized validation logic
+
 ## Initial Setup
 
 ### 1. Clone Repository
