@@ -15,16 +15,19 @@ module.exports = {
 		"no-unused-vars": "off",
 		"max-depth": ["warn", { max: 3 }],
 		// "complexity": ["error", { "max": 10 }],
-		// "max-lines-per-function": ["error", {
-		// 	"max": 150,
-		// 	"skipBlankLines": true,
-		// 	"skipComments": true,
-		// 	"IIFEs": false
-		// }],
+		"max-lines-per-function": [
+			"error",
+			{
+				max: 150,
+				skipBlankLines: true,
+				skipComments: true,
+				IIFEs: false,
+			},
+		],
 		// "max-lines": ["error", {
-		// 	"max": 500,
-		// 	"skipBlankLines": true,
-		// 	"skipComments": true
+		// "max": 500,
+		// "skipBlankLines": true,
+		// "skipComments": true
 		// }],
 	},
 	ignorePatterns: [

@@ -40,7 +40,8 @@
     - budget entries primary key change ✅
 - edit action, start date should not be mutated ever ✅
 - react query ✅
-- react form
+- react form ✅
+- scheduled actions after paused after play  next date should be recalculated
 - react query - pagination
 - refactor currencies
 - scan receipt
