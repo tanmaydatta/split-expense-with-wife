@@ -8,7 +8,7 @@ import { useSelector } from "react-redux";
 import type { ReduxState } from "split-expense-shared-types";
 import { BudgetChart } from "./ChartComponents";
 import { useWindowSize, getTimeRangeMapping } from "./helpers";
-import { useBudgetData } from "./useBudgetData";
+import { useBudgetData } from "@/hooks/useBudgetData";
 import "./index.css";
 
 type TimeRange = "6M" | "1Y" | "2Y" | "All";
