@@ -14,7 +14,6 @@ module.exports = {
 		],
 		"no-unused-vars": "off",
 		"max-depth": ["warn", { max: 3 }],
-		// "complexity": ["error", { "max": 10 }],
 		"max-lines-per-function": [
 			"error",
 			{
