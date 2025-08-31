@@ -1,37 +1,27 @@
-import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
-import { Input } from "@/components/Form/Input";
-import {
-	ButtonRow,
-	FormContainer,
-	SplitPercentageContainer,
-	SplitPercentageInputContainer,
-} from "@/components/Form/Layout";
-import { Select } from "@/components/Form/Select";
-import {
-	ErrorContainer,
-	SuccessContainer,
-} from "@/components/MessageContainer";
-import {
-	ToggleButton,
-	ToggleButtonGroup,
-} from "@/components/ToggleButtonGroup";
 import { useCreateScheduledAction } from "@/hooks/useScheduledActions";
-import { CreditDebit } from "@/pages/Dashboard/CreditDebit";
-import { SelectBudget } from "@/SelectBudget";
-import { scrollToTop } from "@/utils/scroll";
 import { useForm, useStore } from "@tanstack/react-form";
 import React, { useMemo } from "react";
 import { useSelector } from "react-redux";
 import type {
-	AddBudgetActionData,
-	AddExpenseActionData,
 	AuthenticatedUser,
 	CreateScheduledActionRequest,
-	GroupBudgetData,
 	ReduxState,
 } from "split-expense-shared-types";
 import { CreateScheduledActionSchema } from "split-expense-shared-types";
+import { ScheduledActionForm } from "./ScheduledActionForm";
+import {
+	computeUsersFromSession,
+	computeBudgetsFromSession,
+	computeCurrenciesFromSession,
+	computeDefaultCurrency,
+	computeGroupDefaultShare,
+	computeDefaultPayer,
+	computeTodayAsLocalISODate,
+	computeInitialActionData,
+} from "./helpers";
+import { createSubmitHandler } from "./formHandlers";
+import { useFormEffects } from "./useFormEffects";
 
 type ScheduledActionsManagerProps = {
 	mode?: "create" | "edit";
@@ -52,98 +42,75 @@ export const ScheduledActionsManager: React.FC<
 	const createAction = useCreateScheduledAction();
 
 	const session = useSelector((state: ReduxState) => state.value);
-	const users: AuthenticatedUser[] = useMemo(() => {
-		const usersById = session?.extra?.usersById || {};
-		return Object.values(usersById || {});
-	}, [session]);
+	const users: AuthenticatedUser[] = useMemo(
+		() => computeUsersFromSession(session),
+		[session],
+	);
 	const budgets: string[] = useMemo(
-		() =>
-			session?.extra?.group?.budgets?.map((b: GroupBudgetData) => b.id) || [],
+		() => computeBudgetsFromSession(session),
 		[session],
 	);
 	const currencies: string[] = useMemo(
-		() => session?.extra?.currencies || ["USD"],
+		() => computeCurrenciesFromSession(session),
 		[session],
 	);
-	const defaultCurrency: string = useMemo(() => {
-		const groupDefault = session?.extra?.group?.metadata?.defaultCurrency;
-		return groupDefault || currencies[0] || "USD";
-	}, [session, currencies]);
+	const defaultCurrency: string = useMemo(
+		() => computeDefaultCurrency(session, currencies),
+		[session, currencies],
+	);
 
 	// Derive group default splits and default payer for initial values
-	const groupDefaultShare = useMemo(() => {
-		return (session?.extra?.group?.metadata?.defaultShare || {}) as Record<
-			string,
-			number
-		>;
-	}, [session]);
-	const defaultPayer = useMemo(() => {
-		const entries = Object.entries(groupDefaultShare) as Array<
-			[string, number]
-		>;
-		if (entries.length > 0) {
-			return entries.sort((a, b) => b[1] - a[1])[0][0];
-		}
-		return session?.extra?.currentUser?.id || "";
-	}, [groupDefaultShare, session]);
+	const groupDefaultShare = useMemo(
+		() => computeGroupDefaultShare(session),
+		[session],
+	);
+	const defaultPayer = useMemo(
+		() => computeDefaultPayer(groupDefaultShare, session),
+		[groupDefaultShare, session],
+	);
 
 	// Compute today's date in local timezone as YYYY-MM-DD for the date input
-	const todayAsLocalISODate = useMemo(() => {
-		const now = new Date();
-		const year = now.getFullYear();
-		const month = String(now.getMonth() + 1).padStart(2, "0");
-		const day = String(now.getDate()).padStart(2, "0");
-		return `${year}-${month}-${day}`;
-	}, []);
+	const todayAsLocalISODate = useMemo(() => computeTodayAsLocalISODate(), []);
+
+	const [error, setError] = React.useState<string>("");
+	const [success, setSuccess] = React.useState<string>("");
 
 	const form = useForm({
 		defaultValues: initialValues ?? {
 			actionType: "add_expense",
 			frequency: "daily",
 			startDate: todayAsLocalISODate,
-			actionData: {
-				amount: 0,
-				description: "",
-				currency: defaultCurrency,
-				paidByUserId: defaultPayer,
-				splitPctShares: groupDefaultShare,
-			} as AddExpenseActionData,
+			actionData: computeInitialActionData(
+				defaultCurrency,
+				defaultPayer,
+				groupDefaultShare,
+			),
 		},
 		validators: {
 			onMount: CreateScheduledActionSchema,
 			onChange: CreateScheduledActionSchema,
 		},
-		onSubmit: async ({ value }) => {
-			try {
-				if (onSubmit) {
-					await onSubmit(value as CreateScheduledActionRequest);
-				} else {
-					await createAction.mutateAsync(value as CreateScheduledActionRequest);
-				}
-				setSuccess(
-					mode === "edit"
-						? "Scheduled action updated successfully"
-						: "Scheduled action created successfully",
-				);
-				setError("");
-				scrollToTop();
-			} catch (e: any) {
-				setError(
-					e?.errorMessage ||
-						e?.message ||
-						`Failed to ${mode === "edit" ? "update" : "create"} scheduled action`,
-				);
-				setSuccess("");
-				// Scroll to top on error as well
-				scrollToTop();
-			}
-		},
+		onSubmit: createSubmitHandler(
+			createAction,
+			mode,
+			setSuccess,
+			setError,
+			onSubmit,
+		),
 	});
-	const [error, setError] = React.useState<string>("");
-	const [success, setSuccess] = React.useState<string>("");
 
-	// Reactivity per TanStack Form docs: useStore(form.store, selector)
-	const actionType = useStore(form.store, (s) => s.values.actionType);
+	// Use custom hook for form effects and reactive values
+	const { actionType } = useFormEffects({
+		form,
+		session,
+		defaultCurrency,
+		defaultPayer,
+		groupDefaultShare,
+		budgets,
+		initialValues,
+	});
+
+	// Additional reactive values
 	const splitTotal = useStore(form.store, (s) => {
 		const shares = (s.values as any)?.actionData?.splitPctShares || {};
 		return Object.values(shares)
@@ -157,439 +124,30 @@ export const ScheduledActionsManager: React.FC<
 		(s) => (s.values as any)?.actionData?.paidByUserId || "",
 	);
 
-	// Keep currency synced with group's default currency when it changes
-	// Helpers to keep effects flat and readable
-	const getDefaultShare = React.useCallback(() => {
-		return (session?.extra?.group?.metadata?.defaultShare || undefined) as
-			| Record<string, number>
-			| undefined;
-	}, [session]);
-
-	const applyDefaultSplitsIfMissing = React.useCallback(() => {
-		const defaultShare = getDefaultShare();
-		const currentSplits = form.getFieldValue("actionData.splitPctShares") as
-			| Record<string, number>
-			| undefined;
-		const hasSplits = currentSplits && Object.keys(currentSplits).length > 0;
-		if (hasSplits || !defaultShare || Object.keys(defaultShare).length === 0) {
-			return;
-		}
-		form.setFieldValue(
-			"actionData.splitPctShares" as any,
-			defaultShare as Record<string, number> as any,
-		);
-	}, [form, getDefaultShare]);
-
-	const applyDefaultPaidByIfMissing = React.useCallback(() => {
-		const currentPaidBy = form.getFieldValue("actionData.paidByUserId") as
-			| string
-			| undefined;
-		if (currentPaidBy) return;
-
-		let payer = session?.extra?.currentUser?.id || "";
-		const defaultShare = getDefaultShare();
-		if (defaultShare && Object.keys(defaultShare).length > 0) {
-			const topShare = (
-				Object.entries(defaultShare) as Array<[string, number]>
-			).sort((a, b) => b[1] - a[1])[0];
-			if (topShare?.[0]) payer = topShare[0];
-		}
-		form.setFieldValue(
-			"actionData.paidByUserId" as any,
-			payer as string as any,
-		);
-	}, [form, getDefaultShare, session]);
-
-	React.useEffect(() => {
-		if (initialValues) return;
-		form.setFieldValue("actionData.currency", defaultCurrency as any as any);
-		applyDefaultSplitsIfMissing();
-		applyDefaultPaidByIfMissing();
-	}, [
-		defaultCurrency,
-		session,
-		form,
-		initialValues,
-		applyDefaultSplitsIfMissing,
-		applyDefaultPaidByIfMissing,
-	]);
-
-	// Read commonly used fields from the form store
-	const currentAmount = useStore(
-		form.store,
-		(s) => (s.values as any)?.actionData?.amount ?? 0,
-	);
-	const currentDescription = useStore(
-		form.store,
-		(s) => (s.values as any)?.actionData?.description ?? "",
-	);
-	const currentCurrency = useStore(
-		form.store,
-		(s) => (s.values as any)?.actionData?.currency ?? defaultCurrency,
-	);
-
-	const existingBudget = useStore(
-		form.store,
-		(s) => (s.values as any)?.actionData?.budgetId,
-	);
-	const existingType = useStore(
-		form.store,
-		(s) => (s.values as any)?.actionData?.type,
-	);
-
-	// Ensure actionData shape matches actionType so payload is valid
-	React.useEffect(() => {
-		if (actionType === "add_expense") {
-			// Build expense-specific actionData atomically
-			const currentPaid =
-				(form.getFieldValue("actionData.paidByUserId") as string | undefined) ??
-				defaultPayer;
-			const splitsNow =
-				(form.getFieldValue("actionData.splitPctShares") as
-					| Record<string, number>
-					| undefined) ?? groupDefaultShare;
-			form.setFieldValue("actionData", {
-				amount: currentAmount,
-				description: currentDescription,
-				currency: currentCurrency,
-				paidByUserId: currentPaid,
-				splitPctShares: splitsNow,
-			} as AddExpenseActionData);
-		} else if (actionType === "add_budget") {
-			// Build budget-specific actionData atomically and clear expense-only fields
-			form.setFieldValue("actionData", {
-				amount: currentAmount,
-				description: currentDescription,
-				currency: currentCurrency,
-				budgetId: (existingBudget as string) ?? (budgets[0] || ""),
-				type: (existingType as any) ?? ("Credit" as any),
-			} as AddBudgetActionData);
-		}
-	}, [
-		actionType,
-		currentAmount,
-		currentDescription,
-		currentCurrency,
-		existingBudget,
-		existingType,
-		budgets,
-		form,
-		defaultPayer,
-		groupDefaultShare,
-	]);
+	// Form effects logic is handled in useFormEffects hook
 
 	return (
 		<div data-test-id="scheduled-actions-manager">
 			<Card className="settings-card">
 				<h3>Scheduled Actions</h3>
-
-				<FormContainer
-					onSubmit={(e) => {
-						e.preventDefault();
-						form.handleSubmit();
-					}}
-					data-test-id="scheduled-action-form"
-				>
-					{error && (
-						<ErrorContainer message={error} onClose={() => setError("")} />
-					)}
-					{success && (
-						<SuccessContainer
-							message={success}
-							onClose={() => setSuccess("")}
-						/>
-					)}
-					<label>Action</label>
-					<form.Field name="actionType">
-						{(field) => (
-							<ToggleButtonGroup
-								name="scheduled-action-type"
-								value={String(field.state.value ?? "add_expense")}
-								onChange={(val) => {
-									if (mode === "edit") return; // prevent changing type in edit
-									field.handleChange(val as any);
-								}}
-								data-test-id="sa-action-type-toggle"
-								style={{ width: "100%", marginBottom: 8 }}
-								disabled={mode === "edit"}
-							>
-								<ToggleButton
-									value="add_expense"
-									data-test-id="sa-action-expense"
-								>
-									Add Expense
-								</ToggleButton>
-								<ToggleButton
-									value="add_budget"
-									data-test-id="sa-action-budget"
-								>
-									Add to Budget
-								</ToggleButton>
-							</ToggleButtonGroup>
-						)}
-					</form.Field>
-
-					<label>Frequency</label>
-					<form.Field name="frequency">
-						{(field) => (
-							<ToggleButtonGroup
-								name="scheduled-action-frequency"
-								value={String(field.state.value ?? "daily")}
-								onChange={(val) => field.handleChange(val as any)}
-								data-test-id="sa-frequency-toggle"
-								style={{ width: "100%", marginBottom: 8 }}
-							>
-								<ToggleButton value="daily" data-test-id="sa-frequency-daily">
-									Daily
-								</ToggleButton>
-								<ToggleButton value="weekly" data-test-id="sa-frequency-weekly">
-									Weekly
-								</ToggleButton>
-								<ToggleButton
-									value="monthly"
-									data-test-id="sa-frequency-monthly"
-								>
-									Monthly
-								</ToggleButton>
-							</ToggleButtonGroup>
-						)}
-					</form.Field>
-
-					<label>Start Date</label>
-					<form.Field name="startDate">
-						{(field) => (
-							<Input
-								type="date"
-								value={String(field.state.value ?? "")}
-								min={todayAsLocalISODate}
-								required
-								disabled={mode === "edit"}
-								onChange={(e) => {
-									if (mode === "edit") return; // prevent changing start date in edit
-									const val = e.target.value;
-									const clamped =
-										val && val < todayAsLocalISODate
-											? todayAsLocalISODate
-											: val;
-									field.handleChange(clamped);
-								}}
-								data-test-id="sa-start-date"
-								style={
-									mode === "edit" ? { opacity: 0.6, cursor: "not-allowed" } : {}
-								}
-							/>
-						)}
-					</form.Field>
-
-					{actionType === "add_expense" && (
-						<>
-							<label>Description</label>
-							<form.Field name="actionData.description">
-								{(field) => (
-									<Input
-										type="text"
-										value={String(field.state.value ?? "")}
-										required
-										minLength={2}
-										maxLength={100}
-										onChange={(e) => field.handleChange(e.target.value)}
-										data-test-id="sa-exp-description"
-									/>
-								)}
-							</form.Field>
-
-							<label>Amount</label>
-							<form.Field name="actionData.amount">
-								{(field) => (
-									<Input
-										type="number"
-										value={String(field.state.value ?? "")}
-										required
-										step="0.01"
-										min="0.01"
-										onChange={(e) =>
-											field.handleChange(parseFloat(e.target.value) || 0)
-										}
-										data-test-id="sa-exp-amount"
-									/>
-								)}
-							</form.Field>
-
-							<label>Currency</label>
-							<form.Field name="actionData.currency">
-								{(field) => (
-									<Select
-										className="currency-select"
-										value={String(field.state.value ?? currencies[0])}
-										required
-										onChange={(e) => field.handleChange(e.target.value)}
-										data-test-id="sa-exp-currency"
-									>
-										{currencies.map((c) => (
-											<option key={c} value={c}>
-												{c}
-											</option>
-										))}
-									</Select>
-								)}
-							</form.Field>
-
-							<label>Paid By</label>
-							<form.Field name="actionData.paidByUserId">
-								{(field) => (
-									<Select
-										className="paid-by-select"
-										value={String(field.state.value ?? "")}
-										onChange={(e) => field.handleChange(e.target.value)}
-										required
-										data-test-id="sa-exp-paid-by"
-									>
-										<option value="" disabled>
-											Select who paid
-										</option>
-										{users.map((u) => (
-											<option key={u.id} value={u.id}>
-												{u.firstName} {u.lastName}
-											</option>
-										))}
-									</Select>
-								)}
-							</form.Field>
-
-							<label>Split Percentages</label>
-							<SplitPercentageContainer>
-								{users.map((u) => {
-									return (
-										<SplitPercentageInputContainer key={u.id}>
-											<label>{u.firstName}</label>
-											<form.Field name={`actionData.splitPctShares.${u.id}`}>
-												{(field) => (
-													<Input
-														type="number"
-														min="0"
-														max="100"
-														step="0.01"
-														value={String(field.state.value ?? 0)}
-														required
-														onChange={(e) =>
-															field.handleChange(
-																parseFloat(e.target.value) || 0,
-															)
-														}
-														data-test-id={`sa-exp-split-${u.id}`}
-													/>
-												)}
-											</form.Field>
-										</SplitPercentageInputContainer>
-									);
-								})}
-								<div style={{ fontWeight: 600 }}>
-									Total: {splitTotal.toFixed(2)}%
-								</div>
-							</SplitPercentageContainer>
-						</>
-					)}
-
-					{actionType === "add_budget" && (
-						<>
-							<label>Description</label>
-							<form.Field name="actionData.description">
-								{(field) => (
-									<Input
-										type="text"
-										value={String(field.state.value ?? "")}
-										required
-										minLength={2}
-										maxLength={100}
-										onChange={(e) => field.handleChange(e.target.value)}
-										data-test-id="sa-bud-description"
-									/>
-								)}
-							</form.Field>
-
-							<label>Amount</label>
-							<form.Field name="actionData.amount">
-								{(field) => (
-									<Input
-										type="number"
-										value={String(field.state.value ?? "")}
-										required
-										step="0.01"
-										min="0.01"
-										onChange={(e) =>
-											field.handleChange(parseFloat(e.target.value) || 0)
-										}
-										data-test-id="sa-bud-amount"
-									/>
-								)}
-							</form.Field>
-
-							<label>Budget Category</label>
-							<form.Field name="actionData.budgetId">
-								{(field) => (
-									<SelectBudget
-										budgetId={String(field.state.value ?? (budgets[0] || ""))}
-										handleChangeBudget={(val: string) =>
-											field.handleChange(val)
-										}
-										disabled={false}
-									/>
-								)}
-							</form.Field>
-
-							<label>Currency</label>
-							<form.Field name="actionData.currency">
-								{(field) => (
-									<Select
-										className="currency-select"
-										value={String(field.state.value ?? currencies[0])}
-										required
-										onChange={(e) => field.handleChange(e.target.value)}
-										data-test-id="sa-bud-currency"
-									>
-										{currencies.map((c) => (
-											<option key={c} value={c}>
-												{c}
-											</option>
-										))}
-									</Select>
-								)}
-							</form.Field>
-
-							<label>Type</label>
-							<form.Field name="actionData.type">
-								{(field) => (
-									<CreditDebit
-										budget={String(field.state.value ?? "Credit")}
-										handleChangeBudget={(val: string) =>
-											field.handleChange(val as any)
-										}
-										disabled={false}
-									/>
-								)}
-							</form.Field>
-						</>
-					)}
-
-					<ButtonRow>
-						<Button
-							type="submit"
-							data-test-id="sa-submit"
-							disabled={
-								!canSubmit ||
-								isSubmitting ||
-								createAction.isPending ||
-								(actionType === "add_expense" && !paidByUserId)
-							}
-						>
-							{createAction.isPending || isSubmitting
-								? mode === "edit"
-									? "Saving..."
-									: "Creating..."
-								: (submitLabel ?? (mode === "edit" ? "Save" : "Create"))}
-						</Button>
-					</ButtonRow>
-				</FormContainer>
+				<ScheduledActionForm
+					form={form}
+					mode={mode}
+					error={error}
+					success={success}
+					setError={setError}
+					setSuccess={setSuccess}
+					actionType={actionType}
+					todayAsLocalISODate={todayAsLocalISODate}
+					users={users}
+					currencies={currencies}
+					splitTotal={splitTotal}
+					canSubmit={canSubmit}
+					isSubmitting={isSubmitting}
+					submitLabel={submitLabel}
+					createAction={createAction}
+					paidByUserId={paidByUserId}
+				/>
 			</Card>
 		</div>
 	);

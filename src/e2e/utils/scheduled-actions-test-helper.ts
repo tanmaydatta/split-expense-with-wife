@@ -87,14 +87,14 @@ export class ScheduledActionsTestHelper {
 
 		await this.authenticatedPage.page.getByTestId("sa-action-budget").click();
 		await this.authenticatedPage.page
-			.getByTestId("sa-bud-description")
+			.getByTestId("sa-budget-description")
 			.fill(description);
 		await this.authenticatedPage.page
-			.getByTestId("sa-bud-amount")
+			.getByTestId("sa-budget-amount")
 			.fill(String(amount));
 
 		const currencySelect =
-			this.authenticatedPage.page.getByTestId("sa-bud-currency");
+			this.authenticatedPage.page.getByTestId("sa-budget-currency");
 		if (currencyLabel) {
 			await currencySelect.selectOption({ label: currencyLabel });
 		} else {
