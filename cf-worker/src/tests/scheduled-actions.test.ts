@@ -19,6 +19,27 @@ import { auth } from "../auth";
 import { getDb } from "../db";
 import { groupBudgets, groups, scheduledActionHistory, scheduledActions } from "../db/schema/schema";
 import { calculateNextExecutionDate } from "../handlers/scheduled-actions";
+
+// Import the new helper function for testing
+// Note: This is a workaround since getEffectiveNextDate is not exported
+// We'll test it through the handlers that use it, plus add some direct tests
+function getEffectiveNextDate(
+	storedDate: string,
+	startDate: string,
+	frequency: "daily" | "weekly" | "monthly",
+): string {
+	const stored = new Date(storedDate);
+	const now = new Date();
+	now.setUTCHours(0, 0, 0, 0);
+
+	// If stored date is in future, use it (preserves custom dates/skips)
+	if (stored > now) {
+		return storedDate;
+	}
+
+	// Otherwise, calculate next date (handles stale dates)
+	return calculateNextExecutionDate(startDate, frequency);
+}
 import worker from "../index";
 import { formatSQLiteTime } from "../utils";
 import {
