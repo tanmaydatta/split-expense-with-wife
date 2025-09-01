@@ -293,10 +293,14 @@ export async function handleScheduledActionList(
 			.limit(limit)
 			.offset(offset);
 
-		// Convert null to undefined for TypeScript compatibility
+		// Convert null to undefined for TypeScript compatibility and calculate actual next dates
 		const convertedActions = actions.map((action) => ({
 			...action,
 			lastExecutedAt: action.lastExecutedAt || undefined,
+			// Calculate actual next date using helper function instead of potentially stale DB value
+			nextExecutionDate: action.isActive
+				? calculateNextExecutionDate(action.startDate, action.frequency)
+				: action.nextExecutionDate, // Keep DB value for inactive actions for historical tracking
 		}));
 
 		const response: ScheduledActionListResponse = {
@@ -720,7 +724,18 @@ export async function handleScheduledActionDetails(
 			);
 		}
 
-		return createJsonResponse(rows[0], 200, {}, request, env);
+		// Calculate actual next date instead of returning potentially stale DB value
+		const action = rows[0];
+		const responseAction = {
+			...action,
+			lastExecutedAt: action.lastExecutedAt || undefined,
+			// Calculate actual next date using helper function instead of potentially stale DB value
+			nextExecutionDate: action.isActive
+				? calculateNextExecutionDate(action.startDate, action.frequency)
+				: action.nextExecutionDate, // Keep DB value for inactive actions for historical tracking
+		};
+
+		return createJsonResponse(responseAction, 200, {}, request, env);
 	});
 }
 

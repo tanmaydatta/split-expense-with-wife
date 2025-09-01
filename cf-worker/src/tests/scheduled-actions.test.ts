@@ -584,6 +584,39 @@ describe("Scheduled Actions Handlers", () => {
 			expect(result.totalCount).toBe(0);
 			expect(result.scheduledActions).toHaveLength(0);
 		});
+
+		it("should return calculated next dates instead of stale database values", async () => {
+			const request = createTestRequest(
+				"scheduled-actions/list",
+				"GET",
+				undefined,
+				userCookies,
+			);
+			const response = await worker.fetch(
+				request,
+				env,
+				createExecutionContext(),
+			);
+			expect(response.status).toBe(200);
+			const result: ScheduledActionListResponse = await response.json();
+			
+			// Find active and inactive actions
+			const activeAction = result.scheduledActions.find(a => a.isActive);
+			const inactiveAction = result.scheduledActions.find(a => !a.isActive);
+			
+			// Active action should have calculated next date (not the stale "2024-01-01")
+			expect(activeAction).toBeDefined();
+			expect(activeAction!.nextExecutionDate).not.toBe("2024-01-01");
+			const calculatedDate = calculateNextExecutionDate(
+				activeAction!.startDate, 
+				activeAction!.frequency
+			);
+			expect(activeAction!.nextExecutionDate).toBe(calculatedDate);
+			
+			// Inactive action should keep original database value for historical tracking
+			expect(inactiveAction).toBeDefined();
+			expect(inactiveAction!.nextExecutionDate).toBe("2024-01-01");
+		});
 	});
 
 	describe("handleScheduledActionUpdate", () => {
@@ -1146,6 +1179,65 @@ describe("Scheduled Actions Handlers", () => {
 						createExecutionContext(),
 					);
 					expect(response.status).toBe(404);
+				});
+
+				it("should return calculated next date instead of stale database value", async () => {
+					const request = createTestRequest(
+						`scheduled-actions/details?id=${actionId}`,
+						"GET",
+						undefined,
+						userCookies,
+					);
+					const response = await worker.fetch(request, env, createExecutionContext());
+					expect(response.status).toBe(200);
+					const result = (await response.json()) as ScheduledAction;
+					
+					// Active action should have calculated next date (not the stale "2024-01-01")
+					expect(result.nextExecutionDate).not.toBe("2024-01-01");
+					const calculatedDate = calculateNextExecutionDate(
+						result.startDate, 
+						result.frequency
+					);
+					expect(result.nextExecutionDate).toBe(calculatedDate);
+				});
+
+				it("should keep database next date for inactive actions", async () => {
+					// Create an inactive action with stale next date
+					const db = getDb(env);
+					const inactiveActionId = ulid();
+					const now = "2024-03-15T10:30:00.000Z";
+					await db.insert(scheduledActions).values({
+						id: inactiveActionId,
+						userId: TEST_USERS.user1.id,
+						actionType: "add_budget",
+						frequency: "monthly",
+						startDate: "2024-01-01",
+						isActive: false, // Inactive
+						createdAt: now,
+						updatedAt: now,
+						actionData: {
+							amount: 200,
+							description: "Monthly budget",
+							budgetId: "utilities",
+							currency: "USD",
+							type: "Credit",
+						},
+						nextExecutionDate: "2024-01-01", // Stale date
+					});
+
+					const request = createTestRequest(
+						`scheduled-actions/details?id=${inactiveActionId}`,
+						"GET",
+						undefined,
+						userCookies,
+					);
+					const response = await worker.fetch(request, env, createExecutionContext());
+					expect(response.status).toBe(200);
+					const result = (await response.json()) as ScheduledAction;
+					
+					// Inactive action should keep original database value for historical tracking
+					expect(result.nextExecutionDate).toBe("2024-01-01");
+					expect(result.isActive).toBe(false);
 				});
 			});
 
