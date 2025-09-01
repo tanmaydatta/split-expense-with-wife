@@ -110,6 +110,25 @@ export function calculateNextExecutionDate(
 	return next.toISOString().split("T")[0]; // Return ISO date string
 }
 
+// Smart date calculation that preserves user-set future dates
+function getEffectiveNextDate(
+	storedDate: string,
+	startDate: string,
+	frequency: "daily" | "weekly" | "monthly",
+): string {
+	const stored = new Date(storedDate);
+	const now = new Date();
+	now.setUTCHours(0, 0, 0, 0);
+
+	// If stored date is in future, use it (preserves custom dates/skips)
+	if (stored > now) {
+		return storedDate;
+	}
+
+	// Otherwise, calculate next date (handles stale dates)
+	return calculateNextExecutionDate(startDate, frequency);
+}
+
 // Build runtime Zod schemas with group-aware rules
 function buildActionDataSchemas(userIds: string[], budgets: string[]) {
 	const currencySchema = z
@@ -293,10 +312,16 @@ export async function handleScheduledActionList(
 			.limit(limit)
 			.offset(offset);
 
-		// Convert null to undefined for TypeScript compatibility
+		// Convert null to undefined for TypeScript compatibility and use smart date calculation
 		const convertedActions = actions.map((action) => ({
 			...action,
 			lastExecutedAt: action.lastExecutedAt || undefined,
+			// Use smart calculation that preserves user-set future dates
+			nextExecutionDate: getEffectiveNextDate(
+				action.nextExecutionDate,
+				action.startDate,
+				action.frequency,
+			),
 		}));
 
 		const response: ScheduledActionListResponse = {
@@ -720,7 +745,20 @@ export async function handleScheduledActionDetails(
 			);
 		}
 
-		return createJsonResponse(rows[0], 200, {}, request, env);
+		// Use smart date calculation that preserves user-set future dates
+		const action = rows[0];
+		const responseAction = {
+			...action,
+			lastExecutedAt: action.lastExecutedAt || undefined,
+			// Use smart calculation that preserves user-set future dates
+			nextExecutionDate: getEffectiveNextDate(
+				action.nextExecutionDate,
+				action.startDate,
+				action.frequency,
+			),
+		};
+
+		return createJsonResponse(responseAction, 200, {}, request, env);
 	});
 }
 

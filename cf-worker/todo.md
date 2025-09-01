@@ -41,13 +41,11 @@
 - edit action, start date should not be mutated ever ✅
 - react query ✅
 - react form ✅
-- scheduled actions after paused after play  next date should be recalculated
+- scheduled actions after paused after play next date should be recalculated
 - react query - pagination
 - refactor currencies
 - scan receipt
 - full text search
-- transaction/add
-- budget/add
 - group context - idk??
 - add new users
 - rate limiting
@@ -55,3 +53,5 @@
 - convert to dropdown if more than 4 budgets
 - force refresh rate limit
 - budget edits
+- transaction/add
+- budget/add
