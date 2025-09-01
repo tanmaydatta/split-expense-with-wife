@@ -297,10 +297,11 @@ export async function handleScheduledActionList(
 		const convertedActions = actions.map((action) => ({
 			...action,
 			lastExecutedAt: action.lastExecutedAt || undefined,
-			// Calculate actual next date using helper function instead of potentially stale DB value
-			nextExecutionDate: action.isActive
-				? calculateNextExecutionDate(action.startDate, action.frequency)
-				: action.nextExecutionDate, // Keep DB value for inactive actions for historical tracking
+			// Always calculate next date using helper function instead of potentially stale DB value
+			nextExecutionDate: calculateNextExecutionDate(
+				action.startDate,
+				action.frequency,
+			),
 		}));
 
 		const response: ScheduledActionListResponse = {
@@ -729,10 +730,11 @@ export async function handleScheduledActionDetails(
 		const responseAction = {
 			...action,
 			lastExecutedAt: action.lastExecutedAt || undefined,
-			// Calculate actual next date using helper function instead of potentially stale DB value
-			nextExecutionDate: action.isActive
-				? calculateNextExecutionDate(action.startDate, action.frequency)
-				: action.nextExecutionDate, // Keep DB value for inactive actions for historical tracking
+			// Always calculate next date using helper function instead of potentially stale DB value
+			nextExecutionDate: calculateNextExecutionDate(
+				action.startDate,
+				action.frequency,
+			),
 		};
 
 		return createJsonResponse(responseAction, 200, {}, request, env);
