@@ -49,8 +49,8 @@ export function BudgetChart({
 	const chartHeight = windowWidth < 768 ? 300 : 400;
 	const margin =
 		windowWidth < 768
-			? { top: 20, right: 10, left: 10, bottom: 60 }
-			: { top: 20, right: 30, left: 20, bottom: 5 };
+			? { top: 20, right: 80, left: 10, bottom: 60 }
+			: { top: 20, right: 120, left: 20, bottom: 5 };
 
 	return (
 		<ResponsiveContainer width="100%" height={chartHeight}>
@@ -73,7 +73,7 @@ export function BudgetChart({
 				<Legend />
 				<Bar
 					dataKey="expenses"
-					fill="#8884d8"
+					fill="var(--color-danger)"
 					name="Monthly Expenses"
 					radius={[4, 4, 0, 0]}
 				/>
@@ -83,9 +83,13 @@ export function BudgetChart({
 					strokeDasharray="5 5"
 					strokeWidth={2}
 					label={{
-						value: `Avg: ${getSymbolFromCurrency(currency)}${averageExpense.toLocaleString()}`,
+						value: `Avg: ${getSymbolFromCurrency(currency)}${Math.round(averageExpense).toLocaleString()}`,
 						position: "right",
-						fontSize: windowWidth < 768 ? 12 : 14,
+						style: {
+							fontSize: windowWidth <= 480 ? "10px" : "12px",
+							fontWeight: "600",
+							fill: "var(--color-danger)",
+						},
 					}}
 				/>
 			</BarChart>
