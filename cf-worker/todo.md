@@ -41,7 +41,8 @@
 - edit action, start date should not be mutated ever ✅
 - react query ✅
 - react form ✅
-- scheduled actions after paused after play next date should be recalculated
+- scheduled actions after paused after play next date should be recalculated ✅
+- monthly budget UI not showing avg and color is wrong
 - react query - pagination
 - refactor currencies
 - scan receipt

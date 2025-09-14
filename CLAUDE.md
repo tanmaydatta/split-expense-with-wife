@@ -151,3 +151,4 @@ This is a full-stack expense splitting application with the following architectu
 **Rollback Strategy:** Migration can be rolled back by regenerating the `groups.budgets` JSON column from the normalized data.
 - always update documentation after implementing changes
 - do not add created by claude in commit message. keep message as short as possible
+- use yarn lint after you are done with your changes. also run yarn test inside cf-worker if you make any backend changes
