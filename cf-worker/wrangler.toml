@@ -54,10 +54,10 @@ enabled = true
     migrations_dir = "src/db/migrations"
     
     [env.prod.vars]
-    ALLOWED_ORIGINS = "https://splitexpense.netlify.app,https://deploy-preview-5--splitexpense.netlify.app,http://localhost:3000,http://localhost:3001"
+    ALLOWED_ORIGINS = "https://budget.wastd.dev,https://splitexpense.netlify.app,https://deploy-preview-5--splitexpense.netlify.app,http://localhost:3000,http://localhost:3001"
     GROUP_IDS = ""
-    BASE_URL = "https://splitexpense.tanmaydatta.workers.dev/auth"
-    AUTH_TRUSTED_ORIGINS = ["https://splitexpense.tanmaydatta.workers.dev"]
+    BASE_URL = "https://budget.wastd.dev/auth"
+    AUTH_TRUSTED_ORIGINS = ["https://budget.wastd.dev","https://splitexpense.tanmaydatta.workers.dev"]
     LOCAL = false
 
     [[env.prod.workflows]]
