@@ -4,8 +4,17 @@
 declare namespace Cloudflare {
 	interface Env {
 		GROUP_IDS: "";
-		BASE_URL: "http://localhost:8787/auth" | "https://budget.wastd.dev/auth" | "https://splitexpense-dev.tanmaydatta.workers.dev/auth";
-		AUTH_TRUSTED_ORIGINS: ["http://localhost:8787","http://localhost:3000"] | ["https://budget.wastd.dev","https://splitexpense.tanmaydatta.workers.dev"] | ["https://splitexpense-dev.tanmaydatta.workers.dev"];
+		BASE_URL:
+			| "http://localhost:8787/auth"
+			| "https://budget.wastd.dev/auth"
+			| "https://splitexpense-dev.tanmaydatta.workers.dev/auth";
+		AUTH_TRUSTED_ORIGINS:
+			| ["http://localhost:8787", "http://localhost:3000"]
+			| [
+					"https://budget.wastd.dev",
+					"https://splitexpense.tanmaydatta.workers.dev",
+			  ]
+			| ["https://splitexpense-dev.tanmaydatta.workers.dev"];
 		AUTH_PIN: string;
 		DSN: string;
 		DSN_D1: string;
