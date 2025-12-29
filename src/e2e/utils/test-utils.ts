@@ -388,25 +388,4 @@ export class TestHelper {
 			}
 		});
 	}
-
-	/**
-	 * Mock API error for testing
-	 */
-	async mockApiError(
-		endpoint: string,
-		statusCode: number = 400,
-		errorMessage: string = "Test error",
-	): Promise<void> {
-		// Use exact production URL pattern that we discovered works
-		await this.page.route(
-			`**/splitexpense.tanmaydatta.workers.dev/.netlify/functions/${endpoint}`,
-			(route) => {
-				route.fulfill({
-					status: statusCode,
-					contentType: "application/json",
-					body: JSON.stringify({ error: errorMessage }),
-				});
-			},
-		);
-	}
 }
