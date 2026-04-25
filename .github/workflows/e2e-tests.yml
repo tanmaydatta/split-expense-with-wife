@@ -13,29 +13,36 @@ jobs:
     
     # Job-level environment variables (available to all steps)
     env:
-      REACT_APP_API_BASE_URL: ${{ vars.REACT_APP_API_BASE_URL }}
-      REACT_APP_AUTH_BASE_URL: ${{ vars.REACT_APP_AUTH_BASE_URL }}
-    
+      # E2E_SEED_SECRET enables the test-only POST /test/seed endpoint on the
+      # local cf-worker. Set as a GitHub Actions secret on the repo.
+      E2E_SEED_SECRET: ${{ secrets.E2E_SEED_SECRET }}
+      # Note: REACT_APP_API_BASE_URL is intentionally NOT set at job level any
+      # more. Playwright's webServer config sets it per-process to point at the
+      # local cf-worker (http://localhost:8787) when E2E_BACKEND_URL is unset.
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
         node-version: '22'
         cache: 'yarn'
-    
+
     - name: Install dependencies
       run: yarn install --immutable
-    
+
     - name: Install Playwright Browsers and System Dependencies
       run: yarn test:e2e:install
-    
+
     - name: Build the application
       run: yarn build
-    
+
+    - name: Reset local D1 state (fresh per CI run)
+      run: rm -rf cf-worker/.wrangler/state/v3/d1
+
     - name: Run E2E tests
-      run: yarn playwright test --project=chromium --workers=1 --reporter=list,html --trace=on  src/e2e/tests/scheduled-actions.spec.ts && yarn playwright test --project=chromium --workers=1 --reporter=list,html --trace=on  src/e2e/tests/settings-management.spec.ts && yarn playwright test --project=chromium --workers=1 --reporter=list,html --trace=on src/e2e/tests/budget-management.spec.ts && yarn playwright test --project=chromium --workers=1 --reporter=list,html --trace=on src/e2e/tests/transactions-balances.spec.ts && yarn playwright test --project=chromium --workers=1 --reporter=list,html --trace=on src/e2e/tests/expense-management.spec.ts && yarn playwright test --project=chromium --workers=1 --reporter=list,html --trace=on src/e2e/tests/auth.spec.ts
+      run: yarn playwright test --project=chromium --workers=1 --reporter=list,html --trace=on
     
     - name: Upload test results
       uses: actions/upload-artifact@v4
