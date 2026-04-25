@@ -3,6 +3,185 @@ import { createErrorResponse, createJsonResponse } from "../utils";
 
 const SEED_SECRET_HEADER = "X-E2E-Seed-Secret";
 
+const VALID_CURRENCIES = [
+	"USD",
+	"EUR",
+	"GBP",
+	"INR",
+	"CAD",
+	"AUD",
+	"JPY",
+	"CHF",
+	"CNY",
+	"SGD",
+];
+
+function validateUsers(
+	payload: SeedRequest,
+	userAliases: Set<string>,
+): string | null {
+	for (const u of payload.users ?? []) {
+		if (userAliases.has(u.alias)) return `users alias '${u.alias}' duplicated`;
+		userAliases.add(u.alias);
+	}
+	return null;
+}
+
+function validateGroup(
+	g: NonNullable<SeedRequest["groups"]>[number],
+	userAliases: Set<string>,
+): string | null {
+	for (const member of g.members) {
+		if (!userAliases.has(member)) {
+			return `group '${g.alias}' member '${member}' not in users[]`;
+		}
+	}
+	if (g.defaultCurrency && !VALID_CURRENCIES.includes(g.defaultCurrency)) {
+		return `group '${g.alias}' has invalid currency '${g.defaultCurrency}'`;
+	}
+	return null;
+}
+
+function validateGroups(
+	payload: SeedRequest,
+	userAliases: Set<string>,
+	groupAliases: Set<string>,
+): string | null {
+	for (const g of payload.groups ?? []) {
+		if (groupAliases.has(g.alias))
+			return `groups alias '${g.alias}' duplicated`;
+		groupAliases.add(g.alias);
+		const err = validateGroup(g, userAliases);
+		if (err) return err;
+	}
+	return null;
+}
+
+function collectBudgets(
+	payload: SeedRequest,
+	budgetAliasToGroup: Map<string, string>,
+): string | null {
+	for (const g of payload.groups ?? []) {
+		for (const b of g.budgets ?? []) {
+			if (budgetAliasToGroup.has(b.alias)) {
+				return `budget alias '${b.alias}' duplicated`;
+			}
+			budgetAliasToGroup.set(b.alias, g.alias);
+		}
+	}
+	return null;
+}
+
+function validateTransactionShares(
+	t: NonNullable<SeedRequest["transactions"]>[number],
+	userAliases: Set<string>,
+): string | null {
+	for (const userAlias of Object.keys(t.paidByShares)) {
+		if (!userAliases.has(userAlias)) {
+			return `transaction '${t.alias}' paidByShares references unknown user '${userAlias}'`;
+		}
+	}
+	for (const userAlias of Object.keys(t.splitPctShares)) {
+		if (!userAliases.has(userAlias)) {
+			return `transaction '${t.alias}' splitPctShares references unknown user '${userAlias}'`;
+		}
+	}
+	const paidSum = Object.values(t.paidByShares).reduce((a, b) => a + b, 0);
+	if (Math.abs(paidSum - t.amount) > 0.001) {
+		return `transaction '${t.alias}' paidByShares sum ${paidSum} != amount ${t.amount}`;
+	}
+	const pctSum = Object.values(t.splitPctShares).reduce((a, b) => a + b, 0);
+	if (Math.abs(pctSum - 100) > 0.001) {
+		return `transaction '${t.alias}' splitPctShares sum ${pctSum} != 100`;
+	}
+	if (t.currency && !VALID_CURRENCIES.includes(t.currency)) {
+		return `transaction '${t.alias}' invalid currency '${t.currency}'`;
+	}
+	return null;
+}
+
+function validateTransactions(
+	payload: SeedRequest,
+	userAliases: Set<string>,
+	groupAliases: Set<string>,
+): string | null {
+	const txAliases = new Set<string>();
+	for (const t of payload.transactions ?? []) {
+		if (txAliases.has(t.alias))
+			return `transactions alias '${t.alias}' duplicated`;
+		txAliases.add(t.alias);
+		if (!groupAliases.has(t.group)) {
+			return `transaction '${t.alias}' references unknown group '${t.group}'`;
+		}
+		const shareErr = validateTransactionShares(t, userAliases);
+		if (shareErr) return shareErr;
+	}
+	return null;
+}
+
+function validateBudgetEntry(
+	be: NonNullable<SeedRequest["budgetEntries"]>[number],
+	groupAliases: Set<string>,
+	budgetAliasToGroup: Map<string, string>,
+): string | null {
+	if (!groupAliases.has(be.group)) {
+		return `budgetEntry '${be.alias}' references unknown group '${be.group}'`;
+	}
+	if (!budgetAliasToGroup.has(be.budget)) {
+		return `budgetEntry '${be.alias}' references unknown budget '${be.budget}'`;
+	}
+	if (budgetAliasToGroup.get(be.budget) !== be.group) {
+		return `budgetEntry '${be.alias}' budget '${be.budget}' belongs to a different group`;
+	}
+	if (be.currency && !VALID_CURRENCIES.includes(be.currency)) {
+		return `budgetEntry '${be.alias}' invalid currency '${be.currency}'`;
+	}
+	return null;
+}
+
+function validateBudgetEntries(
+	payload: SeedRequest,
+	groupAliases: Set<string>,
+	budgetAliasToGroup: Map<string, string>,
+): string | null {
+	const beAliases = new Set<string>();
+	for (const be of payload.budgetEntries ?? []) {
+		if (beAliases.has(be.alias))
+			return `budgetEntries alias '${be.alias}' duplicated`;
+		beAliases.add(be.alias);
+		const err = validateBudgetEntry(be, groupAliases, budgetAliasToGroup);
+		if (err) return err;
+	}
+	return null;
+}
+
+function validateAuthenticate(
+	payload: SeedRequest,
+	userAliases: Set<string>,
+): string | null {
+	for (const alias of payload.authenticate ?? []) {
+		if (!userAliases.has(alias)) {
+			return `authenticate references unknown user '${alias}'`;
+		}
+	}
+	return null;
+}
+
+function validate(payload: SeedRequest): string | null {
+	const userAliases = new Set<string>();
+	const groupAliases = new Set<string>();
+	const budgetAliasToGroup = new Map<string, string>();
+
+	return (
+		validateUsers(payload, userAliases) ||
+		validateGroups(payload, userAliases, groupAliases) ||
+		collectBudgets(payload, budgetAliasToGroup) ||
+		validateTransactions(payload, userAliases, groupAliases) ||
+		validateBudgetEntries(payload, groupAliases, budgetAliasToGroup) ||
+		validateAuthenticate(payload, userAliases)
+	);
+}
+
 export async function handleTestSeed(
 	request: Request,
 	env: Env,
@@ -13,15 +192,20 @@ export async function handleTestSeed(
 		return createErrorResponse("Not Found", 404, request, env);
 	}
 
-	let _payload: SeedRequest;
+	let payload: SeedRequest;
 	try {
-		_payload = (await request.json()) as SeedRequest;
+		payload = (await request.json()) as SeedRequest;
 	} catch {
 		return createErrorResponse("Invalid JSON", 400, request, env);
 	}
 
-	// Validation + entity creation come in subsequent tasks.
-	// For now, return a stub response so the gate test passes.
+	const error = validate(payload);
+	if (error) {
+		return createErrorResponse(error, 400, request, env);
+	}
+
+	// Entity creation comes in subsequent tasks (6–11).
+	// For now, return a stub response with empty maps.
 	const response: SeedResponse = {
 		ids: { users: {}, groups: {}, transactions: {}, budgetEntries: {} },
 		sessions: {},

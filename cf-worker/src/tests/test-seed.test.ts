@@ -105,3 +105,120 @@ describe("POST /test/seed gate", () => {
     expect(res.status).toBe(405);
   });
 });
+
+describe("POST /test/seed validation", () => {
+  beforeEach(() => {
+    env.E2E_SEED_SECRET = TEST_SECRET;
+  });
+
+  afterEach(() => {
+    env.E2E_SEED_SECRET = ORIGINAL_SECRET;
+  });
+
+  async function postSeed(body: unknown): Promise<Response> {
+    const req = new Request(URL_PATH, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-E2E-Seed-Secret": TEST_SECRET,
+      },
+      body: JSON.stringify(body),
+    });
+    const ctx = createExecutionContext();
+    const res = await worker.fetch(req, env, ctx);
+    await waitOnExecutionContext(ctx);
+    return res;
+  }
+
+  it("returns 400 when a transaction references unknown group alias", async () => {
+    const res = await postSeed({
+      users: [{ alias: "u" }],
+      transactions: [{
+        alias: "t", group: "missing", amount: 100,
+        paidByShares: { u: 100 }, splitPctShares: { u: 100 },
+      }],
+    });
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toMatch(/group.*missing/i);
+  });
+
+  it("returns 400 when paidByShares sum doesn't equal amount", async () => {
+    const res = await postSeed({
+      users: [{ alias: "u" }],
+      groups: [{ alias: "g", members: ["u"] }],
+      transactions: [{
+        alias: "t", group: "g", amount: 100,
+        paidByShares: { u: 50 },
+        splitPctShares: { u: 100 },
+      }],
+    });
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toMatch(/paidByShares.*sum/i);
+  });
+
+  it("returns 400 when splitPctShares doesn't sum to 100", async () => {
+    const res = await postSeed({
+      users: [{ alias: "u" }],
+      groups: [{ alias: "g", members: ["u"] }],
+      transactions: [{
+        alias: "t", group: "g", amount: 100,
+        paidByShares: { u: 100 },
+        splitPctShares: { u: 90 },
+      }],
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("returns 400 for unknown currency", async () => {
+    const res = await postSeed({
+      users: [{ alias: "u" }],
+      groups: [{ alias: "g", members: ["u"], defaultCurrency: "XYZ" }],
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("returns 400 when authenticate references unknown user alias", async () => {
+    const res = await postSeed({
+      users: [{ alias: "u" }],
+      authenticate: ["bob"],
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("returns 400 when alias is reused within users[]", async () => {
+    const res = await postSeed({
+      users: [{ alias: "u" }, { alias: "u" }],
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("returns 400 when group member references unknown user alias", async () => {
+    const res = await postSeed({
+      groups: [{ alias: "g", members: ["ghost"] }],
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("returns 400 when budgetEntry references unknown budget alias", async () => {
+    const res = await postSeed({
+      users: [{ alias: "u" }],
+      groups: [{ alias: "g", members: ["u"] }],
+      budgetEntries: [{ alias: "be", group: "g", budget: "ghost", amount: 10 }],
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("returns 400 when budgetEntry's budget belongs to a different group", async () => {
+    const res = await postSeed({
+      users: [{ alias: "u" }],
+      groups: [
+        { alias: "g1", members: ["u"], budgets: [{ alias: "b1", name: "B1" }] },
+        { alias: "g2", members: ["u"] },
+      ],
+      budgetEntries: [{ alias: "be", group: "g2", budget: "b1", amount: 10 }],
+    });
+    expect(res.status).toBe(400);
+  });
+});
