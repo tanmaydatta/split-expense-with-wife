@@ -7,6 +7,7 @@ import { eq } from "drizzle-orm";
 // Vitest globals are available through the test environment
 import { getDb } from "../db";
 import { user as userTable } from "../db/schema/auth-schema";
+import { groupBudgets, groups } from "../db/schema/schema";
 import worker from "../index";
 import { completeCleanupDatabase, setupDatabase } from "./test-utils";
 
@@ -267,11 +268,18 @@ describe("POST /test/seed validation", () => {
     });
     expect(res.status).toBe(200);
     const body = (await res.json()) as {
-      ids: { users: object; groups: object; transactions: object; budgetEntries: object };
+      ids: {
+        users: object;
+        groups: Record<string, { id: string }>;
+        transactions: object;
+        budgetEntries: object;
+      };
       sessions: object;
     };
-    // Users are now created (Task 6); other entity types remain empty stubs until Tasks 7+.
-    expect(body.ids.groups).toEqual({});
+    // Users (Task 6) and groups (Task 7) are now created; transactions and
+    // budgetEntries remain empty stubs until Tasks 8/9.
+    expect(Object.keys(body.ids.groups)).toEqual(["g"]);
+    expect(body.ids.groups.g.id).toMatch(/^.+/);
     expect(body.ids.transactions).toEqual({});
     expect(body.ids.budgetEntries).toEqual({});
     expect(body.sessions).toEqual({});
@@ -325,5 +333,110 @@ describe("POST /test/seed user creation", () => {
     };
     expect(body.ids.users.carol.email).toBe("carol@custom.test");
     expect(body.ids.users.carol.username).toBe("carol_custom");
+  });
+});
+
+describe("POST /test/seed group creation", () => {
+  beforeEach(async () => {
+    env.E2E_SEED_SECRET = TEST_SECRET;
+    await completeCleanupDatabase(env);
+    await setupDatabase(env);
+  });
+
+  afterEach(() => {
+    env.E2E_SEED_SECRET = ORIGINAL_SECRET;
+  });
+
+  it("creates a group with budgets, sets userids JSON, and updates user.groupid", async () => {
+    const res = await postSeed({
+      users: [{ alias: "u1" }, { alias: "u2" }],
+      groups: [{
+        alias: "g",
+        name: "Test Group",
+        members: ["u1", "u2"],
+        defaultCurrency: "USD",
+        budgets: [
+          { alias: "groceries", name: "Groceries" },
+          { alias: "rent", name: "Rent", description: "Monthly rent" },
+        ],
+      }],
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      ids: {
+        users: Record<string, { id: string }>;
+        groups: Record<string, { id: string }>;
+      };
+    };
+
+    const groupId = body.ids.groups.g.id;
+    const u1Id = body.ids.users.u1.id;
+    const u2Id = body.ids.users.u2.id;
+    expect(groupId).toMatch(/^.+/);
+
+    const db = getDb(env);
+
+    // Group row exists with correct shape
+    const groupRows = await db
+      .select()
+      .from(groups)
+      .where(eq(groups.groupid, groupId));
+    expect(groupRows.length).toBe(1);
+    expect(groupRows[0].groupName).toBe("Test Group");
+    expect(groupRows[0].userids).toBeTruthy();
+    const userids = JSON.parse(groupRows[0].userids as string) as string[];
+    expect(userids.sort()).toEqual([u1Id, u2Id].sort());
+    const metadata = JSON.parse(groupRows[0].metadata as string) as {
+      defaultCurrency: string;
+    };
+    expect(metadata.defaultCurrency).toBe("USD");
+
+    // group_budgets rows exist with correct names + description
+    const budgetRows = await db
+      .select()
+      .from(groupBudgets)
+      .where(eq(groupBudgets.groupId, groupId));
+    expect(budgetRows.length).toBe(2);
+    const groceries = budgetRows.find((b) => b.budgetName === "Groceries");
+    const rent = budgetRows.find((b) => b.budgetName === "Rent");
+    expect(groceries).toBeDefined();
+    expect(rent?.description).toBe("Monthly rent");
+
+    // Each user's groupid points to this group
+    const u1Row = await db.select().from(userTable).where(eq(userTable.id, u1Id));
+    const u2Row = await db.select().from(userTable).where(eq(userTable.id, u2Id));
+    expect(u1Row[0].groupid).toBe(groupId);
+    expect(u2Row[0].groupid).toBe(groupId);
+  });
+
+  it("uses default group name and GBP default currency when not provided", async () => {
+    const res = await postSeed({
+      users: [{ alias: "u" }],
+      groups: [{ alias: "g", members: ["u"] }],
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { ids: { groups: Record<string, { id: string }> } };
+
+    const db = getDb(env);
+    const rows = await db.select().from(groups).where(eq(groups.groupid, body.ids.groups.g.id));
+    expect(rows[0].groupName).toMatch(/^e2e-group-/);
+    const metadata = JSON.parse(rows[0].metadata as string) as { defaultCurrency: string };
+    expect(metadata.defaultCurrency).toBe("GBP");
+  });
+
+  it("creates the empty 'Default' budget when groups[].budgets is omitted", async () => {
+    const res = await postSeed({
+      users: [{ alias: "u" }],
+      groups: [{ alias: "g", members: ["u"] }],
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { ids: { groups: Record<string, { id: string }> } };
+
+    const db = getDb(env);
+    const budgetRows = await db
+      .select()
+      .from(groupBudgets)
+      .where(eq(groupBudgets.groupId, body.ids.groups.g.id));
+    expect(budgetRows.length).toBe(0); // No default — only what's explicitly listed
   });
 });

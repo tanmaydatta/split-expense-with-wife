@@ -1,6 +1,11 @@
+import { eq } from "drizzle-orm";
 import { customAlphabet } from "nanoid";
+import { ulid } from "ulid";
 import type { SeedRequest, SeedResponse } from "../../../shared-types";
 import { auth } from "../auth";
+import { getDb } from "../db";
+import { user as userTable } from "../db/schema/auth-schema";
+import { groupBudgets, groups } from "../db/schema/schema";
 import {
 	createErrorResponse,
 	createJsonResponse,
@@ -61,6 +66,95 @@ async function createUsers(
 		};
 	}
 	return result;
+}
+
+type CreatedGroup = { id: string };
+type GroupSpec = NonNullable<SeedRequest["groups"]>[number];
+
+async function insertGroupRow(
+	g: GroupSpec,
+	groupId: string,
+	memberUserIds: string[],
+	now: string,
+	db: ReturnType<typeof getDb>,
+): Promise<void> {
+	const metadata: Record<string, unknown> = {
+		defaultCurrency: g.defaultCurrency ?? "GBP",
+		...(g.metadata ?? {}),
+	};
+	await db.insert(groups).values({
+		groupid: groupId,
+		groupName: g.name ?? `e2e-group-${shortId()}`,
+		userids: JSON.stringify(memberUserIds),
+		metadata: JSON.stringify(metadata),
+		createdAt: now,
+	});
+}
+
+// Budgets — only what's explicitly listed in the payload. The seed handler is
+// a pure passthrough; the test factory (Task 14) injects any default budget at
+// the payload level for ergonomics.
+async function insertGroupBudgets(
+	g: GroupSpec,
+	groupId: string,
+	now: string,
+	db: ReturnType<typeof getDb>,
+	budgetIds: Record<string, { id: string }>,
+): Promise<void> {
+	for (const b of g.budgets ?? []) {
+		const budgetId = ulid();
+		budgetIds[b.alias] = { id: budgetId };
+		await db.insert(groupBudgets).values({
+			id: budgetId,
+			groupId,
+			budgetName: b.name,
+			description: b.description ?? null,
+			createdAt: now,
+			updatedAt: now,
+		});
+	}
+}
+
+// Update each member user's groupid (better-auth additional field on the user
+// table) to point to this group. If a user is a member of multiple groups,
+// the LAST group they're a member of wins.
+async function updateMembersGroupId(
+	g: GroupSpec,
+	groupId: string,
+	users: Record<string, CreatedUser>,
+	db: ReturnType<typeof getDb>,
+): Promise<void> {
+	for (const memberAlias of g.members) {
+		await db
+			.update(userTable)
+			.set({ groupid: groupId })
+			.where(eq(userTable.id, users[memberAlias].id));
+	}
+}
+
+async function createGroups(
+	payload: SeedRequest,
+	users: Record<string, CreatedUser>,
+	db: ReturnType<typeof getDb>,
+): Promise<{
+	groups: Record<string, CreatedGroup>;
+	budgets: Record<string, { id: string }>;
+}> {
+	const groupIds: Record<string, CreatedGroup> = {};
+	const budgetIds: Record<string, { id: string }> = {};
+	const now = new Date().toISOString();
+
+	for (const g of payload.groups ?? []) {
+		const groupId = ulid();
+		groupIds[g.alias] = { id: groupId };
+		const memberUserIds = g.members.map((alias) => users[alias].id);
+
+		await insertGroupRow(g, groupId, memberUserIds, now, db);
+		await insertGroupBudgets(g, groupId, now, db, budgetIds);
+		await updateMembersGroupId(g, groupId, users, db);
+	}
+
+	return { groups: groupIds, budgets: budgetIds };
 }
 
 function validateUsernameLength(
@@ -268,6 +362,8 @@ export async function handleTestSeed(
 		return createErrorResponse(error, 400, request, env);
 	}
 
+	const db = getDb(env);
+
 	let users: Record<string, CreatedUser>;
 	try {
 		users = await createUsers(payload, env);
@@ -280,6 +376,25 @@ export async function handleTestSeed(
 		);
 	}
 
+	let groupResult: {
+		groups: Record<string, CreatedGroup>;
+		budgets: Record<string, { id: string }>;
+	};
+	try {
+		groupResult = await createGroups(payload, users, db);
+	} catch (e) {
+		return createErrorResponse(
+			`group creation failed: ${(e as Error).message}`,
+			500,
+			request,
+			env,
+		);
+	}
+	// `groupResult.budgets` is the alias→budgetId map; Task 9 (budget entries)
+	// will use it to resolve `budgetEntries[].budget` aliases. The current
+	// SeedResponse shape doesn't surface a budgets ID map, so it stays in scope.
+	void groupResult.budgets;
+
 	const response: SeedResponse = {
 		ids: {
 			users: Object.fromEntries(
@@ -288,7 +403,7 @@ export async function handleTestSeed(
 					{ id: u.id, email: u.email, username: u.username },
 				]),
 			),
-			groups: {},
+			groups: groupResult.groups,
 			transactions: {},
 			budgetEntries: {},
 		},
