@@ -63,6 +63,21 @@ async function createUsers(
 	return result;
 }
 
+function validateUsernameLength(
+	u: NonNullable<SeedRequest["users"]>[number],
+): string | null {
+	if (u.username !== undefined) {
+		if (u.username.length > 30) {
+			return `users alias '${u.alias}' username '${u.username}' exceeds 30 chars`;
+		}
+		return null;
+	}
+	if (u.alias.length > 21) {
+		return `users alias '${u.alias}' too long for default username generation (max 21 chars)`;
+	}
+	return null;
+}
+
 function validateUsers(
 	payload: SeedRequest,
 	userAliases: Set<string>,
@@ -70,6 +85,8 @@ function validateUsers(
 	for (const u of payload.users ?? []) {
 		if (userAliases.has(u.alias)) return `users alias '${u.alias}' duplicated`;
 		userAliases.add(u.alias);
+		const lenErr = validateUsernameLength(u);
+		if (lenErr) return lenErr;
 	}
 	return null;
 }

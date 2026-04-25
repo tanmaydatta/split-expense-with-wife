@@ -198,6 +198,23 @@ describe("POST /test/seed validation", () => {
     expect(res.status).toBe(400);
   });
 
+  it("returns 400 when alias too long for default-generated username", async () => {
+    const longAlias = "a".repeat(22);
+    const res = await postSeed({ users: [{ alias: longAlias }] });
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toMatch(/too long/i);
+  });
+
+  it("returns 400 when explicit username exceeds 30 chars", async () => {
+    const res = await postSeed({
+      users: [{ alias: "u", username: "u".repeat(31) }],
+    });
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toMatch(/exceeds 30 chars/i);
+  });
+
   it("returns 400 when group member references unknown user alias", async () => {
     const res = await postSeed({
       groups: [{ alias: "g", members: ["ghost"] }],
