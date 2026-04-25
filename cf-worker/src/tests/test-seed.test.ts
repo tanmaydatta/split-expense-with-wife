@@ -220,5 +220,34 @@ describe("POST /test/seed validation", () => {
       budgetEntries: [{ alias: "be", group: "g2", budget: "b1", amount: 10 }],
     });
     expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toMatch(/different group/i);
+  });
+
+  it("returns 200 with empty stub IDs for a fully-valid payload", async () => {
+    const res = await postSeed({
+      users: [{ alias: "u" }],
+      groups: [{
+        alias: "g",
+        members: ["u"],
+        budgets: [{ alias: "b", name: "Default" }],
+      }],
+      transactions: [{
+        alias: "t",
+        group: "g",
+        amount: 50,
+        paidByShares: { u: 50 },
+        splitPctShares: { u: 100 },
+      }],
+      budgetEntries: [{ alias: "be", group: "g", budget: "b", amount: 25 }],
+      authenticate: ["u"],
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      ids: { users: object; groups: object; transactions: object; budgetEntries: object };
+      sessions: object;
+    };
+    expect(body.ids).toEqual({ users: {}, groups: {}, transactions: {}, budgetEntries: {} });
+    expect(body.sessions).toEqual({});
   });
 });

@@ -1,20 +1,11 @@
 import type { SeedRequest, SeedResponse } from "../../../shared-types";
-import { createErrorResponse, createJsonResponse } from "../utils";
+import {
+	createErrorResponse,
+	createJsonResponse,
+	isValidCurrency,
+} from "../utils";
 
 const SEED_SECRET_HEADER = "X-E2E-Seed-Secret";
-
-const VALID_CURRENCIES = [
-	"USD",
-	"EUR",
-	"GBP",
-	"INR",
-	"CAD",
-	"AUD",
-	"JPY",
-	"CHF",
-	"CNY",
-	"SGD",
-];
 
 function validateUsers(
 	payload: SeedRequest,
@@ -36,7 +27,7 @@ function validateGroup(
 			return `group '${g.alias}' member '${member}' not in users[]`;
 		}
 	}
-	if (g.defaultCurrency && !VALID_CURRENCIES.includes(g.defaultCurrency)) {
+	if (g.defaultCurrency && !isValidCurrency(g.defaultCurrency)) {
 		return `group '${g.alias}' has invalid currency '${g.defaultCurrency}'`;
 	}
 	return null;
@@ -87,14 +78,14 @@ function validateTransactionShares(
 		}
 	}
 	const paidSum = Object.values(t.paidByShares).reduce((a, b) => a + b, 0);
-	if (Math.abs(paidSum - t.amount) > 0.001) {
+	if (Math.abs(paidSum - t.amount) > 0.01) {
 		return `transaction '${t.alias}' paidByShares sum ${paidSum} != amount ${t.amount}`;
 	}
 	const pctSum = Object.values(t.splitPctShares).reduce((a, b) => a + b, 0);
-	if (Math.abs(pctSum - 100) > 0.001) {
+	if (Math.abs(pctSum - 100) > 0.01) {
 		return `transaction '${t.alias}' splitPctShares sum ${pctSum} != 100`;
 	}
-	if (t.currency && !VALID_CURRENCIES.includes(t.currency)) {
+	if (t.currency && !isValidCurrency(t.currency)) {
 		return `transaction '${t.alias}' invalid currency '${t.currency}'`;
 	}
 	return null;
@@ -133,7 +124,7 @@ function validateBudgetEntry(
 	if (budgetAliasToGroup.get(be.budget) !== be.group) {
 		return `budgetEntry '${be.alias}' budget '${be.budget}' belongs to a different group`;
 	}
-	if (be.currency && !VALID_CURRENCIES.includes(be.currency)) {
+	if (be.currency && !isValidCurrency(be.currency)) {
 		return `budgetEntry '${be.alias}' invalid currency '${be.currency}'`;
 	}
 	return null;
