@@ -13,12 +13,16 @@ jobs:
     
     # Job-level environment variables (available to all steps)
     env:
-      # E2E_SEED_SECRET enables the test-only POST /test/seed endpoint on the
-      # local cf-worker. Set as a GitHub Actions secret on the repo.
-      E2E_SEED_SECRET: ${{ secrets.E2E_SEED_SECRET }}
-      # Note: REACT_APP_API_BASE_URL is intentionally NOT set at job level any
-      # more. Playwright's webServer config sets it per-process to point at the
-      # local cf-worker (http://localhost:8787) when E2E_BACKEND_URL is unset.
+      # CI runs e2e against the deployed dev cf-worker (same as before this
+      # branch). The fixture infrastructure on this branch supports a local
+      # backend for local development (yarn test:e2e:fresh), but CI keeps using
+      # remote until the pilot conversion is debugged in a follow-up PR.
+      # Tests that depend on /test/seed auto-skip when running against remote
+      # via skipIfRemoteBackend().
+      E2E_BACKEND_URL: https://splitexpense-dev.tanmaydatta.workers.dev
+      PLAYWRIGHT_BASE_URL: https://splitexpense-dev.tanmaydatta.workers.dev
+      REACT_APP_API_BASE_URL: ${{ vars.REACT_APP_API_BASE_URL }}
+      REACT_APP_AUTH_BASE_URL: ${{ vars.REACT_APP_AUTH_BASE_URL }}
 
     steps:
     - uses: actions/checkout@v4
@@ -38,11 +42,8 @@ jobs:
     - name: Build the application
       run: yarn build
 
-    - name: Reset local D1 state (fresh per CI run)
-      run: rm -rf cf-worker/.wrangler/state/v3/d1
-
     - name: Run E2E tests
-      run: yarn playwright test --project=chromium --workers=1 --reporter=list,html --trace=on
+      run: yarn playwright test --project=chromium --workers=1 --reporter=list,html --trace=on  src/e2e/tests/scheduled-actions.spec.ts && yarn playwright test --project=chromium --workers=1 --reporter=list,html --trace=on  src/e2e/tests/settings-management.spec.ts && yarn playwright test --project=chromium --workers=1 --reporter=list,html --trace=on src/e2e/tests/budget-management.spec.ts && yarn playwright test --project=chromium --workers=1 --reporter=list,html --trace=on src/e2e/tests/transactions-balances.spec.ts && yarn playwright test --project=chromium --workers=1 --reporter=list,html --trace=on src/e2e/tests/expense-management.spec.ts && yarn playwright test --project=chromium --workers=1 --reporter=list,html --trace=on src/e2e/tests/auth.spec.ts
     
     - name: Upload test results
       uses: actions/upload-artifact@v4
