@@ -3,6 +3,7 @@ import { customAlphabet } from "nanoid";
 import { ulid } from "ulid";
 import type {
 	BudgetRequest,
+	SeedCookie,
 	SeedRequest,
 	SeedResponse,
 	SplitRequest,
@@ -24,6 +25,49 @@ import {
 const SEED_SECRET_HEADER = "X-E2E-Seed-Secret";
 
 const shortId = customAlphabet("abcdefghijklmnopqrstuvwxyz0123456789", 8);
+
+function normalizeSameSite(raw: string | undefined): "Lax" | "Strict" | "None" {
+	const v = (raw ?? "Lax").toLowerCase();
+	if (v === "strict") return "Strict";
+	if (v === "none") return "None";
+	return "Lax";
+}
+
+function buildAttrMap(attrs: string[]): Map<string, string> {
+	const attrMap = new Map<string, string>();
+	for (const a of attrs) {
+		const i = a.indexOf("=");
+		if (i === -1) attrMap.set(a.toLowerCase(), "true");
+		else attrMap.set(a.slice(0, i).toLowerCase(), a.slice(i + 1));
+	}
+	return attrMap;
+}
+
+// Parse a Set-Cookie header value into a SeedCookie struct compatible with
+// Playwright's BrowserContext.addCookies() input. better-auth may emit multiple
+// cookies in a single Set-Cookie header, separated by commas — but only commas
+// inside attribute values are problematic; the date format used by Expires uses
+// a comma. Use Headers.getSetCookie() to get the proper array if available.
+function parseSetCookie(setCookie: string): SeedCookie {
+	const parts = setCookie.split(";").map((s) => s.trim());
+	const [nameValue, ...attrs] = parts;
+	const eq = nameValue.indexOf("=");
+	const name = nameValue.slice(0, eq);
+	const value = nameValue.slice(eq + 1);
+	const attrMap = buildAttrMap(attrs);
+	return {
+		name,
+		value,
+		domain: attrMap.get("domain") ?? "",
+		path: attrMap.get("path") ?? "/",
+		sameSite: normalizeSameSite(attrMap.get("samesite")),
+		httpOnly: attrMap.has("httponly"),
+		secure: attrMap.has("secure"),
+		expires: attrMap.has("max-age")
+			? Math.floor(Date.now() / 1000) + Number(attrMap.get("max-age"))
+			: undefined,
+	};
+}
 
 type CreatedUser = {
 	id: string;
@@ -434,6 +478,45 @@ function validate(payload: SeedRequest): string | null {
 	);
 }
 
+async function issueSessions(
+	payload: SeedRequest,
+	users: Record<string, CreatedUser>,
+	env: Env,
+): Promise<Record<string, { cookies: SeedCookie[] }>> {
+	const sessions: Record<string, { cookies: SeedCookie[] }> = {};
+	if (!payload.authenticate || payload.authenticate.length === 0)
+		return sessions;
+
+	const authInstance = auth(env);
+
+	for (const alias of payload.authenticate) {
+		const u = users[alias];
+		const signInRequest = new Request(
+			"http://localhost:8787/auth/sign-in/email",
+			{
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ email: u.email, password: u.password }),
+			},
+		);
+		const signInResponse = await authInstance.handler(signInRequest);
+		if (signInResponse.status !== 200) {
+			throw new Error(
+				`sign-in failed for alias '${alias}' (status ${signInResponse.status})`,
+			);
+		}
+		// Use getSetCookie() to handle multi-cookie Set-Cookie headers properly.
+		const setCookies =
+			typeof signInResponse.headers.getSetCookie === "function"
+				? signInResponse.headers.getSetCookie()
+				: [signInResponse.headers.get("Set-Cookie") ?? ""].filter(Boolean);
+		const cookies: SeedCookie[] = setCookies.map(parseSetCookie);
+		sessions[alias] = { cookies };
+	}
+
+	return sessions;
+}
+
 export async function handleTestSeed(
 	request: Request,
 	env: Env,
@@ -523,6 +606,18 @@ export async function handleTestSeed(
 		);
 	}
 
+	let sessions: Record<string, { cookies: SeedCookie[] }>;
+	try {
+		sessions = await issueSessions(payload, users, env);
+	} catch (e) {
+		return createErrorResponse(
+			`session issuance failed: ${(e as Error).message}`,
+			500,
+			request,
+			env,
+		);
+	}
+
 	const response: SeedResponse = {
 		ids: {
 			users: Object.fromEntries(
@@ -535,7 +630,7 @@ export async function handleTestSeed(
 			transactions: txIdMap,
 			budgetEntries: beIdMap,
 		},
-		sessions: {},
+		sessions,
 	};
 	return createJsonResponse(response, 200, {}, request, env);
 }

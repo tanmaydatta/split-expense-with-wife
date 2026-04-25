@@ -280,7 +280,7 @@ describe("POST /test/seed validation", () => {
         transactions: Record<string, { id: string }>;
         budgetEntries: Record<string, { id: string }>;
       };
-      sessions: object;
+      sessions: Record<string, { cookies: unknown[] }>;
     };
     // Users (Task 6), groups (Task 7), transactions (Task 8) and budget
     // entries (Task 9) are all created.
@@ -290,7 +290,9 @@ describe("POST /test/seed validation", () => {
     expect(body.ids.transactions.t.id).toMatch(/^tx_/);
     expect(Object.keys(body.ids.budgetEntries)).toEqual(["be"]);
     expect(body.ids.budgetEntries.be.id).toMatch(/^.+/);
-    expect(body.sessions).toEqual({});
+    // Task 10: sessions are issued for users in authenticate[].
+    expect(body.sessions.u).toBeDefined();
+    expect(body.sessions.u.cookies.length).toBeGreaterThan(0);
   });
 });
 
@@ -592,5 +594,86 @@ describe("POST /test/seed budget entries", () => {
       .from(budgetEntries)
       .where(eq(budgetEntries.budgetEntryId, body.ids.budgetEntries.be.id));
     expect(rows[0].currency).toBe("USD");
+  });
+});
+
+describe("POST /test/seed session cookie issuance", () => {
+  beforeEach(async () => {
+    env.E2E_SEED_SECRET = TEST_SECRET;
+    await completeCleanupDatabase(env);
+    await setupDatabase(env);
+  });
+
+  afterEach(() => {
+    env.E2E_SEED_SECRET = ORIGINAL_SECRET;
+  });
+
+  it("returns session cookies for users in authenticate[]", async () => {
+    const res = await postSeed({
+      users: [{ alias: "u" }],
+      groups: [{ alias: "g", members: ["u"] }],
+      authenticate: ["u"],
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      sessions: Record<string, { cookies: Array<{ name: string; value: string; httpOnly: boolean }> }>;
+    };
+
+    expect(body.sessions.u).toBeDefined();
+    expect(body.sessions.u.cookies.length).toBeGreaterThan(0);
+    const sessionCookie = body.sessions.u.cookies.find((c) => c.name.includes("session"));
+    expect(sessionCookie).toBeDefined();
+    expect(sessionCookie!.value).toMatch(/^.+/);
+    expect(sessionCookie!.httpOnly).toBe(true);
+  });
+
+  it("does not include sessions for users absent from authenticate[]", async () => {
+    const res = await postSeed({
+      users: [{ alias: "alice" }, { alias: "bob" }],
+      groups: [{ alias: "g", members: ["alice", "bob"] }],
+      authenticate: ["alice"],
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      sessions: Record<string, { cookies: unknown[] }>;
+    };
+    expect(body.sessions.alice).toBeDefined();
+    expect(body.sessions.bob).toBeUndefined();
+  });
+
+  it("issued cookie authenticates a subsequent request to /balances", async () => {
+    const seedRes = await postSeed({
+      users: [{ alias: "u" }],
+      groups: [{ alias: "g", members: ["u"] }],
+      authenticate: ["u"],
+    });
+    const seedBody = (await seedRes.json()) as {
+      sessions: Record<string, { cookies: Array<{ name: string; value: string }> }>;
+    };
+    const cookieHeader = seedBody.sessions.u.cookies
+      .map((c) => `${c.name}=${c.value}`)
+      .join("; ");
+
+    const balancesReq = new Request("https://localhost:8787/.netlify/functions/balances", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Cookie: cookieHeader },
+      body: JSON.stringify({}),
+    });
+    const ctx = createExecutionContext();
+    const balancesRes = await worker.fetch(balancesReq, env, ctx);
+    await waitOnExecutionContext(ctx);
+    // Not 401/403; should reach the handler. Actual status varies by data shape.
+    expect(balancesRes.status).not.toBe(401);
+    expect(balancesRes.status).not.toBe(403);
+  });
+
+  it("returns empty sessions object when authenticate[] is omitted", async () => {
+    const res = await postSeed({
+      users: [{ alias: "u" }],
+      groups: [{ alias: "g", members: ["u"] }],
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { sessions: Record<string, unknown> };
+    expect(body.sessions).toEqual({});
   });
 });
