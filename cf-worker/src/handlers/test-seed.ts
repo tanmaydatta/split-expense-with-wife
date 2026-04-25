@@ -1,7 +1,11 @@
 import { eq } from "drizzle-orm";
 import { customAlphabet } from "nanoid";
 import { ulid } from "ulid";
-import type { SeedRequest, SeedResponse } from "../../../shared-types";
+import type {
+	SeedRequest,
+	SeedResponse,
+	SplitRequest,
+} from "../../../shared-types";
 import { auth } from "../auth";
 import { getDb } from "../db";
 import { user as userTable } from "../db/schema/auth-schema";
@@ -11,6 +15,7 @@ import {
 	createJsonResponse,
 	isValidCurrency,
 } from "../utils";
+import { createSplitTransactionFromRequest } from "../utils/scheduled-action-execution";
 
 const SEED_SECRET_HEADER = "X-E2E-Seed-Secret";
 
@@ -139,14 +144,17 @@ async function createGroups(
 ): Promise<{
 	groups: Record<string, CreatedGroup>;
 	budgets: Record<string, { id: string }>;
+	defaultCurrencies: Record<string, string>;
 }> {
 	const groupIds: Record<string, CreatedGroup> = {};
 	const budgetIds: Record<string, { id: string }> = {};
+	const defaultCurrencies: Record<string, string> = {};
 	const now = new Date().toISOString();
 
 	for (const g of payload.groups ?? []) {
 		const groupId = ulid();
 		groupIds[g.alias] = { id: groupId };
+		defaultCurrencies[g.alias] = g.defaultCurrency ?? "GBP";
 		const memberUserIds = g.members.map((alias) => users[alias].id);
 
 		await insertGroupRow(g, groupId, memberUserIds, now, db);
@@ -154,7 +162,56 @@ async function createGroups(
 		await updateMembersGroupId(g, groupId, users, db);
 	}
 
-	return { groups: groupIds, budgets: budgetIds };
+	return { groups: groupIds, budgets: budgetIds, defaultCurrencies };
+}
+
+async function createTransactions(
+	payload: SeedRequest,
+	users: Record<string, CreatedUser>,
+	groupIdMap: Record<string, CreatedGroup>,
+	groupDefaultCurrency: Record<string, string>,
+	db: ReturnType<typeof getDb>,
+	env: Env,
+): Promise<Record<string, { id: string }>> {
+	const txIds: Record<string, { id: string }> = {};
+
+	for (const t of payload.transactions ?? []) {
+		const txId = `tx_${ulid()}`;
+		txIds[t.alias] = { id: txId };
+		const groupId = groupIdMap[t.group].id;
+
+		// Translate alias-keyed share maps to user-id-keyed
+		const paidByShares: Record<string, number> = {};
+		for (const [alias, val] of Object.entries(t.paidByShares)) {
+			paidByShares[users[alias].id] = val;
+		}
+		const splitPctShares: Record<string, number> = {};
+		for (const [alias, val] of Object.entries(t.splitPctShares)) {
+			splitPctShares[users[alias].id] = val;
+		}
+
+		const splitRequest: SplitRequest = {
+			amount: t.amount,
+			description: t.description ?? `e2e-tx-${shortId()}`,
+			currency: t.currency ?? groupDefaultCurrency[t.group] ?? "GBP",
+			paidByShares,
+			splitPctShares,
+		};
+
+		const result = await createSplitTransactionFromRequest(
+			splitRequest,
+			groupId,
+			db,
+			env,
+			txId,
+		);
+		if (result.statements.length > 0) {
+			const queries = result.statements.map((s) => s.query);
+			await db.batch([queries[0], ...queries.slice(1)]);
+		}
+	}
+
+	return txIds;
 }
 
 function validateUsernameLength(
@@ -379,6 +436,7 @@ export async function handleTestSeed(
 	let groupResult: {
 		groups: Record<string, CreatedGroup>;
 		budgets: Record<string, { id: string }>;
+		defaultCurrencies: Record<string, string>;
 	};
 	try {
 		groupResult = await createGroups(payload, users, db);
@@ -395,6 +453,25 @@ export async function handleTestSeed(
 	// SeedResponse shape doesn't surface a budgets ID map, so it stays in scope.
 	void groupResult.budgets;
 
+	let txIdMap: Record<string, { id: string }>;
+	try {
+		txIdMap = await createTransactions(
+			payload,
+			users,
+			groupResult.groups,
+			groupResult.defaultCurrencies,
+			db,
+			env,
+		);
+	} catch (e) {
+		return createErrorResponse(
+			`transaction creation failed: ${(e as Error).message}`,
+			500,
+			request,
+			env,
+		);
+	}
+
 	const response: SeedResponse = {
 		ids: {
 			users: Object.fromEntries(
@@ -404,7 +481,7 @@ export async function handleTestSeed(
 				]),
 			),
 			groups: groupResult.groups,
-			transactions: {},
+			transactions: txIdMap,
 			budgetEntries: {},
 		},
 		sessions: {},

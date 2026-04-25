@@ -7,7 +7,12 @@ import { eq } from "drizzle-orm";
 // Vitest globals are available through the test environment
 import { getDb } from "../db";
 import { user as userTable } from "../db/schema/auth-schema";
-import { groupBudgets, groups } from "../db/schema/schema";
+import {
+  groupBudgets,
+  groups,
+  transactions,
+  transactionUsers,
+} from "../db/schema/schema";
 import worker from "../index";
 import { completeCleanupDatabase, setupDatabase } from "./test-utils";
 
@@ -271,16 +276,17 @@ describe("POST /test/seed validation", () => {
       ids: {
         users: object;
         groups: Record<string, { id: string }>;
-        transactions: object;
+        transactions: Record<string, { id: string }>;
         budgetEntries: object;
       };
       sessions: object;
     };
-    // Users (Task 6) and groups (Task 7) are now created; transactions and
-    // budgetEntries remain empty stubs until Tasks 8/9.
+    // Users (Task 6), groups (Task 7), and transactions (Task 8) are now
+    // created; budgetEntries remain empty stubs until Task 9.
     expect(Object.keys(body.ids.groups)).toEqual(["g"]);
     expect(body.ids.groups.g.id).toMatch(/^.+/);
-    expect(body.ids.transactions).toEqual({});
+    expect(Object.keys(body.ids.transactions)).toEqual(["t"]);
+    expect(body.ids.transactions.t.id).toMatch(/^tx_/);
     expect(body.ids.budgetEntries).toEqual({});
     expect(body.sessions).toEqual({});
   });
@@ -438,5 +444,71 @@ describe("POST /test/seed group creation", () => {
       .from(groupBudgets)
       .where(eq(groupBudgets.groupId, body.ids.groups.g.id));
     expect(budgetRows.length).toBe(0); // No default — only what's explicitly listed
+  });
+});
+
+describe("POST /test/seed transaction creation", () => {
+  beforeEach(async () => {
+    env.E2E_SEED_SECRET = TEST_SECRET;
+    await completeCleanupDatabase(env);
+    await setupDatabase(env);
+  });
+
+  afterEach(() => {
+    env.E2E_SEED_SECRET = ORIGINAL_SECRET;
+  });
+
+  it("creates a transaction with split shares; userIds resolved from aliases", async () => {
+    const res = await postSeed({
+      users: [{ alias: "u1" }, { alias: "u2" }],
+      groups: [{ alias: "g", members: ["u1", "u2"] }],
+      transactions: [{
+        alias: "t",
+        group: "g",
+        amount: 100,
+        paidByShares: { u1: 100 },
+        splitPctShares: { u1: 60, u2: 40 },
+        description: "Tesco shop",
+      }],
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      ids: { transactions: Record<string, { id: string }> };
+    };
+    const txId = body.ids.transactions.t.id;
+    expect(txId).toMatch(/^tx_/);
+
+    const db = getDb(env);
+    const txRows = await db
+      .select()
+      .from(transactions)
+      .where(eq(transactions.transactionId, txId));
+    expect(txRows.length).toBe(1);
+    expect(txRows[0].amount).toBe(100);
+    expect(txRows[0].description).toBe("Tesco shop");
+    expect(txRows[0].currency).toBe("GBP");
+
+    // transaction_users rows should exist (count depends on the existing helper)
+    const tuRows = await db
+      .select()
+      .from(transactionUsers)
+      .where(eq(transactionUsers.transactionId, txId));
+    expect(tuRows.length).toBeGreaterThan(0);
+  });
+
+  it("uses payload-supplied currency over group default", async () => {
+    const res = await postSeed({
+      users: [{ alias: "u" }],
+      groups: [{ alias: "g", members: ["u"], defaultCurrency: "GBP" }],
+      transactions: [{
+        alias: "t", group: "g", amount: 25, currency: "USD",
+        paidByShares: { u: 25 }, splitPctShares: { u: 100 },
+      }],
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { ids: { transactions: Record<string, { id: string }> } };
+    const db = getDb(env);
+    const rows = await db.select().from(transactions).where(eq(transactions.transactionId, body.ids.transactions.t.id));
+    expect(rows[0].currency).toBe("USD");
   });
 });
