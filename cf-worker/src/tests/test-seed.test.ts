@@ -8,10 +8,15 @@ import worker from "../index";
 
 const TEST_SECRET = "test-secret";
 const URL_PATH = "https://localhost:8787/test/seed";
+const ORIGINAL_SECRET = env.E2E_SEED_SECRET;
 
 describe("POST /test/seed gate", () => {
   beforeEach(() => {
     env.E2E_SEED_SECRET = TEST_SECRET;
+  });
+
+  afterEach(() => {
+    env.E2E_SEED_SECRET = ORIGINAL_SECRET;
   });
 
   it("returns 404 when E2E_SEED_SECRET env var is empty", async () => {
@@ -19,6 +24,22 @@ describe("POST /test/seed gate", () => {
     const req = new Request(URL_PATH, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    });
+    const ctx = createExecutionContext();
+    const res = await worker.fetch(req, env, ctx);
+    await waitOnExecutionContext(ctx);
+    expect(res.status).toBe(404);
+  });
+
+  it("returns 404 when env is empty even with a valid-looking header (proves Layer 1)", async () => {
+    env.E2E_SEED_SECRET = "";
+    const req = new Request(URL_PATH, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-E2E-Seed-Secret": "anything-claiming-validity",
+      },
       body: JSON.stringify({}),
     });
     const ctx = createExecutionContext();
