@@ -1,10 +1,10 @@
 # Local development environment variables.
 # Copy this file to cf-worker/.dev.vars and fill in real values.
 # .dev.vars is gitignored; .dev.vars.example is committed.
-
-# Comma-separated origins allowed for CORS / better-auth trustedOrigins.
-# Add http://localhost:3000 to allow the local frontend dev server to talk to the local worker.
-TRUSTED_ORIGINS=http://localhost:3000,http://localhost:8787
+#
+# Note: AUTH_TRUSTED_ORIGINS for local dev is already set in wrangler.toml's
+# default [vars] block (includes http://localhost:3000 and http://localhost:8787),
+# so it does NOT need to be redefined here.
 
 # Enables the test-only POST /test/seed endpoint.
 # When this variable is empty/absent, the route is not registered and returns 404.
