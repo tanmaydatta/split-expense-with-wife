@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { customAlphabet } from "nanoid";
 import { ulid } from "ulid";
 import type {
+	BudgetRequest,
 	SeedRequest,
 	SeedResponse,
 	SplitRequest,
@@ -15,7 +16,10 @@ import {
 	createJsonResponse,
 	isValidCurrency,
 } from "../utils";
-import { createSplitTransactionFromRequest } from "../utils/scheduled-action-execution";
+import {
+	createBudgetEntryStatements,
+	createSplitTransactionFromRequest,
+} from "../utils/scheduled-action-execution";
 
 const SEED_SECRET_HEADER = "X-E2E-Seed-Secret";
 
@@ -212,6 +216,39 @@ async function createTransactions(
 	}
 
 	return txIds;
+}
+
+async function createBudgetEntries(
+	payload: SeedRequest,
+	groupIdMap: Record<string, CreatedGroup>,
+	budgetIdMap: Record<string, { id: string }>,
+	groupDefaultCurrency: Record<string, string>,
+	db: ReturnType<typeof getDb>,
+): Promise<Record<string, { id: string }>> {
+	const beIds: Record<string, { id: string }> = {};
+
+	for (const be of payload.budgetEntries ?? []) {
+		const beId = ulid();
+		beIds[be.alias] = { id: beId };
+		const groupBudgetsId = budgetIdMap[be.budget].id;
+		const groupId = groupIdMap[be.group].id;
+
+		const budgetRequest: BudgetRequest = {
+			amount: be.amount,
+			description: be.description ?? `e2e-be-${shortId()}`,
+			budgetId: groupBudgetsId,
+			currency: be.currency ?? groupDefaultCurrency[be.group] ?? "GBP",
+			groupid: groupId,
+		};
+
+		const result = await createBudgetEntryStatements(budgetRequest, db, beId);
+		if (result.statements.length > 0) {
+			const queries = result.statements.map((s) => s.query);
+			await db.batch([queries[0], ...queries.slice(1)]);
+		}
+	}
+
+	return beIds;
 }
 
 function validateUsernameLength(
@@ -448,10 +485,6 @@ export async function handleTestSeed(
 			env,
 		);
 	}
-	// `groupResult.budgets` is the alias→budgetId map; Task 9 (budget entries)
-	// will use it to resolve `budgetEntries[].budget` aliases. The current
-	// SeedResponse shape doesn't surface a budgets ID map, so it stays in scope.
-	void groupResult.budgets;
 
 	let txIdMap: Record<string, { id: string }>;
 	try {
@@ -472,6 +505,24 @@ export async function handleTestSeed(
 		);
 	}
 
+	let beIdMap: Record<string, { id: string }>;
+	try {
+		beIdMap = await createBudgetEntries(
+			payload,
+			groupResult.groups,
+			groupResult.budgets,
+			groupResult.defaultCurrencies,
+			db,
+		);
+	} catch (e) {
+		return createErrorResponse(
+			`budget entry creation failed: ${(e as Error).message}`,
+			500,
+			request,
+			env,
+		);
+	}
+
 	const response: SeedResponse = {
 		ids: {
 			users: Object.fromEntries(
@@ -482,7 +533,7 @@ export async function handleTestSeed(
 			),
 			groups: groupResult.groups,
 			transactions: txIdMap,
-			budgetEntries: {},
+			budgetEntries: beIdMap,
 		},
 		sessions: {},
 	};

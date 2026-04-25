@@ -8,6 +8,7 @@ import { eq } from "drizzle-orm";
 import { getDb } from "../db";
 import { user as userTable } from "../db/schema/auth-schema";
 import {
+  budgetEntries,
   groupBudgets,
   groups,
   transactions,
@@ -251,7 +252,7 @@ describe("POST /test/seed validation", () => {
     expect(body.error).toMatch(/different group/i);
   });
 
-  it("returns 200 with empty stub IDs for a fully-valid payload", async () => {
+  it("returns 200 with populated IDs for a fully-valid payload", async () => {
     await setupDatabase(env);
     await completeCleanupDatabase(env);
     const res = await postSeed({
@@ -277,17 +278,18 @@ describe("POST /test/seed validation", () => {
         users: object;
         groups: Record<string, { id: string }>;
         transactions: Record<string, { id: string }>;
-        budgetEntries: object;
+        budgetEntries: Record<string, { id: string }>;
       };
       sessions: object;
     };
-    // Users (Task 6), groups (Task 7), and transactions (Task 8) are now
-    // created; budgetEntries remain empty stubs until Task 9.
+    // Users (Task 6), groups (Task 7), transactions (Task 8) and budget
+    // entries (Task 9) are all created.
     expect(Object.keys(body.ids.groups)).toEqual(["g"]);
     expect(body.ids.groups.g.id).toMatch(/^.+/);
     expect(Object.keys(body.ids.transactions)).toEqual(["t"]);
     expect(body.ids.transactions.t.id).toMatch(/^tx_/);
-    expect(body.ids.budgetEntries).toEqual({});
+    expect(Object.keys(body.ids.budgetEntries)).toEqual(["be"]);
+    expect(body.ids.budgetEntries.be.id).toMatch(/^.+/);
     expect(body.sessions).toEqual({});
   });
 });
@@ -509,6 +511,86 @@ describe("POST /test/seed transaction creation", () => {
     const body = (await res.json()) as { ids: { transactions: Record<string, { id: string }> } };
     const db = getDb(env);
     const rows = await db.select().from(transactions).where(eq(transactions.transactionId, body.ids.transactions.t.id));
+    expect(rows[0].currency).toBe("USD");
+  });
+});
+
+describe("POST /test/seed budget entries", () => {
+  beforeEach(async () => {
+    env.E2E_SEED_SECRET = TEST_SECRET;
+    await completeCleanupDatabase(env);
+    await setupDatabase(env);
+  });
+
+  afterEach(() => {
+    env.E2E_SEED_SECRET = ORIGINAL_SECRET;
+  });
+
+  it("creates a budget entry linked to the named group_budgets row", async () => {
+    const res = await postSeed({
+      users: [{ alias: "u" }],
+      groups: [{
+        alias: "g",
+        members: ["u"],
+        budgets: [{ alias: "groceries", name: "Groceries" }],
+      }],
+      budgetEntries: [{
+        alias: "be",
+        group: "g",
+        budget: "groceries",
+        amount: 50,
+        description: "weekly shop",
+      }],
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      ids: {
+        groups: Record<string, { id: string }>;
+        budgetEntries: Record<string, { id: string }>;
+      };
+    };
+    const beId = body.ids.budgetEntries.be.id;
+    const gId = body.ids.groups.g.id;
+    expect(beId).toMatch(/^.+/);
+
+    const db = getDb(env);
+    const beRows = await db
+      .select()
+      .from(budgetEntries)
+      .where(eq(budgetEntries.budgetEntryId, beId));
+    expect(beRows.length).toBe(1);
+    expect(beRows[0].amount).toBe(50);
+    expect(beRows[0].description).toBe("weekly shop");
+    // budgetEntries.budgetId references groupBudgets.id (NOT the group ID)
+    const groceriesBudgetRows = await db
+      .select()
+      .from(groupBudgets)
+      .where(eq(groupBudgets.groupId, gId));
+    expect(beRows[0].budgetId).toBe(groceriesBudgetRows[0].id);
+  });
+
+  it("uses payload-supplied currency over group default", async () => {
+    const res = await postSeed({
+      users: [{ alias: "u" }],
+      groups: [{
+        alias: "g",
+        members: ["u"],
+        defaultCurrency: "GBP",
+        budgets: [{ alias: "b", name: "B" }],
+      }],
+      budgetEntries: [{
+        alias: "be", group: "g", budget: "b", amount: 25, currency: "USD",
+      }],
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      ids: { budgetEntries: Record<string, { id: string }> };
+    };
+    const db = getDb(env);
+    const rows = await db
+      .select()
+      .from(budgetEntries)
+      .where(eq(budgetEntries.budgetEntryId, body.ids.budgetEntries.be.id));
     expect(rows[0].currency).toBe("USD");
   });
 });
