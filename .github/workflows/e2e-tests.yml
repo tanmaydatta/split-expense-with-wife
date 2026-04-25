@@ -47,7 +47,12 @@ jobs:
           echo "::error::E2E_SEED_SECRET secret is not set on this repo. Add it under Settings → Secrets and variables → Actions (any opaque value)."
           exit 1
         fi
-        echo "E2E_SEED_SECRET=$E2E_SEED_SECRET" > cf-worker/.dev.vars
+        # Use printf to avoid any echo-quirks (trailing whitespace, escape interpretation).
+        printf 'E2E_SEED_SECRET=%s\n' "$E2E_SEED_SECRET" > cf-worker/.dev.vars
+        # Diagnostic: confirm the file exists with the expected key (not the value).
+        echo "--- cf-worker/.dev.vars (key only, value masked) ---"
+        sed -E 's/^(E2E_SEED_SECRET)=.*$/\1=<MASKED, length=${#E2E_SEED_SECRET}>/' cf-worker/.dev.vars
+        echo "--- length of E2E_SEED_SECRET in env: ${#E2E_SEED_SECRET} ---"
         rm -rf cf-worker/.wrangler/state/v3/d1
         cd cf-worker && yarn db:migrate:local
 
