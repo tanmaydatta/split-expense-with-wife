@@ -1,0 +1,13 @@
+# Local development environment variables.
+# Copy this file to cf-worker/.dev.vars and fill in real values.
+# .dev.vars is gitignored; .dev.vars.example is committed.
+
+# Comma-separated origins allowed for CORS / better-auth trustedOrigins.
+# Add http://localhost:3000 to allow the local frontend dev server to talk to the local worker.
+TRUSTED_ORIGINS=http://localhost:3000,http://localhost:8787
+
+# Enables the test-only POST /test/seed endpoint.
+# When this variable is empty/absent, the route is not registered and returns 404.
+# Use any opaque value; the secret is required as the X-E2E-Seed-Secret header.
+# Never set this in production.
+E2E_SEED_SECRET=local-only-do-not-deploy
