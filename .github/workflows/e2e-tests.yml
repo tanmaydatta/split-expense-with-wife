@@ -54,9 +54,9 @@ jobs:
     - name: Run pilot e2e tests against local backend
       env:
         E2E_SEED_SECRET: ${{ secrets.E2E_SEED_SECRET }}
-        # Empty values override the (otherwise inherited) job-level env so the
-        # playwright config falls back to its local defaults.
-        E2E_BACKEND_URL: ""
+        # E2E_BACKEND_URL intentionally NOT set here so it remains undefined,
+        # letting playwright config + seed-client default to local
+        # (http://localhost:8787). Job-level env doesn't set it either.
         PLAYWRIGHT_BASE_URL: http://localhost:3000
       run: yarn playwright test --project=chromium --workers=1 --reporter=list,html --trace=on src/e2e/tests/expense-management.spec.ts
 
