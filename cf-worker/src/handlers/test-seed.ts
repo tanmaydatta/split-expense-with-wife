@@ -11,7 +11,13 @@ import type {
 import { auth } from "../auth";
 import { getDb } from "../db";
 import { user as userTable } from "../db/schema/auth-schema";
-import { groupBudgets, groups } from "../db/schema/schema";
+import {
+	budgetEntries,
+	groupBudgets,
+	groups,
+	transactionUsers,
+	transactions,
+} from "../db/schema/schema";
 import {
 	createErrorResponse,
 	createJsonResponse,
@@ -540,38 +546,30 @@ export async function handleTestSeed(
 	}
 
 	const db = getDb(env);
+	const cleanup: Array<() => Promise<void>> = [];
 
-	let users: Record<string, CreatedUser>;
 	try {
-		users = await createUsers(payload, env);
-	} catch (e) {
-		return createErrorResponse(
-			`user creation failed: ${(e as Error).message}`,
-			500,
-			request,
-			env,
-		);
-	}
+		// Phase 1: users
+		const users = await createUsers(payload, env);
+		cleanup.push(async () => {
+			for (const u of Object.values(users)) {
+				await db.delete(userTable).where(eq(userTable.id, u.id));
+			}
+		});
 
-	let groupResult: {
-		groups: Record<string, CreatedGroup>;
-		budgets: Record<string, { id: string }>;
-		defaultCurrencies: Record<string, string>;
-	};
-	try {
-		groupResult = await createGroups(payload, users, db);
-	} catch (e) {
-		return createErrorResponse(
-			`group creation failed: ${(e as Error).message}`,
-			500,
-			request,
-			env,
-		);
-	}
+		// Phase 2: groups + group_budgets
+		const groupResult = await createGroups(payload, users, db);
+		cleanup.push(async () => {
+			for (const b of Object.values(groupResult.budgets)) {
+				await db.delete(groupBudgets).where(eq(groupBudgets.id, b.id));
+			}
+			for (const g of Object.values(groupResult.groups)) {
+				await db.delete(groups).where(eq(groups.groupid, g.id));
+			}
+		});
 
-	let txIdMap: Record<string, { id: string }>;
-	try {
-		txIdMap = await createTransactions(
+		// Phase 3: transactions
+		const txIdMap = await createTransactions(
 			payload,
 			users,
 			groupResult.groups,
@@ -579,58 +577,67 @@ export async function handleTestSeed(
 			db,
 			env,
 		);
-	} catch (e) {
-		return createErrorResponse(
-			`transaction creation failed: ${(e as Error).message}`,
-			500,
-			request,
-			env,
-		);
-	}
+		cleanup.push(async () => {
+			for (const t of Object.values(txIdMap)) {
+				await db
+					.delete(transactions)
+					.where(eq(transactions.transactionId, t.id));
+				await db
+					.delete(transactionUsers)
+					.where(eq(transactionUsers.transactionId, t.id));
+			}
+		});
 
-	let beIdMap: Record<string, { id: string }>;
-	try {
-		beIdMap = await createBudgetEntries(
+		// Phase 4: budget entries
+		const beIdMap = await createBudgetEntries(
 			payload,
 			groupResult.groups,
 			groupResult.budgets,
 			groupResult.defaultCurrencies,
 			db,
 		);
+		cleanup.push(async () => {
+			for (const be of Object.values(beIdMap)) {
+				await db
+					.delete(budgetEntries)
+					.where(eq(budgetEntries.budgetEntryId, be.id));
+			}
+		});
+
+		// Phase 5: sessions (no DB writes specific to this phase that need rollback,
+		// but include for symmetry — better-auth's signIn updates session table; if
+		// earlier phases all succeeded then session creation rarely fails).
+		const sessions = await issueSessions(payload, users, env);
+
+		const response: SeedResponse = {
+			ids: {
+				users: Object.fromEntries(
+					Object.entries(users).map(([alias, u]) => [
+						alias,
+						{ id: u.id, email: u.email, username: u.username },
+					]),
+				),
+				groups: groupResult.groups,
+				transactions: txIdMap,
+				budgetEntries: beIdMap,
+			},
+			sessions,
+		};
+		return createJsonResponse(response, 200, {}, request, env);
 	} catch (e) {
+		// Best-effort rollback in reverse order of insertion
+		for (const undo of cleanup.reverse()) {
+			try {
+				await undo();
+			} catch {
+				// Swallow individual cleanup errors so we still attempt all of them.
+			}
+		}
 		return createErrorResponse(
-			`budget entry creation failed: ${(e as Error).message}`,
+			`seed failed: ${(e as Error).message}`,
 			500,
 			request,
 			env,
 		);
 	}
-
-	let sessions: Record<string, { cookies: SeedCookie[] }>;
-	try {
-		sessions = await issueSessions(payload, users, env);
-	} catch (e) {
-		return createErrorResponse(
-			`session issuance failed: ${(e as Error).message}`,
-			500,
-			request,
-			env,
-		);
-	}
-
-	const response: SeedResponse = {
-		ids: {
-			users: Object.fromEntries(
-				Object.entries(users).map(([alias, u]) => [
-					alias,
-					{ id: u.id, email: u.email, username: u.username },
-				]),
-			),
-			groups: groupResult.groups,
-			transactions: txIdMap,
-			budgetEntries: beIdMap,
-		},
-		sessions,
-	};
-	return createJsonResponse(response, 200, {}, request, env);
 }

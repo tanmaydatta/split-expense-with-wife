@@ -677,3 +677,90 @@ describe("POST /test/seed session cookie issuance", () => {
     expect(body.sessions).toEqual({});
   });
 });
+
+describe("POST /test/seed atomicity", () => {
+  beforeEach(async () => {
+    env.E2E_SEED_SECRET = TEST_SECRET;
+    await completeCleanupDatabase(env);
+    await setupDatabase(env);
+  });
+
+  afterEach(() => {
+    env.E2E_SEED_SECRET = ORIGINAL_SECRET;
+  });
+
+  it("rolls back transactions when a later step fails (no partial state)", async () => {
+    // Budget-entry zero-amount triggers a runtime throw inside
+    // createBudgetEntryStatements, AFTER users + groups + transactions have
+    // already been inserted. This exercises full multi-phase rollback,
+    // including the transactions phase.
+    const res = await postSeed({
+      users: [{ alias: "u" }],
+      groups: [{
+        alias: "g", members: ["u"],
+        budgets: [{ alias: "b", name: "B" }],
+      }],
+      transactions: [{
+        alias: "t",
+        group: "g",
+        amount: 10,
+        paidByShares: { u: 10 },
+        splitPctShares: { u: 100 },
+      }],
+      budgetEntries: [{ alias: "be", group: "g", budget: "b", amount: 0 }],
+    });
+    expect([400, 500]).toContain(res.status);
+
+    // Verify no partial state was persisted.
+    const db = getDb(env);
+    const userCount = (await db.select().from(userTable)).length;
+    const groupCount = (await db.select().from(groups)).length;
+    const txCount = (await db.select().from(transactions)).length;
+    expect(userCount).toBe(0);
+    expect(groupCount).toBe(0);
+    expect(txCount).toBe(0);
+  });
+
+  it("rolls back when budget entry fails (e.g., zero amount)", async () => {
+    // The createBudgetEntryStatements helper rejects amount=0; this fails after
+    // users + groups + transactions have already inserted, so it exercises
+    // multi-phase rollback.
+    const res = await postSeed({
+      users: [{ alias: "u" }],
+      groups: [{
+        alias: "g", members: ["u"],
+        budgets: [{ alias: "b", name: "B" }],
+      }],
+      budgetEntries: [{ alias: "be", group: "g", budget: "b", amount: 0 }],
+    });
+    expect([400, 500]).toContain(res.status);
+
+    const db = getDb(env);
+    expect((await db.select().from(userTable)).length).toBe(0);
+    expect((await db.select().from(groups)).length).toBe(0);
+    expect((await db.select().from(groupBudgets)).length).toBe(0);
+    expect((await db.select().from(budgetEntries)).length).toBe(0);
+  });
+
+  it("commits successfully when all phases pass (control case)", async () => {
+    const res = await postSeed({
+      users: [{ alias: "u" }],
+      groups: [{
+        alias: "g", members: ["u"],
+        budgets: [{ alias: "b", name: "B" }],
+      }],
+      transactions: [{
+        alias: "t", group: "g", amount: 10,
+        paidByShares: { u: 10 }, splitPctShares: { u: 100 },
+      }],
+      budgetEntries: [{ alias: "be", group: "g", budget: "b", amount: 50 }],
+    });
+    expect(res.status).toBe(200);
+    const db = getDb(env);
+    expect((await db.select().from(userTable)).length).toBe(1);
+    expect((await db.select().from(groups)).length).toBe(1);
+    expect((await db.select().from(groupBudgets)).length).toBe(1);
+    expect((await db.select().from(budgetEntries)).length).toBe(1);
+    expect((await db.select().from(transactions)).length).toBe(1);
+  });
+});
