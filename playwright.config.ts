@@ -103,8 +103,7 @@ export default defineConfig({
 						timeout: process.env.CI ? 180 * 1000 : 120 * 1000,
 						env: {
 							E2E_SEED_SECRET:
-								process.env.E2E_SEED_SECRET ||
-								"local-only-do-not-deploy",
+								process.env.E2E_SEED_SECRET || "local-only-do-not-deploy",
 						},
 					},
 				]
