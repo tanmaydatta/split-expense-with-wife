@@ -19,7 +19,7 @@ name = "scheduled-actions-processor"
 directory = "../build"
 binding = "ASSETS"
 not_found_handling = "single-page-application"
-run_worker_first = ["/.netlify/functions/*", "/hello", "/auth/*"]
+run_worker_first = ["/.netlify/functions/*", "/hello", "/auth/*", "/health", "/test/seed"]
 
 [vars]
 ALLOWED_ORIGINS = "https://staging--splitexpense.netlify.app,https://splitexpense.netlify.app,https://deploy-preview-5--splitexpense.netlify.app,http://localhost:3000,http://localhost:3001"
