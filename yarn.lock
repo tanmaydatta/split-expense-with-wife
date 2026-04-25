@@ -13905,6 +13905,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"nanoid@npm:^5.1.9":
+  version: 5.1.9
+  resolution: "nanoid@npm:5.1.9"
+  bin:
+    nanoid: bin/nanoid.js
+  checksum: 10c0/02cb4e48d30469eee3959795e2af6c113342e7f492906e43bd1e3c264d2dcee6c8236b0e441d4a9895b58c4ddb1c7c02170f63a2ca854a229cc4c7a544699cc1
+  languageName: node
+  linkType: hard
+
 "nanostores@npm:^0.11.2, nanostores@npm:^0.11.3":
   version: 0.11.4
   resolution: "nanostores@npm:0.11.4"
@@ -19164,6 +19173,7 @@ __metadata:
     eslint-config-react-app: "npm:^7.0.1"
     husky: "npm:^9.1.7"
     install: "npm:^0.13.0"
+    nanoid: "npm:^5.1.9"
     os-browserify: "npm:^0.3.0"
     path-browserify: "npm:^1.0.1"
     playwright: "npm:^1.54.1"
