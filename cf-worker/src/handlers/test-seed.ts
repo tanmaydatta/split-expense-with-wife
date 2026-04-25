@@ -1,4 +1,6 @@
+import { customAlphabet } from "nanoid";
 import type { SeedRequest, SeedResponse } from "../../../shared-types";
+import { auth } from "../auth";
 import {
 	createErrorResponse,
 	createJsonResponse,
@@ -6,6 +8,60 @@ import {
 } from "../utils";
 
 const SEED_SECRET_HEADER = "X-E2E-Seed-Secret";
+
+const shortId = customAlphabet("abcdefghijklmnopqrstuvwxyz0123456789", 8);
+
+type CreatedUser = {
+	id: string;
+	email: string;
+	username: string;
+	password: string;
+	name: string;
+};
+
+async function createUsers(
+	payload: SeedRequest,
+	env: Env,
+): Promise<Record<string, CreatedUser>> {
+	const result: Record<string, CreatedUser> = {};
+	const authInstance = auth(env);
+
+	for (const u of payload.users ?? []) {
+		const email = u.email ?? `${u.alias}-${shortId()}@e2e.test`;
+		// Better-auth's default username validator only permits [a-zA-Z0-9_.],
+		// so the auto-generated username uses an underscore separator.
+		const username = u.username ?? `${u.alias}_${shortId()}`;
+		const password = u.password ?? `pw-${shortId()}-${shortId()}`;
+		const name = u.name ?? u.alias;
+
+		// Better-auth's user table has additional required fields (firstName, lastName)
+		// configured in cf-worker/src/auth.ts. They have defaultValue: "".
+		// signUpEmail accepts arbitrary additionalFields via the body; cast as any to
+		// bypass strict typing of the helper.
+		const signUp = await authInstance.api.signUpEmail({
+			body: {
+				email,
+				password,
+				name,
+				username,
+				firstName: "",
+				lastName: "",
+				// biome-ignore lint/suspicious/noExplicitAny: additional fields configured in auth.ts
+			} as any,
+		});
+		if (!signUp || !signUp.user) {
+			throw new Error(`failed to create user '${u.alias}' (alias)`);
+		}
+		result[u.alias] = {
+			id: signUp.user.id,
+			email,
+			username,
+			password,
+			name,
+		};
+	}
+	return result;
+}
 
 function validateUsers(
 	payload: SeedRequest,
@@ -195,10 +251,30 @@ export async function handleTestSeed(
 		return createErrorResponse(error, 400, request, env);
 	}
 
-	// Entity creation comes in subsequent tasks (6–11).
-	// For now, return a stub response with empty maps.
+	let users: Record<string, CreatedUser>;
+	try {
+		users = await createUsers(payload, env);
+	} catch (e) {
+		return createErrorResponse(
+			`user creation failed: ${(e as Error).message}`,
+			500,
+			request,
+			env,
+		);
+	}
+
 	const response: SeedResponse = {
-		ids: { users: {}, groups: {}, transactions: {}, budgetEntries: {} },
+		ids: {
+			users: Object.fromEntries(
+				Object.entries(users).map(([alias, u]) => [
+					alias,
+					{ id: u.id, email: u.email, username: u.username },
+				]),
+			),
+			groups: {},
+			transactions: {},
+			budgetEntries: {},
+		},
 		sessions: {},
 	};
 	return createJsonResponse(response, 200, {}, request, env);

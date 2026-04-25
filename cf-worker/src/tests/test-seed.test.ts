@@ -3,12 +3,31 @@ import {
   env,
   waitOnExecutionContext,
 } from "cloudflare:test";
+import { eq } from "drizzle-orm";
 // Vitest globals are available through the test environment
+import { getDb } from "../db";
+import { user as userTable } from "../db/schema/auth-schema";
 import worker from "../index";
+import { completeCleanupDatabase, setupDatabase } from "./test-utils";
 
 const TEST_SECRET = "test-secret";
 const URL_PATH = "https://localhost:8787/test/seed";
 const ORIGINAL_SECRET = env.E2E_SEED_SECRET;
+
+async function postSeed(body: unknown): Promise<Response> {
+  const req = new Request(URL_PATH, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-E2E-Seed-Secret": TEST_SECRET,
+    },
+    body: JSON.stringify(body),
+  });
+  const ctx = createExecutionContext();
+  const res = await worker.fetch(req, env, ctx);
+  await waitOnExecutionContext(ctx);
+  return res;
+}
 
 describe("POST /test/seed gate", () => {
   beforeEach(() => {
@@ -115,21 +134,6 @@ describe("POST /test/seed validation", () => {
     env.E2E_SEED_SECRET = ORIGINAL_SECRET;
   });
 
-  async function postSeed(body: unknown): Promise<Response> {
-    const req = new Request(URL_PATH, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-E2E-Seed-Secret": TEST_SECRET,
-      },
-      body: JSON.stringify(body),
-    });
-    const ctx = createExecutionContext();
-    const res = await worker.fetch(req, env, ctx);
-    await waitOnExecutionContext(ctx);
-    return res;
-  }
-
   it("returns 400 when a transaction references unknown group alias", async () => {
     const res = await postSeed({
       users: [{ alias: "u" }],
@@ -225,6 +229,8 @@ describe("POST /test/seed validation", () => {
   });
 
   it("returns 200 with empty stub IDs for a fully-valid payload", async () => {
+    await setupDatabase(env);
+    await completeCleanupDatabase(env);
     const res = await postSeed({
       users: [{ alias: "u" }],
       groups: [{
@@ -247,7 +253,60 @@ describe("POST /test/seed validation", () => {
       ids: { users: object; groups: object; transactions: object; budgetEntries: object };
       sessions: object;
     };
-    expect(body.ids).toEqual({ users: {}, groups: {}, transactions: {}, budgetEntries: {} });
+    // Users are now created (Task 6); other entity types remain empty stubs until Tasks 7+.
+    expect(body.ids.groups).toEqual({});
+    expect(body.ids.transactions).toEqual({});
+    expect(body.ids.budgetEntries).toEqual({});
     expect(body.sessions).toEqual({});
+  });
+});
+
+describe("POST /test/seed user creation", () => {
+  beforeEach(async () => {
+    env.E2E_SEED_SECRET = TEST_SECRET;
+    await setupDatabase(env);
+    await completeCleanupDatabase(env);
+  });
+
+  afterEach(() => {
+    env.E2E_SEED_SECRET = ORIGINAL_SECRET;
+  });
+
+  it("creates users via better-auth and returns IDs/emails/usernames", async () => {
+    const res = await postSeed({
+      users: [{ alias: "alice" }, { alias: "bob", name: "Bob Builder" }],
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      ids: { users: Record<string, { id: string; email: string; username: string }> };
+    };
+
+    expect(body.ids.users.alice).toBeDefined();
+    expect(body.ids.users.alice.id).toMatch(/^.+/);
+    expect(body.ids.users.alice.email).toMatch(/@e2e\.test$/);
+    expect(body.ids.users.alice.username).toMatch(/^alice/);
+    expect(body.ids.users.bob.email).toMatch(/@e2e\.test$/);
+
+    const db = getDb(env);
+    const aliceRow = await db.select().from(userTable).where(eq(userTable.id, body.ids.users.alice.id));
+    expect(aliceRow.length).toBe(1);
+    // Default name = alias when override not provided
+    expect(aliceRow[0].name).toBe("alice");
+
+    const bobRow = await db.select().from(userTable).where(eq(userTable.id, body.ids.users.bob.id));
+    expect(bobRow[0].name).toBe("Bob Builder");
+  });
+
+  it("respects email/username/password overrides", async () => {
+    // Note: better-auth's default username validator only permits [a-zA-Z0-9_.].
+    const res = await postSeed({
+      users: [{ alias: "carol", email: "carol@custom.test", username: "carol_custom", password: "pw-12345678" }],
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      ids: { users: Record<string, { id: string; email: string; username: string }> };
+    };
+    expect(body.ids.users.carol.email).toBe("carol@custom.test");
+    expect(body.ids.users.carol.username).toBe("carol_custom");
   });
 });
