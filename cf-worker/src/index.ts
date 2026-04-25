@@ -12,6 +12,7 @@ import {
 	handleGroupDetails,
 	handleUpdateGroupMetadata,
 } from "./handlers/group";
+import { handleHealth } from "./handlers/health";
 import { handleHelloWorld } from "./handlers/hello";
 import {
 	handlePasswordMigration,
@@ -244,6 +245,11 @@ export default {
 
 		const url = new URL(request.url);
 		const path = url.pathname;
+
+		// Priority 0: Handle /health endpoint for readiness probes
+		if (path === "/health") {
+			return await handleHealth(request, env);
+		}
 
 		// Priority 1: Handle all better-auth routes
 		const authResponse = await handleAuthRoutes(request, env, path);
