@@ -34,20 +34,11 @@ jobs:
     - name: Build the application
       run: yarn build
 
-    # ===== Legacy specs against remote dev cf-worker (existing flow) =====
-    # These spec files use UI-based login with hardcoded test users that exist
-    # in the deployed dev D1. Convert to fixtures incrementally and move them
-    # to the local-backend step below.
-    - name: Run e2e tests against remote (legacy specs)
-      env:
-        E2E_BACKEND_URL: https://splitexpense-dev.tanmaydatta.workers.dev
-        PLAYWRIGHT_BASE_URL: https://splitexpense-dev.tanmaydatta.workers.dev
-      run: yarn playwright test --project=chromium --workers=1 --reporter=list,html --trace=on  src/e2e/tests/scheduled-actions.spec.ts && yarn playwright test --project=chromium --workers=1 --reporter=list,html --trace=on  src/e2e/tests/settings-management.spec.ts && yarn playwright test --project=chromium --workers=1 --reporter=list,html --trace=on src/e2e/tests/budget-management.spec.ts && yarn playwright test --project=chromium --workers=1 --reporter=list,html --trace=on src/e2e/tests/transactions-balances.spec.ts && yarn playwright test --project=chromium --workers=1 --reporter=list,html --trace=on src/e2e/tests/auth.spec.ts
-
     # ===== Pilot spec against LOCAL cf-worker (new fixtures flow) =====
-    # Playwright's webServer config boots both the React frontend and a local
-    # `wrangler dev` instance. The pilot uses the /test/seed endpoint to
-    # populate the local D1 per test.
+    # Run local first to fail fast on fixture/seed issues before paying the
+    # cost of the remote-backend run. Playwright's webServer config boots both
+    # the React frontend and a local `wrangler dev` instance. The pilot uses
+    # the /test/seed endpoint to populate the local D1 per test.
     - name: Setup local backend for pilot
       env:
         E2E_SEED_SECRET: ${{ secrets.E2E_SEED_SECRET }}
@@ -68,6 +59,16 @@ jobs:
         E2E_BACKEND_URL: ""
         PLAYWRIGHT_BASE_URL: http://localhost:3000
       run: yarn playwright test --project=chromium --workers=1 --reporter=list,html --trace=on src/e2e/tests/expense-management.spec.ts
+
+    # ===== Legacy specs against remote dev cf-worker (existing flow) =====
+    # These spec files use UI-based login with hardcoded test users that exist
+    # in the deployed dev D1. Convert to fixtures incrementally and move them
+    # to the local-backend step above.
+    - name: Run e2e tests against remote (legacy specs)
+      env:
+        E2E_BACKEND_URL: https://splitexpense-dev.tanmaydatta.workers.dev
+        PLAYWRIGHT_BASE_URL: https://splitexpense-dev.tanmaydatta.workers.dev
+      run: yarn playwright test --project=chromium --workers=1 --reporter=list,html --trace=on  src/e2e/tests/scheduled-actions.spec.ts && yarn playwright test --project=chromium --workers=1 --reporter=list,html --trace=on  src/e2e/tests/settings-management.spec.ts && yarn playwright test --project=chromium --workers=1 --reporter=list,html --trace=on src/e2e/tests/budget-management.spec.ts && yarn playwright test --project=chromium --workers=1 --reporter=list,html --trace=on src/e2e/tests/transactions-balances.spec.ts && yarn playwright test --project=chromium --workers=1 --reporter=list,html --trace=on src/e2e/tests/auth.spec.ts
     
     - name: Upload test results
       uses: actions/upload-artifact@v4
