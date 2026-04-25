@@ -17,7 +17,7 @@ export function createFormSubmitHandler(
 
 		if (value.addExpense && value.users) {
 			formData.expense = {
-				amount: value.amount,
+				amount: value.amount ?? 0,
 				description: value.description,
 				currency: value.currency,
 				paidBy: value.paidBy!,
@@ -27,7 +27,7 @@ export function createFormSubmitHandler(
 
 		if (value.updateBudget) {
 			formData.budget = {
-				amount: value.amount,
+				amount: value.amount ?? 0,
 				description: value.description,
 				budgetId: value.budgetId!,
 				currency: value.currency,

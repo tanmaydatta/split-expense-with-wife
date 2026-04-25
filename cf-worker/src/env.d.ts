@@ -1,6 +1,13 @@
 /// <reference types="vitest" />
 /// <reference types="worker-configuration.d.ts" />
 
+// Extend the generated Env interface with secrets not tracked in wrangler.toml
+declare namespace Cloudflare {
+	interface Env {
+		E2E_SEED_SECRET: string;
+	}
+}
+
 declare module "vitest" {
 	interface TestContext {
 		env: Env;

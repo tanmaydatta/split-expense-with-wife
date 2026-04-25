@@ -13,6 +13,7 @@ import {
 	handleUpdateGroupMetadata,
 } from "./handlers/group";
 import { handleHealth } from "./handlers/health";
+import { handleTestSeed } from "./handlers/test-seed";
 import { handleHelloWorld } from "./handlers/hello";
 import {
 	handlePasswordMigration,
@@ -249,6 +250,18 @@ export default {
 		// Priority 0: Handle /health endpoint for readiness probes
 		if (path === "/health") {
 			return await handleHealth(request, env);
+		}
+
+		// Priority 0.5: Handle /test/seed endpoint for E2E test fixture seeding
+		if (path === "/test/seed") {
+			// Layer 1: env-var presence gate. If unset, route not registered → 404.
+			if (!env.E2E_SEED_SECRET) {
+				return createErrorResponse("Not Found", 404, request, env);
+			}
+			if (request.method !== "POST") {
+				return createErrorResponse("Method not allowed", 405, request, env);
+			}
+			return await handleTestSeed(request, env);
 		}
 
 		// Priority 1: Handle all better-auth routes
