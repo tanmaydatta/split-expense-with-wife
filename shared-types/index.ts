@@ -908,3 +908,74 @@ export type ScheduledActionHistoryQuery = z.infer<
 export type UpdateGroupMetadataRequestInput = z.infer<
 	typeof UpdateGroupMetadataRequestSchema
 >;
+
+// =====================
+// E2E test seed endpoint (POST /test/seed)
+// Available only in local cf-worker; never registered in deployed environments.
+// =====================
+
+export interface SeedRequest {
+	users?: Array<{
+		alias: string;
+		name?: string;
+		email?: string;
+		password?: string;
+		username?: string;
+	}>;
+	groups?: Array<{
+		alias: string;
+		name?: string;
+		members: string[];
+		defaultCurrency?: string;
+		budgets?: Array<{
+			alias: string;
+			name: string;
+			description?: string;
+		}>;
+		metadata?: Record<string, unknown>;
+	}>;
+	transactions?: Array<{
+		alias: string;
+		group: string;
+		description?: string;
+		amount: number;
+		currency?: string;
+		paidByShares: Record<string, number>;
+		splitPctShares: Record<string, number>;
+		createdAt?: string;
+	}>;
+	budgetEntries?: Array<{
+		alias: string;
+		group: string;
+		budget: string;
+		description?: string;
+		amount: number;
+		currency?: string;
+		addedTime?: string;
+	}>;
+	// expenseBudgetLinks is intentionally NOT in this version.
+	// The linking spec adds it in its own plan.
+	scheduledActions?: unknown[];
+	authenticate?: string[];
+}
+
+export interface SeedCookie {
+	name: string;
+	value: string;
+	domain: string;
+	path: string;
+	sameSite: "Lax" | "Strict" | "None";
+	httpOnly: boolean;
+	secure: boolean;
+	expires?: number;
+}
+
+export interface SeedResponse {
+	ids: {
+		users: Record<string, { id: string; email: string; username: string }>;
+		groups: Record<string, { id: string }>;
+		transactions: Record<string, { id: string }>;
+		budgetEntries: Record<string, { id: string }>;
+	};
+	sessions: Record<string, { cookies: SeedCookie[] }>;
+}
