@@ -228,6 +228,24 @@ yarn test
 yarn test:e2e
 ```
 
+## Running e2e tests
+
+E2E tests run against a **local** cf-worker by default, booted automatically by Playwright's `webServer` config alongside the React dev server. There is no need to point at the deployed dev worker.
+
+Common commands:
+
+- `yarn test:e2e` — runs against local backend (default).
+- `yarn test:e2e:fresh` — wipes the local D1 (`cf-worker/.wrangler/state/v3/d1`) before running. Mirrors CI; use to reproduce CI-style isolation locally.
+- `yarn test:e2e:remote` — runs against the deployed dev worker (`E2E_BACKEND_URL=https://splitexpense-dev...`). Tests that require fixtures are skipped automatically since the seed endpoint is local-only.
+
+To run e2e locally you need `cf-worker/.dev.vars` with at least:
+
+```
+E2E_SEED_SECRET=local-only-do-not-deploy
+```
+
+(`AUTH_TRUSTED_ORIGINS` is configured via `cf-worker/wrangler.toml` and already includes `http://localhost:3000` in local mode — no extra config needed.)
+
 ## Project Structure
 
 ```

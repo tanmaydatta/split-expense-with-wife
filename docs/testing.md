@@ -204,6 +204,23 @@ test.describe('Expense Management Flow', () => {
 });
 ```
 
+## E2E fixtures
+
+E2E tests use Playwright fixtures defined in `src/e2e/fixtures/setup.ts`:
+
+- `seed(payload, options?)` — calls `POST /test/seed` on the local cf-worker; optionally injects session cookies into the browser context. Returns IDs and cookies.
+- `authedPage` — shorthand for one user, one fresh group, signed in, on `/`. Best for tests that just need an authenticated page without specific seeded data.
+- `authedPageWithGroupOf(n)` — multi-user group; first user is authenticated. Returns `{ page, users }` where `users` is the array of user aliases.
+- `skipIfRemoteBackend` — call inside `test.beforeAll(...)` to skip a fixture-dependent test file when running against a remote backend.
+
+Use `factories` (from the same module) to build seed payloads with sane defaults: `factories.user()`, `factories.group()`, `factories.transaction()`, `factories.budgetEntry()`.
+
+When converting an existing test, follow the principle: **replace UI-driven setup with seed-endpoint setup; keep UI-driven exercise of the system under test unchanged.** If a test's purpose is "the dashboard form correctly creates an expense," keep the form interaction. If it's "deleting an existing expense works," seed the expense and only exercise the delete UI.
+
+The legacy fixtures `authenticatedPage` and `authenticatedMultiPersonPage` (UI-driven login as a hardcoded test user) are **deprecated** but still functional for unconverted spec files. They will be removed once all e2e tests are converted.
+
+See `src/e2e/tests/expense-management.spec.ts` for a worked example of conversion patterns.
+
 ## Backend Testing
 
 ### Unit and Integration Tests
