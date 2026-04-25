@@ -114,7 +114,8 @@ export default defineConfig({
 			reuseExistingServer: !process.env.CI,
 			timeout: process.env.CI ? 180 * 1000 : 120 * 1000,
 			env: {
-				REACT_APP_API_BASE_URL: backendUrl,
+				REACT_APP_API_BASE_URL: `${backendUrl}/.netlify/functions`,
+				REACT_APP_AUTH_BASE_URL: backendUrl,
 				BROWSER: "none",
 			},
 		},
