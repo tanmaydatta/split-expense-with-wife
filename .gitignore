@@ -1,3 +1,7 @@
+# Override parent gitignore: keep brainstorming/superpowers docs in this project's repo
+!docs/superpowers/
+!docs/superpowers/**
+
 # Binaries for programs and plugins
 *.exe
 *.exe~
