@@ -1,3 +1,5 @@
+import type { Page } from "@playwright/test";
+import type { SeedRequest, SeedResponse } from "../../../shared-types";
 import {
 	test,
 	expect,
@@ -6,6 +8,50 @@ import {
 } from "../fixtures/setup";
 import { TestHelper } from "../utils/test-utils";
 import { ExpenseTestHelper } from "../utils/expense-test-helper";
+
+const BACKEND_URL = process.env.E2E_BACKEND_URL ?? "http://localhost:8787";
+
+type SeedFn = (
+	payload: SeedRequest,
+	options?: { authenticateAs?: string },
+) => Promise<SeedResponse>;
+
+/**
+ * Seed a two-user group and set non-empty firstName on each user.
+ *
+ * The seed handler hardcodes `firstName: ""` for created users, but the
+ * Dashboard form's `DashboardUserSchema` requires `FirstName` to be at least
+ * 1 character. Without this fix-up the Submit button silently no-ops because
+ * `form.canSubmit === false`.
+ *
+ * The seed fixture has already attached u1's cookies to the page context;
+ * we additionally use u2's session (returned in `result.sessions.u2`) to call
+ * better-auth's `auth/update-user` endpoint for u2.
+ */
+async function seedTwoUserAuthedPage(
+	seed: SeedFn,
+	page: Page,
+): Promise<SeedResponse> {
+	const result = await seed({
+		users: [factories.user({ alias: "u1" }), factories.user({ alias: "u2" })],
+		groups: [factories.group({ alias: "g", members: ["u1", "u2"] })],
+		authenticate: ["u1", "u2"],
+	});
+	for (const alias of ["u1", "u2"] as const) {
+		const session = result.sessions[alias];
+		if (!session) continue;
+		const cookieHeader = session.cookies
+			.map((c) => `${c.name}=${c.value}`)
+			.join("; ");
+		await fetch(`${BACKEND_URL}/auth/update-user`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json", Cookie: cookieHeader },
+			body: JSON.stringify({ firstName: alias }),
+		});
+	}
+	await page.goto("/");
+	return result;
+}
 
 test.describe("Expense Management", () => {
 	test.beforeAll(skipIfRemoteBackend);
@@ -43,35 +89,36 @@ test.describe("Expense Management", () => {
 	});
 
 	test("should preserve user-modified percentages within dashboard session but reset after navigation", async ({
-		authedPageWithGroupOf,
+		seed,
+		page,
 	}) => {
-		const { page } = await authedPageWithGroupOf(2);
+		const seedResult = await seedTwoUserAuthedPage(seed, page);
 		const helper = new TestHelper(page);
 		const expenseHelper = new ExpenseTestHelper(helper);
 
 		await expect(page).toHaveURL("/");
 
-		// Read user IDs from the rendered form. With 2 users and no defaultShare
-		// metadata seeded, the form falls back to 100/n = 50% per user.
+		// Use seeded user IDs so the test is deterministic regardless of the
+		// order in which the form lists users.
+		const u1Id = seedResult.ids.users.u1.id;
+		const u2Id = seedResult.ids.users.u2.id;
+
+		// Verify initial defaults from group fallback (50/50 since no defaultShare).
 		const initialFormValues = await expenseHelper.getCurrentFormValues();
-		const userIds = Object.keys(initialFormValues.percentages);
-		expect(userIds.length).toBe(2);
-		const [userId1, userId2] = userIds;
+		expect(Object.keys(initialFormValues.percentages).length).toBe(2);
+		expect(initialFormValues.percentages[u1Id]).toBe("50");
+		expect(initialFormValues.percentages[u2Id]).toBe("50");
 
-		// Verify initial defaults from group fallback (50/50 since no defaultShare)
-		expect(initialFormValues.percentages[userId1]).toBe("50");
-		expect(initialFormValues.percentages[userId2]).toBe("50");
-
-		// Set custom split percentages (70/30 instead of default 50/50)
-		const customPercentages = { [userId1]: 70, [userId2]: 30 };
+		// Set custom split percentages (u1 owes 70%, u2 owes 30%).
+		const customPercentages = { [u1Id]: 70, [u2Id]: 30 };
 		await expenseHelper.setCustomSplitPercentages(customPercentages);
 
-		// Add an expense with user1 as payer
+		// Add an expense with u1 (the logged-in user) as payer.
 		const expense = {
 			description: "Grocery shopping",
 			amount: 100,
 			currency: "USD",
-			paidBy: userId1,
+			paidBy: u1Id,
 		};
 		const result = await expenseHelper.addExpenseEntry(expense);
 
@@ -79,15 +126,15 @@ test.describe("Expense Management", () => {
 		const afterSubmitValues = await expenseHelper.getCurrentFormValues();
 		expect(afterSubmitValues.description).toBe("");
 		expect(afterSubmitValues.amount).toBe("");
-		expect(afterSubmitValues.percentages[userId1]).toBe("70"); // Preserved within session
-		expect(afterSubmitValues.percentages[userId2]).toBe("30"); // Preserved within session
+		expect(afterSubmitValues.percentages[u1Id]).toBe("70"); // Preserved within session
+		expect(afterSubmitValues.percentages[u2Id]).toBe("30"); // Preserved within session
 
 		// Navigate to expenses page to verify the expense was actually added
 		await helper.navigateToPage("Expenses");
 		await page.waitForTimeout(2000);
 		await expenseHelper.verifyExpensesPageComponents();
 
-		// Verify the specific expense we added is visible (70/30 split: user1 paid $100, owes $70, share = +$30.00)
+		// 70/30 split: u1 paid $100, owes $70, so u1's share = +$30.00.
 		await expenseHelper.verifySpecificExpenseEntry(
 			result.description,
 			"100",
@@ -101,14 +148,15 @@ test.describe("Expense Management", () => {
 
 		// Verify percentages reset to defaults (50/50 fallback) after navigation
 		const afterNavigationValues = await expenseHelper.getCurrentFormValues();
-		expect(afterNavigationValues.percentages[userId1]).toBe("50");
-		expect(afterNavigationValues.percentages[userId2]).toBe("50");
+		expect(afterNavigationValues.percentages[u1Id]).toBe("50");
+		expect(afterNavigationValues.percentages[u2Id]).toBe("50");
 	});
 
 	test("should reset custom currency selection to default after navigation", async ({
-		authedPageWithGroupOf,
+		seed,
+		page,
 	}) => {
-		const { page } = await authedPageWithGroupOf(2);
+		const seedResult = await seedTwoUserAuthedPage(seed, page);
 		const helper = new TestHelper(page);
 		const expenseHelper = new ExpenseTestHelper(helper);
 
@@ -116,22 +164,24 @@ test.describe("Expense Management", () => {
 
 		// Default currency from factories.group is "GBP"
 		const defaultCurrency = "GBP";
+		// u1 is the authenticated user (the one whose perspective the Expenses
+		// page uses to compute "share"). Use u1 as paidBy so the share is
+		// positive (they paid more than their split).
+		const u1Id = seedResult.ids.users.u1.id;
 
-		// Read user IDs from the rendered form. 50/50 fallback for 2 users.
+		// Confirm 2 percentage inputs are rendered (50/50 fallback for 2 users).
 		const initialFormValues = await expenseHelper.getCurrentFormValues();
-		const userIds = Object.keys(initialFormValues.percentages);
-		expect(userIds.length).toBeGreaterThanOrEqual(1);
-		const [firstUserId] = userIds;
+		expect(Object.keys(initialFormValues.percentages).length).toBe(2);
 
 		// Change currency to EUR for this expense
 		await page.selectOption('[data-test-id="currency-select"]', "EUR");
 
-		// Add an expense with EUR currency, paid by first user
+		// Add an expense with EUR currency, paid by the logged-in user
 		const expense = {
 			description: "Grocery shopping",
 			amount: 100,
 			currency: "EUR",
-			paidBy: firstUserId,
+			paidBy: u1Id,
 		};
 		const result = await expenseHelper.addExpenseEntry(expense);
 
@@ -140,7 +190,7 @@ test.describe("Expense Management", () => {
 		await page.waitForTimeout(2000);
 		await expenseHelper.verifyExpensesPageComponents();
 
-		// First user paid €100, owes 50%, share = +€50.00
+		// u1 paid €100, owes 50%, so u1's share = +€50.00
 		await expenseHelper.verifySpecificExpenseEntry(
 			result.description,
 			"100",
@@ -157,28 +207,31 @@ test.describe("Expense Management", () => {
 	});
 
 	test("should successfully add a new expense with custom split and verify on expenses page", async ({
-		authedPageWithGroupOf,
+		seed,
+		page,
 	}) => {
-		const { page } = await authedPageWithGroupOf(2);
+		const seedResult = await seedTwoUserAuthedPage(seed, page);
 		const helper = new TestHelper(page);
 		const expenseHelper = new ExpenseTestHelper(helper);
 
 		await expect(page).toHaveURL("/");
 
-		// Read user IDs from the rendered form. 50/50 fallback for 2 users.
-		const initialFormValues = await expenseHelper.getCurrentFormValues();
-		const userIds = Object.keys(initialFormValues.percentages);
-		expect(userIds.length).toBe(2);
-		const [userId1, userId2] = userIds;
+		// Use seeded user IDs (deterministic across test runs).
+		const u1Id = seedResult.ids.users.u1.id;
+		const u2Id = seedResult.ids.users.u2.id;
 
-		// Add expense with custom 60/40 split
+		// Confirm 50/50 fallback for 2 users.
+		const initialFormValues = await expenseHelper.getCurrentFormValues();
+		expect(Object.keys(initialFormValues.percentages).length).toBe(2);
+
+		// Add expense with custom 60/40 split, paid by the logged-in user (u1).
 		const expense = {
 			description: "Grocery shopping",
 			amount: 150.5,
 			currency: "USD",
-			paidBy: userId1,
+			paidBy: u1Id,
 		};
-		const customSplit = { [userId1]: 60, [userId2]: 40 };
+		const customSplit = { [u1Id]: 60, [u2Id]: 40 };
 		const result = await expenseHelper.addExpenseEntry(expense, customSplit);
 
 		expect(result.successMessage).toContain("successfully");
@@ -190,7 +243,7 @@ test.describe("Expense Management", () => {
 		// Verify expenses page components are present
 		await expenseHelper.verifyExpensesPageComponents();
 
-		// Verify the specific expense we added is visible (60/40 split: user1 paid $150.50, owes $90.30, share = +$60.20)
+		// 60/40 split: u1 paid $150.50, owes $90.30, so u1's share = +$60.20.
 		await expenseHelper.verifySpecificExpenseEntry(
 			result.description,
 			expense.amount.toString(),
@@ -207,8 +260,8 @@ test.describe("Expense Management", () => {
 		expect(formValues.amount).toBe("");
 
 		// Verify percentages reset to fallback defaults (50/50) after navigation
-		expect(formValues.percentages[userId1]).toBe("50");
-		expect(formValues.percentages[userId2]).toBe("50");
+		expect(formValues.percentages[u1Id]).toBe("50");
+		expect(formValues.percentages[u2Id]).toBe("50");
 	});
 
 	test("should handle form validation for missing required fields", async ({
@@ -225,27 +278,31 @@ test.describe("Expense Management", () => {
 	});
 
 	test("should handle multiple expenses with different currencies", async ({
-		authedPageWithGroupOf,
+		seed,
+		page,
 	}) => {
-		const { page } = await authedPageWithGroupOf(2);
+		const seedResult = await seedTwoUserAuthedPage(seed, page);
 		const helper = new TestHelper(page);
 		const expenseHelper = new ExpenseTestHelper(helper);
 
 		await expect(page).toHaveURL("/");
 
-		// Read user IDs from the rendered form.
-		const initialFormValues = await expenseHelper.getCurrentFormValues();
-		const userIds = Object.keys(initialFormValues.percentages);
-		expect(userIds.length).toBe(2);
-		const [userId1, userId2] = userIds;
-		const splitPercentages = { [userId1]: 50, [userId2]: 50 };
+		// Use seeded user IDs so the share-sign assertions below are deterministic.
+		// u1 is the authenticated user (whose perspective the Expenses page shows).
+		const u1Id = seedResult.ids.users.u1.id;
+		const u2Id = seedResult.ids.users.u2.id;
 
-		// Add first expense in USD
+		// Confirm 2 percentage inputs are rendered.
+		const initialFormValues = await expenseHelper.getCurrentFormValues();
+		expect(Object.keys(initialFormValues.percentages).length).toBe(2);
+		const splitPercentages = { [u1Id]: 50, [u2Id]: 50 };
+
+		// Add first expense in USD, paid by u1 so u1's share is positive
 		const usdExpense = {
 			description: "Grocery shopping",
 			amount: 150,
 			currency: "USD",
-			paidBy: userId1,
+			paidBy: u1Id,
 		};
 		const usdResult = await expenseHelper.addExpenseEntry(
 			usdExpense,
@@ -267,13 +324,13 @@ test.describe("Expense Management", () => {
 		await helper.navigateToPage("Add");
 		await page.waitForTimeout(1000);
 
-		// Add second expense in EUR, paid by user2 so user1's share is negative
+		// Add second expense in EUR, paid by u2 so u1's share is negative
 		await page.selectOption('[data-test-id="currency-select"]', "EUR");
 		const eurExpense = {
 			description: "Dinner at restaurant",
 			amount: 85,
 			currency: "EUR",
-			paidBy: userId2,
+			paidBy: u2Id,
 		};
 		const eurResult = await expenseHelper.addExpenseEntry(
 			eurExpense,
@@ -304,14 +361,18 @@ test.describe("Expense Management", () => {
 		seed,
 		page,
 	}) => {
+		// Use 2-user split so transaction_users rows are inserted (single-user
+		// self-pays-self produces zero split entries; /split_delete then errors with
+		// "Transaction not found" since it queries transaction_users to find the tx).
 		const seedResult = await seed({
-			users: [factories.user({ alias: "u" })],
-			groups: [factories.group({ alias: "g", members: ["u"] })],
+			users: [factories.user({ alias: "u" }), factories.user({ alias: "u2" })],
+			groups: [factories.group({ alias: "g", members: ["u", "u2"] })],
 			transactions: [
 				factories.transaction({
 					alias: "t",
 					group: "g",
 					paidBy: "u",
+					splitAcross: ["u", "u2"],
 					amount: 100,
 					currency: "USD",
 					description: "Lunch to delete",
@@ -331,7 +392,7 @@ test.describe("Expense Management", () => {
 		await page.waitForTimeout(2000);
 		await expenseHelper.verifyExpensesPageComponents();
 
-		// Single-user transaction: paid full amount and split 100% to self → share is $0.00
+		// Two-user 50/50 split: u paid $100, owes $50 → share is +$50.00
 		await expenseHelper.verifySpecificExpenseEntry(
 			"Lunch to delete",
 			"100",
@@ -357,14 +418,16 @@ test.describe("Expense Management", () => {
 		const desc2 = "Restaurant to delete";
 		const desc3 = "Utilities to delete";
 
+		// 2-user split required: see comment on first deletion test above.
 		await seed({
-			users: [factories.user({ alias: "u" })],
-			groups: [factories.group({ alias: "g", members: ["u"] })],
+			users: [factories.user({ alias: "u" }), factories.user({ alias: "u2" })],
+			groups: [factories.group({ alias: "g", members: ["u", "u2"] })],
 			transactions: [
 				factories.transaction({
 					alias: "t1",
 					group: "g",
 					paidBy: "u",
+					splitAcross: ["u", "u2"],
 					amount: 50,
 					currency: "USD",
 					description: desc1,
@@ -373,6 +436,7 @@ test.describe("Expense Management", () => {
 					alias: "t2",
 					group: "g",
 					paidBy: "u",
+					splitAcross: ["u", "u2"],
 					amount: 75,
 					currency: "EUR",
 					description: desc2,
@@ -381,6 +445,7 @@ test.describe("Expense Management", () => {
 					alias: "t3",
 					group: "g",
 					paidBy: "u",
+					splitAcross: ["u", "u2"],
 					amount: 120,
 					currency: "USD",
 					description: desc3,
@@ -437,14 +502,16 @@ test.describe("Expense Management", () => {
 
 	test("should handle expense deletion", async ({ seed, page }) => {
 		const desc = "GBP expense to delete";
+		// 2-user split required: see comment on first deletion test above.
 		await seed({
-			users: [factories.user({ alias: "u" })],
-			groups: [factories.group({ alias: "g", members: ["u"] })],
+			users: [factories.user({ alias: "u" }), factories.user({ alias: "u2" })],
+			groups: [factories.group({ alias: "g", members: ["u", "u2"] })],
 			transactions: [
 				factories.transaction({
 					alias: "t",
 					group: "g",
 					paidBy: "u",
+					splitAcross: ["u", "u2"],
 					amount: 200,
 					currency: "GBP",
 					description: desc,
@@ -482,14 +549,16 @@ test.describe("Expense Management", () => {
 		const desc1 = "USD multi-view to delete";
 		const desc2 = "EUR multi-view to delete";
 
+		// 2-user split required: see comment on first deletion test above.
 		await seed({
-			users: [factories.user({ alias: "u" })],
-			groups: [factories.group({ alias: "g", members: ["u"] })],
+			users: [factories.user({ alias: "u" }), factories.user({ alias: "u2" })],
+			groups: [factories.group({ alias: "g", members: ["u", "u2"] })],
 			transactions: [
 				factories.transaction({
 					alias: "t1",
 					group: "g",
 					paidBy: "u",
+					splitAcross: ["u", "u2"],
 					amount: 150,
 					currency: "USD",
 					description: desc1,
@@ -498,6 +567,7 @@ test.describe("Expense Management", () => {
 					alias: "t2",
 					group: "g",
 					paidBy: "u",
+					splitAcross: ["u", "u2"],
 					amount: 90,
 					currency: "EUR",
 					description: desc2,
