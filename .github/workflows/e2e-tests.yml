@@ -47,70 +47,13 @@ jobs:
           echo "::error::E2E_SEED_SECRET secret is not set on this repo. Add it under Settings → Secrets and variables → Actions (any opaque value)."
           exit 1
         fi
-        # Use printf to avoid any echo-quirks (trailing whitespace, escape interpretation).
+        # Use printf to avoid echo's escape interpretation. The secret must
+        # not contain trailing whitespace/newline; wrangler's .dev.vars parser
+        # treats the rest of the line as the value, but the test process's
+        # process.env retains them — causing a header/env mismatch.
         printf 'E2E_SEED_SECRET=%s\n' "$E2E_SEED_SECRET" > cf-worker/.dev.vars
-        # Diagnostic: confirm the file exists with the expected key (not the value).
-        echo "--- cf-worker/.dev.vars (key only, value masked) ---"
-        sed -E 's/^(E2E_SEED_SECRET)=.*$/\1=<MASKED, length=${#E2E_SEED_SECRET}>/' cf-worker/.dev.vars
-        echo "--- length of E2E_SEED_SECRET in env: ${#E2E_SEED_SECRET} ---"
         rm -rf cf-worker/.wrangler/state/v3/d1
         cd cf-worker && yarn db:migrate:local
-
-    # Diagnostic: boot wrangler dev manually outside of playwright, probe
-    # /health and /test/seed, then kill it. Isolates whether wrangler dev
-    # picks up .dev.vars correctly in CI (separate from playwright's webServer
-    # supervisor logic, env propagation, output buffering, etc.).
-    - name: Diagnostic - probe wrangler dev manually
-      env:
-        E2E_SEED_SECRET: ${{ secrets.E2E_SEED_SECRET }}
-      run: |
-        echo "--- ls cf-worker/.dev.vars (sanity check) ---"
-        ls -la cf-worker/.dev.vars
-        echo "--- cf-worker/.dev.vars (key only, value masked) ---"
-        sed -E 's/^(E2E_SEED_SECRET)=.*$/\1=<MASKED, length=${#E2E_SEED_SECRET}>/' cf-worker/.dev.vars
-        echo "--- starting wrangler dev in background ---"
-        cd cf-worker
-        # Capture both stdout+stderr to a log we can dump after
-        yarn dev --port=8787 > /tmp/wrangler-diag.log 2>&1 &
-        WPID=$!
-        echo "wrangler dev pid: $WPID"
-        cd ..
-        # Poll /health for up to 60s
-        for i in $(seq 1 60); do
-          if curl -fsS http://localhost:8787/health > /tmp/health.out 2>&1; then
-            echo "[diag] /health responded after ${i}s: $(cat /tmp/health.out)"
-            break
-          fi
-          sleep 1
-        done
-        echo "--- /health response ---"
-        curl -i -sS http://localhost:8787/health || true
-        echo
-        echo "--- /test/seed without header (expect 404) ---"
-        curl -i -sS -X POST -H "Content-Type: application/json" -d '{}' http://localhost:8787/test/seed || true
-        echo
-        echo "--- /test/seed with mismatched header (expect 404) ---"
-        curl -i -sS -X POST -H "Content-Type: application/json" -H "X-E2E-Seed-Secret: wrong-value" -d '{}' http://localhost:8787/test/seed || true
-        echo
-        echo "--- /test/seed with correct header (expect 400 'Invalid JSON' or similar, NOT 404) ---"
-        curl -i -sS -X POST -H "Content-Type: application/json" -H "X-E2E-Seed-Secret: $E2E_SEED_SECRET" -d 'notjson' http://localhost:8787/test/seed || true
-        echo
-        echo "--- /test/seed with correct header + minimal valid payload (expect 200) ---"
-        curl -i -sS -X POST -H "Content-Type: application/json" -H "X-E2E-Seed-Secret: $E2E_SEED_SECRET" -d '{}' http://localhost:8787/test/seed || true
-        echo
-        echo "--- wrangler dev log (last 200 lines) ---"
-        tail -n 200 /tmp/wrangler-diag.log || true
-        echo "--- killing wrangler dev (pid=$WPID) ---"
-        kill $WPID 2>/dev/null || true
-        # Give it a moment to clean up so the next playwright webServer can
-        # bind to :8787 without EADDRINUSE.
-        for i in $(seq 1 10); do
-          if ! ss -ltn 2>/dev/null | grep -q ':8787\b' && ! lsof -ti :8787 2>/dev/null; then
-            echo "[diag] port 8787 freed after ${i}s"
-            break
-          fi
-          sleep 1
-        done
 
     - name: Run pilot e2e tests against local backend
       env:

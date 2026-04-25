@@ -10,19 +10,6 @@ dotenv.config({ path: ".env.test", override: false });
 const backendUrl = process.env.E2E_BACKEND_URL || "http://localhost:8787";
 const useLocalBackend = backendUrl.startsWith("http://localhost");
 
-// CI diagnostic: log what playwright config sees at load time. Helps debug
-// env-propagation issues across the GH Actions step → playwright → webServer
-// boundary. Safe in production: only logs presence of secret, not value.
-if (process.env.CI) {
-	console.log("[playwright.config] E2E_BACKEND_URL=", JSON.stringify(process.env.E2E_BACKEND_URL));
-	console.log("[playwright.config] resolved backendUrl=", backendUrl);
-	console.log("[playwright.config] useLocalBackend=", useLocalBackend);
-	console.log(
-		"[playwright.config] E2E_SEED_SECRET=",
-		process.env.E2E_SEED_SECRET ? `<set, length=${process.env.E2E_SEED_SECRET.length}>` : "<unset>",
-	);
-}
-
 /**
  * @see https://playwright.dev/docs/test-configuration
  *
