@@ -523,6 +523,36 @@ async function issueSessions(
 	return sessions;
 }
 
+// TEMPORARY DIAGNOSTIC helper: logs why the /test/seed gate tripped.
+// Remove once the CI 404 root cause is identified.
+async function sha256Short(s: string): Promise<string> {
+	const buf = await crypto.subtle.digest(
+		"SHA-256",
+		new TextEncoder().encode(s),
+	);
+	return Array.from(new Uint8Array(buf))
+		.map((b) => b.toString(16).padStart(2, "0"))
+		.join("")
+		.slice(0, 12);
+}
+
+async function logGateMiss(
+	provided: string | null,
+	envSecret: string | undefined,
+): Promise<void> {
+	let reason: string;
+	if (!provided) reason = "no-header";
+	else if (!envSecret) reason = "no-env";
+	else reason = "mismatch";
+	const providedLen = provided?.length ?? 0;
+	const envLen = envSecret?.length ?? 0;
+	const providedHash = provided ? await sha256Short(provided) : "(none)";
+	const envHash = envSecret ? await sha256Short(envSecret) : "(none)";
+	console.log(
+		`[test-seed gate] reason=${reason} providedLen=${providedLen} envLen=${envLen} providedHash=${providedHash} envHash=${envHash}`,
+	);
+}
+
 export async function handleTestSeed(
 	request: Request,
 	env: Env,
@@ -530,6 +560,7 @@ export async function handleTestSeed(
 	// Layer 2: per-request secret check
 	const provided = request.headers.get(SEED_SECRET_HEADER);
 	if (!provided || provided !== env.E2E_SEED_SECRET) {
+		await logGateMiss(provided, env.E2E_SEED_SECRET);
 		return createErrorResponse("Not Found", 404, request, env);
 	}
 
