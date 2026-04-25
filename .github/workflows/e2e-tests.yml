@@ -13,14 +13,6 @@ jobs:
     
     # Job-level environment variables (available to all steps)
     env:
-      # CI runs e2e against the deployed dev cf-worker (same as before this
-      # branch). The fixture infrastructure on this branch supports a local
-      # backend for local development (yarn test:e2e:fresh), but CI keeps using
-      # remote until the pilot conversion is debugged in a follow-up PR.
-      # Tests that depend on /test/seed auto-skip when running against remote
-      # via skipIfRemoteBackend().
-      E2E_BACKEND_URL: https://splitexpense-dev.tanmaydatta.workers.dev
-      PLAYWRIGHT_BASE_URL: https://splitexpense-dev.tanmaydatta.workers.dev
       REACT_APP_API_BASE_URL: ${{ vars.REACT_APP_API_BASE_URL }}
       REACT_APP_AUTH_BASE_URL: ${{ vars.REACT_APP_AUTH_BASE_URL }}
 
@@ -42,8 +34,40 @@ jobs:
     - name: Build the application
       run: yarn build
 
-    - name: Run E2E tests
-      run: yarn playwright test --project=chromium --workers=1 --reporter=list,html --trace=on  src/e2e/tests/scheduled-actions.spec.ts && yarn playwright test --project=chromium --workers=1 --reporter=list,html --trace=on  src/e2e/tests/settings-management.spec.ts && yarn playwright test --project=chromium --workers=1 --reporter=list,html --trace=on src/e2e/tests/budget-management.spec.ts && yarn playwright test --project=chromium --workers=1 --reporter=list,html --trace=on src/e2e/tests/transactions-balances.spec.ts && yarn playwright test --project=chromium --workers=1 --reporter=list,html --trace=on src/e2e/tests/expense-management.spec.ts && yarn playwright test --project=chromium --workers=1 --reporter=list,html --trace=on src/e2e/tests/auth.spec.ts
+    # ===== Legacy specs against remote dev cf-worker (existing flow) =====
+    # These spec files use UI-based login with hardcoded test users that exist
+    # in the deployed dev D1. Convert to fixtures incrementally and move them
+    # to the local-backend step below.
+    - name: Run e2e tests against remote (legacy specs)
+      env:
+        E2E_BACKEND_URL: https://splitexpense-dev.tanmaydatta.workers.dev
+        PLAYWRIGHT_BASE_URL: https://splitexpense-dev.tanmaydatta.workers.dev
+      run: yarn playwright test --project=chromium --workers=1 --reporter=list,html --trace=on  src/e2e/tests/scheduled-actions.spec.ts && yarn playwright test --project=chromium --workers=1 --reporter=list,html --trace=on  src/e2e/tests/settings-management.spec.ts && yarn playwright test --project=chromium --workers=1 --reporter=list,html --trace=on src/e2e/tests/budget-management.spec.ts && yarn playwright test --project=chromium --workers=1 --reporter=list,html --trace=on src/e2e/tests/transactions-balances.spec.ts && yarn playwright test --project=chromium --workers=1 --reporter=list,html --trace=on src/e2e/tests/auth.spec.ts
+
+    # ===== Pilot spec against LOCAL cf-worker (new fixtures flow) =====
+    # Playwright's webServer config boots both the React frontend and a local
+    # `wrangler dev` instance. The pilot uses the /test/seed endpoint to
+    # populate the local D1 per test.
+    - name: Setup local backend for pilot
+      env:
+        E2E_SEED_SECRET: ${{ secrets.E2E_SEED_SECRET }}
+      run: |
+        if [ -z "$E2E_SEED_SECRET" ]; then
+          echo "::error::E2E_SEED_SECRET secret is not set on this repo. Add it under Settings → Secrets and variables → Actions (any opaque value)."
+          exit 1
+        fi
+        echo "E2E_SEED_SECRET=$E2E_SEED_SECRET" > cf-worker/.dev.vars
+        rm -rf cf-worker/.wrangler/state/v3/d1
+        cd cf-worker && yarn db:migrate:local
+
+    - name: Run pilot e2e tests against local backend
+      env:
+        E2E_SEED_SECRET: ${{ secrets.E2E_SEED_SECRET }}
+        # Empty values override the (otherwise inherited) job-level env so the
+        # playwright config falls back to its local defaults.
+        E2E_BACKEND_URL: ""
+        PLAYWRIGHT_BASE_URL: http://localhost:3000
+      run: yarn playwright test --project=chromium --workers=1 --reporter=list,html --trace=on src/e2e/tests/expense-management.spec.ts
     
     - name: Upload test results
       uses: actions/upload-artifact@v4
