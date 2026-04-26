@@ -2,13 +2,10 @@ import { TransactionCard } from "@/components/TransactionCard";
 import { TransactionDetails } from "@/components/TransactionDetails";
 import { useTransaction } from "@/hooks/useTransaction";
 import { useDeleteTransaction } from "@/hooks/useTransactions";
+import { buildFrontendTransaction } from "@/utils/transaction";
 import { useSelector } from "react-redux";
 import { useNavigate, useParams } from "react-router-dom";
-import type {
-	FrontendTransaction,
-	ReduxState,
-	TransactionMetadata,
-} from "split-expense-shared-types";
+import type { ReduxState } from "split-expense-shared-types";
 
 export default function TransactionDetail() {
 	const { id } = useParams<{ id: string }>();
@@ -29,30 +26,11 @@ export default function TransactionDetail() {
 	}
 
 	const tx = data.transaction;
-	const metadata = (JSON.parse(tx.metadata) as TransactionMetadata) || {
-		owedAmounts: {},
-		paidByShares: {},
-		owedToAmounts: {},
-	};
-
-	let totalOwed = 0;
-	for (const tu of data.transactionUsers) {
-		if (currentUserId === tu.owed_to_user_id) totalOwed += tu.amount;
-		if (currentUserId === tu.user_id) totalOwed -= tu.amount;
-	}
-
-	const frontendTx: FrontendTransaction = {
-		transactionId: tx.transaction_id,
-		description: tx.description,
-		totalAmount: tx.amount,
-		date: tx.created_at,
-		amountOwed: metadata.owedAmounts,
-		paidBy: metadata.paidByShares,
-		owedTo: metadata.owedToAmounts,
-		totalOwed,
-		currency: tx.currency,
-		linkedBudgetEntryIds: tx.linkedBudgetEntryIds,
-	};
+	const frontendTx = buildFrontendTransaction(
+		tx,
+		data.transactionUsers,
+		currentUserId,
+	);
 
 	return (
 		<div className="transaction-detail" data-test-id="transaction-detail-page">

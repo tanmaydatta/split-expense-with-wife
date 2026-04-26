@@ -127,12 +127,22 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
 					data-test-id="transaction-card-linked-budget"
 				>
 					<h4>Linked budget entry</h4>
+					<p className="linked-sibling-date">
+						<Calendar />
+						<span>{dateToFullStr(new Date(linkedBudgetEntry.addedTime))}</span>
+					</p>
 					<p>
 						<strong>{linkedBudgetEntry.name}</strong>:{" "}
 						{linkedBudgetEntry.description}
 					</p>
-					<p>
-						Amount: {getCurrencySymbol(linkedBudgetEntry.currency)}
+					<p
+						className={`linked-budget-amount ${
+							linkedBudgetEntry.amount >= 0 ? "positive" : "negative"
+						}`}
+					>
+						Amount:{" "}
+						{linkedBudgetEntry.amount >= 0 ? "+" : "-"}
+						{getCurrencySymbol(linkedBudgetEntry.currency)}
 						{Math.abs(linkedBudgetEntry.amount).toFixed(2)}
 					</p>
 					<Link

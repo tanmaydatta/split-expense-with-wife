@@ -1,5 +1,6 @@
 import { useTransaction } from "@/hooks/useTransaction";
 import { getCurrencySymbol } from "@/utils/currency";
+import { dateToFullStr } from "@/utils/date";
 import { Link } from "react-router-dom";
 import type { FrontendTransaction } from "split-expense-shared-types";
 
@@ -21,7 +22,9 @@ export function TransactionDetails(props: TransactionDetailsProps) {
 		hasLinkedBudget ? selectedTransaction.transactionId : undefined,
 	);
 
-	const linkedBudgetEntry = hasLinkedBudget ? txDetail?.linkedBudgetEntry : undefined;
+	const linkedBudgetEntry = hasLinkedBudget
+		? txDetail?.linkedBudgetEntry
+		: undefined;
 
 	return (
 		<>
@@ -95,12 +98,21 @@ export function TransactionDetails(props: TransactionDetailsProps) {
 					data-test-id="transaction-card-linked-budget"
 				>
 					<h4>Linked budget entry</h4>
+					<p className="linked-sibling-date">
+						{dateToFullStr(new Date(linkedBudgetEntry.addedTime))}
+					</p>
 					<p>
 						<strong>{linkedBudgetEntry.name}</strong>:{" "}
 						{linkedBudgetEntry.description}
 					</p>
-					<p>
-						Amount: {getCurrencySymbol(linkedBudgetEntry.currency)}
+					<p
+						className={`linked-budget-amount ${
+							linkedBudgetEntry.amount >= 0 ? "positive" : "negative"
+						}`}
+					>
+						Amount:{" "}
+						{linkedBudgetEntry.amount >= 0 ? "+" : "-"}
+						{getCurrencySymbol(linkedBudgetEntry.currency)}
 						{Math.abs(linkedBudgetEntry.amount).toFixed(2)}
 					</p>
 					<Link
