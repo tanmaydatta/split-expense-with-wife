@@ -214,6 +214,20 @@ if (
 	process.exit(0);
 }
 
+// /test/seed only registers when the worker has E2E_SEED_SECRET set as an
+// env/secret. On a fresh dev/staging deploy this returns 404 until the
+// operator runs `wrangler secret put E2E_SEED_SECRET --env <env>`. Treat
+// 404 as a soft skip so the deploy:dev chain doesn't fail.
+if (res.status === 404 && !isLocalBackend) {
+	console.warn(
+		`⚠ /test/seed returned 404 on ${BACKEND_URL}. The endpoint is gated by\n` +
+			`  the worker's E2E_SEED_SECRET env. Set it once with:\n` +
+			`    wrangler secret put E2E_SEED_SECRET --env dev\n` +
+			`  (and re-deploy) to enable post-deploy seeding. Skipping.`,
+	);
+	process.exit(0);
+}
+
 console.error(`Seed failed: ${res.status}`);
 console.error(body);
 process.exit(1);
