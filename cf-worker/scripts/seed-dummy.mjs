@@ -220,10 +220,14 @@ if (
 // 404 as a soft skip so the deploy:dev chain doesn't fail.
 if (res.status === 404 && !isLocalBackend) {
 	console.warn(
-		`⚠ /test/seed returned 404 on ${BACKEND_URL}. The endpoint is gated by\n` +
-			`  the worker's E2E_SEED_SECRET env. Set it once with:\n` +
-			`    wrangler secret put E2E_SEED_SECRET --env dev\n` +
-			`  (and re-deploy) to enable post-deploy seeding. Skipping.`,
+		`⚠ /test/seed returned 404 on ${BACKEND_URL}.\n` +
+			`  The endpoint is gated by the worker's E2E_SEED_SECRET env. Required steps:\n` +
+			`    1. wrangler secret put E2E_SEED_SECRET --env dev   # set the secret\n` +
+			`    2. wrangler deploy -e dev                          # re-deploy so the\n` +
+			`       running worker picks up the new secret. Cloudflare injects secrets\n` +
+			`       only into subsequent deployments, so this redeploy is required\n` +
+			`       even after a successful 'wrangler secret put'.\n` +
+			`  Skipping seed.`,
 	);
 	process.exit(0);
 }
