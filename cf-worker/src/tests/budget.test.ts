@@ -9,7 +9,7 @@ import type {
 	BudgetMonthlyResponse,
 	MonthlyBudget,
 } from "../../../shared-types";
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { getDb } from "../db";
 import {
 	budgetEntries,
@@ -19,6 +19,7 @@ import {
 } from "../db/schema/schema";
 import worker from "../index";
 import type { UserBalancesByUser } from "../types";
+import { formatSQLiteTime } from "../utils";
 import {
 	completeCleanupDatabase,
 	createTestUserData,
@@ -2410,5 +2411,166 @@ describe("/budget_delete cascade", () => {
 		// Junction row preserved
 		const links = await db.select().from(expenseBudgetLinks);
 		expect(links.length).toBe(1);
+	});
+});
+
+describe("/budget_list embeds linkedTransactionIds", () => {
+	const TEST_SECRET = "test-secret";
+	const ORIGINAL_SECRET = env.E2E_SEED_SECRET;
+
+	beforeEach(async () => {
+		env.E2E_SEED_SECRET = TEST_SECRET;
+		await completeCleanupDatabase(env);
+		await setupDatabase(env);
+	});
+
+	afterEach(() => {
+		env.E2E_SEED_SECRET = ORIGINAL_SECRET;
+	});
+
+	it("populates linkedTransactionIds on linked budget entries, excluding soft-deleted transactions", async () => {
+		// Seed 2 budget entries: be1 (linked to live tx t1) and be2 (linked to tx t2
+		// that we soft-delete directly, bypassing cascade). be2 must then report
+		// linkedTransactionIds: [] since the only linked tx is dead.
+		const seedCtx = createExecutionContext();
+		const seedRes = await worker.fetch(
+			new Request("http://test.local/test/seed", {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					"X-E2E-Seed-Secret": TEST_SECRET,
+				},
+				body: JSON.stringify({
+					users: [{ alias: "u" }, { alias: "v" }],
+					groups: [
+						{
+							alias: "g",
+							members: ["u", "v"],
+							budgets: [{ alias: "b", name: "B" }],
+						},
+					],
+					transactions: [
+						{
+							alias: "t1",
+							group: "g",
+							amount: 50,
+							paidByShares: { u: 50 },
+							splitPctShares: { u: 50, v: 50 },
+						},
+						{
+							alias: "t2",
+							group: "g",
+							amount: 30,
+							paidByShares: { u: 30 },
+							splitPctShares: { u: 50, v: 50 },
+						},
+					],
+					budgetEntries: [
+						{ alias: "be1", group: "g", budget: "b", amount: 50 },
+						{ alias: "be2", group: "g", budget: "b", amount: 30 },
+					],
+					expenseBudgetLinks: [
+						{ transaction: "t1", budgetEntry: "be1" },
+						{ transaction: "t2", budgetEntry: "be2" },
+					],
+					authenticate: ["u"],
+				}),
+			}),
+			env,
+			seedCtx,
+		);
+		await waitOnExecutionContext(seedCtx);
+		expect(seedRes.status).toBe(200);
+		const seed = (await seedRes.json()) as {
+			ids: {
+				transactions: Record<string, { id: string }>;
+				budgetEntries: Record<string, { id: string }>;
+			};
+			sessions: Record<
+				string,
+				{ cookies: Array<{ name: string; value: string }> }
+			>;
+		};
+		const cookies = seed.sessions.u.cookies
+			.map((c) => `${c.name}=${c.value}`)
+			.join("; ");
+
+		const db = getDb(env);
+
+		// Backdate addedTime so that handleBudgetList's lt(addedTime, now) filter
+		// includes both entries (seeded with addedTime=now, which is not < now).
+		const pastTime = "2024-01-01 00:00:00";
+		await db
+			.update(budgetEntries)
+			.set({ addedTime: pastTime })
+			.where(
+				and(
+					eq(budgetEntries.budgetEntryId, seed.ids.budgetEntries.be1.id),
+				),
+			);
+		await db
+			.update(budgetEntries)
+			.set({ addedTime: pastTime })
+			.where(
+				and(
+					eq(budgetEntries.budgetEntryId, seed.ids.budgetEntries.be2.id),
+				),
+			);
+
+		// Soft-delete t2 directly via the DB (NOT via /split_delete, whose cascade
+		// would also soft-delete the linked budget entry be2). This exercises the
+		// isNull(transactions.deleted) filter in the JOIN: be2 stays alive but its
+		// only link points at a soft-deleted tx, so linkedTransactionIds must be [].
+		await db
+			.update(transactions)
+			.set({ deleted: formatSQLiteTime() })
+			.where(eq(transactions.transactionId, seed.ids.transactions.t2.id));
+
+		// Retrieve the budgetId (category ID) from the seeded budget entry — the
+		// SeedResponse does not surface the group_budgets ID directly.
+		const be1Row = await db
+			.select({ budgetId: budgetEntries.budgetId })
+			.from(budgetEntries)
+			.where(eq(budgetEntries.budgetEntryId, seed.ids.budgetEntries.be1.id))
+			.limit(1);
+		expect(be1Row.length).toBe(1);
+		const budgetId = be1Row[0].budgetId;
+
+		const listCtx = createExecutionContext();
+		const listRes = await worker.fetch(
+			new Request("http://test.local/.netlify/functions/budget_list", {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					Cookie: cookies,
+				},
+				body: JSON.stringify({ budgetId, offset: 0 }),
+			}),
+			env,
+			listCtx,
+		);
+		await waitOnExecutionContext(listCtx);
+		expect(listRes.status).toBe(200);
+
+		const listJson = (await listRes.json()) as Array<{
+			budgetEntryId: string;
+			id: string;
+			linkedTransactionIds: string[];
+		}>;
+
+		const be1 = listJson.find(
+			(e) => e.budgetEntryId === seed.ids.budgetEntries.be1.id,
+		);
+		const be2 = listJson.find(
+			(e) => e.budgetEntryId === seed.ids.budgetEntries.be2.id,
+		);
+
+		// be1 is linked to t1 (live) — should have its id
+		expect(be1).toBeDefined();
+		expect(be1?.linkedTransactionIds).toEqual([seed.ids.transactions.t1.id]);
+
+		// be2 is linked to t2, but t2 is soft-deleted — must be excluded
+		expect(be2).toBeDefined();
+		expect(be2?.linkedTransactionIds).toEqual([]);
 	});
 });

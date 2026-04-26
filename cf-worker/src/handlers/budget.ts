@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, isNull, lt, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNull, lt, sql } from "drizzle-orm";
 import { ulid } from "ulid";
 import type {
 	AverageSpendData,
@@ -31,6 +31,38 @@ import {
 } from "../utils";
 
 import { createBudgetEntryStatements } from "../utils/scheduled-action-execution";
+
+// Helper: fetch a transactionId[] for each budgetEntryId, excluding soft-deleted txs
+async function buildBudgetLinkMap(
+	db: ReturnType<typeof getDb>,
+	beIds: string[],
+	groupId: string,
+): Promise<Record<string, string[]>> {
+	const linkMap: Record<string, string[]> = {};
+	if (beIds.length === 0) return linkMap;
+	const linkRows = await db
+		.select({
+			budgetEntryId: expenseBudgetLinks.budgetEntryId,
+			transactionId: expenseBudgetLinks.transactionId,
+		})
+		.from(expenseBudgetLinks)
+		.innerJoin(
+			transactions,
+			eq(transactions.transactionId, expenseBudgetLinks.transactionId),
+		)
+		.where(
+			and(
+				inArray(expenseBudgetLinks.budgetEntryId, beIds),
+				eq(expenseBudgetLinks.groupId, groupId),
+				isNull(transactions.deleted),
+			),
+		);
+	for (const row of linkRows) {
+		if (!linkMap[row.budgetEntryId]) linkMap[row.budgetEntryId] = [];
+		linkMap[row.budgetEntryId].push(row.transactionId);
+	}
+	return linkMap;
+}
 
 // Helper function to get monthly budget data from database
 async function getMonthlyBudgetData(
@@ -628,6 +660,14 @@ export async function handleBudgetList(
 				.limit(5)
 				.offset(body.offset);
 
+			// Build a linkMap: budgetEntryId -> transactionId[] (excluding soft-deleted txs)
+			const beIds = budgetEntriesResult.map((b) => b.budgetEntryId);
+			const linkMap = await buildBudgetLinkMap(
+				db,
+				beIds,
+				String(session.currentUser.groupid),
+			);
+
 			// Ensure price field is properly formatted as string and map budgetEntryId to id
 			const formattedEntries = budgetEntriesResult.map((entry) => ({
 				...entry,
@@ -637,6 +677,7 @@ export async function handleBudgetList(
 					(entry.amount >= 0
 						? `+${entry.amount.toFixed(2)}`
 						: `${entry.amount.toFixed(2)}`),
+				linkedTransactionIds: linkMap[entry.budgetEntryId] ?? [],
 			}));
 
 			return createJsonResponse(formattedEntries, 200, {}, request, env);
