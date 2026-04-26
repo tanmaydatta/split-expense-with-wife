@@ -24,10 +24,7 @@ export const BudgetEntryCard: React.FC<BudgetEntryCardProps> = ({
 	linkedTransaction,
 }) => {
 	return (
-		<Card
-			className="budget-entry-detail-card"
-			data-test-id="budget-entry-card"
-		>
+		<Card className="budget-entry-detail-card" data-test-id="budget-entry-card">
 			<div className="budget-entry-card-header">
 				<div className="budget-entry-date">
 					<Calendar />
@@ -84,8 +81,7 @@ export const BudgetEntryCard: React.FC<BudgetEntryCardProps> = ({
 						<strong>{linkedTransaction.description}</strong>
 					</p>
 					<p>
-						Amount:{" "}
-						{getCurrencySymbol(linkedTransaction.currency)}
+						Amount: {getCurrencySymbol(linkedTransaction.currency)}
 						{Math.abs(linkedTransaction.amount).toFixed(2)}
 					</p>
 					<Link

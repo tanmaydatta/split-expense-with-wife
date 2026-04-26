@@ -10,10 +10,9 @@ export function useBudgetEntry(id: string | undefined) {
 		queryKey: ["budgetEntry", id],
 		enabled: !!id,
 		queryFn: async () => {
-			return typedApi.post(
-				"/budget_entry_get",
-				{ id } as BudgetEntryGetRequest,
-			);
+			return typedApi.post("/budget_entry_get", {
+				id,
+			} as BudgetEntryGetRequest);
 		},
 	});
 }

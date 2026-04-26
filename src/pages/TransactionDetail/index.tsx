@@ -2,7 +2,10 @@ import { TransactionCard } from "@/components/TransactionCard";
 import { useTransaction } from "@/hooks/useTransaction";
 import { useDeleteTransaction } from "@/hooks/useTransactions";
 import { useNavigate, useParams } from "react-router-dom";
-import type { FrontendTransaction, TransactionMetadata } from "split-expense-shared-types";
+import type {
+	FrontendTransaction,
+	TransactionMetadata,
+} from "split-expense-shared-types";
 
 export default function TransactionDetail() {
 	const { id } = useParams<{ id: string }>();

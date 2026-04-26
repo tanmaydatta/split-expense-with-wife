@@ -5,7 +5,10 @@ import { getCurrencySymbol } from "@/utils/currency";
 import { dateToFullStr } from "@/utils/date";
 import React from "react";
 import { Link } from "react-router-dom";
-import type { BudgetEntry, FrontendTransaction } from "split-expense-shared-types";
+import type {
+	BudgetEntry,
+	FrontendTransaction,
+} from "split-expense-shared-types";
 import "./TransactionCard.css";
 
 interface TransactionCardProps {
@@ -34,10 +37,13 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
 	// Fetch full transaction detail when expanded so we can show the linked budget entry.
 	// Skip if a linkedBudgetEntry was already supplied via prop (TransactionDetail page pre-fetches it).
 	const { data: txDetail } = useTransaction(
-		isExpanded && !linkedBudgetEntryProp ? transaction.transactionId : undefined,
+		isExpanded && !linkedBudgetEntryProp
+			? transaction.transactionId
+			: undefined,
 	);
 
-	const linkedBudgetEntry = linkedBudgetEntryProp ?? txDetail?.linkedBudgetEntry;
+	const linkedBudgetEntry =
+		linkedBudgetEntryProp ?? txDetail?.linkedBudgetEntry;
 
 	const handleClick = () => {
 		if (onSelect) {
@@ -126,8 +132,7 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
 						{linkedBudgetEntry.description}
 					</p>
 					<p>
-						Amount:{" "}
-						{getCurrencySymbol(linkedBudgetEntry.currency)}
+						Amount: {getCurrencySymbol(linkedBudgetEntry.currency)}
 						{Math.abs(linkedBudgetEntry.amount).toFixed(2)}
 					</p>
 					<Link

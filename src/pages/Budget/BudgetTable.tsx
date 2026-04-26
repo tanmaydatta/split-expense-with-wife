@@ -13,7 +13,13 @@ interface Props {
 	onDelete(id: string): void;
 }
 
-function ExpandedBudgetRow({ entry, onDelete }: { entry: BudgetEntry; onDelete(id: string): void }) {
+function ExpandedBudgetRow({
+	entry,
+	onDelete,
+}: {
+	entry: BudgetEntry;
+	onDelete(id: string): void;
+}) {
 	const { data } = useBudgetEntry(entry.id);
 	return (
 		<tr>
@@ -69,7 +75,11 @@ export default function BudgetTable(props: Props): JSX.Element {
 													<span
 														data-test-id="budget-entry-linked-icon"
 														title="Linked to an expense"
-														style={{ marginLeft: 6, fontSize: "0.85em", opacity: 0.8 }}
+														style={{
+															marginLeft: 6,
+															fontSize: "0.85em",
+															opacity: 0.8,
+														}}
 													>
 														🔗
 													</span>

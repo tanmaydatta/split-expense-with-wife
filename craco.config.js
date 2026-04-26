@@ -13,6 +13,7 @@ module.exports = {
 				"^@/(.*)$": "<rootDir>/src/$1",
 				"^@shared-types/(.*)$": "<rootDir>/shared-types/$1",
 			},
+			testPathIgnorePatterns: ["/node_modules/", "/src/e2e/"],
 		},
 	},
 };
