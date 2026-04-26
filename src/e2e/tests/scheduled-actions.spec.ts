@@ -321,18 +321,13 @@ test.describe("Scheduled Actions", () => {
 		expect(upcomingText3).toContain(`Next: ${customDate}`);
 	});
 
-	// TODO(fixtures-pilot): The freshly-created action has its
-	// nextExecutionDate already advanced once (start=today, daily → today+1).
-	// Run Now then triggers the Workflow with `now = new Date(triggerDate)`,
-	// which `wrangler dev` parses in the host's LOCAL timezone (BST/EDT/etc.).
-	// In any TZ west of UTC the resulting "today" inside the workflow stays at
-	// startDate, and the recomputed next date doesn't advance — so the
-	// `afterNext !== beforeNext` assertion flakes locally. The deployed worker
-	// runs in UTC, so this test is reliable against the remote backend only.
-	// Re-enable when either (a) the workflow's `now` is constructed with an
-	// explicit UTC parse, or (b) the seed handler exposes scheduledActions and
-	// we can pre-create an action whose nextExecutionDate is already today.
-	test.skip("run now from history triggers immediate run", async ({
+	// The workflow processor parses `triggerDate` (e.g. "2026-04-26 00:00:00")
+	// via `parseSQLiteTime` so it's interpreted as UTC consistently between
+	// `wrangler dev` (host TZ) and the deployed worker. Without that fix this
+	// test was flaky in BST/EDT because `new Date(triggerDate)` parsed the
+	// timestamp as local time, leaving "today" stuck on `startDate` so the
+	// recomputed next date didn't advance.
+	test("run now from history triggers immediate run", async ({
 		seed,
 		page,
 	}) => {

@@ -213,21 +213,73 @@ test.describe("Monthly Budget Management", () => {
 			await helper.verifyPageStructure();
 		});
 
-		// TODO(fixtures): The legacy version mocked a 1-second delayed API
-		// response to assert the loading-state DOM appears. With the seed-based
-		// fixtures the backend responds normally; we have no hook to inject a
-		// per-request delay. Re-enable when seed-time API delays are supported.
-		test.skip("should display loading state during data fetch", async () => {});
+		// Half convert: seed real auth/group/budget data so the page mounts
+		// normally, then use `page.route()` to intercept the `/budget_monthly`
+		// request and inject a 1s delay so the loading DOM is observable. This
+		// mirrors the pattern in transactions-balances.spec.ts > "should display
+		// loading states during data fetching".
+		test("should display loading state during data fetch", async ({
+			seed,
+			page,
+		}) => {
+			await seedMonthlyBudgetPage(seed, page);
+			const helper = new MonthlyBudgetTestHelper(page);
 
-		// TODO(fixtures): The legacy version mocked an empty `monthlyBudgets`
-		// array to force the no-data branch. The real handler always generates
-		// month rows from the oldest entry (or 2 years back as a default), so
-		// `monthlyBudgets` is never empty in practice. Re-enable if the handler
-		// changes to return an empty array when no entries exist.
-		test.skip(
-			"should display no data message when API returns empty results",
-			async () => {},
-		);
+			await page.route("**/budget_monthly", async (route) => {
+				await new Promise((resolve) => setTimeout(resolve, 1000));
+				await route.continue();
+			});
+
+			const navigationPromise = helper.navigateToMonthlyBudget();
+
+			// Loading text is visible while the delayed API call is in flight.
+			await expect(
+				page.locator('[data-test-id="monthly-budget-loading"]'),
+			).toBeVisible({ timeout: 5000 });
+			await expect(
+				page.locator('[data-test-id="monthly-budget-loading"]'),
+			).toHaveText("Loading monthly budget data...");
+
+			await navigationPromise;
+		});
+
+		// Half convert: stub `/budget_monthly` with an empty payload to force the
+		// no-data branch. The real handler always generates month rows (back to
+		// the oldest entry or two years), so we need an explicit mock here.
+		test("should display no data message when API returns empty results", async ({
+			seed,
+			page,
+		}) => {
+			await seedMonthlyBudgetPage(seed, page);
+			const helper = new MonthlyBudgetTestHelper(page);
+
+			await page.route("**/budget_monthly", async (route) => {
+				await route.fulfill({
+					status: 200,
+					contentType: "application/json",
+					body: JSON.stringify({
+						monthlyBudgets: [],
+						averageMonthlySpend: [],
+						periodAnalyzed: {
+							startDate: "2024-01-01 00:00:00",
+							endDate: "2024-12-31 00:00:00",
+						},
+					}),
+				});
+			});
+
+			await helper.navigateToMonthlyBudget();
+			await helper.ensureBudgetIsSelected();
+
+			await expect(
+				page.locator('[data-test-id="no-data-message"]'),
+			).toBeVisible();
+			await expect(
+				page.locator('[data-test-id="no-data-message"] p'),
+			).toHaveText(
+				"No monthly budget data available for the selected period.",
+			);
+		});
 	});
 
 	test.describe("Time Range Controls", () => {
@@ -399,11 +451,30 @@ test.describe("Monthly Budget Management", () => {
 	});
 
 	test.describe("Error Handling", () => {
-		// TODO(fixtures): The legacy version mocked a 500 from the budget_monthly
-		// endpoint to assert graceful UI handling. The seed-based flow has no
-		// per-test failure injection hook. Re-enable if seed supports forced
-		// errors, or convert to a unit test of the page component.
-		test.skip("should handle API errors gracefully", async () => {});
+		// Half convert: stub `/budget_monthly` with a 500 to assert the page
+		// renders gracefully (still shows the main container) instead of
+		// crashing. The seed handler can't inject failures, so `page.route()`
+		// is the right tool here.
+		test("should handle API errors gracefully", async ({ seed, page }) => {
+			await seedMonthlyBudgetPage(seed, page);
+			const helper = new MonthlyBudgetTestHelper(page);
+
+			await page.route("**/budget_monthly", async (route) => {
+				await route.fulfill({
+					status: 500,
+					contentType: "application/json",
+					body: JSON.stringify({ error: "Internal server error" }),
+				});
+			});
+
+			await helper.navigateToMonthlyBudget();
+
+			// The page should still render its main container even though the
+			// API errored — no white screen, no crash.
+			await expect(
+				page.locator('[data-test-id="monthly-budget-container"]'),
+			).toBeVisible();
+		});
 
 		test("should handle invalid budget ID in URL", async ({ seed, page }) => {
 			await seedMonthlyBudgetPage(seed, page);

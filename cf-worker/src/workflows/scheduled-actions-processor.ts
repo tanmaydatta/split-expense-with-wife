@@ -15,7 +15,11 @@ import { getDb } from "../db";
 import { user } from "../db/schema/auth-schema";
 import { scheduledActionHistory, scheduledActions } from "../db/schema/schema";
 import { calculateNextExecutionDate } from "../handlers/scheduled-actions";
-import { createHistoryId, formatSQLiteTime } from "../utils";
+import {
+	createHistoryId,
+	formatSQLiteTime,
+	parseSQLiteTime,
+} from "../utils";
 import {
 	createBudgetEntryStatementsForScheduledAction,
 	createSplitTransactionStatements,
@@ -91,7 +95,9 @@ async function executeActionSafely(
 	);
 	const executionDurationMs = Date.now() - innerStartTime;
 
-	// Execute statements
+	// Execute statements. `triggerDate` is produced by `formatSQLiteTime`
+	// (UTC, no TZ marker); parse explicitly as UTC so behavior matches
+	// between `wrangler dev` (host TZ) and the deployed worker (UTC).
 	await executeActionStatements(
 		env,
 		action,
@@ -99,7 +105,7 @@ async function executeActionSafely(
 		executionDurationMs,
 		resultData,
 		statements,
-		new Date(triggerDate),
+		parseSQLiteTime(triggerDate),
 	);
 
 	if (!resultData) {
