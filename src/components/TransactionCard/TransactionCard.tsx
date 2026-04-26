@@ -1,28 +1,48 @@
 import { Card } from "@/components/Card";
 import { ArrowDownUp, Calendar, CardText, Coin, XLg } from "@/components/Icons";
+import { useTransaction } from "@/hooks/useTransaction";
+import { getCurrencySymbol } from "@/utils/currency";
 import { dateToFullStr } from "@/utils/date";
-import getSymbolFromCurrency from "currency-symbol-map";
 import React from "react";
-import type { FrontendTransaction } from "split-expense-shared-types";
+import { Link } from "react-router-dom";
+import type { BudgetEntry, FrontendTransaction } from "split-expense-shared-types";
 import "./TransactionCard.css";
 
 interface TransactionCardProps {
 	transaction: FrontendTransaction;
-	isSelected: boolean;
-	onSelect: (transaction: FrontendTransaction) => void;
-	onDelete: (id: string) => void;
+	isSelected?: boolean;
+	onSelect?: (transaction: FrontendTransaction) => void;
+	onDelete?: (id: string) => void;
 	children?: React.ReactNode; // For expanded details
+	/** When true the card renders in "always expanded" mode (used by TransactionDetail page) */
+	expanded?: boolean;
+	/** Pre-fetched linked budget entry (used by TransactionDetail page to avoid double fetch) */
+	linkedBudgetEntry?: BudgetEntry;
 }
 
 export const TransactionCard: React.FC<TransactionCardProps> = ({
 	transaction,
-	isSelected,
+	isSelected = false,
 	onSelect,
 	onDelete,
 	children,
+	expanded = false,
+	linkedBudgetEntry: linkedBudgetEntryProp,
 }) => {
+	const isExpanded = expanded || isSelected;
+
+	// Fetch full transaction detail when expanded so we can show the linked budget entry.
+	// Skip if a linkedBudgetEntry was already supplied via prop (TransactionDetail page pre-fetches it).
+	const { data: txDetail } = useTransaction(
+		isExpanded && !linkedBudgetEntryProp ? transaction.transactionId : undefined,
+	);
+
+	const linkedBudgetEntry = linkedBudgetEntryProp ?? txDetail?.linkedBudgetEntry;
+
 	const handleClick = () => {
-		onSelect(transaction);
+		if (onSelect) {
+			onSelect(transaction);
+		}
 	};
 
 	return (
@@ -37,17 +57,19 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
 					<Calendar />
 					<span>{dateToFullStr(new Date(transaction.date))}</span>
 				</div>
-				<button
-					className="delete-button"
-					data-test-id="delete-button"
-					onClick={(e) => {
-						e.stopPropagation();
-						onDelete(transaction.transactionId);
-					}}
-					aria-label="Delete transaction"
-				>
-					<XLg />
-				</button>
+				{onDelete && (
+					<button
+						className="delete-button"
+						data-test-id="delete-button"
+						onClick={(e) => {
+							e.stopPropagation();
+							onDelete(transaction.transactionId);
+						}}
+						aria-label="Delete transaction"
+					>
+						<XLg />
+					</button>
+				)}
 			</div>
 
 			<div className="transaction-card-content">
@@ -60,7 +82,7 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
 					<div className="transaction-total">
 						<Coin />
 						<span className="total-value">
-							{getSymbolFromCurrency(transaction.currency)}
+							{getCurrencySymbol(transaction.currency)}
 							{Math.abs(transaction.totalAmount).toFixed(2)}
 						</span>
 					</div>
@@ -80,7 +102,7 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
 						<span className="share-value">
 							{transaction.totalOwed !== 0 &&
 								(transaction.totalOwed > 0 ? "+" : "-")}
-							{getSymbolFromCurrency(transaction.currency)}
+							{getCurrencySymbol(transaction.currency)}
 							{Math.abs(transaction.totalOwed).toFixed(2)}
 						</span>
 					</div>
@@ -88,8 +110,33 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
 			</div>
 
 			{/* Expandable Details */}
-			{isSelected && children && (
+			{isExpanded && children && (
 				<div className="transaction-card-details">{children}</div>
+			)}
+
+			{/* Linked budget entry section */}
+			{isExpanded && linkedBudgetEntry && (
+				<section
+					className="linked-sibling"
+					data-test-id="transaction-card-linked-budget"
+				>
+					<h4>Linked budget entry</h4>
+					<p>
+						<strong>{linkedBudgetEntry.name}</strong>:{" "}
+						{linkedBudgetEntry.description}
+					</p>
+					<p>
+						Amount:{" "}
+						{getCurrencySymbol(linkedBudgetEntry.currency)}
+						{Math.abs(linkedBudgetEntry.amount).toFixed(2)}
+					</p>
+					<Link
+						to={`/budget-entry/${linkedBudgetEntry.id}`}
+						data-test-id="view-linked-budget-entry"
+					>
+						View budget entry →
+					</Link>
+				</section>
 			)}
 		</Card>
 	);
