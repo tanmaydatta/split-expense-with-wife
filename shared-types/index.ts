@@ -41,6 +41,7 @@ export interface BudgetEntry {
 	deleted?: string; // ISO string format
 	groupid: string;
 	currency: string;
+	linkedTransactionIds?: string[]; // populated by /budget_list and /budget_entry_get
 }
 
 // Transaction types
@@ -53,6 +54,7 @@ export interface Transaction {
 	transaction_id: string;
 	group_id: string;
 	deleted?: string; // ISO string format
+	linkedBudgetEntryIds?: string[]; // populated by /transactions_list and /transaction_get
 }
 
 export interface TransactionUser {
