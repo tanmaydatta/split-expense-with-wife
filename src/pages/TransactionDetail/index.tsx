@@ -1,0 +1,68 @@
+import { TransactionCard } from "@/components/TransactionCard";
+import { useTransaction } from "@/hooks/useTransaction";
+import { useDeleteTransaction } from "@/hooks/useTransactions";
+import { useNavigate, useParams } from "react-router-dom";
+import type { FrontendTransaction, TransactionMetadata } from "split-expense-shared-types";
+
+export default function TransactionDetail() {
+	const { id } = useParams<{ id: string }>();
+	const navigate = useNavigate();
+	const { data, isLoading, isError } = useTransaction(id);
+	const del = useDeleteTransaction();
+
+	if (isLoading) return <div data-test-id="loading">Loading…</div>;
+	if (isError || !data) {
+		return (
+			<div data-test-id="not-found">
+				Entry not found or you don't have access.
+			</div>
+		);
+	}
+
+	const tx = data.transaction;
+	const metadata = (JSON.parse(tx.metadata) as TransactionMetadata) || {
+		owedAmounts: {},
+		paidByShares: {},
+		owedToAmounts: {},
+	};
+
+	const frontendTx: FrontendTransaction = {
+		transactionId: tx.transaction_id,
+		description: tx.description,
+		totalAmount: tx.amount,
+		date: tx.created_at,
+		amountOwed: metadata.owedAmounts,
+		paidBy: metadata.paidByShares,
+		owedTo: metadata.owedToAmounts,
+		totalOwed: 0, // no per-user context on detail page
+		currency: tx.currency,
+		linkedBudgetEntryIds: tx.linkedBudgetEntryIds,
+	};
+
+	return (
+		<div className="transaction-detail" data-test-id="transaction-detail-page">
+			<button
+				onClick={() => navigate(-1)}
+				data-test-id="back-link"
+				style={{ marginBottom: 16, cursor: "pointer" }}
+			>
+				← Back
+			</button>
+			<TransactionCard
+				transaction={frontendTx}
+				linkedBudgetEntry={data.linkedBudgetEntry}
+				expanded
+			/>
+			<button
+				onClick={async () => {
+					await del.mutateAsync(tx.transaction_id);
+					navigate("/expenses");
+				}}
+				data-test-id="delete"
+				style={{ marginTop: 16, cursor: "pointer", color: "red" }}
+			>
+				Delete
+			</button>
+		</div>
+	);
+}
