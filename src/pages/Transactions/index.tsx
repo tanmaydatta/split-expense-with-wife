@@ -81,6 +81,16 @@ const TransactionList: React.FC<{
 										<td>{dateToFullStr(new Date(transaction.date))}</td>
 										<td className="description-cell">
 											{transaction.description}
+											{(transaction.linkedBudgetEntryIds?.length ?? 0) > 0 && (
+												<span
+													className="linked-icon"
+													data-test-id="transaction-linked-icon"
+													title="Linked to a budget entry"
+													aria-label="Linked to a budget entry"
+												>
+													🔗
+												</span>
+											)}
 										</td>
 										<td>
 											{getSymbolFromCurrency(transaction.currency)}

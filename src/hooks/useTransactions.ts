@@ -46,6 +46,7 @@ export function processTransactionData(
 			owedTo: metadata.owedToAmounts,
 			totalOwed: totalOwed,
 			currency: e.currency,
+			linkedBudgetEntryIds: e.linkedBudgetEntryIds,
 		};
 	});
 }

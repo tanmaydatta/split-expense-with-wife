@@ -213,6 +213,7 @@ export interface FrontendTransaction {
     owedTo: Record<string, number>;
     totalOwed: number;
     currency: string;
+    linkedBudgetEntryIds?: string[];
 }
 export interface FrontendUser {
     Id: string;
