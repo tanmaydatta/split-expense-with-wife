@@ -7,6 +7,9 @@ dotenv.config({ path: ".env" });
 // Load test-specific .env file if it exists
 dotenv.config({ path: ".env.test", override: false });
 
+const backendUrl = process.env.E2E_BACKEND_URL || "http://localhost:8787";
+const useLocalBackend = backendUrl.startsWith("http://localhost");
+
 /**
  * @see https://playwright.dev/docs/test-configuration
  *
@@ -18,6 +21,11 @@ dotenv.config({ path: ".env.test", override: false });
  *
  * For specific tests:
  * PLAYWRIGHT_SLOWMO=500 yarn playwright test --grep "test name" --headed
+ *
+ * Backend selection:
+ *   - default: local cf-worker via wrangler dev (http://localhost:8787)
+ *   - override: E2E_BACKEND_URL=https://splitexpense-dev.tanmaydatta.workers.dev
+ *     (skips fixture-based tests automatically)
  */
 export default defineConfig({
 	testDir: "./src/e2e",
@@ -37,9 +45,7 @@ export default defineConfig({
 	/* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
 	use: {
 		/* Base URL to use in actions like `await page.goto('/')`. */
-		baseURL:
-			process.env.PLAYWRIGHT_BASE_URL ||
-			"https://splitexpense-dev.tanmaydatta.workers.dev",
+		baseURL: process.env.PLAYWRIGHT_BASE_URL || "http://localhost:3000",
 		serviceWorkers: "block",
 		// Our app uses data-test-id for selectors; align Playwright's getByTestId
 		testIdAttribute: "data-test-id",
@@ -67,44 +73,51 @@ export default defineConfig({
 			name: "chromium",
 			use: { ...devices["Desktop Chrome"] },
 		},
-		...[
-			{
-				name: "firefox",
-				use: { ...devices["Desktop Firefox"] },
-			},
-
-			{
-				name: "webkit",
-				use: { ...devices["Desktop Safari"] },
-			},
-
-			/* Test against mobile viewports. */
-			{
-				name: "Mobile Chrome",
-				use: { ...devices["Pixel 5"] },
-			},
-			{
-				name: "Mobile Safari",
-				use: { ...devices["iPhone 12"] },
-			},
-		],
-
-		/* Test against branded browsers. */
-		// {
-		//   name: 'Microsoft Edge',
-		//   use: { ...devices['Desktop Edge'], channel: 'msedge' },
-		// },
-		// {
-		//   name: 'Google Chrome',
-		//   use: { ...devices['Desktop Chrome'], channel: 'chrome' },
-		// },
+		{
+			name: "firefox",
+			use: { ...devices["Desktop Firefox"] },
+		},
+		{
+			name: "webkit",
+			use: { ...devices["Desktop Safari"] },
+		},
+		/* Test against mobile viewports. */
+		{
+			name: "Mobile Chrome",
+			use: { ...devices["Pixel 5"] },
+		},
+		{
+			name: "Mobile Safari",
+			use: { ...devices["iPhone 12"] },
+		},
 	],
 
-	/* Run your local dev server before starting the tests */
-	webServer: {
-		command: "yarn start",
-		url: "http://localhost:3000",
-		reuseExistingServer: !process.env.CI,
-		timeout: process.env.CI ? 180 * 1000 : 120 * 1000, // 3 minutes on CI
-	},
+	/* Run frontend (and local cf-worker if applicable) before starting the tests */
+	webServer: [
+		...(useLocalBackend
+			? [
+					{
+						command: "cd cf-worker && yarn dev --port=8787",
+						url: "http://localhost:8787/health",
+						reuseExistingServer: !process.env.CI,
+						timeout: process.env.CI ? 180 * 1000 : 120 * 1000,
+						env: {
+							E2E_SEED_SECRET:
+								process.env.E2E_SEED_SECRET || "local-only-do-not-deploy",
+						},
+					},
+				]
+			: []),
+		{
+			command: "yarn start",
+			url: "http://localhost:3000",
+			reuseExistingServer: !process.env.CI,
+			timeout: process.env.CI ? 180 * 1000 : 120 * 1000,
+			env: {
+				REACT_APP_API_BASE_URL: `${backendUrl}/.netlify/functions`,
+				REACT_APP_AUTH_BASE_URL: backendUrl,
+				BROWSER: "none",
+			},
+		},
+	],
 });

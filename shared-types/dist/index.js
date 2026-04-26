@@ -164,8 +164,8 @@ export const DashboardFormSchema = z
 		// Action selection
 		addExpense: z.boolean(),
 		updateBudget: z.boolean(),
-		// Core fields (always present)
-		amount: DashboardCoreFieldsSchema.shape.amount,
+		// Core fields (always present) - amount can be undefined initially
+		amount: DashboardCoreFieldsSchema.shape.amount.optional(),
 		description: DashboardCoreFieldsSchema.shape.description,
 		currency: DashboardCoreFieldsSchema.shape.currency,
 		// Expense-specific fields (conditional)

@@ -31,6 +31,19 @@ export function formatSQLiteTime(date: Date = new Date()): string {
 	return date.toISOString().replace("T", " ").slice(0, 19);
 }
 
+// Parse a SQLite-formatted timestamp ("YYYY-MM-DD HH:MM:SS") as UTC.
+// `formatSQLiteTime` produces UTC strings without a timezone marker; passing
+// such a string directly to `new Date(...)` causes V8 to parse it in the
+// host's local timezone. This helper guarantees consistent UTC parsing across
+// `wrangler dev` (local TZ) and the deployed worker (UTC).
+export function parseSQLiteTime(value: string): Date {
+	// Accept either "YYYY-MM-DD HH:MM:SS" or "YYYY-MM-DD" forms.
+	const normalized = value.includes(" ")
+		? `${value.replace(" ", "T")}Z`
+		: `${value}T00:00:00Z`;
+	return new Date(normalized);
+}
+
 // Generate history ID for scheduled actions
 export function createHistoryId(actionId: string, currentDate: string): string {
 	return `hist_${actionId}-${currentDate}`;

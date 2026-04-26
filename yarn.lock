@@ -19164,6 +19164,7 @@ __metadata:
     eslint-config-react-app: "npm:^7.0.1"
     husky: "npm:^9.1.7"
     install: "npm:^0.13.0"
+    nanoid: "npm:^3.3.11"
     os-browserify: "npm:^0.3.0"
     path-browserify: "npm:^1.0.1"
     playwright: "npm:^1.54.1"

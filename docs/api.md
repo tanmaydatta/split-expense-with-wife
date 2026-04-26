@@ -706,6 +706,26 @@ const { user1, user2, testGroupId } = await createTestUserData(env);
 const cookies = await signInAndGetCookies(env, user1.email, user1.password);
 ```
 
+## Test endpoints
+
+These endpoints exist for e2e test infrastructure only.
+
+### `GET /health`
+
+Returns `{ "status": "ok" }`. No auth, no DB. Used by Playwright's `webServer` readiness probe to know when the local cf-worker is up. Always available in every environment.
+
+### `POST /test/seed`
+
+Available **only** when the cf-worker is running with `env.E2E_SEED_SECRET` set. In all deployed environments (dev, prod) this env var is not set, so the route is not registered and any request returns 404 (the same response the cf-worker returns for any unknown path).
+
+Defense-in-depth: even when registered, every request must include the header `X-E2E-Seed-Secret: <value>` matching `env.E2E_SEED_SECRET`. Mismatch returns 404.
+
+Request body: `SeedRequest` (see `shared-types/index.ts`) — declarative description of users, groups, transactions, budget entries to create, plus an optional `authenticate[]` list of user aliases for which to issue session cookies.
+
+Response: `SeedResponse` with `ids` (alias→id maps for each entity type) and `sessions` (alias→cookies for authenticated users).
+
+The handler is atomic: if any phase fails, all earlier inserts are rolled back so the database is left in its pre-request state.
+
 ## Performance Considerations
 
 ### Caching
