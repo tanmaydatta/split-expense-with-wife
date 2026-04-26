@@ -23,6 +23,9 @@ split-expense-with-wife/
 │   │   ├── Table.tsx             # Responsive data table, color-coded amounts
 │   │   ├── TransactionCard.tsx   # Mobile card view for transactions
 │   │   ├── BudgetCard.tsx        # Budget display component
+│   │   ├── BudgetEntryCard/      # Card view for budget entries (analogous to TransactionCard)
+│   │   │   ├── BudgetEntryCard.tsx
+│   │   │   └── BudgetEntryCard.css
 │   │   ├── MessageContainer.tsx  # Success/error toast notifications
 │   │   ├── ConfirmDialog.tsx     # Modal confirmation dialog
 │   │   ├── AmountGrid.tsx        # Grid layout for amount display
@@ -31,8 +34,12 @@ split-expense-with-wife/
 │   │   ├── ScheduledActionsManager.tsx  # Complex CRUD form for scheduled actions
 │   │   └── ScheduledActionsHistory.tsx  # History list view
 │   ├── pages/                    # Route-level page components
-│   │   ├── Dashboard.tsx         # Expense creation form + budget update
+│   │   ├── Dashboard.tsx         # Expense creation form + budget update (atomic via /dashboard_submit)
 │   │   ├── Transactions.tsx      # Expense list with infinite scroll
+│   │   ├── TransactionDetail/    # Single transaction detail at /transaction/:id
+│   │   │   └── index.tsx         # Shows transaction + linked budget entry; "View linked" cross-nav
+│   │   ├── BudgetEntryDetail/    # Single budget entry detail at /budget-entry/:id
+│   │   │   └── index.tsx         # Shows budget entry + linked transaction; "View linked" cross-nav
 │   │   ├── Balances.tsx          # User balance tracking (multi-currency)
 │   │   ├── Budget.tsx            # Budget management + history
 │   │   ├── MonthlyBudgetPage.tsx # Recharts-based budget analytics
@@ -49,8 +56,10 @@ split-expense-with-wife/
 │   ├── hooks/                    # Custom React hooks (React Query wrappers)
 │   │   ├── queryClient.ts        # QueryClient config (retry:2, stale:5m, no refetch on focus)
 │   │   ├── useTransactions.ts    # Transaction list, infinite scroll, delete
+│   │   ├── useTransaction.ts     # Single transaction detail (queryKey: ["transaction", id])
 │   │   ├── useBudget.ts          # Budget total, history, delete, load more
-│   │   ├── useDashboard.ts       # Create expense, update budget, combined submit
+│   │   ├── useBudgetEntry.ts     # Single budget entry detail (queryKey: ["budgetEntry", id])
+│   │   ├── useDashboard.ts       # Create expense, update budget, combined atomic submit
 │   │   ├── useBalances.ts        # Current balances per user/currency
 │   │   ├── useMonthlyBudget.ts   # Monthly breakdown with currency filtering
 │   │   ├── useGroupDetails.ts    # Group metadata fetch/update/refresh
@@ -86,8 +95,10 @@ split-expense-with-wife/
 │   │   ├── utils.ts              # Core utilities (see detail below)
 │   │   ├── types.ts              # Backend-specific types
 │   │   ├── handlers/             # Request handlers
-│   │   │   ├── split.ts          # split_new, split_delete, transactions_list
-│   │   │   ├── budget.ts         # budget CRUD, totals, monthly, balances
+│   │   │   ├── dashboard.ts      # /dashboard_submit: atomic expense + budget + link creation
+│   │   │   ├── get-by-id.ts      # /transaction_get and /budget_entry_get with linked sibling
+│   │   │   ├── split.ts          # /split_new, /split_delete (cascade to linked BE), /transactions_list
+│   │   │   ├── budget.ts         # budget CRUD, /budget_delete (cascade to linked tx), totals, monthly, balances
 │   │   │   ├── group.ts          # group details, metadata update, budget mgmt
 │   │   │   ├── scheduled-actions.ts # Scheduled actions CRUD + run now + history
 │   │   │   ├── migration.ts      # relink-data, migrate-passwords (admin only)
@@ -136,8 +147,10 @@ split-expense-with-wife/
 ### Authenticated Routes
 | Path | Component | Purpose |
 |------|-----------|---------|
-| `/` | Dashboard | Add expense / update budget form |
+| `/` | Dashboard | Add expense / update budget form (atomic submit) |
 | `/expenses` | Transactions | Paginated expense list with infinite scroll |
+| `/transaction/:id` | TransactionDetail | Single transaction + linked budget entry, cross-nav |
+| `/budget-entry/:id` | BudgetEntryDetail | Single budget entry + linked transaction, cross-nav |
 | `/balances` | Balances | Who owes whom, multi-currency |
 | `/budget` | Budget | Budget entry management + history |
 | `/monthly-budget` | MonthlyBudgetPage | Recharts analytics |
@@ -172,14 +185,17 @@ split-expense-with-wife/
 
 | Method | Path | Handler | Auth | Description |
 |--------|------|---------|------|-------------|
-| POST | `/split_new` | `handleSplitNew` | Full | Create expense with split |
-| POST | `/split_delete` | `handleSplitDelete` | Full | Soft-delete transaction |
-| POST | `/transactions_list` | `handleTransactionsList` | Full | Paginated list |
-| POST | `/budget` | `handleBudget` | Full | Create budget entry |
-| DELETE | `/budget_delete` | `handleBudgetDelete` | Full | Soft-delete budget entry |
-| GET | `/budget_list` | `handleBudgetList` | Full | Paginated budget history |
-| GET | `/budget_monthly` | `handleBudgetMonthly` | Full | Monthly aggregation + averages |
-| GET | `/budget_total` | `handleBudgetTotal` | Full | Current totals by currency |
+| POST | `/dashboard_submit` | `handleDashboardSubmit` | Full | Atomic expense + budget + link creation |
+| POST | `/split_new` | `handleSplitNew` | Full | Create expense with split (no budget link) |
+| POST | `/split_delete` | `handleSplitDelete` | Full | Soft-delete transaction + cascade to linked BE |
+| POST | `/transaction_get` | `handleTransactionGet` | Full | Single transaction with linked budget entry |
+| POST | `/transactions_list` | `handleTransactionsList` | Full | Paginated list with linkedBudgetEntryIds |
+| POST | `/budget` | `handleBudget` | Full | Create budget entry (no expense link) |
+| POST | `/budget_delete` | `handleBudgetDelete` | Lite | Soft-delete budget entry + cascade to linked tx |
+| POST | `/budget_entry_get` | `handleBudgetEntryGet` | Full | Single budget entry with linked transaction |
+| POST | `/budget_list` | `handleBudgetList` | Lite | Paginated budget history with linkedTransactionIds |
+| POST | `/budget_monthly` | `handleBudgetMonthly` | Full | Monthly aggregation + averages |
+| POST | `/budget_total` | `handleBudgetTotal` | Lite | Current totals by currency |
 | GET | `/balances` | `handleBalances` | Full | User balance pivot |
 | GET | `/group/details` | `handleGroupDetails` | Lite | Group info, budgets, members |
 | POST | `/group/metadata` | `handleUpdateGroupMetadata` | Full | Update group settings/budgets |
@@ -230,30 +246,31 @@ split-expense-with-wife/
 9. 401 response: Global interceptor triggers logout + redirect
 ```
 
-## Data Flow: Creating an Expense
+## Data Flow: Creating an Expense (and optional Budget Link)
 
 ```
 Frontend (Dashboard.tsx)
   ↓ form.handleSubmit() via TanStack Form + Zod validation
-  ↓ useDashboardSubmit → useCreateExpense mutation
-  ↓ typedApi.post("/split_new", { amount, description, paidByShares, splitPctShares, currency })
+  ↓ useDashboardSubmit mutation
+  ↓ typedApi.post("/dashboard_submit", { expense?, budget? })
 
-Backend (cf-worker/src/index.ts → handlers/split.ts)
+Backend (cf-worker/src/index.ts → handlers/dashboard.ts)
   ↓ withAuth(request, env, handler) → validates session, loads group
-  ↓ handleSplitNew:
-  │  1. Validate split percentages sum to 100% (±0.01)
-  │  2. Validate paid amounts sum to total (±0.01)
-  │  3. calculateSplitAmounts() → net settlement between users
-  │  4. Generate transaction ID (ULID)
-  │  5. db.batch([
-  │       insert into transactions,
-  │       insert into transaction_users (per debt pair),
-  │       upsert user_balances (materialized)
-  │     ])
-  ↓ Return { message, transactionId }
+  ↓ handleDashboardSubmit:
+  │  1. Validate body (at least one of expense/budget; amounts/currencies must match if both)
+  │  2. If budget present: isAuthorizedForBudgetDirect()
+  │  3. Build expense statements (if present):
+  │     - Generate transactionId (tx_<ulid>)
+  │     - createSplitTransactionFromRequest → inserts + balance upserts
+  │  4. Build budget statements (if present):
+  │     - Generate budgetEntryId (bge_<ulid>)
+  │     - createBudgetEntryStatements → insert + total upsert
+  │  5. If both present: build link insert (expense_budget_links)
+  │  6. db.batch([all statements atomically])
+  ↓ Return { message, transactionId?, budgetEntryId?, linkId? }
 
 Frontend
-  ↓ onSuccess: invalidate ["transactions"], ["balances"] query keys
+  ↓ onSuccess: invalidate ["transactions"], ["balances"], ["budget"] query keys
   ↓ React Query refetches stale data automatically
 ```
 
@@ -291,10 +308,16 @@ user ──┬──< session (userId FK, CASCADE delete)
               └──< scheduled_action_history (scheduledActionId FK, CASCADE delete)
 
 groups ──< group_budgets (groupId FK)
-   │
+   │         └──< budget_entries (budgetId FK)
+   │                  └──< expense_budget_links (budgetEntryId FK, ON DELETE NO ACTION)
    └── userids (JSON array of user.id values)
 
 transactions ──< transaction_users (transactionId, composite PK)
+     └──< expense_budget_links (transactionId FK, ON DELETE NO ACTION)
+
+expense_budget_links: M:N junction between transactions and budget_entries
+  - No deleted column; cascade soft-deletes go to entity tables, not the link row
+  - Application-layer cascade inside db.batch() (not FK triggers)
 
 Materialized:
   user_balances (groupId + userId + owedToUserId + currency) → balance

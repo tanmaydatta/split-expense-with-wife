@@ -64,7 +64,14 @@ RESTful endpoints under `/.netlify/functions/` prefix (for compatibility):
 - **Transactions**: Individual expense records
 - **Transaction Users**: Split details for each expense
 - **Budget Entries**: Budget tracking and categorization
+- **Expense Budget Links**: M:N junction between transactions and budget entries (see below)
 - **Scheduled Actions**: Recurring expenses and budgets
+
+**Link as a First-Class Concept:**
+
+The `expense_budget_links` junction table allows one-to-many in either direction (one transaction linked to many budget entries, or one budget entry linked to many transactions) without any schema change. Currently the dashboard creates 1:1 links — one atomic call to `/dashboard_submit` creates exactly one expense, one budget entry, and one link row — but the data model is M:N-capable by design.
+
+Cascade soft-deletes are application-layer, not FK triggers: when a transaction or budget entry is deleted, the handler explicitly soft-deletes the linked sibling(s) in the same `db.batch()`. The junction row itself is never deleted (no `deleted` column), so the historical relationship is always preserved. Active links are resolved by filtering on the entity's own `deleted IS NULL`.
 
 **Materialized Views:**
 - **User Balances**: Pre-calculated debt between users
@@ -145,23 +152,28 @@ src/
 
 ## Data Flow
 
-### Expense Creation Flow
+### Dashboard Submit Flow (Expense + Budget + Link)
 
-1. **Frontend**: User submits expense form
-2. **Validation**: Zod schema validation on client and server
-3. **Authentication**: Session verification
-4. **Authorization**: Group membership check
-5. **Database**: Transaction insertion with split calculations
-6. **Balance Updates**: Materialized view updates
-7. **Response**: Success confirmation with transaction ID
+1. **Frontend**: User submits Dashboard form with expense and/or budget fields checked
+2. **Validation**: Client-side form validation (amounts, percentages, currency match)
+3. **API Call**: Single `POST /dashboard_submit` — no separate calls for expense and budget
+4. **Authentication**: Session verification
+5. **Authorization**: Group membership + budget ownership check
+6. **Database**: All inserts run atomically in `db.batch()`:
+   - Expense: `transactions` + `transaction_users` + `user_balances` upsert
+   - Budget: `budget_entries` + `budget_totals` upsert
+   - Link: `expense_budget_links` (only when both sides are present)
+7. **Response**: `{ message, transactionId?, budgetEntryId?, linkId? }`
+8. **Cache Invalidation**: `["transactions"]`, `["balances"]`, `["budget"]`
 
 ### Budget Tracking Flow
 
-1. **Entry Creation**: Budget expense recorded
+1. **Entry Creation**: Budget expense recorded (via `/dashboard_submit` or `/budget`)
 2. **Categorization**: Assigned to budget category
-3. **Aggregation**: Budget totals updated
+3. **Aggregation**: Budget totals updated (materialized via `budget_totals`)
 4. **Historical Data**: Monthly/yearly analysis
 5. **Reporting**: Average spending calculations
+6. **Linked View**: If created via `/dashboard_submit` alongside an expense, the entry carries a link to the originating transaction; users can cross-navigate between the two detail pages
 
 ## Security Considerations
 

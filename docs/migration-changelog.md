@@ -214,6 +214,45 @@ ALTER TABLE `__new_budget_entries` RENAME TO `budget_entries`;
 - Consistent with deterministic ID pattern used in scheduled actions
 - Removes need for separate unique index on `budget_entry_id`
 
+### Migration 0018: Add expense_budget_links Junction Table
+
+**Date**: 2026-04
+**File**: `0018_sleepy_sauron.sql`
+**Type**: New table (no data migration)
+
+**Problem**: The system had no way to express a relationship between an expense transaction and a budget entry created at the same time. Without a link, deleting one side left the other orphaned and UIs could not cross-navigate between the two entities.
+
+**Solution**: Added `expense_budget_links` junction table establishing an M:N relationship between `transactions` and `budget_entries`.
+
+```sql
+CREATE TABLE expense_budget_links (
+    id TEXT PRIMARY KEY NOT NULL,
+    transaction_id TEXT(100) NOT NULL,
+    budget_entry_id TEXT(100) NOT NULL,
+    group_id TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (transaction_id) REFERENCES transactions(transaction_id) ON UPDATE no action ON DELETE no action,
+    FOREIGN KEY (budget_entry_id) REFERENCES budget_entries(budget_entry_id) ON UPDATE no action ON DELETE no action
+);
+
+CREATE UNIQUE INDEX expense_budget_links_pair_idx ON expense_budget_links (transaction_id, budget_entry_id);
+CREATE INDEX expense_budget_links_transaction_idx ON expense_budget_links (transaction_id);
+CREATE INDEX expense_budget_links_budget_entry_idx ON expense_budget_links (budget_entry_id);
+CREATE INDEX expense_budget_links_group_idx ON expense_budget_links (group_id);
+```
+
+**No data migration**: New table only. Existing transactions and budget entries remain unlinked.
+
+**Rollback**: `DROP TABLE expense_budget_links;`
+
+**Code changes accompanying this migration:**
+- `cf-worker/src/db/schema/schema.ts`: New `expenseBudgetLinks` table definition
+- `cf-worker/src/handlers/dashboard.ts`: Atomic expense + budget + link creation via `/dashboard_submit`
+- `cf-worker/src/handlers/get-by-id.ts`: `/transaction_get` and `/budget_entry_get` with linked sibling
+- `cf-worker/src/handlers/split.ts`: `/split_delete` now cascade-soft-deletes linked budget entries
+- `cf-worker/src/handlers/budget.ts`: `/budget_delete` now cascade-soft-deletes linked transactions; `/budget_list` returns `linkedTransactionIds`; `/transactions_list` returns `linkedBudgetEntryIds`
+- `shared-types/index.ts`: New request/response types for the above endpoints
+
 ### Earlier Migrations (0000-0007)
 - Initial schema setup
 - Authentication system setup (better-auth)
