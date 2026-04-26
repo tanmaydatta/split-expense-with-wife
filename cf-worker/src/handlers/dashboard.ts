@@ -28,9 +28,10 @@ type ValidationSuccess = { ok: true };
 type ValidationResult = ValidationFailure | ValidationSuccess;
 
 // Cross-check expense and budget when both are present.
+// Compare absolute values because the frontend negates budget.amount for Debit entries.
 function validatePair(body: DashboardSubmitRequest): ValidationResult {
 	if (!body.expense || !body.budget) return { ok: true };
-	if (body.expense.amount !== body.budget.amount) {
+	if (Math.abs(body.expense.amount) !== Math.abs(body.budget.amount)) {
 		return { ok: false, message: "Expense and budget amounts must match" };
 	}
 	if (body.expense.currency !== body.budget.currency) {
