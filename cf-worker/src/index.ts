@@ -10,6 +10,10 @@ import {
 import { handleCron } from "./handlers/cron";
 import { handleDashboardSubmit } from "./handlers/dashboard";
 import {
+	handleBudgetEntryGet,
+	handleTransactionGet,
+} from "./handlers/get-by-id";
+import {
 	handleGroupDetails,
 	handleUpdateGroupMetadata,
 } from "./handlers/group";
@@ -174,6 +178,10 @@ async function handleBasicApiRoutes(
 			return await handleSplitNew(request, env);
 		case "dashboard_submit":
 			return await handleDashboardSubmit(request, env);
+		case "transaction_get":
+			return await handleTransactionGet(request, env);
+		case "budget_entry_get":
+			return await handleBudgetEntryGet(request, env);
 		case "split_delete":
 			return await handleSplitDelete(request, env);
 		case "transactions_list":
