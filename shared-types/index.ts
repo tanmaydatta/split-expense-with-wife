@@ -979,3 +979,11 @@ export interface SeedResponse {
 	};
 	sessions: Record<string, { cookies: SeedCookie[] }>;
 }
+
+export interface ExpenseBudgetLink {
+	id: string;
+	transactionId: string;
+	budgetEntryId: string;
+	groupId: string;
+	createdAt: string;
+}
