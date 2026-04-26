@@ -9,8 +9,14 @@ import type {
 	BudgetMonthlyResponse,
 	MonthlyBudget,
 } from "../../../shared-types";
+import { eq } from "drizzle-orm";
 import { getDb } from "../db";
-import { budgetEntries, transactions, transactionUsers } from "../db/schema/schema";
+import {
+	budgetEntries,
+	expenseBudgetLinks,
+	transactions,
+	transactionUsers,
+} from "../db/schema/schema";
 import worker from "../index";
 import type { UserBalancesByUser } from "../types";
 import {
@@ -18,6 +24,7 @@ import {
 	createTestUserData,
 	populateMaterializedTables,
 	setupAndCleanDatabase,
+	setupDatabase,
 	signInAndGetCookies,
 } from "./test-utils";
 
@@ -2301,5 +2308,107 @@ describe("Budget Handlers", () => {
 			const json = (await response.json()) as BudgetTotalResponse;
 			expect(json[0].amount).toBe(1500);
 		});
+	});
+});
+
+describe("/budget_delete cascade", () => {
+	const TEST_SECRET = "test-secret";
+	const ORIGINAL_SECRET = env.E2E_SEED_SECRET;
+
+	beforeEach(async () => {
+		env.E2E_SEED_SECRET = TEST_SECRET;
+		await completeCleanupDatabase(env);
+		await setupDatabase(env);
+	});
+
+	afterEach(() => {
+		env.E2E_SEED_SECRET = ORIGINAL_SECRET;
+	});
+
+	it("soft-deletes the linked transaction when the budget entry is deleted", async () => {
+		const seedCtx = createExecutionContext();
+		const seedRes = await worker.fetch(
+			new Request("http://test.local/test/seed", {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					"X-E2E-Seed-Secret": TEST_SECRET,
+				},
+				body: JSON.stringify({
+					users: [{ alias: "u" }, { alias: "v" }],
+					groups: [
+						{
+							alias: "g",
+							members: ["u", "v"],
+							budgets: [{ alias: "b", name: "B" }],
+						},
+					],
+					transactions: [
+						{
+							alias: "t",
+							group: "g",
+							amount: 50,
+							paidByShares: { u: 50 },
+							splitPctShares: { u: 50, v: 50 },
+						},
+					],
+					budgetEntries: [
+						{ alias: "be", group: "g", budget: "b", amount: 50 },
+					],
+					expenseBudgetLinks: [{ transaction: "t", budgetEntry: "be" }],
+					authenticate: ["u"],
+				}),
+			}),
+			env,
+			seedCtx,
+		);
+		await waitOnExecutionContext(seedCtx);
+		expect(seedRes.status).toBe(200);
+		const seed = (await seedRes.json()) as {
+			ids: {
+				transactions: Record<string, { id: string }>;
+				budgetEntries: Record<string, { id: string }>;
+			};
+			sessions: Record<string, { cookies: Array<{ name: string; value: string }> }>;
+		};
+		const cookies = seed.sessions.u.cookies
+			.map((c) => `${c.name}=${c.value}`)
+			.join("; ");
+
+		const delCtx = createExecutionContext();
+		const delRes = await worker.fetch(
+			new Request(
+				"http://test.local/.netlify/functions/budget_delete",
+				{
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						Cookie: cookies,
+					},
+					body: JSON.stringify({ id: seed.ids.budgetEntries.be.id }),
+				},
+			),
+			env,
+			delCtx,
+		);
+		await waitOnExecutionContext(delCtx);
+		expect(delRes.status).toBe(200);
+
+		const db = getDb(env);
+		const beRow = await db
+			.select()
+			.from(budgetEntries)
+			.where(eq(budgetEntries.budgetEntryId, seed.ids.budgetEntries.be.id));
+		expect(beRow[0].deleted).not.toBeNull();
+
+		const txRow = await db
+			.select()
+			.from(transactions)
+			.where(eq(transactions.transactionId, seed.ids.transactions.t.id));
+		expect(txRow[0].deleted).not.toBeNull();
+
+		// Junction row preserved
+		const links = await db.select().from(expenseBudgetLinks);
+		expect(links.length).toBe(1);
 	});
 });

@@ -12,7 +12,14 @@ import type {
 } from "../../../shared-types";
 import type { getDb } from "../db";
 import type { user } from "../db/schema/auth-schema";
-import { budgetEntries, budgetTotals, userBalances } from "../db/schema/schema";
+import {
+	budgetEntries,
+	budgetTotals,
+	expenseBudgetLinks,
+	transactions,
+	transactionUsers,
+	userBalances,
+} from "../db/schema/schema";
 import {
 	createErrorResponse,
 	createJsonResponse,
@@ -511,6 +518,23 @@ export async function handleBudgetDelete(
 
 			const deletedTime = formatSQLiteTime();
 
+			// Find linked, live transactions for cascade soft-delete
+			const linkedTxRows = await db
+				.select({ id: expenseBudgetLinks.transactionId })
+				.from(expenseBudgetLinks)
+				.innerJoin(
+					transactions,
+					eq(transactions.transactionId, expenseBudgetLinks.transactionId),
+				)
+				.where(
+					and(
+						eq(expenseBudgetLinks.budgetEntryId, body.id),
+						isNull(transactions.deleted),
+						eq(expenseBudgetLinks.groupId, String(session.currentUser.groupid)),
+					),
+				);
+			const linkedTxIds = linkedTxRows.map((r) => r.id);
+
 			// Prepare Drizzle statements for batch operation
 			const deleteBudget = db
 				.update(budgetEntries)
@@ -530,8 +554,27 @@ export async function handleBudgetDelete(
 					),
 				);
 
-			// Execute both statements using Drizzle batch
-			await db.batch([deleteBudget, updateBudgetTotal]);
+			// Soft-delete each linked transaction and its transaction_users as part of the atomic batch
+			const deleteLinkedTransactions = linkedTxIds.map((id) =>
+				db
+					.update(transactions)
+					.set({ deleted: deletedTime })
+					.where(eq(transactions.transactionId, id)),
+			);
+			const deleteLinkedTransactionUsers = linkedTxIds.map((id) =>
+				db
+					.update(transactionUsers)
+					.set({ deleted: deletedTime })
+					.where(eq(transactionUsers.transactionId, id)),
+			);
+
+			// Execute all statements in a single batch
+			await db.batch([
+				deleteBudget,
+				updateBudgetTotal,
+				...deleteLinkedTransactions,
+				...deleteLinkedTransactionUsers,
+			]);
 
 			return createJsonResponse(
 				{
