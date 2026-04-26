@@ -7,8 +7,10 @@ import { Budget } from "@/pages/Budget";
 import Dashboard from "@/pages/Dashboard";
 import Landing from "@/pages/Landing";
 import LoginPage from "@/pages/Login";
+import BudgetEntryDetail from "@/pages/BudgetEntryDetail";
 import { MonthlyBudgetPage } from "@/pages/MonthlyBudgetPage";
 import NotFound from "@/pages/NotFound";
+import TransactionDetail from "@/pages/TransactionDetail";
 import ScheduledActionsPage from "@/pages/ScheduledActions";
 import ActionHistoryPage from "@/pages/ScheduledActions/ActionHistory";
 import ScheduledActionEditPage from "@/pages/ScheduledActions/EditAction";
@@ -187,6 +189,8 @@ function AppWrapper() {
 		if (path === "/settings") return "Settings";
 		if (path === "/scheduled-actions") return "Scheduled Actions";
 		if (path === "/logout") return "Logout";
+		if (path.startsWith("/transaction/")) return "Transaction";
+		if (path.startsWith("/budget-entry/")) return "Budget Entry";
 		return "Page Not Found"; // For 404 and unknown routes
 	};
 	// Show loading while session data is being fetched
@@ -247,6 +251,14 @@ function AppWrapper() {
 								<Route
 									path="/scheduled-actions/:id/edit"
 									element={<ScheduledActionEditPage />}
+								/>
+								<Route
+									path="/transaction/:id"
+									element={<TransactionDetail />}
+								/>
+								<Route
+									path="/budget-entry/:id"
+									element={<BudgetEntryDetail />}
 								/>
 								<Route path="/logout" element={<Logout />} />
 								<Route path="*" element={<NotFound />} />
