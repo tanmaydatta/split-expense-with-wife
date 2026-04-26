@@ -1010,8 +1010,10 @@ export interface SeedRequest {
 		currency?: string;
 		addedTime?: string;
 	}>;
-	// expenseBudgetLinks is intentionally NOT in this version.
-	// The linking spec adds it in its own plan.
+	expenseBudgetLinks?: Array<{
+		transaction: string; // transaction alias
+		budgetEntry: string; // budget entry alias
+	}>;
 	scheduledActions?: unknown[];
 	authenticate?: string[];
 }
@@ -1033,6 +1035,7 @@ export interface SeedResponse {
 		groups: Record<string, { id: string }>;
 		transactions: Record<string, { id: string }>;
 		budgetEntries: Record<string, { id: string }>;
+		expenseBudgetLinks: Record<string, { id: string }>;
 	};
 	sessions: Record<string, { cookies: SeedCookie[] }>;
 }

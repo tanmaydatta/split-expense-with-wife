@@ -6,6 +6,7 @@ import { account, session, user, verification } from "../db/schema/auth-schema";
 import {
 	budgetEntries,
 	budgetTotals,
+	expenseBudgetLinks,
 	groupBudgets,
 	groups,
 	scheduledActionHistory,
@@ -208,6 +209,27 @@ export async function setupDatabase(env: Env): Promise<void> {
 	await env.DB.exec(
 		"CREATE INDEX IF NOT EXISTS scheduled_action_history_workflow_instance_idx ON scheduled_action_history (workflow_instance_id)",
 	);
+
+	// Create expense_budget_links table
+	// Note: FK constraints omitted because the test-utils transactions table uses
+	// an INTEGER autoincrement primary key (not the production transaction_id primary
+	// key), so a SQLite FK to transactions(transaction_id) without a unique index
+	// triggers a "foreign key mismatch" error.
+	await env.DB.exec(
+		"CREATE TABLE IF NOT EXISTS expense_budget_links (id TEXT PRIMARY KEY, transaction_id VARCHAR(100) NOT NULL, budget_entry_id VARCHAR(100) NOT NULL, group_id TEXT NOT NULL, created_at TEXT NOT NULL)",
+	);
+	await env.DB.exec(
+		"CREATE UNIQUE INDEX IF NOT EXISTS expense_budget_links_pair_idx ON expense_budget_links (transaction_id, budget_entry_id)",
+	);
+	await env.DB.exec(
+		"CREATE INDEX IF NOT EXISTS expense_budget_links_transaction_idx ON expense_budget_links (transaction_id)",
+	);
+	await env.DB.exec(
+		"CREATE INDEX IF NOT EXISTS expense_budget_links_budget_entry_idx ON expense_budget_links (budget_entry_id)",
+	);
+	await env.DB.exec(
+		"CREATE INDEX IF NOT EXISTS expense_budget_links_group_idx ON expense_budget_links (group_id)",
+	);
 }
 
 // Complete database cleanup - ensures total isolation between tests
@@ -222,6 +244,7 @@ export async function completeCleanupDatabase(env: Env): Promise<void> {
 	await db.delete(user);
 	await db.delete(budgetTotals);
 	await db.delete(userBalances);
+	await db.delete(expenseBudgetLinks); // Delete links before transactions and budget entries
 	await db.delete(transactionUsers);
 	await db.delete(transactions);
 	await db.delete(budgetEntries);

@@ -13,6 +13,7 @@ import { getDb } from "../db";
 import { user as userTable } from "../db/schema/auth-schema";
 import {
 	budgetEntries,
+	expenseBudgetLinks,
 	groupBudgets,
 	groups,
 	transactionUsers,
@@ -268,6 +269,33 @@ async function createTransactions(
 	return txIds;
 }
 
+async function createLinks(
+	payload: SeedRequest,
+	txIds: Record<string, { id: string }>,
+	beIds: Record<string, { id: string }>,
+	groupIds: Record<string, CreatedGroup>,
+	groupResolver: (txAlias: string) => string,
+	db: ReturnType<typeof getDb>,
+): Promise<Record<string, { id: string }>> {
+	const linkIds: Record<string, { id: string }> = {};
+	const now = new Date().toISOString();
+
+	for (const link of payload.expenseBudgetLinks ?? []) {
+		const id = ulid();
+		const groupAlias = groupResolver(link.transaction);
+		linkIds[`${link.transaction}_${link.budgetEntry}`] = { id };
+		await db.insert(expenseBudgetLinks).values({
+			id,
+			transactionId: txIds[link.transaction].id,
+			budgetEntryId: beIds[link.budgetEntry].id,
+			groupId: groupIds[groupAlias].id,
+			createdAt: now,
+		});
+	}
+
+	return linkIds;
+}
+
 async function createBudgetEntries(
 	payload: SeedRequest,
 	groupIdMap: Record<string, CreatedGroup>,
@@ -406,8 +434,8 @@ function validateTransactions(
 	payload: SeedRequest,
 	userAliases: Set<string>,
 	groupAliases: Set<string>,
+	txAliases: Set<string>,
 ): string | null {
-	const txAliases = new Set<string>();
 	for (const t of payload.transactions ?? []) {
 		if (txAliases.has(t.alias))
 			return `transactions alias '${t.alias}' duplicated`;
@@ -445,14 +473,30 @@ function validateBudgetEntries(
 	payload: SeedRequest,
 	groupAliases: Set<string>,
 	budgetAliasToGroup: Map<string, string>,
+	beAliases: Set<string>,
 ): string | null {
-	const beAliases = new Set<string>();
 	for (const be of payload.budgetEntries ?? []) {
 		if (beAliases.has(be.alias))
 			return `budgetEntries alias '${be.alias}' duplicated`;
 		beAliases.add(be.alias);
 		const err = validateBudgetEntry(be, groupAliases, budgetAliasToGroup);
 		if (err) return err;
+	}
+	return null;
+}
+
+function validateExpenseBudgetLinks(
+	payload: SeedRequest,
+	txAliases: Set<string>,
+	beAliases: Set<string>,
+): string | null {
+	for (const link of payload.expenseBudgetLinks ?? []) {
+		if (!txAliases.has(link.transaction)) {
+			return `expenseBudgetLink references unknown transaction '${link.transaction}'`;
+		}
+		if (!beAliases.has(link.budgetEntry)) {
+			return `expenseBudgetLink references unknown budget entry '${link.budgetEntry}'`;
+		}
 	}
 	return null;
 }
@@ -473,13 +517,21 @@ function validate(payload: SeedRequest): string | null {
 	const userAliases = new Set<string>();
 	const groupAliases = new Set<string>();
 	const budgetAliasToGroup = new Map<string, string>();
+	const txAliases = new Set<string>();
+	const beAliases = new Set<string>();
 
 	return (
 		validateUsers(payload, userAliases) ||
 		validateGroups(payload, userAliases, groupAliases) ||
 		collectBudgets(payload, budgetAliasToGroup) ||
-		validateTransactions(payload, userAliases, groupAliases) ||
-		validateBudgetEntries(payload, groupAliases, budgetAliasToGroup) ||
+		validateTransactions(payload, userAliases, groupAliases, txAliases) ||
+		validateBudgetEntries(
+			payload,
+			groupAliases,
+			budgetAliasToGroup,
+			beAliases,
+		) ||
+		validateExpenseBudgetLinks(payload, txAliases, beAliases) ||
 		validateAuthenticate(payload, userAliases)
 	);
 }
@@ -523,6 +575,123 @@ async function issueSessions(
 	return sessions;
 }
 
+type SeedExecutionResult = {
+	users: Record<string, CreatedUser>;
+	groupResult: Awaited<ReturnType<typeof createGroups>>;
+	txIdMap: Record<string, { id: string }>;
+	beIdMap: Record<string, { id: string }>;
+	linkIdMap: Record<string, { id: string }>;
+	sessions: Record<string, { cookies: SeedCookie[] }>;
+};
+
+async function executeSeedPhases(
+	payload: SeedRequest,
+	env: Env,
+	db: ReturnType<typeof getDb>,
+	cleanup: Array<() => Promise<void>>,
+): Promise<SeedExecutionResult> {
+	// Phase 1: users
+	const users = await createUsers(payload, env);
+	cleanup.push(async () => {
+		for (const u of Object.values(users)) {
+			await db.delete(userTable).where(eq(userTable.id, u.id));
+		}
+	});
+
+	// Phase 2: groups + group_budgets
+	const groupResult = await createGroups(payload, users, db);
+	cleanup.push(async () => {
+		for (const b of Object.values(groupResult.budgets)) {
+			await db.delete(groupBudgets).where(eq(groupBudgets.id, b.id));
+		}
+		for (const g of Object.values(groupResult.groups)) {
+			await db.delete(groups).where(eq(groups.groupid, g.id));
+		}
+	});
+
+	// Phase 3: transactions
+	const txIdMap = await createTransactions(
+		payload,
+		users,
+		groupResult.groups,
+		groupResult.defaultCurrencies,
+		db,
+		env,
+	);
+	cleanup.push(async () => {
+		for (const t of Object.values(txIdMap)) {
+			await db
+				.delete(transactions)
+				.where(eq(transactions.transactionId, t.id));
+			await db
+				.delete(transactionUsers)
+				.where(eq(transactionUsers.transactionId, t.id));
+		}
+	});
+
+	// Phase 4: budget entries
+	const beIdMap = await createBudgetEntries(
+		payload,
+		groupResult.groups,
+		groupResult.budgets,
+		groupResult.defaultCurrencies,
+		db,
+	);
+	cleanup.push(async () => {
+		for (const be of Object.values(beIdMap)) {
+			await db
+				.delete(budgetEntries)
+				.where(eq(budgetEntries.budgetEntryId, be.id));
+		}
+	});
+
+	// Phase 5: expense_budget_links
+	const txAliasToGroupAlias = new Map<string, string>();
+	for (const t of payload.transactions ?? []) {
+		txAliasToGroupAlias.set(t.alias, t.group);
+	}
+	const linkIdMap = await createLinks(
+		payload,
+		txIdMap,
+		beIdMap,
+		groupResult.groups,
+		(alias) => txAliasToGroupAlias.get(alias) as string,
+		db,
+	);
+	cleanup.push(async () => {
+		for (const l of Object.values(linkIdMap)) {
+			await db
+				.delete(expenseBudgetLinks)
+				.where(eq(expenseBudgetLinks.id, l.id));
+		}
+	});
+
+	// Phase 6: sessions (no DB writes specific to this phase that need rollback,
+	// but include for symmetry — better-auth's signIn updates session table; if
+	// earlier phases all succeeded then session creation rarely fails).
+	const sessions = await issueSessions(payload, users, env);
+
+	return { users, groupResult, txIdMap, beIdMap, linkIdMap, sessions };
+}
+
+function buildSeedResponse(result: SeedExecutionResult): SeedResponse {
+	return {
+		ids: {
+			users: Object.fromEntries(
+				Object.entries(result.users).map(([alias, u]) => [
+					alias,
+					{ id: u.id, email: u.email, username: u.username },
+				]),
+			),
+			groups: result.groupResult.groups,
+			transactions: result.txIdMap,
+			budgetEntries: result.beIdMap,
+			expenseBudgetLinks: result.linkIdMap,
+		},
+		sessions: result.sessions,
+	};
+}
+
 export async function handleTestSeed(
 	request: Request,
 	env: Env,
@@ -549,81 +718,8 @@ export async function handleTestSeed(
 	const cleanup: Array<() => Promise<void>> = [];
 
 	try {
-		// Phase 1: users
-		const users = await createUsers(payload, env);
-		cleanup.push(async () => {
-			for (const u of Object.values(users)) {
-				await db.delete(userTable).where(eq(userTable.id, u.id));
-			}
-		});
-
-		// Phase 2: groups + group_budgets
-		const groupResult = await createGroups(payload, users, db);
-		cleanup.push(async () => {
-			for (const b of Object.values(groupResult.budgets)) {
-				await db.delete(groupBudgets).where(eq(groupBudgets.id, b.id));
-			}
-			for (const g of Object.values(groupResult.groups)) {
-				await db.delete(groups).where(eq(groups.groupid, g.id));
-			}
-		});
-
-		// Phase 3: transactions
-		const txIdMap = await createTransactions(
-			payload,
-			users,
-			groupResult.groups,
-			groupResult.defaultCurrencies,
-			db,
-			env,
-		);
-		cleanup.push(async () => {
-			for (const t of Object.values(txIdMap)) {
-				await db
-					.delete(transactions)
-					.where(eq(transactions.transactionId, t.id));
-				await db
-					.delete(transactionUsers)
-					.where(eq(transactionUsers.transactionId, t.id));
-			}
-		});
-
-		// Phase 4: budget entries
-		const beIdMap = await createBudgetEntries(
-			payload,
-			groupResult.groups,
-			groupResult.budgets,
-			groupResult.defaultCurrencies,
-			db,
-		);
-		cleanup.push(async () => {
-			for (const be of Object.values(beIdMap)) {
-				await db
-					.delete(budgetEntries)
-					.where(eq(budgetEntries.budgetEntryId, be.id));
-			}
-		});
-
-		// Phase 5: sessions (no DB writes specific to this phase that need rollback,
-		// but include for symmetry — better-auth's signIn updates session table; if
-		// earlier phases all succeeded then session creation rarely fails).
-		const sessions = await issueSessions(payload, users, env);
-
-		const response: SeedResponse = {
-			ids: {
-				users: Object.fromEntries(
-					Object.entries(users).map(([alias, u]) => [
-						alias,
-						{ id: u.id, email: u.email, username: u.username },
-					]),
-				),
-				groups: groupResult.groups,
-				transactions: txIdMap,
-				budgetEntries: beIdMap,
-			},
-			sessions,
-		};
-		return createJsonResponse(response, 200, {}, request, env);
+		const result = await executeSeedPhases(payload, env, db, cleanup);
+		return createJsonResponse(buildSeedResponse(result), 200, {}, request, env);
 	} catch (e) {
 		// Best-effort rollback in reverse order of insertion
 		for (const undo of cleanup.reverse()) {
