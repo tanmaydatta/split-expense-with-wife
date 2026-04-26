@@ -73,6 +73,7 @@
 		"test:e2e:install": "playwright install --with-deps",
 		"test:e2e:remote": "E2E_BACKEND_URL=https://splitexpense-dev.tanmaydatta.workers.dev playwright test --project=chromium --project=\"Mobile Chrome\" --project=\"Mobile Safari\" --workers=1 --reporter=list,html --trace=on",
 		"test:e2e:fresh": "rm -rf cf-worker/.wrangler/state/v3/d1 && playwright test --project=chromium --project=\"Mobile Chrome\" --project=\"Mobile Safari\" --workers=1 --reporter=list,html --trace=on",
+		"test:e2e:local": "scripts/test-e2e-local.sh",
 		"test:all": "yarn test && yarn test:e2e",
 		"eject": "react-scripts eject",
 		"prepare": "husky",
