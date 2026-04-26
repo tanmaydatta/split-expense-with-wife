@@ -76,8 +76,41 @@ async function getTransactionsList(
 		.orderBy(desc(transactions.createdAt))
 		.limit(10)
 		.offset(body.offset);
-	// Transform to match production format
-	const transactionsList = transformTransactionsList(rawTransactionsList);
+
+	// Build a linkMap: transactionId -> budgetEntryId[] (excluding soft-deleted BEs)
+	const txIds = rawTransactionsList.map((t) => t.transactionId);
+	const linkMap: Record<string, string[]> = {};
+	if (txIds.length > 0) {
+		const linkRows = await db
+			.select({
+				transactionId: expenseBudgetLinks.transactionId,
+				budgetEntryId: expenseBudgetLinks.budgetEntryId,
+			})
+			.from(expenseBudgetLinks)
+			.innerJoin(
+				budgetEntries,
+				eq(budgetEntries.budgetEntryId, expenseBudgetLinks.budgetEntryId),
+			)
+			.where(
+				and(
+					inArray(expenseBudgetLinks.transactionId, txIds),
+					eq(expenseBudgetLinks.groupId, groupIdStr),
+					isNull(budgetEntries.deleted),
+				),
+			);
+		for (const row of linkRows) {
+			if (!linkMap[row.transactionId]) linkMap[row.transactionId] = [];
+			linkMap[row.transactionId].push(row.budgetEntryId);
+		}
+	}
+
+	// Transform to match production format, embedding linkedBudgetEntryIds
+	const transactionsList = transformTransactionsList(rawTransactionsList).map(
+		(t) => ({
+			...t,
+			linkedBudgetEntryIds: linkMap[t.transaction_id] ?? [],
+		}),
+	);
 
 	// Get transaction details
 	const transactionDetails = await getTransactionDetails(
