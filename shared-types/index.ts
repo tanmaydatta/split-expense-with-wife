@@ -364,11 +364,6 @@ export interface DashboardUser {
 	percentage?: number;
 }
 
-export interface ApiOperationResponses {
-	expense?: { message: string; transactionId: string };
-	budget?: { message: string };
-}
-
 // API endpoint types for type-safe API calls
 export interface ApiEndpoints {
 	"/login": {
