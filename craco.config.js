@@ -7,4 +7,12 @@ module.exports = {
 			"@shared-types": path.resolve(__dirname, "shared-types"),
 		},
 	},
+	jest: {
+		configure: {
+			moduleNameMapper: {
+				"^@/(.*)$": "<rootDir>/src/$1",
+				"^@shared-types/(.*)$": "<rootDir>/shared-types/$1",
+			},
+		},
+	},
 };
