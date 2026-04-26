@@ -187,6 +187,49 @@ export interface TransactionsListResponse {
 	transactionDetails: Record<string, TransactionUser[]>;
 }
 
+export interface DashboardSubmitRequest {
+	expense?: {
+		amount: number;
+		description: string;
+		paidByShares: Record<string, number>;
+		splitPctShares: Record<string, number>;
+		currency: string;
+	};
+	budget?: {
+		amount: number;
+		description: string;
+		budgetId: string;
+		currency: string;
+	};
+}
+
+export interface DashboardSubmitResponse {
+	message: string;
+	transactionId?: string;
+	budgetEntryId?: string;
+	linkId?: string;
+}
+
+export interface TransactionGetRequest {
+	id: string;
+}
+
+export interface TransactionGetResponse {
+	transaction: Transaction;
+	transactionUsers: TransactionUser[];
+	linkedBudgetEntry?: BudgetEntry;
+}
+
+export interface BudgetEntryGetRequest {
+	id: string;
+}
+
+export interface BudgetEntryGetResponse {
+	budgetEntry: BudgetEntry;
+	linkedTransaction?: Transaction;
+	linkedTransactionUsers?: TransactionUser[];
+}
+
 export interface TransactionBalances {
 	user_id: string;
 	amount: number;
@@ -364,6 +407,18 @@ export interface ApiEndpoints {
 	"/transactions_list": {
 		request: TransactionsListRequest;
 		response: TransactionsListResponse;
+	};
+	"/dashboard_submit": {
+		request: DashboardSubmitRequest;
+		response: DashboardSubmitResponse;
+	};
+	"/transaction_get": {
+		request: TransactionGetRequest;
+		response: TransactionGetResponse;
+	};
+	"/budget_entry_get": {
+		request: BudgetEntryGetRequest;
+		response: BudgetEntryGetResponse;
 	};
 	"/balances": {
 		request: {};
