@@ -1,8 +1,9 @@
 import { typedApi } from "@/utils/api";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type {
-	ApiOperationResponses,
 	BudgetRequest,
+	DashboardSubmitRequest,
+	DashboardSubmitResponse,
 	DashboardUser,
 	SplitNewRequest,
 } from "split-expense-shared-types";
@@ -91,26 +92,41 @@ export function useUpdateBudget() {
 
 // Combined hook for dashboard form submission
 export function useDashboardSubmit() {
-	const createExpense = useCreateExpense();
-	const updateBudget = useUpdateBudget();
+	const queryClient = useQueryClient();
 
-	return useMutation<ApiOperationResponses, Error, DashboardFormData>({
+	return useMutation<DashboardSubmitResponse, Error, DashboardFormData>({
 		mutationFn: async (formData) => {
-			const responses: ApiOperationResponses = {};
+			const payload: DashboardSubmitRequest = {};
 
 			if (formData.addExpense && formData.expense) {
-				responses.expense = await createExpense.mutateAsync(formData.expense);
+				const { users, paidBy, ...rest } = formData.expense;
+				const splits = users.map((u) => ({
+					ShareUserId: u.Id,
+					SharePercentage: u.percentage || 0,
+				}));
+				payload.expense = {
+					...rest,
+					paidByShares: { [paidBy]: rest.amount },
+					splitPctShares: Object.fromEntries(
+						splits.map((s) => [s.ShareUserId.toString(), s.SharePercentage]),
+					),
+				};
 			}
 
 			if (formData.updateBudget && formData.budget) {
-				responses.budget = await updateBudget.mutateAsync(formData.budget);
+				const { creditDebit, groupId: _groupId, ...rest } = formData.budget;
+				payload.budget = {
+					...rest,
+					amount: creditDebit === "Debit" ? -rest.amount : rest.amount,
+				};
 			}
 
-			return responses;
+			return typedApi.post("/dashboard_submit", payload);
 		},
-		onSuccess: (_responses) => {
-			// Both mutations already handle their own cache invalidation
-			// We can add additional logic here if needed
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ["transactions"] });
+			queryClient.invalidateQueries({ queryKey: ["balances"] });
+			queryClient.invalidateQueries({ queryKey: ["budget"] });
 		},
 	});
 }
