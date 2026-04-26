@@ -1,0 +1,137 @@
+/* Budget Entry Detail Card Styles */
+.budget-entry-detail-card {
+	cursor: default;
+	margin-bottom: var(--spacing-small);
+	padding: var(--spacing-medium) !important;
+}
+
+.budget-entry-card-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: var(--spacing-small);
+	padding-bottom: var(--spacing-small);
+	border-bottom: 1px solid var(--color-light);
+	gap: var(--spacing-small);
+}
+
+.budget-entry-date {
+	display: flex;
+	align-items: center;
+	gap: var(--spacing-small);
+	color: var(--color-secondary);
+	font-size: var(--font-size-small);
+	font-weight: 500;
+	flex: 1;
+	min-width: 0;
+}
+
+.budget-entry-date span {
+	overflow-wrap: break-word;
+	word-break: break-word;
+}
+
+.delete-button {
+	background: none;
+	border: none;
+	color: var(--color-danger);
+	cursor: pointer;
+	padding: var(--spacing-small);
+	border-radius: var(--border-radius);
+	transition: all 0.2s ease;
+	min-height: 44px;
+	min-width: 44px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.delete-button:hover {
+	background-color: rgba(220, 53, 69, 0.1);
+	transform: scale(1.1);
+}
+
+.budget-entry-card-content {
+	display: flex;
+	flex-direction: column;
+	gap: var(--spacing-small);
+}
+
+.budget-entry-name {
+	font-size: 1rem;
+	color: var(--color-dark);
+}
+
+.budget-entry-description {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--spacing-small);
+	color: var(--color-secondary);
+	font-size: var(--font-size-small);
+}
+
+.budget-entry-description span {
+	flex: 1;
+	word-break: break-word;
+	overflow-wrap: break-word;
+}
+
+.budget-entry-amount {
+	font-weight: 700;
+	font-size: 1.1rem;
+}
+
+.budget-entry-amount.positive {
+	color: var(--color-success);
+}
+
+.budget-entry-amount.negative {
+	color: var(--color-danger);
+}
+
+.budget-entry-deleted {
+	display: flex;
+	align-items: center;
+	gap: var(--spacing-small);
+	padding: var(--spacing-small);
+	background-color: #ffebee;
+	border: 1px solid #ffcdd2;
+	border-radius: var(--border-radius);
+	font-size: var(--font-size-small);
+}
+
+.deleted-label {
+	color: var(--color-danger);
+	font-weight: 600;
+}
+
+.deleted-date {
+	color: var(--color-secondary);
+	margin-left: auto;
+}
+
+.linked-sibling {
+	margin-top: var(--spacing-medium);
+	padding: var(--spacing-medium);
+	background-color: var(--color-light);
+	border-left: 3px solid var(--color-primary, #0d6efd);
+	border-radius: var(--border-radius);
+}
+
+.linked-sibling h4 {
+	margin: 0 0 var(--spacing-small) 0;
+	font-size: var(--font-size-small);
+	color: var(--color-secondary);
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+}
+
+.linked-sibling p {
+	margin: 0 0 var(--spacing-small) 0;
+	font-size: var(--font-size-small);
+}
+
+.linked-sibling a {
+	font-size: var(--font-size-small);
+	font-weight: 600;
+}
