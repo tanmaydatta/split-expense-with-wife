@@ -8,6 +8,7 @@ import {
 	handleBudgetTotal,
 } from "./handlers/budget";
 import { handleCron } from "./handlers/cron";
+import { handleDashboardSubmit } from "./handlers/dashboard";
 import {
 	handleGroupDetails,
 	handleUpdateGroupMetadata,
@@ -171,6 +172,8 @@ async function handleBasicApiRoutes(
 			return await handleUpdateGroupMetadata(request, env);
 		case "split_new":
 			return await handleSplitNew(request, env);
+		case "dashboard_submit":
+			return await handleDashboardSubmit(request, env);
 		case "split_delete":
 			return await handleSplitDelete(request, env);
 		case "transactions_list":
