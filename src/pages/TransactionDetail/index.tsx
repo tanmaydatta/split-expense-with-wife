@@ -1,9 +1,12 @@
 import { TransactionCard } from "@/components/TransactionCard";
+import { TransactionDetails } from "@/components/TransactionDetails";
 import { useTransaction } from "@/hooks/useTransaction";
 import { useDeleteTransaction } from "@/hooks/useTransactions";
+import { useSelector } from "react-redux";
 import { useNavigate, useParams } from "react-router-dom";
 import type {
 	FrontendTransaction,
+	ReduxState,
 	TransactionMetadata,
 } from "split-expense-shared-types";
 
@@ -12,6 +15,9 @@ export default function TransactionDetail() {
 	const navigate = useNavigate();
 	const { data, isLoading, isError } = useTransaction(id);
 	const del = useDeleteTransaction();
+	const currentUserId = useSelector(
+		(state: ReduxState) => state.value?.user?.id,
+	);
 
 	if (isLoading) return <div data-test-id="loading">Loading…</div>;
 	if (isError || !data) {
@@ -29,6 +35,12 @@ export default function TransactionDetail() {
 		owedToAmounts: {},
 	};
 
+	let totalOwed = 0;
+	for (const tu of data.transactionUsers) {
+		if (currentUserId === tu.owed_to_user_id) totalOwed += tu.amount;
+		if (currentUserId === tu.user_id) totalOwed -= tu.amount;
+	}
+
 	const frontendTx: FrontendTransaction = {
 		transactionId: tx.transaction_id,
 		description: tx.description,
@@ -37,7 +49,7 @@ export default function TransactionDetail() {
 		amountOwed: metadata.owedAmounts,
 		paidBy: metadata.paidByShares,
 		owedTo: metadata.owedToAmounts,
-		totalOwed: 0, // no per-user context on detail page
+		totalOwed,
 		currency: tx.currency,
 		linkedBudgetEntryIds: tx.linkedBudgetEntryIds,
 	};
@@ -55,7 +67,9 @@ export default function TransactionDetail() {
 				transaction={frontendTx}
 				linkedBudgetEntry={data.linkedBudgetEntry}
 				expanded
-			/>
+			>
+				<TransactionDetails {...frontendTx} />
+			</TransactionCard>
 			<button
 				onClick={async () => {
 					await del.mutateAsync(tx.transaction_id);
