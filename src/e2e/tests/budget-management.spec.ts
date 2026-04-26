@@ -464,16 +464,22 @@ test.describe("Budget Management", () => {
 		const budgetHelper = new BudgetTestHelper(page);
 
 		// Mock a delayed budget submission to assert the loading-state DOM appears.
+		// The dashboard form now posts to /dashboard_submit (single endpoint that
+		// can carry expense and/or budget); the legacy /budget path is kept for
+		// callers outside the dashboard.
 		await page.route("**/*", async (route) => {
 			const url = route.request().url();
-			if (url.includes("/.netlify/functions/budget")) {
+			if (
+				url.includes("/.netlify/functions/dashboard_submit") ||
+				url.includes("/.netlify/functions/budget")
+			) {
 				await new Promise((resolve) => setTimeout(resolve, 2000));
 				route.fulfill({
 					status: 200,
 					contentType: "application/json",
 					body: JSON.stringify({
 						message: "Budget submission successful",
-						id: 123,
+						budgetEntryId: "be_test_123",
 					}),
 				});
 			} else {
