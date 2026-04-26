@@ -21,7 +21,10 @@ split-expense-with-wife/
 │   │   ├── Sidebar.tsx           # Navigation sidebar (fixed desktop, slide-in mobile)
 │   │   ├── Loader.tsx            # Spinning animation component
 │   │   ├── Table.tsx             # Responsive data table, color-coded amounts
-│   │   ├── TransactionCard.tsx   # Mobile card view for transactions
+│   │   ├── TransactionCard/      # Mobile card view for transactions; renders linked budget entry section when expanded
+│   │   ├── TransactionDetails/   # Shared inline expansion component used by desktop list and detail page
+│   │   │   ├── TransactionDetails.tsx  # amount-owed, paid-by, total-owed; showLinkedBudget prop for desktop
+│   │   │   └── index.ts
 │   │   ├── BudgetCard.tsx        # Budget display component
 │   │   ├── BudgetEntryCard/      # Card view for budget entries (analogous to TransactionCard)
 │   │   │   ├── BudgetEntryCard.tsx
