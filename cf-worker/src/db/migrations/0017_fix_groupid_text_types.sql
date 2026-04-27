@@ -13,8 +13,43 @@
 -- This migration recreates each affected table with the correct TEXT type.
 -- The pattern (CREATE __new_X → INSERT FROM X → DROP X → RENAME) is idempotent
 -- on databases that already have TEXT columns: copying TEXT→TEXT preserves
--- data, the resulting table still has TEXT, no-op effectively. So this
--- migration is safe to apply on the deployed dev/prod D1 instances.
+-- data, the resulting table still has TEXT, no-op effectively.
+--
+-- ⚠️  KNOWN BUG — DO NOT APPLY ON A DATA-RICH DATABASE.
+--
+-- The `DROP TABLE user` step below cascades through better-auth's foreign keys
+-- (`account.user_id REFERENCES user(id) ON DELETE cascade` and the same on
+-- `session.user_id`), wiping every row in `account` and `session`. Users lose
+-- their password hashes → login returns 401, every active session is invalidated.
+--
+-- `PRAGMA defer_foreign_keys=ON` (set below) defers FK constraint *validation*
+-- to commit time; it does NOT suppress `ON DELETE CASCADE` triggers. The proper
+-- escape hatch — `PRAGMA foreign_keys=OFF` — is not supported on Cloudflare D1.
+--
+-- ACTION TAKEN ON DEPLOYED ENVIRONMENTS (do NOT re-run this migration there):
+--   * dev D1 (`splitexpense-dev`): if not yet applied, mark as applied without
+--     running by inserting into `d1_migrations` (see `splitexpense` step below).
+--   * prod D1 (`splitexpense`):
+--       INSERT INTO d1_migrations (name)
+--       VALUES ('0017_fix_groupid_text_types.sql');
+--     This was done after a Time Travel restore on 2026-04-27 because applying
+--     the migration as-written cascade-deleted all `account` and `session` rows.
+--     Prod has been running fine with INTEGER columns + ULID-string data
+--     (SQLite type affinity makes that work), so leaving the schema as-is is
+--     safe.
+--
+-- WHY THIS FILE STILL EXISTS:
+--   Fresh local/CI databases still need the schema to match the Drizzle
+--   declarations (TEXT). Those DBs are created with no `account`/`session` rows
+--   yet, so the cascade is harmless on first apply. The Drizzle schema is the
+--   source of truth; this migration is the only path that reconciles a fresh
+--   migration-built DB with that schema.
+--
+-- TODO (cleanup, separate PR): replace this migration with a sequence that
+-- preserves child rows — e.g. CREATE TABLE __preserve_account AS SELECT *
+-- FROM account; (same for session;) DROP+RENAME the parent; INSERT INTO
+-- account SELECT * FROM __preserve_account; DROP __preserve_account. Test on
+-- a populated dev DB before re-enabling for any deployed environment.
 
 PRAGMA defer_foreign_keys=ON;--> statement-breakpoint
 

@@ -214,6 +214,33 @@ ALTER TABLE `__new_budget_entries` RENAME TO `budget_entries`;
 - Consistent with deterministic ID pattern used in scheduled actions
 - Removes need for separate unique index on `budget_entry_id`
 
+### Migration 0017: Fix groupid / group_id INTEGER → TEXT
+
+**Date**: 2026-04
+**File**: `0017_fix_groupid_text_types.sql`
+**Type**: Schema correction (table recreate)
+
+**Problem**: Migration 0000 declared `groups.groupid`, `user.groupid`, `transaction_users.group_id`, and `user_balances.group_id` as INTEGER, but the application stores ULID strings in those columns. Recent wrangler/D1 versions reject TEXT inserts into INTEGER PK columns with `SQLITE_MISMATCH`, breaking fresh-DB e2e tests. Deployed dbs were created via direct SQL with TEXT columns *or* with INTEGER columns that SQLite type-affinity has been silently storing TEXT in — both flavors have been working in production.
+
+**Solution as written**: DROP+RENAME each affected table after copying rows into a new table with the correct types.
+
+⚠️ **Production incident on 2026-04-27**: Applying this migration on prod (which had INTEGER columns + ULID-string data) cascade-deleted every row in `account` and `session` because `DROP TABLE \`user\`` triggered the `ON DELETE CASCADE` foreign keys those tables declare on `user.id`. `PRAGMA defer_foreign_keys=ON` defers FK *validation*, not `ON DELETE CASCADE` *triggers*. The proper escape (`PRAGMA foreign_keys=OFF`) is **not supported by Cloudflare D1**.
+
+**Recovery**: Restored prod from D1 Time Travel, then marked the migration as applied without running its SQL:
+
+```sh
+wrangler d1 execute splitexpense --env prod --remote \
+  --command "INSERT INTO d1_migrations (name) VALUES ('0017_fix_groupid_text_types.sql');"
+```
+
+Prod now runs with the original INTEGER schema + ULID-string data (same as it has for months — SQLite's permissive type affinity makes it work).
+
+**Standing guidance**:
+- **Fresh databases (local, CI)**: this migration applies cleanly because there are no `account` / `session` rows yet. No action needed.
+- **Existing dev/prod databases**: do NOT re-run this migration. If `0017` is unapplied on a deployed environment, mark it applied via the same `INSERT INTO d1_migrations` shown above. Verify schema correctness is not needed — INTEGER columns + TEXT data have been working.
+
+**Follow-up**: replace this migration with a child-row-preserving variant before re-enabling for any deployed environment. See the in-file comment block in `0017_fix_groupid_text_types.sql` for the proposed pattern.
+
 ### Migration 0018: Add expense_budget_links Junction Table
 
 **Date**: 2026-04
