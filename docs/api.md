@@ -6,8 +6,8 @@ The Split Expense API is built on Cloudflare Workers and provides RESTful endpoi
 
 ## Base URLs
 
-- **Development**: `https://splitexpense-dev.tanmaydatta.workers.dev`
-- **Production**: `https://splitexpense.tanmaydatta.workers.dev`
+- **Development**: `https://budget-dev.wastd.dev` (custom domain; the `https://splitexpense-dev.tanmaydatta.workers.dev` workers.dev URL still resolves to the same worker)
+- **Production**: `https://budget.wastd.dev` (custom domain; the `https://splitexpense.tanmaydatta.workers.dev` workers.dev URL also resolves to the same worker)
 - **Local**: `http://localhost:8787`
 
 ## Authentication
@@ -705,8 +705,8 @@ interface ErrorResponse {
 ## CORS Configuration
 
 The API supports CORS for the following origins:
-- `https://splitexpense.tanmaydatta.workers.dev` (production)
-- `https://splitexpense-dev.tanmaydatta.workers.dev` (development)
+- `https://budget.wastd.dev` and `https://splitexpense.tanmaydatta.workers.dev` (production — same worker, two URLs)
+- `https://budget-dev.wastd.dev` and `https://splitexpense-dev.tanmaydatta.workers.dev` (development — same worker, two URLs)
 - `http://localhost:3000` (local development)
 - `http://localhost:3001` (local testing)
 

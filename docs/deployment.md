@@ -28,7 +28,7 @@ Split Expense With Wife uses a **unified deployment strategy** where both fronte
 - **Testing**: Netlify Dev (compatibility testing only)
 
 ### Development Environment
-- **URL**: `https://splitexpense-dev.tanmaydatta.workers.dev`
+- **URL**: `https://budget-dev.wastd.dev` (custom domain; `https://splitexpense-dev.tanmaydatta.workers.dev` also resolves to the same worker)
 - **Database**: `splitexpense-dev` (Cloudflare D1)
 - **Purpose**: Testing and staging
 
@@ -123,9 +123,9 @@ LOCAL = true
 #### Development Environment
 ```toml
 [env.dev.vars]
-ALLOWED_ORIGINS = "https://splitexpense-dev.tanmaydatta.workers.dev"
-BASE_URL = "https://splitexpense-dev.tanmaydatta.workers.dev/auth"
-AUTH_TRUSTED_ORIGINS = ["https://splitexpense-dev.tanmaydatta.workers.dev"]
+ALLOWED_ORIGINS = "https://budget-dev.wastd.dev,https://splitexpense-dev.tanmaydatta.workers.dev,https://splitexpense.netlify.app,https://deploy-preview-5--splitexpense.netlify.app,http://localhost:3000,http://localhost:3001"
+BASE_URL = "https://budget-dev.wastd.dev/auth"
+AUTH_TRUSTED_ORIGINS = ["https://budget-dev.wastd.dev","https://splitexpense-dev.tanmaydatta.workers.dev"]
 LOCAL = false
 ```
 

@@ -349,7 +349,7 @@ Every authenticated request enriches the session with group data, budgets, and u
 | Setting | Local | Dev | Production |
 |---------|-------|-----|------------|
 | D1 Database | `splitexpense-dev` (local) | `splitexpense-dev` | `splitexpense` |
-| Base URL | `http://localhost:8787` | `splitexpense-dev.tanmaydatta.workers.dev` | `budget.wastd.dev` |
+| Base URL | `http://localhost:8787` | `budget-dev.wastd.dev` | `budget.wastd.dev` |
 | Frontend | `http://localhost:3000` | Netlify deploy preview | `splitexpense.netlify.app` |
 | Workflows | Local names | `*-dev` suffix | `*-prod` suffix |
 

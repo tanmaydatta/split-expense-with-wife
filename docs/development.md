@@ -280,7 +280,7 @@ split-expense-with-wife/
 ### Development Environment
 
 - **Frontend**: Deployed to Cloudflare Workers
-- **Backend**: `splitexpense-dev.tanmaydatta.workers.dev`
+- **Backend**: `budget-dev.wastd.dev` (custom domain; `splitexpense-dev.tanmaydatta.workers.dev` also resolves to the same worker)
 - **Database**: Cloudflare D1 (splitexpense-dev)
 
 ### Production Environment
