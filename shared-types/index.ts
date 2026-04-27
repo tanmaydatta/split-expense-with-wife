@@ -41,6 +41,7 @@ export interface BudgetEntry {
 	deleted?: string; // ISO string format
 	groupid: string;
 	currency: string;
+	linkedTransactionIds?: string[]; // populated by /budget_list and /budget_entry_get
 }
 
 // Transaction types
@@ -53,6 +54,7 @@ export interface Transaction {
 	transaction_id: string;
 	group_id: string;
 	deleted?: string; // ISO string format
+	linkedBudgetEntryIds?: string[]; // populated by /transactions_list and /transaction_get
 }
 
 export interface TransactionUser {
@@ -185,6 +187,49 @@ export interface TransactionsListResponse {
 	transactionDetails: Record<string, TransactionUser[]>;
 }
 
+export interface DashboardSubmitRequest {
+	expense?: {
+		amount: number;
+		description: string;
+		paidByShares: Record<string, number>;
+		splitPctShares: Record<string, number>;
+		currency: string;
+	};
+	budget?: {
+		amount: number;
+		description: string;
+		budgetId: string;
+		currency: string;
+	};
+}
+
+export interface DashboardSubmitResponse {
+	message: string;
+	transactionId?: string;
+	budgetEntryId?: string;
+	linkId?: string;
+}
+
+export interface TransactionGetRequest {
+	id: string;
+}
+
+export interface TransactionGetResponse {
+	transaction: Transaction;
+	transactionUsers: TransactionUser[];
+	linkedBudgetEntry?: BudgetEntry;
+}
+
+export interface BudgetEntryGetRequest {
+	id: string;
+}
+
+export interface BudgetEntryGetResponse {
+	budgetEntry: BudgetEntry;
+	linkedTransaction?: Transaction;
+	linkedTransactionUsers?: TransactionUser[];
+}
+
 export interface TransactionBalances {
 	user_id: string;
 	amount: number;
@@ -215,6 +260,7 @@ export interface FrontendTransaction {
 	owedTo: Record<string, number>;
 	totalOwed: number;
 	currency: string;
+	linkedBudgetEntryIds?: string[]; // forwarded from /transactions_list
 }
 
 export interface FrontendUser {
@@ -319,11 +365,6 @@ export interface DashboardUser {
 	percentage?: number;
 }
 
-export interface ApiOperationResponses {
-	expense?: { message: string; transactionId: string };
-	budget?: { message: string };
-}
-
 // API endpoint types for type-safe API calls
 export interface ApiEndpoints {
 	"/login": {
@@ -362,6 +403,18 @@ export interface ApiEndpoints {
 	"/transactions_list": {
 		request: TransactionsListRequest;
 		response: TransactionsListResponse;
+	};
+	"/dashboard_submit": {
+		request: DashboardSubmitRequest;
+		response: DashboardSubmitResponse;
+	};
+	"/transaction_get": {
+		request: TransactionGetRequest;
+		response: TransactionGetResponse;
+	};
+	"/budget_entry_get": {
+		request: BudgetEntryGetRequest;
+		response: BudgetEntryGetResponse;
 	};
 	"/balances": {
 		request: {};
@@ -953,8 +1006,10 @@ export interface SeedRequest {
 		currency?: string;
 		addedTime?: string;
 	}>;
-	// expenseBudgetLinks is intentionally NOT in this version.
-	// The linking spec adds it in its own plan.
+	expenseBudgetLinks?: Array<{
+		transaction: string; // transaction alias
+		budgetEntry: string; // budget entry alias
+	}>;
 	scheduledActions?: unknown[];
 	authenticate?: string[];
 }
@@ -976,6 +1031,15 @@ export interface SeedResponse {
 		groups: Record<string, { id: string }>;
 		transactions: Record<string, { id: string }>;
 		budgetEntries: Record<string, { id: string }>;
+		expenseBudgetLinks: Record<string, { id: string }>;
 	};
 	sessions: Record<string, { cookies: SeedCookie[] }>;
+}
+
+export interface ExpenseBudgetLink {
+	id: string;
+	transactionId: string;
+	budgetEntryId: string;
+	groupId: string;
+	createdAt: string;
 }

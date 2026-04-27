@@ -5,6 +5,7 @@ import {
 	real,
 	sqliteTable,
 	text,
+	uniqueIndex,
 } from "drizzle-orm/sqlite-core";
 import { isNull } from "drizzle-orm";
 import type {
@@ -311,6 +312,30 @@ export const scheduledActionHistory = sqliteTable(
 	],
 );
 
+export const expenseBudgetLinks = sqliteTable(
+	"expense_budget_links",
+	{
+		id: text("id").primaryKey(),
+		transactionId: text("transaction_id", { length: 100 })
+			.notNull()
+			.references(() => transactions.transactionId, { onDelete: "no action" }),
+		budgetEntryId: text("budget_entry_id", { length: 100 })
+			.notNull()
+			.references(() => budgetEntries.budgetEntryId, { onDelete: "no action" }),
+		groupId: text("group_id").notNull(),
+		createdAt: text("created_at").notNull(),
+	},
+	(table) => [
+		uniqueIndex("expense_budget_links_pair_idx").on(
+			table.transactionId,
+			table.budgetEntryId,
+		),
+		index("expense_budget_links_transaction_idx").on(table.transactionId),
+		index("expense_budget_links_budget_entry_idx").on(table.budgetEntryId),
+		index("expense_budget_links_group_idx").on(table.groupId),
+	],
+);
+
 // Create schema object for Drizzle
 export const schema = {
 	user,
@@ -326,6 +351,7 @@ export const schema = {
 	budgetTotals,
 	scheduledActions,
 	scheduledActionHistory,
+	expenseBudgetLinks,
 };
 
 // Export inferred types
@@ -352,3 +378,5 @@ export type NewScheduledAction = typeof scheduledActions.$inferInsert;
 export type ScheduledActionHistory = typeof scheduledActionHistory.$inferSelect;
 export type NewScheduledActionHistory =
 	typeof scheduledActionHistory.$inferInsert;
+export type ExpenseBudgetLink = typeof expenseBudgetLinks.$inferSelect;
+export type NewExpenseBudgetLink = typeof expenseBudgetLinks.$inferInsert;

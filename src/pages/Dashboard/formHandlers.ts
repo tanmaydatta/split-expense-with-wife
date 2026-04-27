@@ -2,11 +2,19 @@ import { scrollToTop } from "@/utils/scroll";
 import type { DashboardFormData } from "@/hooks/useDashboard";
 import type {
 	DashboardFormInput,
+	DashboardSubmitResponse,
 	ReduxState,
 } from "split-expense-shared-types";
+import type { UseMutationResult } from "@tanstack/react-query";
+
+type DashboardSubmitMutation = UseMutationResult<
+	DashboardSubmitResponse,
+	Error,
+	DashboardFormData
+>;
 
 export function createFormSubmitHandler(
-	dashboardSubmit: any,
+	dashboardSubmit: DashboardSubmitMutation,
 	data: ReduxState["value"],
 ) {
 	return async ({ value }: { value: DashboardFormInput }, form: any) => {
@@ -60,15 +68,26 @@ export function createUserPercentageUpdater(form: any) {
 	};
 }
 
-export function getSuccessMessage(dashboardSubmit: any): string {
+export function getSuccessMessage(
+	dashboardSubmit: DashboardSubmitMutation,
+): string {
 	if (!dashboardSubmit.isSuccess) return "";
 
-	const expenseMessage = dashboardSubmit.data?.expense?.message;
-	const budgetMessage = dashboardSubmit.data?.budget?.message;
+	const { data } = dashboardSubmit;
+	if (!data) return "";
 
-	if (expenseMessage && budgetMessage) {
-		return `${expenseMessage} and ${budgetMessage}`;
+	const hasExpense = Boolean(data.transactionId);
+	const hasBudget = Boolean(data.budgetEntryId);
+
+	if (hasExpense && hasBudget) {
+		return data.message || "Expense + Budget saved";
+	}
+	if (hasExpense) {
+		return data.message || "Expense saved";
+	}
+	if (hasBudget) {
+		return data.message || "Budget saved";
 	}
 
-	return expenseMessage || budgetMessage || "Success!";
+	return data.message || "Success!";
 }

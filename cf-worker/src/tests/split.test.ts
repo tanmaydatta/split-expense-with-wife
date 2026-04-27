@@ -11,13 +11,21 @@ import type {
 	TransactionsListResponse,
 } from "../../../shared-types";
 import { getDb } from "../db";
-import { groups, transactions, transactionUsers } from "../db/schema/schema";
+import { formatSQLiteTime } from "../utils";
+import {
+	budgetEntries,
+	expenseBudgetLinks,
+	groups,
+	transactions,
+	transactionUsers,
+} from "../db/schema/schema";
 import worker from "../index";
 import {
 	completeCleanupDatabase,
 	createTestRequest,
 	createTestUserData,
 	setupAndCleanDatabase,
+	setupDatabase,
 	signInAndGetCookies,
 } from "./test-utils";
 
@@ -962,5 +970,240 @@ describe("Split handlers", () => {
 			expect(json.transactions[0].description).toBe("Transaction 1");
 			expect(json.transactionDetails).toBeDefined();
 		});
+	});
+});
+
+describe("/transactions_list embeds linkedBudgetEntryIds", () => {
+	const TEST_SECRET = "test-secret";
+	const ORIGINAL_SECRET = env.E2E_SEED_SECRET;
+
+	beforeEach(async () => {
+		env.E2E_SEED_SECRET = TEST_SECRET;
+		await completeCleanupDatabase(env);
+		await setupDatabase(env);
+	});
+
+	afterEach(() => {
+		env.E2E_SEED_SECRET = ORIGINAL_SECRET;
+	});
+
+	it("populates linkedBudgetEntryIds on linked transactions", async () => {
+		// Seed 2 transactions: t1 linked to a live BE, t2 unlinked.
+		// Also seed a standalone be2 (no linked transaction) that we soft-delete
+		// to confirm the isNull(budgetEntries.deleted) filter works correctly.
+		const seedCtx = createExecutionContext();
+		const seedRes = await worker.fetch(
+			new Request("http://test.local/test/seed", {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					"X-E2E-Seed-Secret": TEST_SECRET,
+				},
+				body: JSON.stringify({
+					users: [{ alias: "u" }, { alias: "v" }],
+					groups: [
+						{
+							alias: "g",
+							members: ["u", "v"],
+							budgets: [{ alias: "b", name: "B" }],
+						},
+					],
+					transactions: [
+						{
+							alias: "t1",
+							group: "g",
+							amount: 50,
+							paidByShares: { u: 50 },
+							splitPctShares: { u: 50, v: 50 },
+						},
+						{
+							alias: "t2",
+							group: "g",
+							amount: 30,
+							paidByShares: { u: 30 },
+							splitPctShares: { u: 50, v: 50 },
+						},
+					],
+					budgetEntries: [
+						{ alias: "be1", group: "g", budget: "b", amount: 50 },
+						{ alias: "be2", group: "g", budget: "b", amount: 20 },
+					],
+					expenseBudgetLinks: [
+						{ transaction: "t1", budgetEntry: "be1" },
+						{ transaction: "t2", budgetEntry: "be2" },
+					],
+					authenticate: ["u"],
+				}),
+			}),
+			env,
+			seedCtx,
+		);
+		await waitOnExecutionContext(seedCtx);
+		expect(seedRes.status).toBe(200);
+		const seed = (await seedRes.json()) as {
+			ids: {
+				transactions: Record<string, { id: string }>;
+				budgetEntries: Record<string, { id: string }>;
+			};
+			sessions: Record<string, { cookies: Array<{ name: string; value: string }> }>;
+		};
+		const cookies = seed.sessions.u.cookies
+			.map((c) => `${c.name}=${c.value}`)
+			.join("; ");
+
+		// Soft-delete be2 directly via the DB (NOT via /budget_delete, whose
+		// cascade would also soft-delete the linked transaction t2). This
+		// exercises the isNull(budgetEntries.deleted) filter in the JOIN: t2
+		// stays alive but its only link points at a soft-deleted BE, so its
+		// linkedBudgetEntryIds must be [].
+		const db = getDb(env);
+		await db
+			.update(budgetEntries)
+			.set({ deleted: formatSQLiteTime() })
+			.where(eq(budgetEntries.budgetEntryId, seed.ids.budgetEntries.be2.id));
+
+		// Call /transactions_list
+		const listCtx = createExecutionContext();
+		const listRes = await worker.fetch(
+			new Request(
+				"http://test.local/.netlify/functions/transactions_list",
+				{
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						Cookie: cookies,
+					},
+					body: JSON.stringify({ offset: 0 }),
+				},
+			),
+			env,
+			listCtx,
+		);
+		await waitOnExecutionContext(listCtx);
+		expect(listRes.status).toBe(200);
+
+		const listJson = (await listRes.json()) as TransactionsListResponse;
+		const txList = listJson.transactions;
+
+		const t1 = txList.find(
+			(t) => t.transaction_id === seed.ids.transactions.t1.id,
+		);
+		const t2 = txList.find(
+			(t) => t.transaction_id === seed.ids.transactions.t2.id,
+		);
+
+		// t1 is linked to be1 (live) — should have its id
+		expect(t1).toBeDefined();
+		expect(t1?.linkedBudgetEntryIds).toEqual([seed.ids.budgetEntries.be1.id]);
+
+		// t2 is linked to be2, but be2 is soft-deleted — must be excluded
+		// (junction row exists but the JOIN's isNull(budgetEntries.deleted) filter
+		// drops it). t2 itself remains live.
+		expect(t2).toBeDefined();
+		expect(t2?.linkedBudgetEntryIds).toEqual([]);
+	});
+});
+
+describe("/split_delete cascade", () => {
+	const TEST_SECRET = "test-secret";
+	const ORIGINAL_SECRET = env.E2E_SEED_SECRET;
+
+	beforeEach(async () => {
+		env.E2E_SEED_SECRET = TEST_SECRET;
+		await completeCleanupDatabase(env);
+		await setupDatabase(env);
+	});
+
+	afterEach(() => {
+		env.E2E_SEED_SECRET = ORIGINAL_SECRET;
+	});
+
+	it("soft-deletes the linked budget entry when the transaction is deleted", async () => {
+		const seedCtx = createExecutionContext();
+		const seedRes = await worker.fetch(
+			new Request("http://test.local/test/seed", {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					"X-E2E-Seed-Secret": TEST_SECRET,
+				},
+				body: JSON.stringify({
+					users: [{ alias: "u" }, { alias: "v" }],
+					groups: [
+						{
+							alias: "g",
+							members: ["u", "v"],
+							budgets: [{ alias: "b", name: "B" }],
+						},
+					],
+					transactions: [
+						{
+							alias: "t",
+							group: "g",
+							amount: 50,
+							paidByShares: { u: 50 },
+							splitPctShares: { u: 50, v: 50 },
+						},
+					],
+					budgetEntries: [
+						{ alias: "be", group: "g", budget: "b", amount: 50 },
+					],
+					expenseBudgetLinks: [{ transaction: "t", budgetEntry: "be" }],
+					authenticate: ["u"],
+				}),
+			}),
+			env,
+			seedCtx,
+		);
+		await waitOnExecutionContext(seedCtx);
+		expect(seedRes.status).toBe(200);
+		const seed = (await seedRes.json()) as {
+			ids: {
+				transactions: Record<string, { id: string }>;
+				budgetEntries: Record<string, { id: string }>;
+			};
+			sessions: Record<string, { cookies: Array<{ name: string; value: string }> }>;
+		};
+		const cookies = seed.sessions.u.cookies
+			.map((c) => `${c.name}=${c.value}`)
+			.join("; ");
+
+		const delCtx = createExecutionContext();
+		const delRes = await worker.fetch(
+			new Request(
+				"http://test.local/.netlify/functions/split_delete",
+				{
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						Cookie: cookies,
+					},
+					body: JSON.stringify({ id: seed.ids.transactions.t.id }),
+				},
+			),
+			env,
+			delCtx,
+		);
+		await waitOnExecutionContext(delCtx);
+		expect(delRes.status).toBe(200);
+
+		const db = getDb(env);
+		const txRow = await db
+			.select()
+			.from(transactions)
+			.where(eq(transactions.transactionId, seed.ids.transactions.t.id));
+		expect(txRow[0].deleted).not.toBeNull();
+
+		const beRow = await db
+			.select()
+			.from(budgetEntries)
+			.where(
+				eq(budgetEntries.budgetEntryId, seed.ids.budgetEntries.be.id),
+			);
+		expect(beRow[0].deleted).not.toBeNull();
+
+		// Junction row preserved
+		const links = await db.select().from(expenseBudgetLinks);
+		expect(links.length).toBe(1);
 	});
 });

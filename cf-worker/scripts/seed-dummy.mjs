@@ -214,6 +214,28 @@ if (
 	process.exit(0);
 }
 
+// /test/seed only registers when the worker has E2E_SEED_SECRET set as an
+// env/secret. On a fresh dev/staging deploy this returns 404 until the
+// operator runs `wrangler secret put E2E_SEED_SECRET --env <env>`. Treat
+// 404 as a soft skip so the deploy:dev chain doesn't fail.
+if (res.status === 404 && !isLocalBackend) {
+	console.warn(
+		`⚠ /test/seed returned 404 on ${BACKEND_URL}.\n` +
+			`  The endpoint returns 404 in two cases (intentionally indistinguishable\n` +
+			`  from outside): (a) the worker's E2E_SEED_SECRET env is unset, or\n` +
+			`  (b) the X-E2E-Seed-Secret header value this script sent doesn't match\n` +
+			`  the value stored on the worker. Required steps:\n` +
+			`    1. wrangler secret put E2E_SEED_SECRET --env dev   # set the secret\n` +
+			`    2. wrangler deploy -e dev                          # re-deploy so\n` +
+			`       Cloudflare injects the secret into a fresh deployment.\n` +
+			`    3. Make sure the value the script sends matches the worker's value.\n` +
+			`       The script reads from cf-worker/.dev.vars; override per-run with:\n` +
+			`         E2E_SEED_SECRET='<value>' yarn seed:dummy:dev\n` +
+			`  Skipping seed.`,
+	);
+	process.exit(0);
+}
+
 console.error(`Seed failed: ${res.status}`);
 console.error(body);
 process.exit(1);

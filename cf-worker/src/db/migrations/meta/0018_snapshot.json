@@ -1,8 +1,8 @@
 {
 	"version": "6",
 	"dialect": "sqlite",
-	"id": "26c0a362-bbb7-4a4c-8d11-1a1e143f1d0d",
-	"prevId": "e7964cdf-acb2-4120-b061-923d334c0b26",
+	"id": "2858c62e-0fbc-4b7f-85c7-f1545056bce3",
+	"prevId": "26c0a362-bbb7-4a4c-8d11-1a1e143f1d0d",
 	"tables": {
 		"account": {
 			"name": "account",
@@ -536,6 +536,91 @@
 					"name": "budget_totals_budget_id_currency_pk"
 				}
 			},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		},
+		"expense_budget_links": {
+			"name": "expense_budget_links",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text",
+					"primaryKey": true,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"transaction_id": {
+					"name": "transaction_id",
+					"type": "text(100)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"budget_entry_id": {
+					"name": "budget_entry_id",
+					"type": "text(100)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"group_id": {
+					"name": "group_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				}
+			},
+			"indexes": {
+				"expense_budget_links_pair_idx": {
+					"name": "expense_budget_links_pair_idx",
+					"columns": ["transaction_id", "budget_entry_id"],
+					"isUnique": true
+				},
+				"expense_budget_links_transaction_idx": {
+					"name": "expense_budget_links_transaction_idx",
+					"columns": ["transaction_id"],
+					"isUnique": false
+				},
+				"expense_budget_links_budget_entry_idx": {
+					"name": "expense_budget_links_budget_entry_idx",
+					"columns": ["budget_entry_id"],
+					"isUnique": false
+				},
+				"expense_budget_links_group_idx": {
+					"name": "expense_budget_links_group_idx",
+					"columns": ["group_id"],
+					"isUnique": false
+				}
+			},
+			"foreignKeys": {
+				"expense_budget_links_transaction_id_transactions_transaction_id_fk": {
+					"name": "expense_budget_links_transaction_id_transactions_transaction_id_fk",
+					"tableFrom": "expense_budget_links",
+					"tableTo": "transactions",
+					"columnsFrom": ["transaction_id"],
+					"columnsTo": ["transaction_id"],
+					"onDelete": "no action",
+					"onUpdate": "no action"
+				},
+				"expense_budget_links_budget_entry_id_budget_entries_budget_entry_id_fk": {
+					"name": "expense_budget_links_budget_entry_id_budget_entries_budget_entry_id_fk",
+					"tableFrom": "expense_budget_links",
+					"tableTo": "budget_entries",
+					"columnsFrom": ["budget_entry_id"],
+					"columnsTo": ["budget_entry_id"],
+					"onDelete": "no action",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
 			"uniqueConstraints": {},
 			"checkConstraints": {}
 		},

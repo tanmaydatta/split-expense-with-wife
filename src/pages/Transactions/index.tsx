@@ -14,6 +14,7 @@ import {
 } from "@/components/MessageContainer";
 import { Table, TableWrapper } from "@/components/Table";
 import { TransactionCard } from "@/components/TransactionCard";
+import { TransactionDetails } from "@/components/TransactionDetails";
 import {
 	useInfiniteTransactionsList,
 	useDeleteTransaction,
@@ -81,6 +82,16 @@ const TransactionList: React.FC<{
 										<td>{dateToFullStr(new Date(transaction.date))}</td>
 										<td className="description-cell">
 											{transaction.description}
+											{(transaction.linkedBudgetEntryIds?.length ?? 0) > 0 && (
+												<span
+													className="linked-icon"
+													data-test-id="transaction-linked-icon"
+													title="Linked to a budget entry"
+													aria-label="Linked to a budget entry"
+												>
+													🔗
+												</span>
+											)}
 										</td>
 										<td>
 											{getSymbolFromCurrency(transaction.currency)}
@@ -128,7 +139,10 @@ const TransactionList: React.FC<{
 											selectedTransaction.transactionId && (
 											<tr>
 												<td colSpan={5}>
-													<TransactionDetails {...selectedTransaction} />
+													<TransactionDetails
+														{...selectedTransaction}
+														showLinkedBudget
+													/>
 												</td>
 											</tr>
 										)}
@@ -159,72 +173,6 @@ const TransactionList: React.FC<{
 	);
 };
 
-function TransactionDetails(selectedTransaction: FrontendTransaction) {
-	return (
-		<div
-			className="transaction-details-container"
-			data-test-id={`transaction-details-${selectedTransaction.transactionId}`}
-		>
-			<div
-				className="transaction-full-description"
-				data-test-id="full-description"
-			>
-				<strong>Full Description:</strong> {selectedTransaction.description}
-			</div>
-			<div data-test-id="amount-owed-section">
-				Amount owed:{" "}
-				{Object.entries(selectedTransaction.amountOwed).map(
-					([user, amount]: [string, number]) => {
-						return (
-							<div
-								key={user}
-								data-test-id={`amount-owed-${user.toLowerCase()}`}
-							>
-								{user}: {getSymbolFromCurrency(selectedTransaction.currency)}
-								{amount.toFixed(2)}
-							</div>
-						);
-					},
-				)}
-			</div>
-			<div data-test-id="paid-by-section">
-				Paid by:{" "}
-				{Object.entries(selectedTransaction.paidBy).map(
-					([user, amount]: [string, number]) => {
-						return (
-							<div key={user} data-test-id={`paid-by-${user.toLowerCase()}`}>
-								{user}: {getSymbolFromCurrency(selectedTransaction.currency)}
-								{amount.toFixed(2)}
-							</div>
-						);
-					},
-				)}
-			</div>
-			<div
-				className={
-					selectedTransaction.totalOwed > 0
-						? "positive"
-						: selectedTransaction.totalOwed < 0
-							? "negative"
-							: "zero"
-				}
-				data-test-id="total-owed-section"
-			>
-				{selectedTransaction.totalOwed > 0
-					? "You are owed "
-					: selectedTransaction.totalOwed < 0
-						? "You owe "
-						: "No amount owed "}
-				<div data-test-id="total-owed-amount">
-					{selectedTransaction.totalOwed !== 0 &&
-						(selectedTransaction.totalOwed > 0 ? "+" : "-")}
-					{getSymbolFromCurrency(selectedTransaction.currency)}
-					{Math.abs(selectedTransaction.totalOwed).toFixed(2)}
-				</div>
-			</div>
-		</div>
-	);
-}
 
 const Transactions: React.FC = () => {
 	const [transactions, setTransactions] = useState<FrontendTransaction[]>([]);

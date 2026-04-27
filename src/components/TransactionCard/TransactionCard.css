@@ -171,6 +171,32 @@
 	border-top: 1px solid var(--color-light);
 }
 
+.linked-sibling {
+	margin-top: var(--spacing-medium);
+	padding: var(--spacing-medium);
+	background-color: var(--color-light);
+	border-left: 3px solid var(--color-primary, #0d6efd);
+	border-radius: var(--border-radius);
+}
+
+.linked-sibling h4 {
+	margin: 0 0 var(--spacing-small) 0;
+	font-size: var(--font-size-small);
+	color: var(--color-secondary);
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+}
+
+.linked-sibling p {
+	margin: 0 0 var(--spacing-small) 0;
+	font-size: var(--font-size-small);
+}
+
+.linked-sibling a {
+	font-size: var(--font-size-small);
+	font-weight: 600;
+}
+
 /* Mobile responsive */
 @media (max-width: 768px) {
 	.transaction-card {

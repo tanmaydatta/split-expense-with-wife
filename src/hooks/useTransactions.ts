@@ -1,6 +1,7 @@
 import { typedApi } from "@/utils/api";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
+	BudgetEntry,
 	FrontendTransaction,
 	SplitDeleteRequest,
 	TransactionMetadata,
@@ -45,6 +46,7 @@ export function processTransactionData(
 			owedTo: metadata.owedToAmounts,
 			totalOwed: totalOwed,
 			currency: e.currency,
+			linkedBudgetEntryIds: e.linkedBudgetEntryIds,
 		};
 	});
 }
@@ -148,6 +150,31 @@ export function useDeleteTransaction() {
 					);
 				},
 			);
+
+			// Cascade cache invalidation for the deleted transaction's detail page
+			queryClient.invalidateQueries({ queryKey: ["transaction", deletedId] });
+
+			// Also invalidate budget caches (the cascade soft-deleted linked BEs)
+			queryClient.invalidateQueries({ queryKey: ["budget"] });
+
+			// If we have the linked BE IDs in budget list cache, invalidate each detail entry
+			// The transactions list cache stores FrontendTransaction[] which doesn't carry linkedBudgetEntryIds,
+			// so we scan the budget history cache (BudgetEntry[]) for entries that reference this transaction.
+			const allBudgetCaches = queryClient.getQueriesData<BudgetEntry[]>({
+				queryKey: ["budget", "history"],
+			});
+			const linkedBeIds = new Set<string>();
+			for (const [, entries] of allBudgetCaches) {
+				if (!entries) continue;
+				for (const entry of entries) {
+					if (entry.linkedTransactionIds?.includes(deletedId)) {
+						linkedBeIds.add(entry.id);
+					}
+				}
+			}
+			for (const beId of Array.from(linkedBeIds)) {
+				queryClient.invalidateQueries({ queryKey: ["budgetEntry", beId] });
+			}
 		},
 	});
 }

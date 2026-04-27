@@ -174,6 +174,35 @@ CREATE TABLE budget_entries (
 );
 ```
 
+#### `expense_budget_links` Table (New - Migration 0018)
+Junction table that creates a many-to-many relationship between `transactions` and `budget_entries`. Currently the dashboard creates 1:1 links, but the schema is M:N-capable without further changes.
+
+```sql
+CREATE TABLE expense_budget_links (
+    id TEXT PRIMARY KEY NOT NULL,                           -- ULID
+    transaction_id TEXT(100) NOT NULL,                      -- FK -> transactions.transaction_id
+    budget_entry_id TEXT(100) NOT NULL,                     -- FK -> budget_entries.budget_entry_id
+    group_id TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (transaction_id) REFERENCES transactions(transaction_id) ON UPDATE no action ON DELETE no action,
+    FOREIGN KEY (budget_entry_id) REFERENCES budget_entries(budget_entry_id) ON UPDATE no action ON DELETE no action
+);
+
+-- Uniqueness: each (transaction, budget_entry) pair can only appear once
+CREATE UNIQUE INDEX expense_budget_links_pair_idx ON expense_budget_links (transaction_id, budget_entry_id);
+-- Fast lookup: all links for a transaction
+CREATE INDEX expense_budget_links_transaction_idx ON expense_budget_links (transaction_id);
+-- Fast lookup: all links for a budget entry
+CREATE INDEX expense_budget_links_budget_entry_idx ON expense_budget_links (budget_entry_id);
+-- Fast lookup by group
+CREATE INDEX expense_budget_links_group_idx ON expense_budget_links (group_id);
+```
+
+**Key design notes:**
+- **No `deleted` column**: Junction rows are never soft-deleted. When either side is cascade-deleted, the link row stays so history is preserved. Active links are determined by filtering the linked entity's own `deleted IS NULL`.
+- **Foreign keys use `ON DELETE NO ACTION`**: Referential integrity is enforced but cascade deletes are handled at the application layer (inside `db.batch()` in handlers), not via FK triggers.
+- **Added in Migration 0018** (`0018_sleepy_sauron.sql`): new table only, no data migration.
+
 #### `scheduled_actions` Table
 ```sql
 CREATE TABLE scheduled_actions (
@@ -318,12 +347,13 @@ cf-worker/src/db/migrations/
 ├── 0002_unique_bastion.sql
 ├── ...
 ├── 0009_rename-budget-id-to-budget-entry-id.sql
-├── 0010_eager_scorpion.sql                      -- NEW: Budget migration to group_budgets table
+├── 0010_eager_scorpion.sql         -- Budget migration to group_budgets table
+├── 0015_perfect_the_watchers.sql   -- Make budget_entry_id primary key
+├── 0018_sleepy_sauron.sql          -- Add expense_budget_links junction table
 └── meta/
     ├── 0000_snapshot.json
-    ├── 0001_snapshot.json
     ├── ...
-    ├── 0010_snapshot.json                       -- NEW: Schema snapshot
+    ├── 0018_snapshot.json
     └── _journal.json
 ```
 
@@ -527,6 +557,7 @@ Tables use soft deletion with `deleted` timestamp columns:
 - **Advantages**: Data recovery, audit trails, referential integrity
 - **Query Pattern**: Always filter `WHERE deleted IS NULL`
 - **Cleanup**: Periodic cleanup jobs for old deleted records
+- **Exception**: `expense_budget_links` has no `deleted` column — junction rows are never soft-deleted. Cascade soft-deletes (from either side) touch only the entity tables; the link row is preserved for historical reference.
 
 ### Data Validation
 

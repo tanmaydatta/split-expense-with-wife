@@ -45,6 +45,13 @@
 	margin-bottom: 4px;
 }
 
+.linked-icon {
+	margin-left: 6px;
+	font-size: 0.85em;
+	vertical-align: middle;
+	opacity: 0.8;
+}
+
 .transaction-row {
 	cursor: pointer;
 	transition: background-color 0.2s ease;

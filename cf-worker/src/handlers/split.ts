@@ -10,7 +10,12 @@ import type {
 } from "../../../shared-types";
 import type { getDb } from "../db";
 import { user } from "../db/schema/auth-schema";
-import { transactions, transactionUsers } from "../db/schema/schema";
+import {
+	budgetEntries,
+	expenseBudgetLinks,
+	transactions,
+	transactionUsers,
+} from "../db/schema/schema";
 import {
 	createErrorResponse,
 	createJsonResponse,
@@ -71,8 +76,41 @@ async function getTransactionsList(
 		.orderBy(desc(transactions.createdAt))
 		.limit(10)
 		.offset(body.offset);
-	// Transform to match production format
-	const transactionsList = transformTransactionsList(rawTransactionsList);
+
+	// Build a linkMap: transactionId -> budgetEntryId[] (excluding soft-deleted BEs)
+	const txIds = rawTransactionsList.map((t) => t.transactionId);
+	const linkMap: Record<string, string[]> = {};
+	if (txIds.length > 0) {
+		const linkRows = await db
+			.select({
+				transactionId: expenseBudgetLinks.transactionId,
+				budgetEntryId: expenseBudgetLinks.budgetEntryId,
+			})
+			.from(expenseBudgetLinks)
+			.innerJoin(
+				budgetEntries,
+				eq(budgetEntries.budgetEntryId, expenseBudgetLinks.budgetEntryId),
+			)
+			.where(
+				and(
+					inArray(expenseBudgetLinks.transactionId, txIds),
+					eq(expenseBudgetLinks.groupId, groupIdStr),
+					isNull(budgetEntries.deleted),
+				),
+			);
+		for (const row of linkRows) {
+			if (!linkMap[row.transactionId]) linkMap[row.transactionId] = [];
+			linkMap[row.transactionId].push(row.budgetEntryId);
+		}
+	}
+
+	// Transform to match production format, embedding linkedBudgetEntryIds
+	const transactionsList = transformTransactionsList(rawTransactionsList).map(
+		(t) => ({
+			...t,
+			linkedBudgetEntryIds: linkMap[t.transaction_id] ?? [],
+		}),
+	);
 
 	// Get transaction details
 	const transactionDetails = await getTransactionDetails(
@@ -276,6 +314,23 @@ export async function handleSplitDelete(
 
 			const deletedTime = formatSQLiteTime();
 
+			// Find linked, live budget entries for cascade soft-delete
+			const linkedBeRows = await db
+				.select({ id: expenseBudgetLinks.budgetEntryId })
+				.from(expenseBudgetLinks)
+				.innerJoin(
+					budgetEntries,
+					eq(budgetEntries.budgetEntryId, expenseBudgetLinks.budgetEntryId),
+				)
+				.where(
+					and(
+						eq(expenseBudgetLinks.transactionId, body.id),
+						eq(expenseBudgetLinks.groupId, String(session.group.groupid)),
+						isNull(budgetEntries.deleted),
+					),
+				);
+			const linkedBeIds = linkedBeRows.map((r) => r.id);
+
 			// Prepare all statements for single batch operation
 			const deleteTransaction = db
 				.update(transactions)
@@ -312,11 +367,20 @@ export async function handleSplitDelete(
 				"remove",
 			);
 
+			// Soft-delete each linked budget entry as part of the atomic batch
+			const deleteBudgetEntries = linkedBeIds.map((id) =>
+				db
+					.update(budgetEntries)
+					.set({ deleted: deletedTime })
+					.where(eq(budgetEntries.budgetEntryId, id)),
+			);
+
 			// Execute all statements in a single batch
 			await db.batch([
 				deleteTransaction,
 				deleteTransactionUsers,
 				...balanceUpdates,
+				...deleteBudgetEntries,
 			]);
 
 			return createJsonResponse(

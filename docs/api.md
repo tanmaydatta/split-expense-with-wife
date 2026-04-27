@@ -87,8 +87,44 @@ End user session.
 
 ### Expense Management
 
+#### POST `/.netlify/functions/dashboard_submit`
+Atomically create an expense and/or a budget entry, with an automatic link between them when both are present. This is the preferred way to create entries from the Dashboard — it replaces calling `/split_new` and `/budget` separately.
+
+**Request Body (`DashboardSubmitRequest`):**
+```typescript
+{
+    expense?: {
+        amount: number;
+        description: string;
+        paidByShares: Record<string, number>;   // userId -> amount paid
+        splitPctShares: Record<string, number>; // userId -> split percentage
+        currency: string;
+    };
+    budget?: {
+        amount: number;      // negative for Debit entries
+        description: string;
+        budgetId: string;
+        currency: string;
+    };
+}
+```
+
+At least one of `expense` or `budget` must be present. When both are present, `expense.amount` and `budget.amount` must have equal absolute values and the same currency.
+
+**Response (`DashboardSubmitResponse`):**
+```typescript
+{
+    message: string;
+    transactionId?: string;    // set when expense was created
+    budgetEntryId?: string;    // set when budget entry was created
+    linkId?: string;           // set when both were created (junction row ID)
+}
+```
+
+**Atomicity:** All inserts (transaction rows, budget entry row, junction row, balance/total materialized-view updates) run in a single `db.batch()`. If any statement fails, none are committed.
+
 #### POST `/.netlify/functions/split_new`
-Create a new expense transaction.
+Create a new expense transaction (no budget link). Prefer `/dashboard_submit` when both expense and budget should be created together.
 
 **Request Body:**
 ```typescript
@@ -126,7 +162,7 @@ Create a new expense transaction.
 ```
 
 #### POST `/.netlify/functions/split_delete`
-Delete an expense transaction.
+Soft-delete an expense transaction. If the transaction has a linked budget entry (via `expense_budget_links`), that budget entry is also soft-deleted in the same atomic batch. The junction row in `expense_budget_links` is preserved (not deleted) — filtering uses the underlying entity's `deleted IS NULL`.
 
 **Request Body:**
 ```typescript
@@ -142,6 +178,27 @@ Delete an expense transaction.
 }
 ```
 
+#### POST `/.netlify/functions/transaction_get`
+Fetch a single transaction by ID, including its per-user split details and any linked budget entry.
+
+**Request Body:**
+```typescript
+{
+    id: string; // transaction ID
+}
+```
+
+**Response:**
+```typescript
+{
+    transaction: Transaction;
+    transactionUsers: TransactionUser[];
+    linkedBudgetEntry?: BudgetEntry;  // present only when a live linked BE exists
+}
+```
+
+Returns 404 when the transaction does not exist in the caller's group (avoids leaking existence to other groups).
+
 #### POST `/.netlify/functions/transactions_list`
 Get paginated list of transactions.
 
@@ -155,10 +212,12 @@ Get paginated list of transactions.
 **Response:**
 ```typescript
 {
-    transactions: Transaction[];
+    transactions: Transaction[];             // each entry includes linkedBudgetEntryIds
     transactionDetails: Record<string, TransactionUser[]>;
 }
 ```
+
+Each `Transaction` in the list includes a `linkedBudgetEntryIds: string[]` field listing the IDs of non-deleted linked budget entries. An empty array means no link.
 
 #### POST `/.netlify/functions/balances`
 Get current user balances.
@@ -174,14 +233,14 @@ Record<string, Record<string, number>>
 ### Budget Management
 
 #### POST `/.netlify/functions/budget`
-Create a budget entry.
+Create a budget entry (no expense link). Prefer `/dashboard_submit` when both budget entry and expense should be created together.
 
 **Request Body:**
 ```typescript
 {
-    amount: number;
+    amount: number;      // negative for Debit entries
     description: string;
-    name: string;        // Budget category
+    budgetId: string;    // budget category ID
     currency: string;
     groupid: string;
 }
@@ -195,28 +254,49 @@ Create a budget entry.
 ```
 
 #### POST `/.netlify/functions/budget_list`
-Get paginated budget entries.
+Get paginated budget entries. Each entry includes a `linkedTransactionIds` field listing the IDs of non-deleted linked transactions.
 
 **Request Body:**
 ```typescript
 {
+    budgetId: string;    // budget category ID
     offset: number;
-    name: string;        // Budget category
 }
 ```
 
 **Response:**
 ```typescript
-BudgetEntry[]
+BudgetEntry[]   // each entry includes linkedTransactionIds: string[]
 ```
 
-#### POST `/.netlify/functions/budget_delete`
-Delete a budget entry.
+#### POST `/.netlify/functions/budget_entry_get`
+Fetch a single budget entry by ID, including any linked transaction (with its per-user split details).
 
 **Request Body:**
 ```typescript
 {
-    id: number; // Budget entry ID
+    id: string; // budget entry ID
+}
+```
+
+**Response:**
+```typescript
+{
+    budgetEntry: BudgetEntry;
+    linkedTransaction?: Transaction;               // present only when a live linked tx exists
+    linkedTransactionUsers?: TransactionUser[];    // present alongside linkedTransaction
+}
+```
+
+Returns 404 when the budget entry does not exist in the caller's group.
+
+#### POST `/.netlify/functions/budget_delete`
+Soft-delete a budget entry. If the entry has a linked transaction (via `expense_budget_links`), that transaction and its `transaction_users` rows are also soft-deleted in the same atomic batch, and the `user_balances` materialized view is updated accordingly. The junction row in `expense_budget_links` is preserved (not deleted).
+
+**Request Body:**
+```typescript
+{
+    id: string; // budget entry ID (string since migration 0015)
 }
 ```
 
@@ -528,9 +608,21 @@ The `ApiEndpoints` interface provides complete type safety:
 
 ```typescript
 interface ApiEndpoints {
+    "/dashboard_submit": {
+        request: DashboardSubmitRequest;
+        response: DashboardSubmitResponse;
+    };
     "/split_new": {
         request: SplitNewRequest;
         response: { message: string; transactionId: string; };
+    };
+    "/transaction_get": {
+        request: TransactionGetRequest;
+        response: TransactionGetResponse;
+    };
+    "/budget_entry_get": {
+        request: BudgetEntryGetRequest;
+        response: BudgetEntryGetResponse;
     };
     "/budget": {
         request: BudgetRequest;

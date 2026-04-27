@@ -214,6 +214,72 @@ ALTER TABLE `__new_budget_entries` RENAME TO `budget_entries`;
 - Consistent with deterministic ID pattern used in scheduled actions
 - Removes need for separate unique index on `budget_entry_id`
 
+### Migration 0017: Fix groupid / group_id INTEGER → TEXT
+
+**Date**: 2026-04
+**File**: `0017_fix_groupid_text_types.sql`
+**Type**: Schema correction (table recreate)
+
+**Problem**: Migration 0000 declared `groups.groupid`, `user.groupid`, `transaction_users.group_id`, and `user_balances.group_id` as INTEGER, but the application stores ULID strings in those columns. Recent wrangler/D1 versions reject TEXT inserts into INTEGER PK columns with `SQLITE_MISMATCH`, breaking fresh-DB e2e tests. Deployed dbs were created via direct SQL with TEXT columns *or* with INTEGER columns that SQLite type-affinity has been silently storing TEXT in — both flavors have been working in production.
+
+**Solution as written**: DROP+RENAME each affected table after copying rows into a new table with the correct types.
+
+⚠️ **Production incident on 2026-04-27**: Applying this migration on prod (which had INTEGER columns + ULID-string data) cascade-deleted every row in `account` and `session` because `DROP TABLE \`user\`` triggered the `ON DELETE CASCADE` foreign keys those tables declare on `user.id`. `PRAGMA defer_foreign_keys=ON` defers FK *validation*, not `ON DELETE CASCADE` *triggers*. The proper escape (`PRAGMA foreign_keys=OFF`) is **not supported by Cloudflare D1**.
+
+**Recovery**: Restored prod from D1 Time Travel, then marked the migration as applied without running its SQL:
+
+```sh
+wrangler d1 execute splitexpense --env prod --remote \
+  --command "INSERT INTO d1_migrations (name) VALUES ('0017_fix_groupid_text_types.sql');"
+```
+
+Prod now runs with the original INTEGER schema + ULID-string data (same as it has for months — SQLite's permissive type affinity makes it work).
+
+**Standing guidance**:
+- **Fresh databases (local, CI)**: this migration applies cleanly because there are no `account` / `session` rows yet. No action needed.
+- **Existing dev/prod databases**: do NOT re-run this migration. If `0017` is unapplied on a deployed environment, mark it applied via the same `INSERT INTO d1_migrations` shown above. Verify schema correctness is not needed — INTEGER columns + TEXT data have been working.
+
+**Follow-up**: replace this migration with a child-row-preserving variant before re-enabling for any deployed environment. See the in-file comment block in `0017_fix_groupid_text_types.sql` for the proposed pattern.
+
+### Migration 0018: Add expense_budget_links Junction Table
+
+**Date**: 2026-04
+**File**: `0018_sleepy_sauron.sql`
+**Type**: New table (no data migration)
+
+**Problem**: The system had no way to express a relationship between an expense transaction and a budget entry created at the same time. Without a link, deleting one side left the other orphaned and UIs could not cross-navigate between the two entities.
+
+**Solution**: Added `expense_budget_links` junction table establishing an M:N relationship between `transactions` and `budget_entries`.
+
+```sql
+CREATE TABLE expense_budget_links (
+    id TEXT PRIMARY KEY NOT NULL,
+    transaction_id TEXT(100) NOT NULL,
+    budget_entry_id TEXT(100) NOT NULL,
+    group_id TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (transaction_id) REFERENCES transactions(transaction_id) ON UPDATE no action ON DELETE no action,
+    FOREIGN KEY (budget_entry_id) REFERENCES budget_entries(budget_entry_id) ON UPDATE no action ON DELETE no action
+);
+
+CREATE UNIQUE INDEX expense_budget_links_pair_idx ON expense_budget_links (transaction_id, budget_entry_id);
+CREATE INDEX expense_budget_links_transaction_idx ON expense_budget_links (transaction_id);
+CREATE INDEX expense_budget_links_budget_entry_idx ON expense_budget_links (budget_entry_id);
+CREATE INDEX expense_budget_links_group_idx ON expense_budget_links (group_id);
+```
+
+**No data migration**: New table only. Existing transactions and budget entries remain unlinked.
+
+**Rollback**: `DROP TABLE expense_budget_links;`
+
+**Code changes accompanying this migration:**
+- `cf-worker/src/db/schema/schema.ts`: New `expenseBudgetLinks` table definition
+- `cf-worker/src/handlers/dashboard.ts`: Atomic expense + budget + link creation via `/dashboard_submit`
+- `cf-worker/src/handlers/get-by-id.ts`: `/transaction_get` and `/budget_entry_get` with linked sibling
+- `cf-worker/src/handlers/split.ts`: `/split_delete` now cascade-soft-deletes linked budget entries
+- `cf-worker/src/handlers/budget.ts`: `/budget_delete` now cascade-soft-deletes linked transactions; `/budget_list` returns `linkedTransactionIds`; `/transactions_list` returns `linkedBudgetEntryIds`
+- `shared-types/index.ts`: New request/response types for the above endpoints
+
 ### Earlier Migrations (0000-0007)
 - Initial schema setup
 - Authentication system setup (better-auth)

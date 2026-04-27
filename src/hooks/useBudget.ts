@@ -53,6 +53,21 @@ export function useDeleteBudgetEntry() {
 			// Invalidate budget queries to refresh data
 			queryClient.invalidateQueries({ queryKey: ["budget"] });
 
+			// Scan for linked transaction IDs BEFORE removing the entry from cache
+			const allBudgetCaches = queryClient.getQueriesData<BudgetEntry[]>({
+				queryKey: ["budget", "history"],
+			});
+			const linkedTxIds = new Set<string>();
+			for (const [, entries] of allBudgetCaches) {
+				if (!entries) continue;
+				const entry = entries.find((e) => e.id === deletedId);
+				if (entry?.linkedTransactionIds) {
+					for (const txId of entry.linkedTransactionIds) {
+						linkedTxIds.add(txId);
+					}
+				}
+			}
+
 			// Optimistically remove the deleted entry from cache
 			queryClient.setQueriesData<BudgetEntry[]>(
 				{ queryKey: ["budget", "history"] },
@@ -61,6 +76,18 @@ export function useDeleteBudgetEntry() {
 					return oldData.filter((entry) => entry.id !== deletedId);
 				},
 			);
+
+			// Cascade cache invalidation for the deleted budget entry's detail page
+			queryClient.invalidateQueries({ queryKey: ["budgetEntry", deletedId] });
+
+			// Also invalidate transaction caches (the cascade soft-deleted linked transactions)
+			queryClient.invalidateQueries({ queryKey: ["transactions"] });
+			queryClient.invalidateQueries({ queryKey: ["balances"] });
+
+			// Invalidate each linked transaction's detail page
+			for (const txId of Array.from(linkedTxIds)) {
+				queryClient.invalidateQueries({ queryKey: ["transaction", txId] });
+			}
 		},
 	});
 }

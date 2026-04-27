@@ -1,898 +1,772 @@
 export type UserFromAuth = {
-	firstName: string;
-	id: string;
+    firstName: string;
+    id: string;
 };
 export interface User {
-	Id: string;
-	username?: string | null;
-	FirstName: string | null;
-	LastName?: string | null;
-	groupid: string | null;
-	password?: string;
+    Id: string;
+    username?: string | null;
+    FirstName: string | null;
+    LastName?: string | null;
+    groupid: string | null;
+    password?: string;
 }
 export interface Group {
-	groupid: string;
-	budgets: string;
-	userids: string;
-	metadata: string;
+    groupid: string;
+    budgets: string;
+    userids: string;
+    metadata: string;
 }
 export interface GroupBudgetData {
-	id: string;
-	budgetName: string;
-	description: string | null;
+    id: string;
+    budgetName: string;
+    description: string | null;
 }
 export interface BudgetEntry {
-	id: string;
-	description: string;
-	addedTime: string;
-	price: string;
-	amount: number;
-	name: string;
-	deleted?: string;
-	groupid: string;
-	currency: string;
+    id: string;
+    description: string;
+    addedTime: string;
+    price: string;
+    amount: number;
+    name: string;
+    deleted?: string;
+    groupid: string;
+    currency: string;
+    linkedTransactionIds?: string[];
 }
 export interface Transaction {
-	description: string;
-	amount: number;
-	created_at: string;
-	metadata: string;
-	currency: string;
-	transaction_id: string;
-	group_id: string;
-	deleted?: string;
+    description: string;
+    amount: number;
+    created_at: string;
+    metadata: string;
+    currency: string;
+    transaction_id: string;
+    group_id: string;
+    deleted?: string;
+    linkedBudgetEntryIds?: string[];
 }
 export interface TransactionUser {
-	transaction_id: string;
-	user_id: string;
-	amount: number;
-	owed_to_user_id: string;
-	group_id: string;
-	currency: string;
-	deleted?: string;
-	first_name?: string;
+    transaction_id: string;
+    user_id: string;
+    amount: number;
+    owed_to_user_id: string;
+    group_id: string;
+    currency: string;
+    deleted?: string;
+    first_name?: string;
 }
 export interface GroupMetadata {
-	defaultShare: Record<string, number>;
-	defaultCurrency: string;
+    defaultShare: Record<string, number>;
+    defaultCurrency: string;
 }
 export interface TransactionMetadata {
-	paidByShares: Record<string, number>;
-	owedAmounts: Record<string, number>;
-	owedToAmounts: Record<string, number>;
+    paidByShares: Record<string, number>;
+    owedAmounts: Record<string, number>;
+    owedToAmounts: Record<string, number>;
 }
 export interface LoginRequest {
-	username: string;
-	password: string;
+    username: string;
+    password: string;
 }
 export interface BudgetRequest {
-	amount: number;
-	description: string;
-	budgetId: string;
-	groupid: string;
-	currency: string;
+    amount: number;
+    description: string;
+    budgetId: string;
+    groupid: string;
+    currency: string;
 }
 export interface BudgetListRequest {
-	offset: number;
-	budgetId: string;
+    offset: number;
+    budgetId: string;
 }
 export interface BudgetTotalRequest {
-	budgetId: string;
+    budgetId: string;
 }
 export interface BudgetDeleteRequest {
-	id: string;
+    id: string;
 }
 export interface BudgetMonthlyRequest {
-	budgetId: string;
-	timeRange?: "6M" | "1Y" | "2Y" | "All";
-	currency?: string;
+    budgetId: string;
+    timeRange?: "6M" | "1Y" | "2Y" | "All";
+    currency?: string;
 }
 export interface SplitRequest {
-	amount: number;
-	description: string;
-	paidByShares: Record<string, number>;
-	splitPctShares: Record<string, number>;
-	currency: string;
+    amount: number;
+    description: string;
+    paidByShares: Record<string, number>;
+    splitPctShares: Record<string, number>;
+    currency: string;
 }
 export interface SplitNewRequest {
-	amount: number;
-	description: string;
-	paidByShares: Record<string, number>;
-	splitPctShares: Record<string, number>;
-	currency: string;
+    amount: number;
+    description: string;
+    paidByShares: Record<string, number>;
+    splitPctShares: Record<string, number>;
+    currency: string;
 }
 export interface SplitDeleteRequest {
-	id: string;
+    id: string;
 }
 export interface TransactionsListRequest {
-	offset: number;
+    offset: number;
 }
 export interface LoginResponse {
-	username: string;
-	groupId: string;
-	budgets: string[];
-	users: User[];
-	userids: string[];
-	metadata: GroupMetadata;
-	userId: string;
-	token: string;
-	currencies: string[];
+    username: string;
+    groupId: string;
+    budgets: string[];
+    users: User[];
+    userids: string[];
+    metadata: GroupMetadata;
+    userId: string;
+    token: string;
+    currencies: string[];
 }
 export interface MonthlyAmount {
-	currency: string;
-	amount: number;
+    currency: string;
+    amount: number;
 }
 export interface MonthlyBudget {
-	month: string;
-	year: number;
-	amounts: MonthlyAmount[];
+    month: string;
+    year: number;
+    amounts: MonthlyAmount[];
 }
 export interface AverageSpendData {
-	currency: string;
-	averageMonthlySpend: number;
-	totalSpend: number;
-	monthsAnalyzed: number;
+    currency: string;
+    averageMonthlySpend: number;
+    totalSpend: number;
+    monthsAnalyzed: number;
 }
 export interface AverageSpendPeriod {
-	periodMonths: number;
-	averages: AverageSpendData[];
+    periodMonths: number;
+    averages: AverageSpendData[];
 }
 export interface BudgetMonthlyResponse {
-	monthlyBudgets: MonthlyBudget[];
-	averageMonthlySpend: AverageSpendPeriod[];
-	periodAnalyzed: {
-		startDate: string;
-		endDate: string;
-	};
+    monthlyBudgets: MonthlyBudget[];
+    averageMonthlySpend: AverageSpendPeriod[];
+    periodAnalyzed: {
+        startDate: string;
+        endDate: string;
+    };
 }
 export interface TransactionsListResponse {
-	transactions: Transaction[];
-	transactionDetails: Record<string, TransactionUser[]>;
+    transactions: Transaction[];
+    transactionDetails: Record<string, TransactionUser[]>;
+}
+export interface DashboardSubmitRequest {
+    expense?: {
+        amount: number;
+        description: string;
+        paidByShares: Record<string, number>;
+        splitPctShares: Record<string, number>;
+        currency: string;
+    };
+    budget?: {
+        amount: number;
+        description: string;
+        budgetId: string;
+        currency: string;
+    };
+}
+export interface DashboardSubmitResponse {
+    message: string;
+    transactionId?: string;
+    budgetEntryId?: string;
+    linkId?: string;
+}
+export interface TransactionGetRequest {
+    id: string;
+}
+export interface TransactionGetResponse {
+    transaction: Transaction;
+    transactionUsers: TransactionUser[];
+    linkedBudgetEntry?: BudgetEntry;
+}
+export interface BudgetEntryGetRequest {
+    id: string;
+}
+export interface BudgetEntryGetResponse {
+    budgetEntry: BudgetEntry;
+    linkedTransaction?: Transaction;
+    linkedTransactionUsers?: TransactionUser[];
 }
 export interface TransactionBalances {
-	user_id: string;
-	amount: number;
-	owed_to_user_id: string;
-	currency: string;
+    user_id: string;
+    amount: number;
+    owed_to_user_id: string;
+    currency: string;
 }
 export interface ApiResponse<T = any> {
-	success: boolean;
-	data?: T;
-	error?: string;
+    success: boolean;
+    data?: T;
+    error?: string;
 }
 export interface ErrorResponse {
-	error: string;
-	statusCode: number;
+    error: string;
+    statusCode: number;
 }
 export interface FrontendTransaction {
-	transactionId: string;
-	description: string;
-	totalAmount: number;
-	date: string;
-	amountOwed: Record<string, number>;
-	paidBy: Record<string, number>;
-	owedTo: Record<string, number>;
-	totalOwed: number;
-	currency: string;
+    transactionId: string;
+    description: string;
+    totalAmount: number;
+    date: string;
+    amountOwed: Record<string, number>;
+    paidBy: Record<string, number>;
+    owedTo: Record<string, number>;
+    totalOwed: number;
+    currency: string;
+    linkedBudgetEntryIds?: string[];
 }
 export interface FrontendUser {
-	Id: string;
-	Name: string;
+    Id: string;
+    Name: string;
 }
 export interface BudgetDisplayEntry {
-	id: string;
-	date: string;
-	description: string;
-	amount: string;
-	deleted?: string;
-	currency: string;
+    id: string;
+    date: string;
+    description: string;
+    amount: string;
+    deleted?: string;
+    currency: string;
 }
 export interface BudgetTotal {
-	currency: string;
-	amount: number;
+    currency: string;
+    amount: number;
 }
 export interface GroupDetailsResponse {
-	groupid: string;
-	groupName: string;
-	budgets: GroupBudgetData[];
-	metadata: GroupMetadata;
-	users: User[];
+    groupid: string;
+    groupName: string;
+    budgets: GroupBudgetData[];
+    metadata: GroupMetadata;
+    users: User[];
 }
 export interface UpdateGroupMetadataRequest {
-	groupid: string;
-	defaultShare?: Record<string, number>;
-	defaultCurrency?: string;
-	groupName?: string;
-	budgets?: GroupBudgetData[];
+    groupid: string;
+    defaultShare?: Record<string, number>;
+    defaultCurrency?: string;
+    groupName?: string;
+    budgets?: GroupBudgetData[];
 }
 export interface UpdateGroupMetadataResponse {
-	message: string;
-	metadata: GroupMetadata;
+    message: string;
+    metadata: GroupMetadata;
 }
 export interface AuthenticatedUser {
-	id: string;
-	name: string;
-	email: string;
-	emailVerified: boolean;
-	image: string | null;
-	createdAt: Date;
-	updatedAt: Date;
-	username: string | null;
-	displayUsername: string | null;
-	groupid: string | null;
-	firstName: string;
-	lastName: string;
+    id: string;
+    name: string;
+    email: string;
+    emailVerified: boolean;
+    image: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+    username: string | null;
+    displayUsername: string | null;
+    groupid: string | null;
+    firstName: string;
+    lastName: string;
 }
 export interface BetterAuthSession {
-	id: string;
-	expiresAt: Date;
-	token: string;
-	createdAt: Date;
-	updatedAt: Date;
-	ipAddress: string | null;
-	userAgent: string | null;
-	userId: string;
+    id: string;
+    expiresAt: Date;
+    token: string;
+    createdAt: Date;
+    updatedAt: Date;
+    ipAddress: string | null;
+    userAgent: string | null;
+    userId: string;
 }
 export interface EnrichedSessionExtra {
-	currentUser: AuthenticatedUser;
-	usersById: Record<string, AuthenticatedUser>;
-	group: ParsedGroupData | null;
-	currencies?: string[];
+    currentUser: AuthenticatedUser;
+    usersById: Record<string, AuthenticatedUser>;
+    group: ParsedGroupData | null;
+    currencies?: string[];
 }
 export interface FullAuthSession {
-	user: AuthenticatedUser;
-	session: BetterAuthSession;
-	extra: EnrichedSessionExtra;
+    user: AuthenticatedUser;
+    session: BetterAuthSession;
+    extra: EnrichedSessionExtra;
 }
 export interface ParsedGroupData {
-	groupid: string;
-	budgets: GroupBudgetData[];
-	userids: string[];
-	metadata: GroupMetadata;
+    groupid: string;
+    budgets: GroupBudgetData[];
+    userids: string[];
+    metadata: GroupMetadata;
 }
 export interface ReduxState {
-	value: FullAuthSession | null;
+    value: FullAuthSession | null;
 }
 export interface DashboardUser {
-	FirstName: string;
-	Id: string;
-	percentage?: number;
+    FirstName: string;
+    Id: string;
+    percentage?: number;
 }
 export interface ApiOperationResponses {
-	expense?: {
-		message: string;
-		transactionId: string;
-	};
-	budget?: {
-		message: string;
-	};
+    expense?: {
+        message: string;
+        transactionId: string;
+    };
+    budget?: {
+        message: string;
+    };
 }
 export interface ApiEndpoints {
-	"/login": {
-		request: LoginRequest;
-		response: LoginResponse;
-	};
-	"/budget": {
-		request: BudgetRequest;
-		response: {
-			message: string;
-		};
-	};
-	"/budget_list": {
-		request: BudgetListRequest;
-		response: BudgetEntry[];
-	};
-	"/budget_total": {
-		request: BudgetTotalRequest;
-		response: BudgetTotal[];
-	};
-	"/budget_delete": {
-		request: BudgetDeleteRequest;
-		response: {
-			message: string;
-		};
-	};
-	"/budget_monthly": {
-		request: BudgetMonthlyRequest;
-		response: BudgetMonthlyResponse;
-	};
-	"/split_new": {
-		request: SplitNewRequest;
-		response: {
-			message: string;
-			transactionId: string;
-		};
-	};
-	"/split_delete": {
-		request: SplitDeleteRequest;
-		response: {
-			message: string;
-		};
-	};
-	"/transactions_list": {
-		request: TransactionsListRequest;
-		response: TransactionsListResponse;
-	};
-	"/balances": {
-		request: {};
-		response: Record<string, Record<string, number>>;
-	};
-	"/logout": {
-		request: {};
-		response: {
-			message: string;
-		};
-	};
-	"/group/details": {
-		request: {};
-		response: GroupDetailsResponse;
-	};
-	"/group/metadata": {
-		request: UpdateGroupMetadataRequest;
-		response: UpdateGroupMetadataResponse;
-	};
-	"/scheduled-actions": {
-		request: CreateScheduledActionRequest;
-		response: {
-			message: string;
-			id: string;
-		};
-	};
-	"/scheduled-actions/list": {
-		request: ScheduledActionListRequest;
-		response: ScheduledActionListResponse;
-	};
-	"/scheduled-actions/update": {
-		request: UpdateScheduledActionRequest;
-		response: {
-			message: string;
-		};
-	};
-	"/scheduled-actions/delete": {
-		request: ScheduledActionDeleteRequest;
-		response: {
-			message: string;
-		};
-	};
-	"/scheduled-actions/history": {
-		request: ScheduledActionHistoryListRequest;
-		response: ScheduledActionHistoryListResponse;
-	};
-	"/scheduled-actions/run": {
-		request: {
-			id: string;
-		};
-		response: {
-			message: string;
-			workflowInstanceId: string;
-		};
-	};
+    "/login": {
+        request: LoginRequest;
+        response: LoginResponse;
+    };
+    "/budget": {
+        request: BudgetRequest;
+        response: {
+            message: string;
+        };
+    };
+    "/budget_list": {
+        request: BudgetListRequest;
+        response: BudgetEntry[];
+    };
+    "/budget_total": {
+        request: BudgetTotalRequest;
+        response: BudgetTotal[];
+    };
+    "/budget_delete": {
+        request: BudgetDeleteRequest;
+        response: {
+            message: string;
+        };
+    };
+    "/budget_monthly": {
+        request: BudgetMonthlyRequest;
+        response: BudgetMonthlyResponse;
+    };
+    "/split_new": {
+        request: SplitNewRequest;
+        response: {
+            message: string;
+            transactionId: string;
+        };
+    };
+    "/split_delete": {
+        request: SplitDeleteRequest;
+        response: {
+            message: string;
+        };
+    };
+    "/transactions_list": {
+        request: TransactionsListRequest;
+        response: TransactionsListResponse;
+    };
+    "/dashboard_submit": {
+        request: DashboardSubmitRequest;
+        response: DashboardSubmitResponse;
+    };
+    "/transaction_get": {
+        request: TransactionGetRequest;
+        response: TransactionGetResponse;
+    };
+    "/budget_entry_get": {
+        request: BudgetEntryGetRequest;
+        response: BudgetEntryGetResponse;
+    };
+    "/balances": {
+        request: {};
+        response: Record<string, Record<string, number>>;
+    };
+    "/logout": {
+        request: {};
+        response: {
+            message: string;
+        };
+    };
+    "/group/details": {
+        request: {};
+        response: GroupDetailsResponse;
+    };
+    "/group/metadata": {
+        request: UpdateGroupMetadataRequest;
+        response: UpdateGroupMetadataResponse;
+    };
+    "/scheduled-actions": {
+        request: CreateScheduledActionRequest;
+        response: {
+            message: string;
+            id: string;
+        };
+    };
+    "/scheduled-actions/list": {
+        request: ScheduledActionListRequest;
+        response: ScheduledActionListResponse;
+    };
+    "/scheduled-actions/update": {
+        request: UpdateScheduledActionRequest;
+        response: {
+            message: string;
+        };
+    };
+    "/scheduled-actions/delete": {
+        request: ScheduledActionDeleteRequest;
+        response: {
+            message: string;
+        };
+    };
+    "/scheduled-actions/history": {
+        request: ScheduledActionHistoryListRequest;
+        response: ScheduledActionHistoryListResponse;
+    };
+    "/scheduled-actions/run": {
+        request: {
+            id: string;
+        };
+        response: {
+            message: string;
+            workflowInstanceId: string;
+        };
+    };
 }
 export interface TypedApiClient {
-	post<K extends keyof ApiEndpoints>(
-		endpoint: K,
-		data: ApiEndpoints[K]["request"],
-	): Promise<ApiEndpoints[K]["response"]>;
-	get<K extends keyof ApiEndpoints>(
-		endpoint: K,
-		options?: {
-			queryParams?: Record<string, string>;
-		},
-	): Promise<ApiEndpoints[K]["response"]>;
+    post<K extends keyof ApiEndpoints>(endpoint: K, data: ApiEndpoints[K]["request"]): Promise<ApiEndpoints[K]["response"]>;
+    get<K extends keyof ApiEndpoints>(endpoint: K, options?: {
+        queryParams?: Record<string, string>;
+    }): Promise<ApiEndpoints[K]["response"]>;
 }
 export type Currency = "USD" | "EUR" | "GBP" | "INR";
-export declare const CURRENCIES: readonly [
-	"USD",
-	"EUR",
-	"GBP",
-	"INR",
-	"CAD",
-	"AUD",
-	"JPY",
-	"CHF",
-	"CNY",
-	"SGD",
-];
-export declare const GroupBudgetDataSchema: z.ZodObject<
-	{
-		id: z.ZodString;
-		budgetName: z.ZodPipe<z.ZodString, z.ZodTransform<string, string>>;
-		description: z.ZodOptional<z.ZodNullable<z.ZodString>>;
-	},
-	z.core.$strip
->;
-export declare const UpdateGroupMetadataRequestSchema: z.ZodObject<
-	{
-		groupid: z.ZodPipe<
-			z.ZodUnion<readonly [z.ZodString, z.ZodNumber]>,
-			z.ZodTransform<string, string | number>
-		>;
-		defaultShare: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodNumber>>;
-		defaultCurrency: z.ZodOptional<
-			z.ZodEnum<{
-				[x: string]: string;
-			}>
-		>;
-		groupName: z.ZodOptional<
-			z.ZodPipe<z.ZodString, z.ZodTransform<string, string>>
-		>;
-		budgets: z.ZodOptional<
-			z.ZodArray<
-				z.ZodObject<
-					{
-						id: z.ZodString;
-						budgetName: z.ZodPipe<z.ZodString, z.ZodTransform<string, string>>;
-						description: z.ZodOptional<z.ZodNullable<z.ZodString>>;
-					},
-					z.core.$strip
-				>
-			>
-		>;
-	},
-	z.core.$strip
->;
+export declare const CURRENCIES: readonly ["USD", "EUR", "GBP", "INR", "CAD", "AUD", "JPY", "CHF", "CNY", "SGD"];
+export declare const GroupBudgetDataSchema: z.ZodObject<{
+    id: z.ZodString;
+    budgetName: z.ZodPipe<z.ZodString, z.ZodTransform<string, string>>;
+    description: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+}, z.core.$strip>;
+export declare const UpdateGroupMetadataRequestSchema: z.ZodObject<{
+    groupid: z.ZodPipe<z.ZodUnion<readonly [z.ZodString, z.ZodNumber]>, z.ZodTransform<string, string | number>>;
+    defaultShare: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodNumber>>;
+    defaultCurrency: z.ZodOptional<z.ZodEnum<{
+        [x: string]: string;
+    }>>;
+    groupName: z.ZodOptional<z.ZodPipe<z.ZodString, z.ZodTransform<string, string>>>;
+    budgets: z.ZodOptional<z.ZodArray<z.ZodObject<{
+        id: z.ZodString;
+        budgetName: z.ZodPipe<z.ZodString, z.ZodTransform<string, string>>;
+        description: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    }, z.core.$strip>>>;
+}, z.core.$strip>;
 export type ScheduledActionFrequency = "daily" | "weekly" | "monthly";
 export type ScheduledActionType = "add_expense" | "add_budget";
 export type CreateScheduledActionResponse = {
-	message: string;
-	id: string;
+    message: string;
+    id: string;
 };
 export type UpdateScheduledActionResponse = {
-	message: string;
+    message: string;
 };
 export type DeleteScheduledActionResponse = {
-	message: string;
+    message: string;
 };
 export type ScheduledActionErrorResponse = {
-	error: string;
+    error: string;
 };
 export type ScheduledActionData = AddExpenseActionData | AddBudgetActionData;
 export type ScheduledActionResultData = {
-	message: string;
-	transactionId?: string;
-	budgetEntryId?: string;
+    message: string;
+    transactionId?: string;
+    budgetEntryId?: string;
 } | null;
 export interface AddExpenseActionData {
-	amount: number;
-	description: string;
-	currency: string;
-	paidByUserId: string;
-	splitPctShares: Record<string, number>;
+    amount: number;
+    description: string;
+    currency: string;
+    paidByUserId: string;
+    splitPctShares: Record<string, number>;
 }
 export interface AddBudgetActionData {
-	amount: number;
-	description: string;
-	budgetId: string;
-	currency: string;
-	type: "Credit" | "Debit";
+    amount: number;
+    description: string;
+    budgetId: string;
+    currency: string;
+    type: "Credit" | "Debit";
 }
 export interface ScheduledAction {
-	id: string;
-	userId: string;
-	actionType: ScheduledActionType;
-	frequency: ScheduledActionFrequency;
-	startDate: string;
-	isActive: boolean;
-	actionData: AddExpenseActionData | AddBudgetActionData;
-	lastExecutedAt?: string;
-	nextExecutionDate: string;
-	createdAt: string;
-	updatedAt: string;
+    id: string;
+    userId: string;
+    actionType: ScheduledActionType;
+    frequency: ScheduledActionFrequency;
+    startDate: string;
+    isActive: boolean;
+    actionData: AddExpenseActionData | AddBudgetActionData;
+    lastExecutedAt?: string;
+    nextExecutionDate: string;
+    createdAt: string;
+    updatedAt: string;
 }
 export interface CreateScheduledActionRequest {
-	actionType: ScheduledActionType;
-	frequency: ScheduledActionFrequency;
-	startDate: string;
-	actionData: AddExpenseActionData | AddBudgetActionData;
+    actionType: ScheduledActionType;
+    frequency: ScheduledActionFrequency;
+    startDate: string;
+    actionData: AddExpenseActionData | AddBudgetActionData;
 }
 export interface UpdateScheduledActionRequest {
-	id: string;
-	isActive?: boolean;
-	frequency?: ScheduledActionFrequency;
-	actionData?: AddExpenseActionData | AddBudgetActionData;
-	nextExecutionDate?: string;
-	skipNext?: boolean;
+    id: string;
+    isActive?: boolean;
+    frequency?: ScheduledActionFrequency;
+    actionData?: AddExpenseActionData | AddBudgetActionData;
+    nextExecutionDate?: string;
+    skipNext?: boolean;
 }
 export interface ScheduledActionDeleteRequest {
-	id: string;
+    id: string;
 }
 export interface ScheduledActionListRequest {
-	offset?: number;
-	limit?: number;
+    offset?: number;
+    limit?: number;
 }
 export interface ScheduledActionListResponse {
-	scheduledActions: ScheduledAction[];
-	totalCount: number;
-	hasMore: boolean;
+    scheduledActions: ScheduledAction[];
+    totalCount: number;
+    hasMore: boolean;
 }
 export interface ScheduledActionHistory {
-	id: string;
-	scheduledActionId: string;
-	userId: string;
-	actionType: ScheduledActionType;
-	executedAt: string;
-	executionStatus: "success" | "failed" | "started";
-	actionData: AddExpenseActionData | AddBudgetActionData;
-	resultData?: ScheduledActionResultData;
-	errorMessage?: string;
-	executionDurationMs?: number;
+    id: string;
+    scheduledActionId: string;
+    userId: string;
+    actionType: ScheduledActionType;
+    executedAt: string;
+    executionStatus: "success" | "failed" | "started";
+    actionData: AddExpenseActionData | AddBudgetActionData;
+    resultData?: ScheduledActionResultData;
+    errorMessage?: string;
+    executionDurationMs?: number;
 }
 export interface ScheduledActionHistoryListRequest {
-	offset?: number;
-	limit?: number;
-	scheduledActionId?: string;
-	actionType?: ScheduledActionType;
-	executionStatus?: "success" | "failed" | "started";
+    offset?: number;
+    limit?: number;
+    scheduledActionId?: string;
+    actionType?: ScheduledActionType;
+    executionStatus?: "success" | "failed" | "started";
 }
 export interface ScheduledActionHistoryListResponse {
-	history: ScheduledActionHistory[];
-	totalCount: number;
-	hasMore: boolean;
+    history: ScheduledActionHistory[];
+    totalCount: number;
+    hasMore: boolean;
 }
 import { z } from "zod";
-export declare const LoginFormSchema: z.ZodObject<
-	{
-		identifier: z.ZodString;
-		password: z.ZodString;
-	},
-	z.core.$strip
->;
-export declare const SignUpFormSchema: z.ZodObject<
-	{
-		firstName: z.ZodString;
-		lastName: z.ZodString;
-		username: z.ZodString;
-		email: z.ZodString;
-		password: z.ZodString;
-		confirmPassword: z.ZodString;
-	},
-	z.core.$strip
->;
-export declare const DashboardUserSchema: z.ZodObject<
-	{
-		Id: z.ZodString;
-		FirstName: z.ZodString;
-		percentage: z.ZodNumber;
-	},
-	z.core.$strip
->;
-export declare const DashboardCoreFieldsSchema: z.ZodObject<
-	{
-		amount: z.ZodNumber;
-		description: z.ZodString;
-		currency: z.ZodEnum<{
-			USD: "USD";
-			EUR: "EUR";
-			GBP: "GBP";
-			CAD: "CAD";
-		}>;
-	},
-	z.core.$strip
->;
-export declare const DashboardExpenseFieldsSchema: z.ZodObject<
-	{
-		paidBy: z.ZodString;
-		users: z.ZodArray<
-			z.ZodObject<
-				{
-					Id: z.ZodString;
-					FirstName: z.ZodString;
-					percentage: z.ZodNumber;
-				},
-				z.core.$strip
-			>
-		>;
-	},
-	z.core.$strip
->;
-export declare const DashboardBudgetFieldsSchema: z.ZodObject<
-	{
-		budgetId: z.ZodString;
-		creditDebit: z.ZodUnion<
-			readonly [z.ZodLiteral<"Credit">, z.ZodLiteral<"Debit">]
-		>;
-	},
-	z.core.$strip
->;
-export declare const DashboardActionSelectionSchema: z.ZodObject<
-	{
-		addExpense: z.ZodBoolean;
-		updateBudget: z.ZodBoolean;
-	},
-	z.core.$strip
->;
-export declare const DashboardFormSchema: z.ZodObject<
-	{
-		addExpense: z.ZodBoolean;
-		updateBudget: z.ZodBoolean;
-		amount: z.ZodOptional<z.ZodNumber>;
-		description: z.ZodString;
-		currency: z.ZodEnum<{
-			USD: "USD";
-			EUR: "EUR";
-			GBP: "GBP";
-			CAD: "CAD";
-		}>;
-		paidBy: z.ZodOptional<z.ZodString>;
-		users: z.ZodOptional<
-			z.ZodArray<
-				z.ZodObject<
-					{
-						Id: z.ZodString;
-						FirstName: z.ZodString;
-						percentage: z.ZodNumber;
-					},
-					z.core.$strip
-				>
-			>
-		>;
-		budgetId: z.ZodOptional<z.ZodString>;
-		creditDebit: z.ZodOptional<
-			z.ZodUnion<readonly [z.ZodLiteral<"Credit">, z.ZodLiteral<"Debit">]>
-		>;
-	},
-	z.core.$strip
->;
-export declare const AddExpenseActionSchema: z.ZodObject<
-	{
-		amount: z.ZodNumber;
-		description: z.ZodString;
-		currency: z.ZodString;
-		paidByUserId: z.ZodString;
-		splitPctShares: z.ZodRecord<z.ZodString, z.ZodNumber>;
-	},
-	z.core.$strip
->;
-export declare const AddBudgetActionSchema: z.ZodObject<
-	{
-		amount: z.ZodNumber;
-		description: z.ZodString;
-		budgetId: z.ZodString;
-		currency: z.ZodString;
-		type: z.ZodUnion<readonly [z.ZodLiteral<"Credit">, z.ZodLiteral<"Debit">]>;
-	},
-	z.core.$strip
->;
-export declare const CreateScheduledActionSchema: z.ZodObject<
-	{
-		actionType: z.ZodUnion<
-			readonly [z.ZodLiteral<"add_expense">, z.ZodLiteral<"add_budget">]
-		>;
-		frequency: z.ZodUnion<
-			readonly [
-				z.ZodLiteral<"daily">,
-				z.ZodLiteral<"weekly">,
-				z.ZodLiteral<"monthly">,
-			]
-		>;
-		startDate: z.ZodString;
-		actionData: z.ZodUnion<
-			readonly [
-				z.ZodObject<
-					{
-						amount: z.ZodNumber;
-						description: z.ZodString;
-						currency: z.ZodString;
-						paidByUserId: z.ZodString;
-						splitPctShares: z.ZodRecord<z.ZodString, z.ZodNumber>;
-					},
-					z.core.$strip
-				>,
-				z.ZodObject<
-					{
-						amount: z.ZodNumber;
-						description: z.ZodString;
-						budgetId: z.ZodString;
-						currency: z.ZodString;
-						type: z.ZodUnion<
-							readonly [z.ZodLiteral<"Credit">, z.ZodLiteral<"Debit">]
-						>;
-					},
-					z.core.$strip
-				>,
-			]
-		>;
-	},
-	z.core.$strip
->;
-export declare const UpdateScheduledActionSchema: z.ZodObject<
-	{
-		id: z.ZodString;
-		isActive: z.ZodOptional<z.ZodBoolean>;
-		frequency: z.ZodOptional<
-			z.ZodUnion<
-				readonly [
-					z.ZodLiteral<"daily">,
-					z.ZodLiteral<"weekly">,
-					z.ZodLiteral<"monthly">,
-				]
-			>
-		>;
-		actionData: z.ZodOptional<
-			z.ZodUnion<
-				readonly [
-					z.ZodObject<
-						{
-							amount: z.ZodNumber;
-							description: z.ZodString;
-							currency: z.ZodString;
-							paidByUserId: z.ZodString;
-							splitPctShares: z.ZodRecord<z.ZodString, z.ZodNumber>;
-						},
-						z.core.$strip
-					>,
-					z.ZodObject<
-						{
-							amount: z.ZodNumber;
-							description: z.ZodString;
-							budgetId: z.ZodString;
-							currency: z.ZodString;
-							type: z.ZodUnion<
-								readonly [z.ZodLiteral<"Credit">, z.ZodLiteral<"Debit">]
-							>;
-						},
-						z.core.$strip
-					>,
-				]
-			>
-		>;
-		nextExecutionDate: z.ZodOptional<z.ZodString>;
-		skipNext: z.ZodOptional<z.ZodBoolean>;
-	},
-	z.core.$strip
->;
-export declare const ScheduledActionListQuerySchema: z.ZodObject<
-	{
-		offset: z.ZodPipe<
-			z.ZodCatch<z.ZodCoercedNumber<unknown>>,
-			z.ZodTransform<number, number>
-		>;
-		limit: z.ZodPipe<
-			z.ZodCatch<z.ZodCoercedNumber<unknown>>,
-			z.ZodTransform<number, number>
-		>;
-	},
-	z.core.$strip
->;
-export declare const ScheduledActionHistoryQuerySchema: z.ZodObject<
-	{
-		offset: z.ZodPipe<
-			z.ZodCatch<z.ZodCoercedNumber<unknown>>,
-			z.ZodTransform<number, number>
-		>;
-		limit: z.ZodPipe<
-			z.ZodCatch<z.ZodCoercedNumber<unknown>>,
-			z.ZodTransform<number, number>
-		>;
-		scheduledActionId: z.ZodString;
-		executionStatus: z.ZodOptional<
-			z.ZodUnion<
-				readonly [
-					z.ZodLiteral<"success">,
-					z.ZodLiteral<"failed">,
-					z.ZodLiteral<"started">,
-				]
-			>
-		>;
-	},
-	z.core.$strip
->;
+export declare const LoginFormSchema: z.ZodObject<{
+    identifier: z.ZodString;
+    password: z.ZodString;
+}, z.core.$strip>;
+export declare const SignUpFormSchema: z.ZodObject<{
+    firstName: z.ZodString;
+    lastName: z.ZodString;
+    username: z.ZodString;
+    email: z.ZodString;
+    password: z.ZodString;
+    confirmPassword: z.ZodString;
+}, z.core.$strip>;
+export declare const DashboardUserSchema: z.ZodObject<{
+    Id: z.ZodString;
+    FirstName: z.ZodString;
+    percentage: z.ZodNumber;
+}, z.core.$strip>;
+export declare const DashboardCoreFieldsSchema: z.ZodObject<{
+    amount: z.ZodNumber;
+    description: z.ZodString;
+    currency: z.ZodEnum<{
+        USD: "USD";
+        EUR: "EUR";
+        GBP: "GBP";
+        CAD: "CAD";
+    }>;
+}, z.core.$strip>;
+export declare const DashboardExpenseFieldsSchema: z.ZodObject<{
+    paidBy: z.ZodString;
+    users: z.ZodArray<z.ZodObject<{
+        Id: z.ZodString;
+        FirstName: z.ZodString;
+        percentage: z.ZodNumber;
+    }, z.core.$strip>>;
+}, z.core.$strip>;
+export declare const DashboardBudgetFieldsSchema: z.ZodObject<{
+    budgetId: z.ZodString;
+    creditDebit: z.ZodUnion<readonly [z.ZodLiteral<"Credit">, z.ZodLiteral<"Debit">]>;
+}, z.core.$strip>;
+export declare const DashboardActionSelectionSchema: z.ZodObject<{
+    addExpense: z.ZodBoolean;
+    updateBudget: z.ZodBoolean;
+}, z.core.$strip>;
+export declare const DashboardFormSchema: z.ZodObject<{
+    addExpense: z.ZodBoolean;
+    updateBudget: z.ZodBoolean;
+    amount: z.ZodOptional<z.ZodNumber>;
+    description: z.ZodString;
+    currency: z.ZodEnum<{
+        USD: "USD";
+        EUR: "EUR";
+        GBP: "GBP";
+        CAD: "CAD";
+    }>;
+    paidBy: z.ZodOptional<z.ZodString>;
+    users: z.ZodOptional<z.ZodArray<z.ZodObject<{
+        Id: z.ZodString;
+        FirstName: z.ZodString;
+        percentage: z.ZodNumber;
+    }, z.core.$strip>>>;
+    budgetId: z.ZodOptional<z.ZodString>;
+    creditDebit: z.ZodOptional<z.ZodUnion<readonly [z.ZodLiteral<"Credit">, z.ZodLiteral<"Debit">]>>;
+}, z.core.$strip>;
+export declare const AddExpenseActionSchema: z.ZodObject<{
+    amount: z.ZodNumber;
+    description: z.ZodString;
+    currency: z.ZodString;
+    paidByUserId: z.ZodString;
+    splitPctShares: z.ZodRecord<z.ZodString, z.ZodNumber>;
+}, z.core.$strip>;
+export declare const AddBudgetActionSchema: z.ZodObject<{
+    amount: z.ZodNumber;
+    description: z.ZodString;
+    budgetId: z.ZodString;
+    currency: z.ZodString;
+    type: z.ZodUnion<readonly [z.ZodLiteral<"Credit">, z.ZodLiteral<"Debit">]>;
+}, z.core.$strip>;
+export declare const CreateScheduledActionSchema: z.ZodObject<{
+    actionType: z.ZodUnion<readonly [z.ZodLiteral<"add_expense">, z.ZodLiteral<"add_budget">]>;
+    frequency: z.ZodUnion<readonly [z.ZodLiteral<"daily">, z.ZodLiteral<"weekly">, z.ZodLiteral<"monthly">]>;
+    startDate: z.ZodString;
+    actionData: z.ZodUnion<readonly [z.ZodObject<{
+        amount: z.ZodNumber;
+        description: z.ZodString;
+        currency: z.ZodString;
+        paidByUserId: z.ZodString;
+        splitPctShares: z.ZodRecord<z.ZodString, z.ZodNumber>;
+    }, z.core.$strip>, z.ZodObject<{
+        amount: z.ZodNumber;
+        description: z.ZodString;
+        budgetId: z.ZodString;
+        currency: z.ZodString;
+        type: z.ZodUnion<readonly [z.ZodLiteral<"Credit">, z.ZodLiteral<"Debit">]>;
+    }, z.core.$strip>]>;
+}, z.core.$strip>;
+export declare const UpdateScheduledActionSchema: z.ZodObject<{
+    id: z.ZodString;
+    isActive: z.ZodOptional<z.ZodBoolean>;
+    frequency: z.ZodOptional<z.ZodUnion<readonly [z.ZodLiteral<"daily">, z.ZodLiteral<"weekly">, z.ZodLiteral<"monthly">]>>;
+    actionData: z.ZodOptional<z.ZodUnion<readonly [z.ZodObject<{
+        amount: z.ZodNumber;
+        description: z.ZodString;
+        currency: z.ZodString;
+        paidByUserId: z.ZodString;
+        splitPctShares: z.ZodRecord<z.ZodString, z.ZodNumber>;
+    }, z.core.$strip>, z.ZodObject<{
+        amount: z.ZodNumber;
+        description: z.ZodString;
+        budgetId: z.ZodString;
+        currency: z.ZodString;
+        type: z.ZodUnion<readonly [z.ZodLiteral<"Credit">, z.ZodLiteral<"Debit">]>;
+    }, z.core.$strip>]>>;
+    nextExecutionDate: z.ZodOptional<z.ZodString>;
+    skipNext: z.ZodOptional<z.ZodBoolean>;
+}, z.core.$strip>;
+export declare const ScheduledActionListQuerySchema: z.ZodObject<{
+    offset: z.ZodPipe<z.ZodCatch<z.ZodCoercedNumber<unknown>>, z.ZodTransform<number, number>>;
+    limit: z.ZodPipe<z.ZodCatch<z.ZodCoercedNumber<unknown>>, z.ZodTransform<number, number>>;
+}, z.core.$strip>;
+export declare const ScheduledActionHistoryQuerySchema: z.ZodObject<{
+    offset: z.ZodPipe<z.ZodCatch<z.ZodCoercedNumber<unknown>>, z.ZodTransform<number, number>>;
+    limit: z.ZodPipe<z.ZodCatch<z.ZodCoercedNumber<unknown>>, z.ZodTransform<number, number>>;
+    scheduledActionId: z.ZodString;
+    executionStatus: z.ZodOptional<z.ZodUnion<readonly [z.ZodLiteral<"success">, z.ZodLiteral<"failed">, z.ZodLiteral<"started">]>>;
+}, z.core.$strip>;
 export type LoginFormInput = z.infer<typeof LoginFormSchema>;
 export type SignUpFormInput = z.infer<typeof SignUpFormSchema>;
 export type DashboardFormInput = z.infer<typeof DashboardFormSchema>;
 export type DashboardUserInput = z.infer<typeof DashboardUserSchema>;
-export type DashboardCoreFieldsInput = z.infer<
-	typeof DashboardCoreFieldsSchema
->;
-export type DashboardExpenseFieldsInput = z.infer<
-	typeof DashboardExpenseFieldsSchema
->;
-export type DashboardBudgetFieldsInput = z.infer<
-	typeof DashboardBudgetFieldsSchema
->;
-export type DashboardActionSelectionInput = z.infer<
-	typeof DashboardActionSelectionSchema
->;
-export type CreateScheduledActionInput = z.infer<
-	typeof CreateScheduledActionSchema
->;
-export type UpdateScheduledActionInput = z.infer<
-	typeof UpdateScheduledActionSchema
->;
-export type ScheduledActionListQuery = z.infer<
-	typeof ScheduledActionListQuerySchema
->;
-export type ScheduledActionHistoryQuery = z.infer<
-	typeof ScheduledActionHistoryQuerySchema
->;
-export type UpdateGroupMetadataRequestInput = z.infer<
-	typeof UpdateGroupMetadataRequestSchema
->;
+export type DashboardCoreFieldsInput = z.infer<typeof DashboardCoreFieldsSchema>;
+export type DashboardExpenseFieldsInput = z.infer<typeof DashboardExpenseFieldsSchema>;
+export type DashboardBudgetFieldsInput = z.infer<typeof DashboardBudgetFieldsSchema>;
+export type DashboardActionSelectionInput = z.infer<typeof DashboardActionSelectionSchema>;
+export type CreateScheduledActionInput = z.infer<typeof CreateScheduledActionSchema>;
+export type UpdateScheduledActionInput = z.infer<typeof UpdateScheduledActionSchema>;
+export type ScheduledActionListQuery = z.infer<typeof ScheduledActionListQuerySchema>;
+export type ScheduledActionHistoryQuery = z.infer<typeof ScheduledActionHistoryQuerySchema>;
+export type UpdateGroupMetadataRequestInput = z.infer<typeof UpdateGroupMetadataRequestSchema>;
 export interface SeedRequest {
-	users?: Array<{
-		alias: string;
-		name?: string;
-		email?: string;
-		password?: string;
-		username?: string;
-	}>;
-	groups?: Array<{
-		alias: string;
-		name?: string;
-		members: string[];
-		defaultCurrency?: string;
-		budgets?: Array<{
-			alias: string;
-			name: string;
-			description?: string;
-		}>;
-		metadata?: Record<string, unknown>;
-	}>;
-	transactions?: Array<{
-		alias: string;
-		group: string;
-		description?: string;
-		amount: number;
-		currency?: string;
-		paidByShares: Record<string, number>;
-		splitPctShares: Record<string, number>;
-		createdAt?: string;
-	}>;
-	budgetEntries?: Array<{
-		alias: string;
-		group: string;
-		budget: string;
-		description?: string;
-		amount: number;
-		currency?: string;
-		addedTime?: string;
-	}>;
-	scheduledActions?: unknown[];
-	authenticate?: string[];
+    users?: Array<{
+        alias: string;
+        name?: string;
+        email?: string;
+        password?: string;
+        username?: string;
+    }>;
+    groups?: Array<{
+        alias: string;
+        name?: string;
+        members: string[];
+        defaultCurrency?: string;
+        budgets?: Array<{
+            alias: string;
+            name: string;
+            description?: string;
+        }>;
+        metadata?: Record<string, unknown>;
+    }>;
+    transactions?: Array<{
+        alias: string;
+        group: string;
+        description?: string;
+        amount: number;
+        currency?: string;
+        paidByShares: Record<string, number>;
+        splitPctShares: Record<string, number>;
+        createdAt?: string;
+    }>;
+    budgetEntries?: Array<{
+        alias: string;
+        group: string;
+        budget: string;
+        description?: string;
+        amount: number;
+        currency?: string;
+        addedTime?: string;
+    }>;
+    expenseBudgetLinks?: Array<{
+        transaction: string;
+        budgetEntry: string;
+    }>;
+    scheduledActions?: unknown[];
+    authenticate?: string[];
 }
 export interface SeedCookie {
-	name: string;
-	value: string;
-	domain: string;
-	path: string;
-	sameSite: "Lax" | "Strict" | "None";
-	httpOnly: boolean;
-	secure: boolean;
-	expires?: number;
+    name: string;
+    value: string;
+    domain: string;
+    path: string;
+    sameSite: "Lax" | "Strict" | "None";
+    httpOnly: boolean;
+    secure: boolean;
+    expires?: number;
 }
 export interface SeedResponse {
-	ids: {
-		users: Record<
-			string,
-			{
-				id: string;
-				email: string;
-				username: string;
-			}
-		>;
-		groups: Record<
-			string,
-			{
-				id: string;
-			}
-		>;
-		transactions: Record<
-			string,
-			{
-				id: string;
-			}
-		>;
-		budgetEntries: Record<
-			string,
-			{
-				id: string;
-			}
-		>;
-	};
-	sessions: Record<
-		string,
-		{
-			cookies: SeedCookie[];
-		}
-	>;
+    ids: {
+        users: Record<string, {
+            id: string;
+            email: string;
+            username: string;
+        }>;
+        groups: Record<string, {
+            id: string;
+        }>;
+        transactions: Record<string, {
+            id: string;
+        }>;
+        budgetEntries: Record<string, {
+            id: string;
+        }>;
+        expenseBudgetLinks: Record<string, {
+            id: string;
+        }>;
+    };
+    sessions: Record<string, {
+        cookies: SeedCookie[];
+    }>;
+}
+export interface ExpenseBudgetLink {
+    id: string;
+    transactionId: string;
+    budgetEntryId: string;
+    groupId: string;
+    createdAt: string;
 }

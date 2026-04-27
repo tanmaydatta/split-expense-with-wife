@@ -9,6 +9,7 @@ import { getDb } from "../db";
 import { user as userTable } from "../db/schema/auth-schema";
 import {
   budgetEntries,
+  expenseBudgetLinks as ebl,
   groupBudgets,
   groups,
   transactions,
@@ -762,5 +763,69 @@ describe("POST /test/seed atomicity", () => {
     expect((await db.select().from(groupBudgets)).length).toBe(1);
     expect((await db.select().from(budgetEntries)).length).toBe(1);
     expect((await db.select().from(transactions)).length).toBe(1);
+  });
+});
+
+describe("POST /test/seed expense_budget_links", () => {
+  beforeEach(async () => {
+    env.E2E_SEED_SECRET = TEST_SECRET;
+    await completeCleanupDatabase(env);
+    await setupDatabase(env);
+  });
+
+  afterEach(() => {
+    env.E2E_SEED_SECRET = ORIGINAL_SECRET;
+  });
+
+  it("creates a link between transaction and budget entry", async () => {
+    const res = await postSeed({
+      users: [{ alias: "u" }],
+      groups: [{
+        alias: "g",
+        members: ["u"],
+        budgets: [{ alias: "groceries", name: "Groceries" }],
+      }],
+      transactions: [{
+        alias: "t",
+        group: "g",
+        amount: 50,
+        paidByShares: { u: 50 },
+        splitPctShares: { u: 100 },
+      }],
+      budgetEntries: [{
+        alias: "be",
+        group: "g",
+        budget: "groceries",
+        amount: 50,
+      }],
+      expenseBudgetLinks: [{ transaction: "t", budgetEntry: "be" }],
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      ids: {
+        groups: Record<string, { id: string }>;
+        transactions: Record<string, { id: string }>;
+        budgetEntries: Record<string, { id: string }>;
+        expenseBudgetLinks: Record<string, { id: string }>;
+      };
+    };
+
+    const db = getDb(env);
+    const links = await db.select().from(ebl);
+    expect(links.length).toBe(1);
+    expect(links[0].transactionId).toBe(body.ids.transactions.t.id);
+    expect(links[0].budgetEntryId).toBe(body.ids.budgetEntries.be.id);
+    expect(links[0].groupId).toBe(body.ids.groups.g.id);
+    expect(body.ids.expenseBudgetLinks.t_be).toBeDefined();
+    expect(body.ids.expenseBudgetLinks.t_be.id).toBe(links[0].id);
+  });
+
+  it("400s on link to unknown alias", async () => {
+    const res = await postSeed({
+      users: [{ alias: "u" }],
+      groups: [{ alias: "g", members: ["u"] }],
+      expenseBudgetLinks: [{ transaction: "ghost", budgetEntry: "nope" }],
+    });
+    expect(res.status).toBe(400);
   });
 });
