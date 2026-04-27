@@ -80,10 +80,10 @@ enabled = true
     migrations_dir = "src/db/migrations"
 
     [env.dev.vars]
-    ALLOWED_ORIGINS = "https://splitexpense-dev.tanmaydatta.workers.dev,https://splitexpense.netlify.app,https://deploy-preview-5--splitexpense.netlify.app,http://localhost:3000,http://localhost:3001"
+    ALLOWED_ORIGINS = "https://budget-dev.wastd.dev,https://splitexpense-dev.tanmaydatta.workers.dev,https://splitexpense.netlify.app,https://deploy-preview-5--splitexpense.netlify.app,http://localhost:3000,http://localhost:3001"
     GROUP_IDS = ""
-    BASE_URL = "https://splitexpense-dev.tanmaydatta.workers.dev/auth"
-    AUTH_TRUSTED_ORIGINS = ["https://splitexpense-dev.tanmaydatta.workers.dev"]
+    BASE_URL = "https://budget-dev.wastd.dev/auth"
+    AUTH_TRUSTED_ORIGINS = ["https://budget-dev.wastd.dev","https://splitexpense-dev.tanmaydatta.workers.dev"]
     LOCAL = false
 
     [[env.dev.workflows]]

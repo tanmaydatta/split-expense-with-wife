@@ -24,7 +24,7 @@ const useLocalBackend = backendUrl.startsWith("http://localhost");
  *
  * Backend selection:
  *   - default: local cf-worker via wrangler dev (http://localhost:8787)
- *   - override: E2E_BACKEND_URL=https://splitexpense-dev.tanmaydatta.workers.dev
+ *   - override: E2E_BACKEND_URL=https://budget-dev.wastd.dev
  *     (skips fixture-based tests automatically)
  */
 export default defineConfig({

@@ -10,7 +10,7 @@
 		"deploy:dev": "yarn build:ui && yarn clean:redirects && vitest run && wrangler deploy -e dev && yarn seed:dummy:dev",
 		"deploy:prod": "yarn build:ui && yarn clean:redirects && vitest run && wrangler deploy -e prod",
 		"seed:dummy": "node scripts/seed-dummy.mjs",
-		"seed:dummy:dev": "SEED_BACKEND_URL=https://splitexpense-dev.tanmaydatta.workers.dev node scripts/seed-dummy.mjs",
+		"seed:dummy:dev": "SEED_BACKEND_URL=https://budget-dev.wastd.dev node scripts/seed-dummy.mjs",
 		"build": "wrangler publish --dry-run",
 		"test": "yarn clean:redirects && vitest run --no-file-parallelism",
 		"test:coverage": "yarn clean:redirects && vitest run --no-file-parallelism --coverage",
