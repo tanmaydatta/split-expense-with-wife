@@ -206,8 +206,11 @@ Get paginated list of transactions.
 ```typescript
 {
     offset: number;
+    q?: string;   // optional substring filter
 }
 ```
+
+**Optional `q` parameter:** Filters results to entries whose `description` contains `q` (case-insensitive) or whose stringified `amount` contains `q`. Trimmed on the server; whitespace-only values are ignored. Max 100 characters — requests exceeding this length return 400. The characters `%`, `_`, and `\` are matched literally (not as SQL wildcards).
 
 **Response:**
 ```typescript
@@ -261,8 +264,13 @@ Get paginated budget entries. Each entry includes a `linkedTransactionIds` field
 {
     budgetId: string;    // budget category ID
     offset: number;
+    q?: string;          // optional substring filter
 }
 ```
+
+**Optional `q` parameter:** Filters results to entries whose `description` contains `q` (case-insensitive) or whose stringified `amount` contains `q`. Trimmed on the server; whitespace-only values are ignored. Max 100 characters — requests exceeding this length return 400. The characters `%`, `_`, and `\` are matched literally (not as SQL wildcards).
+
+> **Note:** The `/budget_total` endpoint is not affected by `q` — it always returns totals over all entries.
 
 **Response:**
 ```typescript
