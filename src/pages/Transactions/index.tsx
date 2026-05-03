@@ -23,7 +23,7 @@ import {
 } from "@/hooks/useTransactions";
 import { dateToFullStr } from "@/utils/date";
 import getSymbolFromCurrency from "currency-symbol-map";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useSelector } from "react-redux";
 import { useSearchParams } from "react-router-dom";
 import type {
@@ -187,16 +187,26 @@ const Transactions: React.FC = () => {
 	const initialTransactionsQuery = useTransactionsList(0, data?.user?.id, q);
 	const deleteTransactionMutation = useDeleteTransaction();
 
-	// Reset accumulated list when q changes
+	// Track the last q value we've synced into local state. This lets us
+	// re-populate on every successful fetch for the current q (including
+	// delete-triggered refetches) while still resetting when q changes.
+	const lastSyncedQRef = useRef<string | null>(null);
+
+	// Reset accumulated list when q changes (provides clean visual during refetch)
 	useEffect(() => {
 		setTransactions([]);
 	}, [q]);
 
 	useEffect(() => {
-		if (initialTransactionsQuery.data && transactions.length === 0) {
+		if (
+			initialTransactionsQuery.isSuccess &&
+			initialTransactionsQuery.data &&
+			lastSyncedQRef.current !== q
+		) {
 			setTransactions(initialTransactionsQuery.data);
+			lastSyncedQRef.current = q;
 		}
-	}, [initialTransactionsQuery.data, transactions.length]);
+	}, [initialTransactionsQuery.data, initialTransactionsQuery.isSuccess, q]);
 
 	const handleSetQ = (next: string) => {
 		const params = new URLSearchParams(searchParams);

@@ -71,7 +71,6 @@ export function useTransactionsList(
 			return processTransactionData(response, userId);
 		},
 		staleTime: 2 * 60 * 1000,
-		placeholderData: (prev) => prev,
 	});
 }
 
