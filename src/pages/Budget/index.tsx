@@ -14,7 +14,7 @@ import {
 	useInfiniteBudgetHistory,
 	useLoadMoreBudgetHistory,
 } from "@/hooks/useBudget";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { BudgetEntry, ReduxState } from "split-expense-shared-types";
@@ -40,6 +40,12 @@ export const Budget: React.FC = () => {
 
 	const navigate = useNavigate();
 
+	// Track the last q+budget combo we've synced into local state so that a
+	// stale cache hit for the same key doesn't get overwritten by the reset
+	// effect that fires in the same render cycle (mirrors the Transactions page
+	// pattern with lastSyncedQRef).
+	const lastSyncedKeyRef = useRef<string | null>(null);
+
 	const handleChangeBudget = (val: string) => {
 		setBudget(val);
 		// Clear q whenever the selected budget changes
@@ -61,16 +67,20 @@ export const Budget: React.FC = () => {
 		}
 	}, [budgets, budget]);
 
-	useEffect(() => {
-		if (budgetHistoryQuery.data) {
-			setBudgetHistory(budgetHistoryQuery.data);
-		}
-	}, [budgetHistoryQuery.data]);
-
-	// Reset accumulated history when q or budget changes
+	// Reset accumulated history when q or budget changes (provides clean visual
+	// during refetch). Must run BEFORE the data-sync effect (declaration order).
 	useEffect(() => {
 		setBudgetHistory([]);
+		lastSyncedKeyRef.current = null;
 	}, [q, budget]);
+
+	useEffect(() => {
+		const key = `${budget}:${q}`;
+		if (budgetHistoryQuery.data && lastSyncedKeyRef.current !== key) {
+			setBudgetHistory(budgetHistoryQuery.data);
+			lastSyncedKeyRef.current = key;
+		}
+	}, [budgetHistoryQuery.data, budget, q]);
 
 	const handleDeleteBudgetEntry = (id: string) => {
 		deleteBudgetMutation.mutate(id);

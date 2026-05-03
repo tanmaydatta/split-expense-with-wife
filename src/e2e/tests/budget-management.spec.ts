@@ -769,6 +769,10 @@ test.describe("Budget Management", () => {
 			});
 		}
 
+		// The budget_list query filters addedTime < currentTime (second-precision).
+		// Wait >1 s so seeded entries are strictly in the past when the page loads.
+		await page.waitForTimeout(1100);
+
 		await page.goto("/budget");
 		await page.waitForLoadState("networkidle");
 
@@ -776,11 +780,9 @@ test.describe("Budget Management", () => {
 		const rowSelector =
 			'[data-test-id="budget-entry-item"], [data-test-id="budget-entry-card"]';
 
-		// Select the "house" budget to make sure both entries are visible
-		await page.locator('[data-test-id="budget-radio-house"]').click();
-		await page.waitForLoadState("networkidle");
-
-		await page.waitForSelector(rowSelector);
+		// The page auto-selects the first budget on load. Poll until entries appear
+		// (React may render after networkidle since the query fires after Redux hydrates).
+		await expect.poll(async () => page.locator(rowSelector).count(), { timeout: 15000 }).toBeGreaterThan(0);
 		const before = await page.locator(rowSelector).count();
 		expect(before).toBeGreaterThan(0);
 
@@ -807,8 +809,8 @@ test.describe("Budget Management", () => {
 		await page.waitForTimeout(400);
 		await page.waitForLoadState("networkidle");
 		await expect(page).not.toHaveURL(/\?q=/);
-		const restored = await page.locator(rowSelector).count();
-		expect(restored).toBe(before);
+		// Poll until the full list reappears (React re-render may lag behind networkidle)
+		await expect.poll(async () => page.locator(rowSelector).count(), { timeout: 10000 }).toBe(before);
 	});
 
 	test("changing the selected budget clears the search query", async ({

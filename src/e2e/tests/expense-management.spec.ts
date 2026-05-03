@@ -666,9 +666,9 @@ test.describe("Expense Management", () => {
 		const rowSelector =
 			'[data-test-id="transaction-item"], [data-test-id="transaction-card"]';
 
-		await page.waitForSelector(
-			'[data-test-id="transaction-item"], [data-test-id="transaction-card"]',
-		);
+		// Use expect.poll + count() rather than waitForSelector so that on mobile
+		// viewports (where desktop table rows are CSS-hidden) the check still works.
+		await expect.poll(async () => page.locator(rowSelector).count(), { timeout: 15000 }).toBeGreaterThan(0);
 		const allRows = await page.locator(rowSelector).count();
 		expect(allRows).toBeGreaterThan(0);
 
