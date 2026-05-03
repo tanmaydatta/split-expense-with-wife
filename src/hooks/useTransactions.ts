@@ -52,76 +52,66 @@ export function processTransactionData(
 }
 
 // Hook for fetching transactions with pagination
-export function useTransactionsList(offset: number = 0, userId?: string) {
+export function useTransactionsList(
+	offset: number = 0,
+	userId?: string,
+	q?: string,
+) {
 	return useQuery({
-		queryKey: ["transactions", "list", offset],
+		queryKey: ["transactions", "list", offset, q ?? ""],
 		queryFn: async () => {
-			const request: TransactionsListRequest = { offset };
+			const request: TransactionsListRequest = {
+				offset,
+				...(q ? { q } : {}),
+			};
 			const response: TransactionsListResponse = await typedApi.post(
 				"/transactions_list",
 				request,
 			);
 			return processTransactionData(response, userId);
 		},
-		staleTime: 2 * 60 * 1000, // 2 minutes
-		placeholderData: (prev) => prev,
+		staleTime: 2 * 60 * 1000,
 	});
 }
 
 // Hook for infinite loading transactions
-export function useInfiniteTransactionsList(userId?: string) {
+export function useInfiniteTransactionsList(userId?: string, q?: string) {
 	const queryClient = useQueryClient();
+	const cacheKey = ["transactions", "infinite", q ?? ""] as const;
 
 	return {
-		// Get current transactions from cache
 		transactions:
-			queryClient.getQueryData<FrontendTransaction[]>([
-				"transactions",
-				"infinite",
-			]) || [],
+			queryClient.getQueryData<FrontendTransaction[]>(cacheKey) || [],
 
-		// Load more transactions
 		loadMore: async (currentTransactions: FrontendTransaction[]) => {
 			const offset = currentTransactions.length;
-			const request: TransactionsListRequest = { offset };
-
-			try {
-				const response: TransactionsListResponse = await typedApi.post(
-					"/transactions_list",
-					request,
-				);
-
-				const newTransactions = processTransactionData(response, userId);
-				const allTransactions = [...currentTransactions, ...newTransactions];
-
-				// Update cache
-				queryClient.setQueryData<FrontendTransaction[]>(
-					["transactions", "infinite"],
-					allTransactions,
-				);
-
-				return newTransactions;
-			} catch (error) {
-				throw error;
-			}
-		},
-
-		// Reset to initial load
-		reset: async () => {
-			const request: TransactionsListRequest = { offset: 0 };
+			const request: TransactionsListRequest = {
+				offset,
+				...(q ? { q } : {}),
+			};
 			const response: TransactionsListResponse = await typedApi.post(
 				"/transactions_list",
 				request,
 			);
+			const newTransactions = processTransactionData(response, userId);
+			queryClient.setQueryData<FrontendTransaction[]>(cacheKey, [
+				...currentTransactions,
+				...newTransactions,
+			]);
+			return newTransactions;
+		},
 
-			const transactions = processTransactionData(response, userId);
-
-			// Update cache
-			queryClient.setQueryData<FrontendTransaction[]>(
-				["transactions", "infinite"],
-				transactions,
+		reset: async () => {
+			const request: TransactionsListRequest = {
+				offset: 0,
+				...(q ? { q } : {}),
+			};
+			const response: TransactionsListResponse = await typedApi.post(
+				"/transactions_list",
+				request,
 			);
-
+			const transactions = processTransactionData(response, userId);
+			queryClient.setQueryData<FrontendTransaction[]>(cacheKey, transactions);
 			return transactions;
 		},
 	};

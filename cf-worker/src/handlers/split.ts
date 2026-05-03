@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { ulid } from "ulid";
 import type {
 	SplitDeleteRequest,
@@ -23,6 +23,7 @@ import {
 	generateDrizzleBalanceUpdates,
 	withAuth,
 } from "../utils";
+import { buildLikePattern, MAX_Q_LENGTH } from "../utils/search";
 import { createSplitTransactionFromRequest } from "../utils/scheduled-action-execution";
 
 // Helper function to create split transaction
@@ -65,14 +66,26 @@ async function getTransactionsList(
 }> {
 	// Convert groupId to string to match database type
 	const groupIdStr = String(groupId);
+	const pattern = buildLikePattern(body.q);
+
+	const baseConditions = [
+		eq(transactions.groupId, groupIdStr),
+		isNull(transactions.deleted),
+	];
+	if (pattern) {
+		const filterCondition = or(
+			sql`LOWER(${transactions.description}) LIKE LOWER(${pattern}) ESCAPE '\\'`,
+			sql`CAST(${transactions.amount} AS TEXT) LIKE ${pattern} ESCAPE '\\'`,
+		);
+		// biome-ignore lint/style/noNonNullAssertion: or() with two defined args always returns SQL
+		baseConditions.push(filterCondition!);
+	}
 
 	// Get transactions list using Drizzle
 	const rawTransactionsList = await db
 		.select()
 		.from(transactions)
-		.where(
-			and(eq(transactions.groupId, groupIdStr), isNull(transactions.deleted)),
-		)
+		.where(and(...baseConditions))
 		.orderBy(desc(transactions.createdAt))
 		.limit(10)
 		.offset(body.offset);
@@ -414,6 +427,9 @@ export async function handleTransactionsList(
 			}
 
 			const body = (await request.json()) as TransactionsListRequest;
+			if (body.q && body.q.trim().length > MAX_Q_LENGTH) {
+				return createErrorResponse("q too long", 400, request, env);
+			}
 			const response = await getTransactionsList(
 				body,
 				session.group.groupid,

@@ -18,8 +18,8 @@ All custom React hooks wrapping React Query for server state management. Located
 
 | Hook | Type | Query Key | Stale Time | Notes |
 |------|------|-----------|------------|-------|
-| `useTransactionsList` | Query | `["transactions", "list", offset]` | 2 min | Paginated, processes raw data to frontend format; each item carries `linkedBudgetEntryIds` |
-| `useInfiniteTransactionsList` | Query | `["transactions", "infinite"]` | 2 min | Manual pagination (not useInfiniteQuery) |
+| `useTransactionsList(offset, q?)` | Query | `["transactions", "list", offset, q]` | 2 min | Paginated, processes raw data to frontend format; each item carries `linkedBudgetEntryIds`. Optional `q` filters by description/amount substring; included in the cache key so different `q` values get distinct cache entries. |
+| `useInfiniteTransactionsList(q?)` | Query | `["transactions", "infinite", q]` | 2 min | Manual pagination (not useInfiniteQuery). Optional `q` filters by description/amount substring; included in the cache key so different `q` values get distinct cache entries. |
 | `useDeleteTransaction` | Mutation | — | — | See cache invalidation matrix below |
 
 ### useTransaction (`useTransaction.ts`)
@@ -32,10 +32,11 @@ All custom React hooks wrapping React Query for server state management. Located
 
 | Hook | Type | Query Key | Stale Time | Notes |
 |------|------|-----------|------------|-------|
-| `useBudgetTotal` | Query | `["budget", "total", budgetId]` | 2 min | Current balance by currency |
+| `useBudgetTotal(budget)` | Query | `["budget", "total", budgetId]` | 2 min | Current balance by currency. Unchanged — not affected by `q`. |
 | `useBudgetHistory` | Query | `["budget", "history", budgetId, offset]` | 1 min | Paginated entries; each carries `linkedTransactionIds` |
 | `useDeleteBudgetEntry` | Mutation | — | — | See cache invalidation matrix below |
-| `useLoadMoreBudgetHistory` | — | — | — | Manual load-more helper |
+| `useInfiniteBudgetHistory(budgetId, q?)` | Query | `["budget", "history", budgetId, "infinite", q]` | 1 min | Infinite-scroll variant. Optional `q` filters by description/amount substring; included in the cache key so different `q` values get distinct cache entries. |
+| `useLoadMoreBudgetHistory(budgetId, q?)` | — | — | — | Manual load-more helper. Passes optional `q` through to `useInfiniteBudgetHistory`; included in the cache key. |
 
 ### useBudgetEntry (`useBudgetEntry.ts`)
 

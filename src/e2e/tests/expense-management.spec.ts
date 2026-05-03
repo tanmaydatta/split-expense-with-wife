@@ -630,4 +630,109 @@ test.describe("Expense Management", () => {
 			await page.setViewportSize(currentViewport);
 		}
 	});
+
+	test("filters expenses by description substring", async ({ seed, page }) => {
+		// Seed two transactions: one containing "Coffee" and one that does not.
+		// "Coffee" is the discriminating substring — it appears in exactly one row.
+		await seed({
+			users: [factories.user({ alias: "u" }), factories.user({ alias: "u2" })],
+			groups: [factories.group({ alias: "g", members: ["u", "u2"] })],
+			transactions: [
+				factories.transaction({
+					alias: "t1",
+					group: "g",
+					paidBy: "u",
+					splitAcross: ["u", "u2"],
+					amount: 5,
+					currency: "GBP",
+					description: "Morning Coffee",
+				}),
+				factories.transaction({
+					alias: "t2",
+					group: "g",
+					paidBy: "u",
+					splitAcross: ["u", "u2"],
+					amount: 80,
+					currency: "GBP",
+					description: "Grocery shopping",
+				}),
+			],
+			authenticate: ["u"],
+		});
+
+		await page.goto("/expenses");
+
+		// Row locator works for both desktop (transaction-item) and mobile (transaction-card)
+		const rowSelector =
+			'[data-test-id="transaction-item"], [data-test-id="transaction-card"]';
+
+		// Use expect.poll + count() rather than waitForSelector so that on mobile
+		// viewports (where desktop table rows are CSS-hidden) the check still works.
+		await expect.poll(async () => page.locator(rowSelector).count(), { timeout: 15000 }).toBeGreaterThan(0);
+		const allRows = await page.locator(rowSelector).count();
+		expect(allRows).toBeGreaterThan(0);
+
+		// Type the search substring
+		await page.locator('[data-test-id="search-input"]').fill("Coffee");
+
+		// Wait for debounce + network
+		await page.waitForTimeout(400);
+		await page.waitForLoadState("networkidle");
+
+		// URL reflects the query
+		await expect(page).toHaveURL(/\?q=Coffee/);
+
+		// Only matching rows remain — each one must contain "Coffee"
+		const filtered = page.locator(rowSelector);
+		await expect.poll(async () => filtered.count()).toBeGreaterThan(0);
+		for (const row of await filtered.all()) {
+			const text = await row.textContent();
+			expect(text?.toLowerCase()).toContain("coffee");
+		}
+
+		// Clear button restores full list
+		await page.locator('[data-test-id="search-clear-button"]').click();
+		await page.waitForTimeout(400);
+		await page.waitForLoadState("networkidle");
+		await expect(page).not.toHaveURL(/\?q=/);
+		const restored = await page.locator(rowSelector).count();
+		expect(restored).toBe(allRows);
+	});
+
+	test("expense search persists across page refresh", async ({ seed, page }) => {
+		// Seed a transaction containing "Coffee" so the search returns results.
+		await seed({
+			users: [factories.user({ alias: "u" }), factories.user({ alias: "u2" })],
+			groups: [factories.group({ alias: "g", members: ["u", "u2"] })],
+			transactions: [
+				factories.transaction({
+					alias: "t1",
+					group: "g",
+					paidBy: "u",
+					splitAcross: ["u", "u2"],
+					amount: 5,
+					currency: "GBP",
+					description: "Morning Coffee",
+				}),
+			],
+			authenticate: ["u"],
+		});
+
+		await page.goto("/expenses?q=Coffee");
+		await page.waitForLoadState("networkidle");
+
+		// Search input must be pre-populated from the URL query param
+		await expect(page.locator('[data-test-id="search-input"]')).toHaveValue(
+			"Coffee",
+		);
+
+		// Every visible row must contain "Coffee" in its text
+		const rowSelector =
+			'[data-test-id="transaction-item"], [data-test-id="transaction-card"]';
+		const rows = page.locator(rowSelector);
+		for (const row of await rows.all()) {
+			const text = await row.textContent();
+			expect(text?.toLowerCase()).toContain("coffee");
+		}
+	});
 });

@@ -1,0 +1,31 @@
+.search-input-wrapper {
+	position: relative;
+	display: flex;
+	align-items: center;
+	margin: 12px 0;
+	width: 100%;
+}
+
+.search-input {
+	width: 100%;
+	padding: 8px 32px 8px 12px;
+	border: 1px solid #ccc;
+	border-radius: 6px;
+	font-size: 14px;
+	box-sizing: border-box;
+}
+
+.search-clear-button {
+	position: absolute;
+	right: 6px;
+	background: transparent;
+	border: none;
+	font-size: 18px;
+	line-height: 1;
+	cursor: pointer;
+	padding: 4px 8px;
+	color: #666;
+}
+.search-clear-button:hover {
+	color: #000;
+}

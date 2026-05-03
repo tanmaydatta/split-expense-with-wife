@@ -2574,3 +2574,119 @@ describe("/budget_list embeds linkedTransactionIds", () => {
 		expect(be2?.linkedTransactionIds).toEqual([]);
 	});
 });
+
+describe("Budget handlers — budget_list q filter", () => {
+	let cookies: string;
+	let budgetId: string;
+
+	beforeAll(async () => {
+		await setupAndCleanDatabase(env);
+		const userData = await createTestUserData(env);
+		cookies = await signInAndGetCookies(
+			env,
+			userData.user1.email,
+			userData.user1.password,
+		);
+		budgetId = userData.budgetIds.house;
+
+		const seed = async (description: string, amount: number) => {
+			const ctx = createExecutionContext();
+			const req = new Request(
+				"http://localhost:8787/.netlify/functions/budget",
+				{
+					method: "POST",
+					headers: {
+						Cookie: cookies,
+						"Content-Type": "application/json",
+					},
+					body: JSON.stringify({
+						amount,
+						description,
+						budgetId,
+						currency: "GBP",
+					}),
+				},
+			);
+			const res = await worker.fetch(req, env, ctx);
+			await waitOnExecutionContext(ctx);
+			expect(res.status).toBe(200);
+		};
+		await seed("Groceries Sainsbury", 30);
+		await seed("Dinner out", 45);
+		await seed("Bus pass _ monthly", 60);
+
+		// Backdate addedTime so lt(addedTime, now) filter includes these entries
+		const db = getDb(env);
+		await db
+			.update(budgetEntries)
+			.set({ addedTime: "2024-01-01 00:00:00" })
+			.where(eq(budgetEntries.budgetId, budgetId));
+	});
+
+	afterAll(async () => {
+		await completeCleanupDatabase(env);
+	});
+
+	const callList = async (q?: string) => {
+		const ctx = createExecutionContext();
+		const req = new Request(
+			"http://localhost:8787/.netlify/functions/budget_list",
+			{
+				method: "POST",
+				headers: {
+					Cookie: cookies,
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({
+					offset: 0,
+					budgetId,
+					...(q !== undefined ? { q } : {}),
+				}),
+			},
+		);
+		const res = await worker.fetch(req, env, ctx);
+		await waitOnExecutionContext(ctx);
+		expect(res.status).toBe(200);
+		return (await res.json()) as Array<{ description: string; amount: number }>;
+	};
+
+	it("matches description case-insensitively", async () => {
+		const res = await callList("groceries");
+		expect(res.map((r) => r.description)).toEqual(["Groceries Sainsbury"]);
+	});
+
+	it("matches stringified amount", async () => {
+		const res = await callList("45");
+		expect(res).toHaveLength(1);
+		expect(res[0].description).toBe("Dinner out");
+	});
+
+	it("treats _ as literal character", async () => {
+		const res = await callList("_");
+		expect(res).toHaveLength(1);
+		expect(res[0].description).toBe("Bus pass _ monthly");
+	});
+
+	it("returns all entries when q is whitespace", async () => {
+		const res = await callList("   ");
+		expect(res.length).toBeGreaterThanOrEqual(3);
+	});
+
+	it("rejects q longer than 100 chars with 400", async () => {
+		const ctx = createExecutionContext();
+		const req = new Request(
+			"http://localhost:8787/.netlify/functions/budget_list",
+			{
+				method: "POST",
+				headers: {
+					Cookie: cookies,
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({ offset: 0, budgetId, q: "x".repeat(101) }),
+			},
+		);
+		const res = await worker.fetch(req, env, ctx);
+		await waitOnExecutionContext(ctx);
+		expect(res.status).toBe(400);
+	});
+});

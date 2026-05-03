@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, inArray, isNull, lt, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import { ulid } from "ulid";
 import type {
 	AverageSpendData,
@@ -31,6 +31,7 @@ import {
 } from "../utils";
 
 import { createBudgetEntryStatements } from "../utils/scheduled-action-execution";
+import { buildLikePattern, MAX_Q_LENGTH } from "../utils/search";
 
 // Helper: fetch a transactionId[] for each budgetEntryId, excluding soft-deleted txs
 async function buildBudgetLinkMap(
@@ -644,18 +645,30 @@ export async function handleBudgetList(
 				return createErrorResponse("Unauthorized", 401, request, env);
 			}
 
+			if (body.q && body.q.trim().length > MAX_Q_LENGTH) {
+				return createErrorResponse("q too long", 400, request, env);
+			}
+
 			const currentTime = formatSQLiteTime();
+			const pattern = buildLikePattern(body.q);
+			const baseConditions = [
+				lt(budgetEntries.addedTime, currentTime),
+				eq(budgetEntries.budgetId, body.budgetId),
+				isNull(budgetEntries.deleted),
+			];
+			if (pattern) {
+				// biome-ignore lint/style/noNonNullAssertion: or() with two defined args always returns SQL
+				const filterCondition = or(
+					sql`LOWER(${budgetEntries.description}) LIKE LOWER(${pattern}) ESCAPE '\\'`,
+					sql`CAST(${budgetEntries.amount} AS TEXT) LIKE ${pattern} ESCAPE '\\'`,
+				)!;
+				baseConditions.push(filterCondition);
+			}
 			// Get budget entries using Drizzle
 			const budgetEntriesResult = await db
 				.select()
 				.from(budgetEntries)
-				.where(
-					and(
-						lt(budgetEntries.addedTime, currentTime),
-						eq(budgetEntries.budgetId, body.budgetId),
-						isNull(budgetEntries.deleted),
-					),
-				)
+				.where(and(...baseConditions))
 				.orderBy(desc(budgetEntries.addedTime))
 				.limit(5)
 				.offset(body.offset);

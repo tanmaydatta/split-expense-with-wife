@@ -1,6 +1,5 @@
-# Override parent gitignore: keep brainstorming/superpowers docs in this project's repo
-!docs/superpowers/
-!docs/superpowers/**
+# Skill-generated specs/brainstorms are local-only
+docs/superpowers/
 
 # Binaries for programs and plugins
 *.exe

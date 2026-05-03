@@ -12,6 +12,7 @@ import {
 	ErrorContainer,
 	SuccessContainer,
 } from "@/components/MessageContainer";
+import { SearchInput } from "@/components/SearchInput";
 import { Table, TableWrapper } from "@/components/Table";
 import { TransactionCard } from "@/components/TransactionCard";
 import { TransactionDetails } from "@/components/TransactionDetails";
@@ -22,8 +23,9 @@ import {
 } from "@/hooks/useTransactions";
 import { dateToFullStr } from "@/utils/date";
 import getSymbolFromCurrency from "currency-symbol-map";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useSelector } from "react-redux";
+import { useSearchParams } from "react-router-dom";
 import type {
 	FrontendTransaction,
 	ReduxState,
@@ -176,25 +178,45 @@ const TransactionList: React.FC<{
 
 const Transactions: React.FC = () => {
 	const [transactions, setTransactions] = useState<FrontendTransaction[]>([]);
+	const [searchParams, setSearchParams] = useSearchParams();
+	const q = searchParams.get("q") ?? "";
 
 	const data = useSelector((state: ReduxState) => state.value);
 
-	// React Query hooks
-	const infiniteTransactions = useInfiniteTransactionsList(data?.user?.id);
-	const initialTransactionsQuery = useTransactionsList(0, data?.user?.id);
+	const infiniteTransactions = useInfiniteTransactionsList(data?.user?.id, q);
+	const initialTransactionsQuery = useTransactionsList(0, data?.user?.id, q);
 	const deleteTransactionMutation = useDeleteTransaction();
 
-	// Initialize transactions from initial query, then switch to infinite scroll
-	useEffect(() => {
-		if (initialTransactionsQuery.data && transactions.length === 0) {
-			setTransactions(initialTransactionsQuery.data);
-		}
-	}, [initialTransactionsQuery.data, transactions.length]);
+	// Track the last q value we've synced into local state. This lets us
+	// re-populate on every successful fetch for the current q (including
+	// delete-triggered refetches) while still resetting when q changes.
+	const lastSyncedQRef = useRef<string | null>(null);
 
-	// Handle load more transactions
+	// Reset accumulated list when q changes (provides clean visual during refetch)
+	useEffect(() => {
+		setTransactions([]);
+	}, [q]);
+
+	useEffect(() => {
+		if (
+			initialTransactionsQuery.isSuccess &&
+			initialTransactionsQuery.data &&
+			lastSyncedQRef.current !== q
+		) {
+			setTransactions(initialTransactionsQuery.data);
+			lastSyncedQRef.current = q;
+		}
+	}, [initialTransactionsQuery.data, initialTransactionsQuery.isSuccess, q]);
+
+	const handleSetQ = (next: string) => {
+		const params = new URLSearchParams(searchParams);
+		if (next) params.set("q", next);
+		else params.delete("q");
+		setSearchParams(params, { replace: true });
+	};
+
 	const handleLoadMoreTransactions = async () => {
 		try {
-			// Switch to infinite scroll after initial load
 			const currentTransactions =
 				transactions.length > 0
 					? transactions
@@ -209,19 +231,14 @@ const Transactions: React.FC = () => {
 		}
 	};
 
-	// Handle delete transaction
 	const handleDeleteTransaction = (id: string) => {
 		deleteTransactionMutation.mutate(id, {
 			onSuccess: () => {
-				// Reload transactions after successful delete by refetching initial query
-				initialTransactionsQuery.refetch().then(() => {
-					// The useEffect will handle updating the transactions state
-				});
+				initialTransactionsQuery.refetch();
 			},
 		});
 	};
 
-	// Determine loading and error states
 	const isLoading =
 		deleteTransactionMutation.isPending || initialTransactionsQuery.isLoading;
 	const error = deleteTransactionMutation.error?.message || "";
@@ -230,17 +247,17 @@ const Transactions: React.FC = () => {
 			"Transaction deleted successfully"
 		: "";
 
+	const showEmptyState =
+		!isLoading && q.length > 0 && transactions.length === 0;
+
 	return (
 		<div className="transactions-container" data-test-id="expenses-container">
-			{/* Error Container */}
 			{error && (
 				<ErrorContainer
 					message={error}
 					onClose={() => deleteTransactionMutation.reset()}
 				/>
 			)}
-
-			{/* Success Container */}
 			{success && (
 				<SuccessContainer
 					message={success}
@@ -249,8 +266,14 @@ const Transactions: React.FC = () => {
 				/>
 			)}
 
+			<SearchInput
+				value={q}
+				onDebouncedChange={handleSetQ}
+				placeholder="Search expenses by description"
+			/>
+
 			{isLoading && <Loader />}
-			{!isLoading && (
+			{!isLoading && !showEmptyState && (
 				<>
 					<TransactionList
 						transactions={transactions}
@@ -263,6 +286,24 @@ const Transactions: React.FC = () => {
 						Show more
 					</Button>
 				</>
+			)}
+			{showEmptyState && (
+				<div data-test-id="search-empty-state" style={{ padding: "24px 0" }}>
+					No matches for "{q}".{" "}
+					<button
+						type="button"
+						onClick={() => handleSetQ("")}
+						style={{
+							background: "none",
+							border: "none",
+							color: "#0066cc",
+							cursor: "pointer",
+							padding: 0,
+						}}
+					>
+						Clear search
+					</button>
+				</div>
 			)}
 		</div>
 	);

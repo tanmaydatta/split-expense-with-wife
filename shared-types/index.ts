@@ -97,6 +97,7 @@ export interface BudgetRequest {
 export interface BudgetListRequest {
 	offset: number;
 	budgetId: string;
+	q?: string; // optional case-insensitive substring filter on description or stringified amount
 }
 
 export interface BudgetTotalRequest {
@@ -135,6 +136,7 @@ export interface SplitDeleteRequest {
 
 export interface TransactionsListRequest {
 	offset: number;
+	q?: string; // optional case-insensitive substring filter on description or stringified amount
 }
 
 // API Response types
