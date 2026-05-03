@@ -49,11 +49,16 @@ describe("SearchInput", () => {
 		expect(screen.queryByTestId("search-clear-button")).toBeNull();
 	});
 
-	it("syncs internal text when external value prop changes", () => {
+	it("syncs internal text when external value prop changes without emitting", () => {
+		const onChange = jest.fn();
 		const { rerender } = render(
-			<SearchInput value="" onDebouncedChange={() => {}} />,
+			<SearchInput value="" onDebouncedChange={onChange} />,
 		);
-		rerender(<SearchInput value="updated" onDebouncedChange={() => {}} />);
+		rerender(<SearchInput value="updated" onDebouncedChange={onChange} />);
 		expect(screen.getByTestId("search-input")).toHaveValue("updated");
+		act(() => {
+			jest.advanceTimersByTime(300);
+		});
+		expect(onChange).not.toHaveBeenCalled();
 	});
 });
