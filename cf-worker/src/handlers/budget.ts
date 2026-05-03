@@ -646,32 +646,32 @@ export async function handleBudgetList(
 			}
 
 			if (body.q && body.q.trim().length > MAX_Q_LENGTH) {
-					return createErrorResponse("q too long", 400, request, env);
-				}
+				return createErrorResponse("q too long", 400, request, env);
+			}
 
-				const currentTime = formatSQLiteTime();
-				const pattern = buildLikePattern(body.q);
-				const baseConditions = [
-					lt(budgetEntries.addedTime, currentTime),
-					eq(budgetEntries.budgetId, body.budgetId),
-					isNull(budgetEntries.deleted),
-				];
-				if (pattern) {
-					// biome-ignore lint/style/noNonNullAssertion: or() with two defined args always returns SQL
-					const filterCondition = or(
-						sql`LOWER(${budgetEntries.description}) LIKE LOWER(${pattern}) ESCAPE '\\'`,
-						sql`CAST(${budgetEntries.amount} AS TEXT) LIKE ${pattern} ESCAPE '\\'`,
-					)!;
-					baseConditions.push(filterCondition);
-				}
-				// Get budget entries using Drizzle
-				const budgetEntriesResult = await db
-					.select()
-					.from(budgetEntries)
-					.where(and(...baseConditions))
-					.orderBy(desc(budgetEntries.addedTime))
-					.limit(5)
-					.offset(body.offset);
+			const currentTime = formatSQLiteTime();
+			const pattern = buildLikePattern(body.q);
+			const baseConditions = [
+				lt(budgetEntries.addedTime, currentTime),
+				eq(budgetEntries.budgetId, body.budgetId),
+				isNull(budgetEntries.deleted),
+			];
+			if (pattern) {
+				// biome-ignore lint/style/noNonNullAssertion: or() with two defined args always returns SQL
+				const filterCondition = or(
+					sql`LOWER(${budgetEntries.description}) LIKE LOWER(${pattern}) ESCAPE '\\'`,
+					sql`CAST(${budgetEntries.amount} AS TEXT) LIKE ${pattern} ESCAPE '\\'`,
+				)!;
+				baseConditions.push(filterCondition);
+			}
+			// Get budget entries using Drizzle
+			const budgetEntriesResult = await db
+				.select()
+				.from(budgetEntries)
+				.where(and(...baseConditions))
+				.orderBy(desc(budgetEntries.addedTime))
+				.limit(5)
+				.offset(body.offset);
 
 			// Build a linkMap: budgetEntryId -> transactionId[] (excluding soft-deleted txs)
 			const beIds = budgetEntriesResult.map((b) => b.budgetEntryId);
