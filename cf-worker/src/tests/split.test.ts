@@ -1104,6 +1104,105 @@ describe("/transactions_list embeds linkedBudgetEntryIds", () => {
 	});
 });
 
+describe("Split handlers — transactions_list q filter", () => {
+	let cookies: string;
+	let groupId: string;
+
+	beforeAll(async () => {
+		await setupAndCleanDatabase(env);
+		const userData = await createTestUserData(env);
+		groupId = userData.testGroupId;
+		cookies = await signInAndGetCookies(
+			env,
+			userData.user1.email,
+			userData.user1.password,
+		);
+
+		// Seed 3 transactions with distinct descriptions and amounts
+		const ctx = createExecutionContext();
+		const seed = async (description: string, amount: number) => {
+			const req = createTestRequest(
+				"split_new",
+				"POST",
+				{
+					amount,
+					description,
+					currency: "GBP",
+					paidByShares: { [userData.user1.id]: amount },
+					splitPctShares: { [userData.user1.id]: 100 },
+				},
+				cookies,
+			);
+			const res = await worker.fetch(req, env, ctx);
+			expect(res.status).toBe(200);
+		};
+		await seed("Coffee at Costa", 4.5);
+		await seed("Lunch with team", 12);
+		await seed("Espresso machine 50% deal", 199);
+		await waitOnExecutionContext(ctx);
+	});
+
+	afterAll(async () => {
+		await completeCleanupDatabase(env);
+	});
+
+	const callList = async (q?: string) => {
+		const ctx = createExecutionContext();
+		const req = createTestRequest(
+			"transactions_list",
+			"POST",
+			{ offset: 0, ...(q !== undefined ? { q } : {}) },
+			cookies,
+		);
+		const res = await worker.fetch(req, env, ctx);
+		await waitOnExecutionContext(ctx);
+		expect(res.status).toBe(200);
+		return (await res.json()) as TransactionsListResponse;
+	};
+
+	it("matches description case-insensitively", async () => {
+		const res = await callList("COFFEE");
+		expect(res.transactions.map((t) => t.description)).toEqual([
+			"Coffee at Costa",
+		]);
+	});
+
+	it("matches stringified amount substring", async () => {
+		const res = await callList("199");
+		expect(res.transactions).toHaveLength(1);
+		expect(res.transactions[0].description).toBe("Espresso machine 50% deal");
+	});
+
+	it("treats % as literal character (no wildcard)", async () => {
+		const res = await callList("50%");
+		expect(res.transactions).toHaveLength(1);
+		expect(res.transactions[0].description).toBe("Espresso machine 50% deal");
+	});
+
+	it("returns all rows when q is empty string", async () => {
+		const res = await callList("");
+		expect(res.transactions.length).toBeGreaterThanOrEqual(3);
+	});
+
+	it("returns all rows when q is whitespace only", async () => {
+		const res = await callList("   ");
+		expect(res.transactions.length).toBeGreaterThanOrEqual(3);
+	});
+
+	it("rejects q longer than 100 chars with 400", async () => {
+		const ctx = createExecutionContext();
+		const req = createTestRequest(
+			"transactions_list",
+			"POST",
+			{ offset: 0, q: "x".repeat(101) },
+			cookies,
+		);
+		const res = await worker.fetch(req, env, ctx);
+		await waitOnExecutionContext(ctx);
+		expect(res.status).toBe(400);
+	});
+});
+
 describe("/split_delete cascade", () => {
 	const TEST_SECRET = "test-secret";
 	const ORIGINAL_SECRET = env.E2E_SEED_SECRET;
