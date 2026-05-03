@@ -716,4 +716,166 @@ test.describe("Budget Management", () => {
 
 		expect(updatedTotals["€"]).toBeCloseTo(expectedEurBalance, 2);
 	});
+
+	test("filters budget entries by description substring within selected budget", async ({
+		seed,
+		page,
+	}) => {
+		// Seed two budget entries for the "house" budget:
+		//   - one with "Grocery" in the description (discriminating substring)
+		//   - one without, so the filter visibly narrows the list
+		const result = await seed({
+			users: [factories.user({ alias: "u1" })],
+			groups: [
+				factories.group({
+					alias: "g",
+					members: ["u1"],
+					budgets: [
+						{ alias: "house", name: "house" },
+						{ alias: "food", name: "food" },
+						{ alias: "transport", name: "transport" },
+					],
+				}),
+			],
+			budgetEntries: [
+				factories.budgetEntry({
+					alias: "be1",
+					group: "g",
+					budget: "house",
+					amount: 120,
+					currency: "GBP",
+					description: "Grocery run",
+				}),
+				factories.budgetEntry({
+					alias: "be2",
+					group: "g",
+					budget: "house",
+					amount: 45,
+					currency: "GBP",
+					description: "Monthly utilities",
+				}),
+			],
+			authenticate: ["u1"],
+		});
+		const session = result.sessions.u1;
+		if (session) {
+			const cookieHeader = session.cookies
+				.map((c) => `${c.name}=${c.value}`)
+				.join("; ");
+			await fetch(`${BACKEND_URL}/auth/update-user`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json", Cookie: cookieHeader },
+				body: JSON.stringify({ firstName: "u1" }),
+			});
+		}
+
+		await page.goto("/budget");
+		await page.waitForLoadState("networkidle");
+
+		// Row locator covers both desktop (budget-entry-item) and mobile (budget-entry-card)
+		const rowSelector =
+			'[data-test-id="budget-entry-item"], [data-test-id="budget-entry-card"]';
+
+		// Select the "house" budget to make sure both entries are visible
+		await page.locator('[data-test-id="budget-radio-house"]').click();
+		await page.waitForLoadState("networkidle");
+
+		await page.waitForSelector(rowSelector);
+		const before = await page.locator(rowSelector).count();
+		expect(before).toBeGreaterThan(0);
+
+		// Type the search substring
+		await page.locator('[data-test-id="search-input"]').fill("Grocery");
+
+		// Wait for debounce + network
+		await page.waitForTimeout(400);
+		await page.waitForLoadState("networkidle");
+
+		// URL reflects the query
+		await expect(page).toHaveURL(/\?q=Grocery/);
+
+		// Only matching rows remain — each one must contain "Grocery"
+		const filtered = page.locator(rowSelector);
+		await expect.poll(async () => filtered.count()).toBeGreaterThan(0);
+		for (const row of await filtered.all()) {
+			const text = await row.textContent();
+			expect(text?.toLowerCase()).toContain("grocery");
+		}
+
+		// Clear button restores full list
+		await page.locator('[data-test-id="search-clear-button"]').click();
+		await page.waitForTimeout(400);
+		await page.waitForLoadState("networkidle");
+		await expect(page).not.toHaveURL(/\?q=/);
+		const restored = await page.locator(rowSelector).count();
+		expect(restored).toBe(before);
+	});
+
+	test("changing the selected budget clears the search query", async ({
+		seed,
+		page,
+	}) => {
+		// Seed two budgets ("house" and "food") with at least one entry each so
+		// both budgets render entries and switching between them is meaningful.
+		const result = await seed({
+			users: [factories.user({ alias: "u1" })],
+			groups: [
+				factories.group({
+					alias: "g",
+					members: ["u1"],
+					budgets: [
+						{ alias: "house", name: "house" },
+						{ alias: "food", name: "food" },
+						{ alias: "transport", name: "transport" },
+					],
+				}),
+			],
+			budgetEntries: [
+				factories.budgetEntry({
+					alias: "be1",
+					group: "g",
+					budget: "house",
+					amount: 120,
+					currency: "GBP",
+					description: "Grocery run",
+				}),
+				factories.budgetEntry({
+					alias: "be2",
+					group: "g",
+					budget: "food",
+					amount: 30,
+					currency: "GBP",
+					description: "Takeaway dinner",
+				}),
+			],
+			authenticate: ["u1"],
+		});
+		const session = result.sessions.u1;
+		if (session) {
+			const cookieHeader = session.cookies
+				.map((c) => `${c.name}=${c.value}`)
+				.join("; ");
+			await fetch(`${BACKEND_URL}/auth/update-user`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json", Cookie: cookieHeader },
+				body: JSON.stringify({ firstName: "u1" }),
+			});
+		}
+
+		await page.goto("/budget?q=Grocery");
+		await page.waitForLoadState("networkidle");
+
+		// Search input is pre-populated from the URL query param
+		await expect(page.locator('[data-test-id="search-input"]')).toHaveValue(
+			"Grocery",
+		);
+
+		// Switch to the "food" budget via the toggle button
+		await page.locator('[data-test-id="budget-radio-food"]').click();
+		await page.waitForLoadState("networkidle");
+
+		// Switching budgets must clear the ?q param and reset the search input
+		await expect(page).not.toHaveURL(/\?q=/);
+		await expect(page.locator('[data-test-id="search-input"]')).toHaveValue("");
+	});
 });
