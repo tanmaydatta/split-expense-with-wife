@@ -95,17 +95,20 @@ export function useDeleteBudgetEntry() {
 // Hook for infinite loading budget history (for "Load More" functionality)
 export function useInfiniteBudgetHistory(
 	budgetId?: string,
+	q?: string,
 	_limit: number = 25,
 ) {
 	return useQuery({
-		queryKey: ["budget", "history", "infinite", budgetId],
+		queryKey: ["budget", "history", "infinite", budgetId, q ?? ""],
 		queryFn: async () => {
 			if (!budgetId) {
 				return [];
 			}
-
-			// For initial load, get first batch
-			const request: BudgetListRequest = { budgetId, offset: 0 };
+			const request: BudgetListRequest = {
+				budgetId,
+				offset: 0,
+				...(q ? { q } : {}),
+			};
 			return typedApi.post("/budget_list", request);
 		},
 		enabled: !!budgetId,
@@ -117,25 +120,21 @@ export function useInfiniteBudgetHistory(
 export function useLoadMoreBudgetHistory() {
 	const queryClient = useQueryClient();
 
-	return async (budgetId: string, currentHistory: BudgetEntry[]) => {
+	return async (budgetId: string, currentHistory: BudgetEntry[], q?: string) => {
 		const offset = currentHistory.length;
-		const request: BudgetListRequest = { budgetId, offset };
-
-		try {
-			const newEntries: BudgetEntry[] = await typedApi.post(
-				"/budget_list",
-				request,
-			);
-
-			// Update cache with combined data
-			queryClient.setQueryData<BudgetEntry[]>(
-				["budget", "history", "infinite", budgetId],
-				[...currentHistory, ...newEntries],
-			);
-
-			return newEntries;
-		} catch (error) {
-			throw error;
-		}
+		const request: BudgetListRequest = {
+			budgetId,
+			offset,
+			...(q ? { q } : {}),
+		};
+		const newEntries: BudgetEntry[] = await typedApi.post(
+			"/budget_list",
+			request,
+		);
+		queryClient.setQueryData<BudgetEntry[]>(
+			["budget", "history", "infinite", budgetId, q ?? ""],
+			[...currentHistory, ...newEntries],
+		);
+		return newEntries;
 	};
 }
