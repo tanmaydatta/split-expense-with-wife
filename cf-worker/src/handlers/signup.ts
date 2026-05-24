@@ -34,6 +34,42 @@ function normalizeIdentity(value: string): string {
 	return value.trim().toLowerCase();
 }
 
+function maskEmail(value: string): string {
+	const normalized = normalizeIdentity(value);
+	const [localPart, domain] = normalized.split("@");
+	if (!localPart || !domain) {
+		return "<invalid-email>";
+	}
+
+	const prefix = localPart.slice(0, 2);
+	return `${prefix}${localPart.length > 2 ? "***" : "*"}@${domain}`;
+}
+
+function logSignupAllowlistError(body: SignupBody, error: unknown): void {
+	console.error("Allowlisted signup rejected: allowlist check failed", {
+		email: maskEmail(body.email),
+		username: normalizeIdentity(body.username),
+		reason: error instanceof Error ? error.message : "Unknown allowlist error",
+	});
+}
+
+function getSignupAllowlistEntry(
+	body: SignupBody,
+	env: Env,
+): SignupAllowlistEntry | null {
+	const allowlist = parseSignupAllowlist(env.SIGNUP_ALLOWLIST_JSON);
+	const entry = findAllowlistEntry(allowlist, body);
+	if (!entry) {
+		console.warn("Allowlisted signup rejected: no matching entry", {
+			email: maskEmail(body.email),
+			username: normalizeIdentity(body.username),
+			allowlistCount: allowlist.length,
+		});
+	}
+
+	return entry;
+}
+
 function requireStringField(
 	entry: Record<string, unknown>,
 	field: keyof SignupAllowlistEntry,
@@ -45,7 +81,9 @@ function requireStringField(
 	return value.trim();
 }
 
-export function parseSignupAllowlist(json: string | undefined): SignupAllowlistEntry[] {
+export function parseSignupAllowlist(
+	json: string | undefined,
+): SignupAllowlistEntry[] {
 	if (!json) {
 		throw new Error("Signup allowlist is missing");
 	}
@@ -93,7 +131,9 @@ export function findAllowlistEntry(
 	return matches[0] ?? null;
 }
 
-export function calculateEqualShares(userIds: string[]): Record<string, number> {
+export function calculateEqualShares(
+	userIds: string[],
+): Record<string, number> {
 	const uniqueSortedIds = Array.from(new Set(userIds)).sort();
 	if (uniqueSortedIds.length === 0) {
 		return {};
@@ -121,7 +161,9 @@ function parseJsonObject(value: string | null): Record<string, unknown> {
 
 	try {
 		const parsed = JSON.parse(value);
-		return parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)
+		return parsed !== null &&
+			typeof parsed === "object" &&
+			!Array.isArray(parsed)
 			? (parsed as Record<string, unknown>)
 			: {};
 	} catch {
@@ -194,7 +236,9 @@ async function getActiveBudgetNames(
 	const rows = await db
 		.select({ budgetName: groupBudgets.budgetName })
 		.from(groupBudgets)
-		.where(and(eq(groupBudgets.groupId, groupId), isNull(groupBudgets.deleted)));
+		.where(
+			and(eq(groupBudgets.groupId, groupId), isNull(groupBudgets.deleted)),
+		);
 
 	return new Set(rows.map((row) => row.budgetName));
 }
@@ -210,7 +254,9 @@ export async function reconcileSignupProvisioning(
 		.limit(1);
 
 	const currentMembers = parseUserIds(existingGroup?.userids ?? null);
-	const nextMembers = Array.from(new Set([...currentMembers, input.userId])).sort();
+	const nextMembers = Array.from(
+		new Set([...currentMembers, input.userId]),
+	).sort();
 	const currentMetadata = parseJsonObject(existingGroup?.metadata ?? null);
 	const nextMetadata = {
 		...currentMetadata,
@@ -403,7 +449,10 @@ async function resumeIncompleteSignup(
 		.select({ id: account.id })
 		.from(account)
 		.where(
-			and(eq(account.userId, existingUser.id), eq(account.providerId, "credential")),
+			and(
+				eq(account.userId, existingUser.id),
+				eq(account.providerId, "credential"),
+			),
 		)
 		.limit(1);
 	if (!credentialAccount) {
@@ -441,11 +490,9 @@ export async function handleAllowlistedSignup(
 
 	let entry: SignupAllowlistEntry | null;
 	try {
-		entry = findAllowlistEntry(
-			parseSignupAllowlist(env.SIGNUP_ALLOWLIST_JSON),
-			body,
-		);
-	} catch {
+		entry = getSignupAllowlistEntry(body, env);
+	} catch (error) {
+		logSignupAllowlistError(body, error);
 		return createErrorResponse("Signup not allowed", 403, request, env);
 	}
 
@@ -463,7 +510,13 @@ export async function handleAllowlistedSignup(
 			body.username,
 		);
 		if (existingUser) {
-			return await resumeIncompleteSignup(db, existingUser, entry, request, env);
+			return await resumeIncompleteSignup(
+				db,
+				existingUser,
+				entry,
+				request,
+				env,
+			);
 		}
 	} catch {
 		return accountExistsResponse(request, env);
