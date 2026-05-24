@@ -111,7 +111,7 @@ export async function setupDatabase(env: Env): Promise<void> {
 
 	// User table (better-auth)
 	await env.DB.exec(
-		"CREATE TABLE IF NOT EXISTS user (id TEXT PRIMARY KEY, name TEXT NOT NULL, email TEXT NOT NULL UNIQUE, email_verified INTEGER NOT NULL DEFAULT 0, image TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, username TEXT UNIQUE, display_username TEXT, groupid TEXT, first_name TEXT NOT NULL, last_name TEXT NOT NULL)",
+		"CREATE TABLE IF NOT EXISTS user (id TEXT PRIMARY KEY, name TEXT NOT NULL, email TEXT NOT NULL UNIQUE, email_verified INTEGER NOT NULL DEFAULT 0, image TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, username TEXT UNIQUE, display_username TEXT, groupid TEXT, first_name TEXT NOT NULL, last_name TEXT NOT NULL, signup_complete INTEGER NOT NULL DEFAULT 1)",
 	);
 
 	// Session table (better-auth)

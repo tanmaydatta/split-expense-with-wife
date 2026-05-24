@@ -25,6 +25,10 @@ import {
 	handleRelinkData,
 } from "./handlers/migration";
 import {
+	handleAllowlistedSignup,
+	handleIncompleteSignupSignInPreguard,
+} from "./handlers/signup";
+import {
 	handleScheduledActionCreate,
 	handleScheduledActionDelete,
 	handleScheduledActionDetails,
@@ -57,6 +61,10 @@ async function handleAuthRoutes(
 		return null;
 	}
 
+	if (path === "/auth/sign-up/email" && request.method === "POST") {
+		return await handleAllowlistedSignup(request, env);
+	}
+
 	// Disable signups - return 404 for any signup-related routes
 	const signupRoutes = [
 		"/auth/sign-up",
@@ -68,6 +76,15 @@ async function handleAuthRoutes(
 
 	if (signupRoutes.some((route) => path.startsWith(route))) {
 		return createErrorResponse("Not Found", 404, request, env);
+	}
+
+	const incompleteSignupResponse = await handleIncompleteSignupSignInPreguard(
+		request,
+		env,
+		path,
+	);
+	if (incompleteSignupResponse) {
+		return addCORSHeaders(incompleteSignupResponse, request, env);
 	}
 
 	const authInstance = auth(env);
