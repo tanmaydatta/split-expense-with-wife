@@ -425,7 +425,6 @@ export interface TypedApiClient {
 		},
 	): Promise<ApiEndpoints[K]["response"]>;
 }
-export type Currency = "USD" | "EUR" | "GBP" | "INR";
 export declare const CURRENCIES: readonly [
 	"USD",
 	"EUR",
@@ -438,6 +437,7 @@ export declare const CURRENCIES: readonly [
 	"CNY",
 	"SGD",
 ];
+export type Currency = (typeof CURRENCIES)[number];
 export declare const GroupBudgetDataSchema: z.ZodObject<
 	{
 		id: z.ZodString;
@@ -609,7 +609,13 @@ export declare const DashboardCoreFieldsSchema: z.ZodObject<
 			USD: "USD";
 			EUR: "EUR";
 			GBP: "GBP";
+			INR: "INR";
 			CAD: "CAD";
+			AUD: "AUD";
+			JPY: "JPY";
+			CHF: "CHF";
+			CNY: "CNY";
+			SGD: "SGD";
 		}>;
 	},
 	z.core.$strip
@@ -656,7 +662,13 @@ export declare const DashboardFormSchema: z.ZodObject<
 			USD: "USD";
 			EUR: "EUR";
 			GBP: "GBP";
+			INR: "INR";
 			CAD: "CAD";
+			AUD: "AUD";
+			JPY: "JPY";
+			CHF: "CHF";
+			CNY: "CNY";
+			SGD: "SGD";
 		}>;
 		paidBy: z.ZodOptional<z.ZodString>;
 		users: z.ZodOptional<

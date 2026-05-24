@@ -107,7 +107,7 @@ export const DashboardCoreFieldsSchema = z.object({
         .min(2, "Description must be at least 2 characters")
         .max(100, "Description cannot exceed 100 characters")
         .trim(),
-    currency: z.enum(["USD", "EUR", "GBP", "CAD"]),
+    currency: z.enum(CURRENCIES),
 });
 // Dashboard expense-specific fields
 export const DashboardExpenseFieldsSchema = z.object({

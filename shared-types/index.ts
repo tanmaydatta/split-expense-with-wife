@@ -472,9 +472,6 @@ export interface TypedApiClient {
 	): Promise<ApiEndpoints[K]["response"]>;
 }
 
-// Types
-export type Currency = "USD" | "EUR" | "GBP" | "INR";
-
 // Constants
 export const CURRENCIES = [
 	"USD",
@@ -488,6 +485,9 @@ export const CURRENCIES = [
 	"CNY",
 	"SGD",
 ] as const;
+
+// Types
+export type Currency = (typeof CURRENCIES)[number];
 
 // Group Budget Data Schema
 export const GroupBudgetDataSchema = z.object({
@@ -718,7 +718,7 @@ export const DashboardCoreFieldsSchema = z.object({
 		.min(2, "Description must be at least 2 characters")
 		.max(100, "Description cannot exceed 100 characters")
 		.trim(),
-	currency: z.enum(["USD", "EUR", "GBP", "CAD"]),
+	currency: z.enum(CURRENCIES),
 });
 
 // Dashboard expense-specific fields
