@@ -1,6 +1,3 @@
-# Skill-generated specs/brainstorms are local-only
-docs/superpowers/
-
 # Binaries for programs and plugins
 *.exe
 *.exe~

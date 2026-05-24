@@ -17,6 +17,9 @@ export const user = sqliteTable("user", {
 	username: text("username").unique(),
 	displayUsername: text("display_username"),
 	groupid: text("groupid"),
+	signupComplete: integer("signup_complete", { mode: "boolean" })
+		.default(true)
+		.notNull(),
 	firstName: text("first_name").notNull(),
 	lastName: text("last_name").notNull(),
 });

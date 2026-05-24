@@ -179,6 +179,12 @@ export const auth = (env: Env): ReturnType<typeof betterAuth> =>
 					defaultValue: "",
 					input: true,
 				},
+				signupComplete: {
+					type: "boolean",
+					required: false,
+					defaultValue: true,
+					input: true,
+				},
 			},
 		},
 		advanced: {

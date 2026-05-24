@@ -27,6 +27,7 @@ GROUP_IDS = ""
 BASE_URL = "http://localhost:8787/auth"
 AUTH_TRUSTED_ORIGINS = ["http://localhost:8787", "http://localhost:3000"]
 LOCAL = true
+SIGNUP_ALLOWLIST_JSON = "[]"
 
 [[d1_databases]]
 binding = "DB"
@@ -95,4 +96,3 @@ enabled = true
     binding = "PROCESSOR_WORKFLOW"
     class_name = "ScheduledActionsProcessorWorkflow"
     name = "scheduled-actions-processor-dev"
-

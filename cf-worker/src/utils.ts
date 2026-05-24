@@ -75,6 +75,9 @@ export async function enrichSession(
 	if (!currentUser || currentUser.length === 0) {
 		throw new Error("Current user not found");
 	}
+	if (currentUser[0].signupComplete !== true) {
+		throw new Error("Signup incomplete");
+	}
 
 	// Get the group info first to check if user has a group
 	const groupInfo = getGroup(userGroup);
@@ -231,6 +234,9 @@ export async function withAuthLite(
 
 		if (!currentUser || currentUser.length === 0) {
 			return createErrorResponse("User not found", 404, request, env);
+		}
+		if (currentUser[0].signupComplete !== true) {
+			return createErrorResponse("Authentication failed", 401, request, env);
 		}
 
 		// Call the handler with the session and database
