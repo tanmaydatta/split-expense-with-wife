@@ -199,7 +199,7 @@ async function ensureSignupGroupExists(
 			userids: "[]",
 			metadata: JSON.stringify({ defaultCurrency: "GBP", defaultShare: {} }),
 		})
-		.onConflictDoNothing();
+		.onConflictDoNothing({ target: groups.groupid });
 }
 
 async function getExistingSignupUser(
@@ -279,7 +279,7 @@ export async function reconcileSignupProvisioning(
 				userids: JSON.stringify(nextMembers),
 				metadata: JSON.stringify(nextMetadata),
 			})
-			.onConflictDoNothing(),
+			.onConflictDoNothing({ target: groups.groupid }),
 	);
 
 	statements.push(
@@ -304,7 +304,7 @@ export async function reconcileSignupProvisioning(
 						createdAt: currentTime,
 						updatedAt: currentTime,
 					})
-					.onConflictDoNothing(),
+					.onConflictDoNothing({ target: groupBudgets.id }),
 			);
 		}
 	}
