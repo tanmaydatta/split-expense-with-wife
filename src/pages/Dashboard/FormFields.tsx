@@ -6,7 +6,8 @@ import {
 } from "@/components/Form/Layout";
 import { SelectBudget } from "@/SelectBudget";
 import { CreditDebit } from "./CreditDebit";
-import type { DashboardUser } from "split-expense-shared-types";
+import { CURRENCIES } from "split-expense-shared-types";
+import type { Currency, DashboardUser } from "split-expense-shared-types";
 
 interface FormFieldsProps {
 	form: any;
@@ -129,9 +130,7 @@ export function CurrencyField({
 					<Select
 						value={field.state.value}
 						onChange={(e) =>
-							field.handleChange(
-								e.target.value as "USD" | "EUR" | "GBP" | "CAD",
-							)
+							field.handleChange(e.target.value as Currency)
 						}
 						className="currency-select"
 						name="currency"
@@ -140,10 +139,11 @@ export function CurrencyField({
 						required
 						title="Please select a currency"
 					>
-						<option value="USD">USD</option>
-						<option value="EUR">EUR</option>
-						<option value="GBP">GBP</option>
-						<option value="CAD">CAD</option>
+						{CURRENCIES.map((currency) => (
+							<option key={currency} value={currency}>
+								{currency}
+							</option>
+						))}
 					</Select>
 				)}
 			</form.Field>

@@ -1,12 +1,15 @@
-import type { DashboardUser, ReduxState } from "split-expense-shared-types";
+import { CURRENCIES } from "split-expense-shared-types";
+import type {
+	Currency,
+	DashboardUser,
+	ReduxState,
+} from "split-expense-shared-types";
 import type { DashboardFormInput } from "split-expense-shared-types";
 
-export function getDefaultCurrency(
-	sessionCurrency?: string,
-): "USD" | "EUR" | "GBP" | "CAD" {
+export function getDefaultCurrency(sessionCurrency?: string): Currency {
 	return sessionCurrency &&
-		["USD", "EUR", "GBP", "CAD"].includes(sessionCurrency)
-		? (sessionCurrency as "USD" | "EUR" | "GBP" | "CAD")
+		(CURRENCIES as readonly string[]).includes(sessionCurrency)
+		? (sessionCurrency as Currency)
 		: "USD";
 }
 
