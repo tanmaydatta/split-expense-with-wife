@@ -7,7 +7,7 @@ import {
 	text,
 	uniqueIndex,
 } from "drizzle-orm/sqlite-core";
-import { isNull } from "drizzle-orm";
+import { isNull, sql } from "drizzle-orm";
 import type {
 	ScheduledActionData,
 	ScheduledActionResultData,
@@ -18,7 +18,7 @@ import { account, session, user, verification } from "./auth-schema";
 export const groups = sqliteTable("groups", {
 	groupid: text("groupid").primaryKey(),
 	groupName: text("group_name", { length: 50 }).notNull(),
-	createdAt: text("created_at").notNull().default("CURRENT_TIMESTAMP"),
+	createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 	userids: text("userids", { length: 1000 }),
 	metadata: text("metadata", { length: 2000 }),
 });
