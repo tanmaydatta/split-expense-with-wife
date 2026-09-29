@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useLocation } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { useForm } from "@tanstack/react-form";
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Form/Input";
@@ -8,7 +8,7 @@ import { unsetData } from "@/redux/data";
 import { authClient } from "@/utils/authClient";
 import { LoginFormSchema } from "split-expense-shared-types";
 import type { LoginFormInput } from "split-expense-shared-types";
-import "./index.css";
+import "../auth.css";
 import { store } from "@/redux/store";
 
 function LoginPage() {
@@ -59,30 +59,36 @@ function LoginPage() {
 	}, []);
 
 	return (
-		<div className="login-container" data-test-id="login-container">
+		<div className="login-container auth-container" data-test-id="login-container">
+			<Link className="auth-brand" to="/">Split Expense</Link>
 			{loading && <Loader data-test-id="login-loader" />}
 			{!loading && (
 				<form
-					className="login-form"
+					className="login-form auth-form"
 					onSubmit={(e) => {
 						e.preventDefault();
 						form.handleSubmit();
 					}}
 					data-test-id="login-form"
 				>
-					<h2>Welcome Back</h2>
+					<h1 className="auth-title">Welcome Back</h1>
+					<p className="auth-subtitle">Log in to see your group's expenses and budgets.</p>
 
 					{successMessage && (
-						<div className="login-success" data-test-id="login-success">
+						<div className="login-success auth-message auth-message-success" role="status" data-test-id="login-success">
 							{successMessage}
 						</div>
 					)}
 
+					<div className="auth-field">
+						<label htmlFor="login-identifier">Username or email</label>
 					<form.Field name="identifier">
 						{(field) => (
 							<Input
+								id="login-identifier"
 								placeholder="Username or Email"
 								type="text"
+								autoComplete="username"
 								value={field.state.value}
 								onChange={(e) => field.handleChange(e.target.value)}
 								required
@@ -90,12 +96,17 @@ function LoginPage() {
 							/>
 						)}
 					</form.Field>
+					</div>
 
+					<div className="auth-field">
+						<label htmlFor="login-password">Password</label>
 					<form.Field name="password">
 						{(field) => (
 							<Input
+								id="login-password"
 								placeholder="Password"
 								type="password"
+								autoComplete="current-password"
 								value={field.state.value}
 								onChange={(e) => field.handleChange(e.target.value)}
 								required
@@ -103,19 +114,20 @@ function LoginPage() {
 							/>
 						)}
 					</form.Field>
+					</div>
 
 					{error && (
-						<div className="login-error" data-test-id="login-error">
+						<div className="login-error auth-message auth-message-error" role="alert" data-test-id="login-error">
 							{error}
 						</div>
 					)}
 
-					<Button type="submit" disabled={loading} data-test-id="login-button">
+					<Button type="submit" className="auth-submit" disabled={loading} data-test-id="login-button">
 						{loading ? <Loader /> : "Login"}
 					</Button>
 
-					<p className="login-link">
-						Don't have an account? <a href="/signup">Sign up here</a>
+					<p className="login-link auth-switch">
+						Don't have an account? <Link to="/signup">Create an account</Link>
 					</p>
 				</form>
 			)}

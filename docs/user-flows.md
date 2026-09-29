@@ -11,8 +11,8 @@ Split Expense is a web app for couples/groups to track shared expenses, manage b
 ## 1. Authentication
 
 ### Sign Up
-1. User lands on the marketing page at `/` — sees hero text, feature grid, CTA buttons
-2. Clicks "Get Started Free" or "Sign Up" → navigates to `/signup`
+1. User lands on the marketing page at `/` — sees a short product introduction, an explicitly labelled example split, feature cards, and account links
+2. Clicks "Create account" → navigates to `/signup`
 3. Fills out 6 fields: First Name, Last Name, Username, Email, Password, Confirm Password
    - Password must be 6+ characters
    - Confirm Password must match
@@ -20,11 +20,11 @@ Split Expense is a web app for couples/groups to track shared expenses, manage b
 5. On success → redirected to `/login` with message "Account created successfully! Please log in."
 6. On error → red error box shows (e.g., "username already exists")
 
-**Note:** Sign-up is disabled in production (blocked at the API level). New users are created by the admin.
+**Note:** Production sign-up is limited to users on the server-side allowlist. The landing and sign-up pages explain this before account creation.
 
 ### Login
 1. User visits `/login`
-2. Enters Username/Email and Password
+2. Enters Username or email and Password in labelled fields
 3. Clicks "Login"
 4. On success → redirected to `/` (Dashboard) as authenticated user
 5. On error → red error box: "Invalid credentials. Please try again."
