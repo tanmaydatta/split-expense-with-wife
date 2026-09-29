@@ -1,19 +1,21 @@
 import styled from "styled-components";
 
 export const Input = styled.input`
-  border: 1px solid ${({ theme }) => theme.colors.secondary};
-  border-radius: ${({ theme }) => theme.borderRadius};
-  padding: ${({ theme }) => theme.spacing.medium};
+  border: 1px solid var(--ui-border-strong);
+  border-radius: var(--ui-radius-sm);
+  padding: 10px 14px;
+  background: var(--ui-surface);
+  color: var(--ui-text);
   font-size: ${({ theme }) => theme.fontSizes.medium};
   width: 100%;
   min-height: 44px; /* Touch-friendly */
   box-sizing: border-box;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 
-  &:focus {
-    outline: none;
-    border-color: ${({ theme }) => theme.colors.primary};
-    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+  &:focus-visible {
+    outline: 3px solid var(--ui-focus);
+    outline-offset: 2px;
+    border-color: var(--ui-accent);
   }
 
   /* Mobile optimizations */
