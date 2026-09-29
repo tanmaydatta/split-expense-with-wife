@@ -101,6 +101,12 @@ Migration `0022_bill_occurrence_title.sql` adds a historical title snapshot and
 backfills existing bill occurrences from their plans. Apply both migrations in
 order before deploying the updated API.
 
+The shared-bill reminder generator runs alongside scheduled actions in the
+existing `0 0 * * *` Cloudflare cron (configured in the Cloudflare dashboard).
+Keep that trigger enabled; no second cron is required. Reminder dates use UTC.
+Duplicate cron deliveries are safe because each occurrence, member, and notice
+type has a unique database key. Inspect Worker logs if reminders stop appearing.
+
 #### 5. Deploy to Cloudflare Workers
 ```bash
 cd cf-worker

@@ -7,6 +7,7 @@ import ConfirmDialog from "@/components/ConfirmDialog";
 import { Surface, UiButton, UiPage, UiPageDescription, UiPageHeader, UiPageTitle, UiSectionTitle } from "@/components/ui";
 import { useBillMonth, useCreateBill, useSetBillPayment, useStopBill, useUpdateBill } from "@/hooks/useBills";
 import { BillForm } from "./BillForm";
+import { BillReminders } from "./BillReminders";
 import { PaymentDialog } from "./PaymentDialog";
 import { formatBillDate, formatMoney, monthLabel, shiftMonth } from "./bill-utils";
 
@@ -125,6 +126,7 @@ export default function BillsPage() {
 	return <UiPage data-test-id="bills-page">
 		<UiPageHeader><div><UiPageTitle>Shared bills</UiPageTitle><UiPageDescription>Plan due dates, see each person's share, and record payments.</UiPageDescription></div><UiButton type="button" $tone="primary" onClick={() => setForm("new")}>Add bill</UiButton></UiPageHeader>
 		{form && <BillForm key={form} initial={editing} members={members} defaultCurrency={defaultCurrency} defaultShares={group?.metadata?.defaultShare ?? {}} onSubmit={saveBill} onCancel={() => setForm(null)} busy={create.isPending || update.isPending} />}
+		<BillReminders />
 		<Toolbar><UiButton type="button" onClick={() => changeMonth(shiftMonth(month, -1))} aria-label="Previous month">←</UiButton><MonthName>{monthLabel(month)}</MonthName><UiButton type="button" onClick={() => changeMonth(shiftMonth(month, 1))} aria-label="Next month">→</UiButton><UiButton type="button" $tone="quiet" onClick={() => changeMonth(today().slice(0, 7))}>This month</UiButton></Toolbar>
 		{error && <p role="alert">{error}</p>}
 		{isLoading && <Surface>Loading bills…</Surface>}
