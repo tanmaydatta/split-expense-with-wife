@@ -774,17 +774,18 @@ try {
 
 All routes below require a session and scope data to the current group. Bill
 amounts are integer minor units (100 units per major currency unit, except
-JPY which has 1). A bill is a plan; marking it paid records a status but does
-not create an expense or change balances. Due dates are `YYYY-MM-DD` UTC
+JPY which has 1). A bill is a plan; the payment endpoint can also create or
+link an expense and optionally debit a budget. Due dates are `YYYY-MM-DD` UTC
 calendar dates. Bills can be one-time, daily, weekly, or monthly.
 
 | Method | Path | Request | Result |
 | --- | --- | --- | --- |
-| POST | `/.netlify/functions/bills` | `title`, `amountMinor`, `currency`, `firstDueDate`, `recurrence`, `payerUserId`, `splitBasisPoints` | `{ id }` |
+| POST | `/.netlify/functions/bills` | `title`, `amountMinor`, `currency`, `firstDueDate`, `recurrence`, `payerUserId`, `splitBasisPoints`, `scheduledActionId?` | `{ id }` |
 | GET | `/.netlify/functions/bills/month?month=YYYY-MM` | Month query | Plans, dated occurrences, and per-currency monthly totals |
+| GET | `/.netlify/functions/bills/scheduled-options` | None | Current group's scheduled expense actions for bill setup |
 | POST | `/.netlify/functions/bills/update` | `id` and optional plan fields | Updates the plan; paid occurrences keep their historical title and financial snapshot |
 | DELETE | `/.netlify/functions/bills/delete` | `{ id }` | Stops future recurrence |
-| POST | `/.netlify/functions/bills/payment` | `{ occurrenceId, paid, linkedTransactionId? }` | Records or reverses payment state |
+| POST | `/.netlify/functions/bills/payment` | `{ occurrenceId, paid, linkedTransactionId?, createExpense?, budgetId? }` | Records or reverses payment; optional expense and budget changes are atomic |
 | GET | `/.netlify/functions/bills/reminders` | None | Current user's in-app reminders |
 | POST | `/.netlify/functions/bills/reminders/read` | `{ id }` | Marks own reminder read |
 
@@ -793,6 +794,14 @@ For example, `{ "alice": 5000, "bob": 5000 }` is a 50/50 split. The payer and
 all split members must belong to the current group. `month` is a valid
 `YYYY-MM`. Weekly bills repeat every seven UTC calendar days from the first due
 date. Monthly bills due on days 29–31 use the last day in shorter months.
+`scheduledActionId` must name an expense action in the group whose first date,
+frequency, amount, currency, payer, and split match the bill. One action can
+link to one bill. An existing scheduled expense appears as
+`scheduledTransactionId` on the occurrence, but does not mark it paid.
+When `createExpense` is true, the expense uses the bill snapshot and `budgetId`
+may name an active budget in the same group. A debit requires expense creation.
+An expense can be linked to only one bill. Marking pending leaves the linked
+expense and any budget debit intact; a later payment cannot create them again.
 The month response includes `plannedMinor` (all occurrences), `dueMinor`
 (unpaid occurrences), `paidMinor`, `sharesByUserMinor` (all planned portions),
 and `plannedOwedByUserMinor` (unpaid portions owed to someone other than the

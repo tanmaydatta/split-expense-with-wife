@@ -5,6 +5,7 @@ import styled from "styled-components";
 import { Input } from "@/components/Form/Input";
 import { Select } from "@/components/Form/Select";
 import { FieldLabel, Surface, UiButton, UiSectionTitle } from "@/components/ui";
+import { useBillScheduledOptions } from "@/hooks/useBills";
 import { amountToMinor, minorToInput } from "./bill-utils";
 
 const Form = styled(Surface).attrs({ as: "form" })`
@@ -47,7 +48,12 @@ export function BillForm({ initial, members, defaultCurrency, defaultShares, onS
 	const [payerUserId, setPayerUserId] = useState(initial?.payerUserId ?? members[0]?.id ?? "");
 	const [shares, setShares] = useState(() => initialShares(members, defaultShares, initial));
 	const [error, setError] = useState("");
+	const [scheduledActionId, setScheduledActionId] = useState(initial?.scheduledActionId ?? "");
+	const options = useBillScheduledOptions(true);
 	const total = Object.values(shares).reduce((sum, share) => sum + (Number(share) || 0), 0);
+	const compatibleActions = options.data?.filter((option) => option.frequency === recurrence && option.startDate === firstDueDate &&
+		option.amount === (amountMinorForMatch(amount, currency)) && option.currency === currency && option.payerUserId === payerUserId &&
+		members.every(({ id }) => Math.abs((option.splitPctShares[id] ?? 0) - Number(shares[id] || 0)) < 0.01)) ?? [];
 
 	async function submit(event: React.FormEvent) {
 		event.preventDefault();
@@ -59,14 +65,14 @@ export function BillForm({ initial, members, defaultCurrency, defaultShares, onS
 			setError("Split percentages must total 100%."); return;
 		}
 		try {
-			await onSubmit({ title: title.trim(), amountMinor, currency, firstDueDate, recurrence, payerUserId, splitBasisPoints });
+			await onSubmit({ title: title.trim(), amountMinor, currency, firstDueDate, recurrence, payerUserId, splitBasisPoints, scheduledActionId: scheduledActionId || null });
 		} catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to save bill."); }
 	}
 
 	return (
 		<Form onSubmit={submit} aria-label={initial ? `Edit ${initial.title}` : "Add bill"}>
 			<UiSectionTitle>{initial ? "Edit bill" : "Add a bill"}</UiSectionTitle>
-			<Hint>Due dates use UTC calendar days. Marking a bill paid does not add an expense.</Hint>
+			<Hint>Due dates use UTC calendar days. You can link a matching scheduled expense and choose how to record payment later.</Hint>
 			<Grid>
 				<FieldLabel>Bill name<Input required minLength={2} maxLength={100} value={title} onChange={(event) => setTitle(event.target.value)} /></FieldLabel>
 				<FieldLabel>Amount<Input required inputMode="decimal" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder={currency === "JPY" ? "1000" : "10.00"} /></FieldLabel>
@@ -75,6 +81,14 @@ export function BillForm({ initial, members, defaultCurrency, defaultShares, onS
 				<FieldLabel>Repeat<Select value={recurrence} onChange={(event) => setRecurrence(event.target.value as BillCreateInput["recurrence"])}><option value="once">One time</option><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option></Select></FieldLabel>
 				<FieldLabel>Who pays?<Select value={payerUserId} onChange={(event) => setPayerUserId(event.target.value)}>{members.map((member) => <option key={member.id} value={member.id}>{member.name}</option>)}</Select></FieldLabel>
 			</Grid>
+			<FieldLabel>Scheduled expense (optional)
+				<Select value={scheduledActionId} onChange={(event) => setScheduledActionId(event.target.value)}>
+					<option value="">No scheduled expense</option>
+					{compatibleActions.map((option) => <option key={option.id} value={option.id}>{option.description}{option.isActive ? "" : " (paused)"}</option>)}
+					{scheduledActionId && !compatibleActions.some((option) => option.id === scheduledActionId) && <option value={scheduledActionId}>Previously linked expense (settings no longer match)</option>}
+				</Select>
+			</FieldLabel>
+			<Hint>Matching actions use the same first date, cadence, amount, currency, payer, and split. A scheduled run creates an expense; it does not mark the bill paid.</Hint>
 			<UiSectionTitle>Split between members</UiSectionTitle>
 			<Grid>{members.map((member) => <FieldLabel key={member.id}>{member.name} %<Input type="number" min="0" max="100" step="0.01" value={shares[member.id] ?? "0"} onChange={(event) => setShares((current) => ({ ...current, [member.id]: event.target.value }))} /></FieldLabel>)}</Grid>
 			<Hint role="status">Total split: {total.toFixed(2)}%</Hint>
@@ -82,4 +96,9 @@ export function BillForm({ initial, members, defaultCurrency, defaultShares, onS
 			<Actions><UiButton type="submit" $tone="primary" disabled={busy}>{busy ? "Saving…" : initial ? "Save bill" : "Add bill"}</UiButton><UiButton type="button" onClick={onCancel}>Cancel</UiButton></Actions>
 		</Form>
 	);
+}
+
+function amountMinorForMatch(amount: string, currency: Currency): number | null {
+	const minor = amountToMinor(amount, currency);
+	return minor === null ? null : minor / (currency === "JPY" ? 1 : 100);
 }

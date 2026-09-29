@@ -313,6 +313,10 @@ export interface ApiEndpoints {
 		};
 		response: BillMonthResponse;
 	};
+	"/bills/scheduled-options": {
+		request: {};
+		response: BillScheduledOption[];
+	};
 	"/bills/update": {
 		request: BillUpdateInput;
 		response: {
@@ -328,13 +332,11 @@ export interface ApiEndpoints {
 		};
 	};
 	"/bills/payment": {
-		request: {
-			occurrenceId: string;
-			paid: boolean;
-			linkedTransactionId?: string;
-		};
+		request: BillPaymentInput;
 		response: {
 			message: string;
+			transactionId?: string;
+			budgetEntryId?: string;
 		};
 	};
 	"/bills/reminders": {
@@ -510,6 +512,7 @@ export declare const BillCreateSchema: z.ZodObject<
 		}>;
 		payerUserId: z.ZodString;
 		splitBasisPoints: z.ZodRecord<z.ZodString, z.ZodNumber>;
+		scheduledActionId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
 	},
 	z.core.$strip
 >;
@@ -543,6 +546,7 @@ export declare const BillUpdateSchema: z.ZodObject<
 		>;
 		payerUserId: z.ZodOptional<z.ZodString>;
 		splitBasisPoints: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodNumber>>;
+		scheduledActionId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
 		isActive: z.ZodOptional<z.ZodBoolean>;
 	},
 	z.core.$strip
@@ -558,6 +562,8 @@ export declare const BillPaymentSchema: z.ZodObject<
 		occurrenceId: z.ZodString;
 		paid: z.ZodBoolean;
 		linkedTransactionId: z.ZodOptional<z.ZodString>;
+		createExpense: z.ZodOptional<z.ZodBoolean>;
+		budgetId: z.ZodOptional<z.ZodString>;
 	},
 	z.core.$strip
 >;
@@ -569,6 +575,7 @@ export declare const BillIdSchema: z.ZodObject<
 >;
 export type BillCreateInput = z.infer<typeof BillCreateSchema>;
 export type BillUpdateInput = z.infer<typeof BillUpdateSchema>;
+export type BillPaymentInput = z.infer<typeof BillPaymentSchema>;
 export type Currency = (typeof CURRENCIES)[number];
 export type BillRecurrence = "once" | "daily" | "weekly" | "monthly";
 export interface BillPlan {
@@ -581,6 +588,7 @@ export interface BillPlan {
 	payerUserId: string;
 	splitBasisPoints: Record<string, number>;
 	isActive: boolean;
+	scheduledActionId: string | null;
 }
 export interface BillOccurrenceView {
 	id: string;
@@ -593,6 +601,7 @@ export interface BillOccurrenceView {
 	splitBasisPoints: Record<string, number>;
 	paidAt: string | null;
 	linkedTransactionId: string | null;
+	scheduledTransactionId: string | null;
 }
 export interface BillMonthResponse {
 	month: string;
@@ -606,6 +615,17 @@ export interface BillMonthResponse {
 		sharesByUserMinor: Record<string, number>;
 		plannedOwedByUserMinor: Record<string, number>;
 	}>;
+}
+export interface BillScheduledOption {
+	id: string;
+	description: string;
+	amount: number;
+	currency: string;
+	frequency: "daily" | "weekly" | "monthly";
+	startDate: string;
+	payerUserId: string;
+	splitPctShares: Record<string, number>;
+	isActive: boolean;
 }
 export interface BillReminderView {
 	id: string;
