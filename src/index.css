@@ -117,12 +117,12 @@ a {
 }
 
 /* Focus styles for accessibility */
-button:focus,
-input:focus,
-select:focus,
-textarea:focus,
-a:focus {
-	outline: 2px solid var(--color-primary);
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+a:focus-visible {
+ outline: 3px solid var(--ui-focus);
 	outline-offset: 2px;
 }
 

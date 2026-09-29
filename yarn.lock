@@ -4070,7 +4070,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@radix-ui/react-dialog@npm:1.1.23":
+"@radix-ui/react-dialog@npm:1.1.23, @radix-ui/react-dialog@npm:^1.1.23":
   version: 1.1.23
   resolution: "@radix-ui/react-dialog@npm:1.1.23"
   dependencies:
@@ -19532,6 +19532,7 @@ __metadata:
     "@playwright/test": "npm:^1.54.1"
     "@popperjs/core": "npm:^2.11.8"
     "@radix-ui/react-alert-dialog": "npm:^1.1.23"
+    "@radix-ui/react-dialog": "npm:^1.1.23"
     "@reduxjs/toolkit": "npm:^2.0.1"
     "@tanstack/react-form": "npm:^1.19.0"
     "@tanstack/react-query": "npm:^5.84.1"
