@@ -565,6 +565,59 @@ describe("Scheduled Actions Handlers", () => {
 			expect(result.hasMore).toBe(true);
 		});
 
+		it("filters status, type, and frequency before counting and paginating", async () => {
+			const list = async (query: string) => {
+				const response = await worker.fetch(
+					createTestRequest(`scheduled-actions/list?${query}`, "GET", undefined, userCookies),
+					env,
+					createExecutionContext(),
+				);
+				expect(response.status).toBe(200);
+				return (await response.json()) as ScheduledActionListResponse;
+			};
+			const active = await list("status=active&limit=1");
+			expect(active.totalCount).toBe(1);
+			expect(active.hasMore).toBe(false);
+			expect(active.scheduledActions[0].actionData.description).toBe("Weekly groceries");
+			const pausedBudget = await list("status=paused&actionType=add_budget&frequency=monthly");
+			expect(pausedBudget.totalCount).toBe(1);
+			expect(pausedBudget.scheduledActions[0].actionData.description).toBe("Monthly budget");
+			const noMatch = await list("status=active&actionType=add_budget");
+			expect(noMatch.totalCount).toBe(0);
+			expect(noMatch.scheduledActions).toHaveLength(0);
+		});
+
+		it("sorts names and effective next dates with stable pagination", async () => {
+			const list = async (query: string) => {
+				const response = await worker.fetch(
+					createTestRequest(`scheduled-actions/list?${query}`, "GET", undefined, userCookies),
+					env,
+					createExecutionContext(),
+				);
+				expect(response.status).toBe(200);
+				return (await response.json()) as ScheduledActionListResponse;
+			};
+			const nameSorted = await list("sort=name");
+			expect(nameSorted.scheduledActions.map((action) => action.actionData.description))
+				.toEqual(["Monthly budget", "Weekly groceries"]);
+			const all = await list("sort=next_run&limit=2");
+			const first = await list("sort=next_run&limit=1&offset=0");
+			const second = await list("sort=next_run&limit=1&offset=1");
+			expect([...first.scheduledActions, ...second.scheduledActions].map((action) => action.id))
+				.toEqual(all.scheduledActions.map((action) => action.id));
+			expect(all.scheduledActions.map((action) => action.nextExecutionDate))
+				.toEqual([...all.scheduledActions.map((action) => action.nextExecutionDate)].sort());
+		});
+
+		it("rejects unsupported filter values", async () => {
+			const response = await worker.fetch(
+				createTestRequest("scheduled-actions/list?status=deleted", "GET", undefined, userCookies),
+				env,
+				createExecutionContext(),
+			);
+			expect(response.status).toBe(400);
+		});
+
 		it("should return list for other user in the same group", async () => {
 			const otherUserCookies = await signInAndGetCookies(
 				env,

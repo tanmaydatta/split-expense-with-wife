@@ -439,16 +439,22 @@ interface AddBudgetActionData {
 }
 ```
 
-#### POST `/.netlify/functions/scheduled-actions/list`
-Get paginated list of scheduled actions.
+#### GET `/.netlify/functions/scheduled-actions/list`
+Get a filtered, sorted, paginated list of scheduled actions for the authenticated group.
 
-**Request Body:**
+**Query parameters:**
 ```typescript
 {
-    offset?: number;
-    limit?: number;
+    offset?: number; // default 0
+    limit?: number; // default 10, maximum 50
+    status?: "all" | "active" | "paused"; // default "all"
+    actionType?: "all" | "add_expense" | "add_budget"; // default "all"
+    frequency?: "all" | "daily" | "weekly" | "monthly"; // default "all"
+    sort?: "recent" | "next_run" | "name"; // default "recent"
 }
 ```
+
+`totalCount` counts matching actions before pagination. `next_run` uses the effective next date shown on each card, including custom future dates and recalculated stale dates. Invalid filter or sort values return 400.
 
 **Response:**
 ```typescript

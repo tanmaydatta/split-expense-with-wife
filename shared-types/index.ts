@@ -636,6 +636,10 @@ export interface ScheduledActionDeleteRequest {
 export interface ScheduledActionListRequest {
 	offset?: number;
 	limit?: number;
+	status?: "all" | "active" | "paused";
+	actionType?: "all" | ScheduledActionType;
+	frequency?: "all" | ScheduledActionFrequency;
+	sort?: "recent" | "next_run" | "name";
 }
 
 export interface ScheduledActionListResponse {
@@ -911,6 +915,10 @@ export const ScheduledActionListQuerySchema = z.object({
 		.int()
 		.catch(10)
 		.transform((n: number) => (n < 1 ? 10 : n > 50 ? 50 : n)),
+	status: z.enum(["all", "active", "paused"]).default("all"),
+	actionType: z.enum(["all", "add_expense", "add_budget"]).default("all"),
+	frequency: z.enum(["all", "daily", "weekly", "monthly"]).default("all"),
+	sort: z.enum(["recent", "next_run", "name"]).default("recent"),
 });
 
 export const ScheduledActionHistoryQuerySchema = z.object({

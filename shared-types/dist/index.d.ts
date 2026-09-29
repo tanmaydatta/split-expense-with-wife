@@ -544,6 +544,10 @@ export interface ScheduledActionDeleteRequest {
 export interface ScheduledActionListRequest {
 	offset?: number;
 	limit?: number;
+	status?: "all" | "active" | "paused";
+	actionType?: "all" | ScheduledActionType;
+	frequency?: "all" | ScheduledActionFrequency;
+	sort?: "recent" | "next_run" | "name";
 }
 export interface ScheduledActionListResponse {
 	scheduledActions: ScheduledAction[];
@@ -807,6 +811,35 @@ export declare const ScheduledActionListQuerySchema: z.ZodObject<
 		limit: z.ZodPipe<
 			z.ZodCatch<z.ZodCoercedNumber<unknown>>,
 			z.ZodTransform<number, number>
+		>;
+		status: z.ZodDefault<
+			z.ZodEnum<{
+				all: "all";
+				active: "active";
+				paused: "paused";
+			}>
+		>;
+		actionType: z.ZodDefault<
+			z.ZodEnum<{
+				add_expense: "add_expense";
+				add_budget: "add_budget";
+				all: "all";
+			}>
+		>;
+		frequency: z.ZodDefault<
+			z.ZodEnum<{
+				daily: "daily";
+				weekly: "weekly";
+				monthly: "monthly";
+				all: "all";
+			}>
+		>;
+		sort: z.ZodDefault<
+			z.ZodEnum<{
+				recent: "recent";
+				next_run: "next_run";
+				name: "name";
+			}>
 		>;
 	},
 	z.core.$strip

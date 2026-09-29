@@ -10,6 +10,7 @@ import type {
 	CreateScheduledActionRequest,
 	ScheduledActionHistoryListRequest,
 	ScheduledActionHistoryListResponse,
+	ScheduledActionListRequest,
 	UpdateScheduledActionRequest,
 } from "split-expense-shared-types";
 
@@ -20,14 +21,28 @@ export function useScheduledActionsList() {
 	});
 }
 
-export function useInfiniteScheduledActionsList(limit: number = 25) {
+export function useInfiniteScheduledActionsList(
+	limit: number = 25,
+	filters: Pick<
+		ScheduledActionListRequest,
+		"status" | "actionType" | "frequency" | "sort"
+	> = {},
+) {
 	return useInfiniteQuery({
-		queryKey: ["scheduled-actions", "list", "infinite", limit],
+		queryKey: ["scheduled-actions", "list", "infinite", limit, filters],
 		initialPageParam: 0 as number, // offset
 		queryFn: async ({ pageParam }) => {
 			const params = new URLSearchParams();
 			params.set("offset", String(pageParam));
 			params.set("limit", String(limit));
+			if (filters.status && filters.status !== "all")
+				params.set("status", filters.status);
+			if (filters.actionType && filters.actionType !== "all")
+				params.set("actionType", filters.actionType);
+			if (filters.frequency && filters.frequency !== "all")
+				params.set("frequency", filters.frequency);
+			if (filters.sort && filters.sort !== "recent")
+				params.set("sort", filters.sort);
 			const resp = await apiInstance.get<
 				import("split-expense-shared-types").ScheduledActionListResponse
 			>(`/scheduled-actions/list?${params.toString()}`);
