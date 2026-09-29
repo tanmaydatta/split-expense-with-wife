@@ -4,6 +4,7 @@ import { theme } from "@/components/theme";
 import { GlobalStyles } from "@/components/theme/GlobalStyles";
 import Logout from "@/Logout";
 import Balances from "@/pages/Balances";
+import BillsPage from "@/pages/Bills";
 import { Budget } from "@/pages/Budget";
 import Dashboard from "@/pages/Dashboard";
 import Landing from "@/pages/Landing";
@@ -190,6 +191,7 @@ function AppWrapper() {
 		if (path === "/") return "Add Expense";
 		if (path === "/expenses") return "Expenses";
 		if (path === "/balances") return "Balances";
+		if (path === "/bills") return "Shared Bills";
 		if (path === "/budget") return "Budget";
 		if (path.startsWith("/monthly-budget")) return "Monthly Budget";
 		if (path === "/settings") return "Settings";
@@ -240,6 +242,7 @@ function AppWrapper() {
 							<Routes>
 								<Route path="/" element={<Dashboard />} />
 								<Route path="/balances" element={<Balances />} />
+								<Route path="/bills" element={<BillsPage />} />
 								<Route path="/budget" element={<Budget />} />
 								<Route path="/monthly-budget" element={<MonthlyBudgetPage />} />
 								<Route

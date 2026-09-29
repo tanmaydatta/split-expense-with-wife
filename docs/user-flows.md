@@ -278,6 +278,29 @@ The page groups the group name, currency, default shares, and budget categories 
 
 ---
 
+## Shared Bills (`/bills`)
+
+The **Shared Bills** item in desktop and mobile navigation opens a month
+calendar, monthly totals, a due-date list, and bill plans. Previous/next month
+buttons and **This month** change the calendar. A `month=YYYY-MM` URL parameter
+keeps the selected month on reload. The calendar links to each due item below;
+the list remains available on narrow screens.
+
+**Add bill** opens a form for name, amount, currency, first due date, cadence
+(one time, daily, weekly, monthly), payer, and per-member split percentages.
+Shares must total 100%. The form uses the group's default currency and shares
+when available. Existing plans can be edited, stopped, or resumed. Editing refreshes
+unpaid occurrences while keeping paid records; stopping removes future unpaid
+dates and keeps recorded payments.
+
+Each occurrence shows its UTC calendar due date, payer, amount, split, and
+pending/overdue/paid status. **Mark paid** opens a payment dialog where a recent
+matching expense may be linked; **Mark pending** reverses the recorded status.
+Neither action creates an expense or changes balances. Summary
+amounts and planned member shares are separate for each currency; there is no
+exchange-rate conversion. Monthly due dates on days 29–31 use the last day of
+shorter months, and weekly dates repeat every seven UTC calendar days.
+
 ## 9. Scheduled Actions
 
 Automate recurring expenses or budget entries (e.g., monthly rent, weekly grocery budget).

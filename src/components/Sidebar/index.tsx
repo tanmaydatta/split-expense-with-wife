@@ -90,6 +90,15 @@ function Sidebar({ onNavigate }: SidebarProps): JSX.Element {
 			</SidebarItem>
 			<SidebarItem
 				type="button"
+				$active={isActive("/bills")}
+				aria-current={isActive("/bills") ? "page" : undefined}
+				onClick={() => handleNavigate("/bills")}
+				data-test-id="sidebar-bills"
+			>
+				Shared Bills
+			</SidebarItem>
+			<SidebarItem
+				type="button"
 				$active={isActive("/balances")}
 				aria-current={isActive("/balances") ? "page" : undefined}
 				onClick={() => handleNavigate("/balances")}
