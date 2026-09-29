@@ -12,6 +12,24 @@ import { allocatedShares, dueDatesInMonth } from "../utils/bill-dates";
 type Db = ReturnType<typeof getDb>;
 type Bill = typeof bills.$inferSelect;
 
+function addToSummary(summaries: Map<Currency, BillMonthResponse["summary"][number]>, occurrence: typeof billOccurrences.$inferSelect): void {
+	const currency = occurrence.currency as Currency;
+	let summary = summaries.get(currency);
+	if (!summary) {
+		summary = { currency, plannedMinor: 0, dueMinor: 0, paidMinor: 0, sharesByUserMinor: {}, plannedOwedByUserMinor: {} };
+		summaries.set(currency, summary);
+	}
+	summary.plannedMinor += occurrence.amountMinor;
+	if (occurrence.paidAt) summary.paidMinor += occurrence.amountMinor;
+	else summary.dueMinor += occurrence.amountMinor;
+	for (const [userId, amount] of Object.entries(allocatedShares(occurrence.amountMinor, occurrence.splitBasisPoints))) {
+		summary.sharesByUserMinor[userId] = (summary.sharesByUserMinor[userId] ?? 0) + amount;
+		if (!occurrence.paidAt && userId !== occurrence.payerUserId) {
+			summary.plannedOwedByUserMinor[userId] = (summary.plannedOwedByUserMinor[userId] ?? 0) + amount;
+		}
+	}
+}
+
 function groupId(session: CurrentSession): string | null {
 	return session.group?.groupid ?? null;
 }
@@ -77,17 +95,7 @@ export async function handleBillMonth(request: Request, env: Env): Promise<Respo
 		const summaries = new Map<Currency, BillMonthResponse["summary"][number]>();
 		const occurrences = rows.map(({ occurrence, bill }) => {
 			const currency = occurrence.currency as Currency;
-			let summary = summaries.get(currency);
-			if (!summary) {
-				summary = { currency, dueMinor: 0, paidMinor: 0, pendingMinor: 0, sharesByUserMinor: {} };
-				summaries.set(currency, summary);
-			}
-			summary.dueMinor += occurrence.amountMinor;
-			if (occurrence.paidAt) summary.paidMinor += occurrence.amountMinor;
-			else summary.pendingMinor += occurrence.amountMinor;
-			for (const [userId, amount] of Object.entries(allocatedShares(occurrence.amountMinor, occurrence.splitBasisPoints))) {
-				summary.sharesByUserMinor[userId] = (summary.sharesByUserMinor[userId] ?? 0) + amount;
-			}
+			addToSummary(summaries, occurrence);
 			return { id: occurrence.id, billId: bill.id, title: bill.title, dueDate: occurrence.dueDate,
 				amountMinor: occurrence.amountMinor, currency, payerUserId: occurrence.payerUserId,
 				splitBasisPoints: occurrence.splitBasisPoints, paidAt: occurrence.paidAt,

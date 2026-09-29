@@ -566,10 +566,11 @@ export interface BillMonthResponse {
 	occurrences: BillOccurrenceView[];
 	summary: Array<{
 		currency: Currency;
+		plannedMinor: number;
 		dueMinor: number;
 		paidMinor: number;
-		pendingMinor: number;
 		sharesByUserMinor: Record<string, number>;
+		plannedOwedByUserMinor: Record<string, number>;
 	}>;
 }
 export interface BillReminderView {

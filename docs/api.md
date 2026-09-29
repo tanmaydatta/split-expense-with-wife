@@ -793,10 +793,11 @@ For example, `{ "alice": 5000, "bob": 5000 }` is a 50/50 split. The payer and
 all split members must belong to the current group. `month` is a valid
 `YYYY-MM`. Weekly bills repeat every seven UTC calendar days from the first due
 date. Monthly bills due on days 29–31 use the last day in shorter months.
-The month response includes `dueMinor`, `paidMinor`, `pendingMinor`, and
-`sharesByUserMinor` separately for each currency. Shares are planned portions,
-including both pending and paid occurrences. Rounding remainder goes to the
-last user ID in sorted order. An optional linked transaction must already
+The month response includes `plannedMinor` (all occurrences), `dueMinor`
+(unpaid occurrences), `paidMinor`, `sharesByUserMinor` (all planned portions),
+and `plannedOwedByUserMinor` (unpaid portions owed to someone other than the
+payer), separately for each currency. These are plans, not settled balances.
+Rounding remainder goes to the last user ID in sorted order. An optional linked transaction must already
 exist in the group and match amount and currency.
 
 ## Testing
