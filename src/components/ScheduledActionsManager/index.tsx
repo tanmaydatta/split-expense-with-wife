@@ -1,4 +1,4 @@
-import { Card } from "@/components/Card";
+import { Surface, UiSectionTitle } from "@/components/ui";
 import { useCreateScheduledAction } from "@/hooks/useScheduledActions";
 import { useForm, useStore } from "@tanstack/react-form";
 import React, { useMemo } from "react";
@@ -128,8 +128,8 @@ export const ScheduledActionsManager: React.FC<
 
 	return (
 		<div data-test-id="scheduled-actions-manager">
-			<Card className="settings-card">
-				<h3>Scheduled Actions</h3>
+			<Surface>
+				<UiSectionTitle>Action details</UiSectionTitle>
 				<ScheduledActionForm
 					form={form}
 					mode={mode}
@@ -148,7 +148,7 @@ export const ScheduledActionsManager: React.FC<
 					createAction={createAction}
 					paidByUserId={paidByUserId}
 				/>
-			</Card>
+			</Surface>
 		</div>
 	);
 };

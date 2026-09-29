@@ -10,7 +10,7 @@ Preview captures from the local Playwright flow: [scheduled actions on desktop](
 
 | Area | Current UI | Next migration |
 | --- | --- | --- |
-| Scheduled actions | Shared surfaces, buttons, field labels, and Radix confirmation | Extend to create/edit/history |
+| Scheduled actions | Shared page layout, surfaces, buttons, field labels, and Radix confirmation across list, create, edit, history, and run details | Maintain consistency as new scheduled-action features are added |
 | Dashboard and expenses | Custom forms, cards, and tables | Shared page header, form fields, surface, button variants, responsive list/table |
 | Budget and monthly budget | Custom cards, charts, and tables | Shared surfaces, amount hierarchy, states, and controls |
 | Balances and transaction details | Page-specific cards and CSS | Shared typography, surfaces, and action layout |

@@ -1,5 +1,5 @@
 import React from "react";
-import { Button } from "@/components/Button";
+import { UiButton } from "@/components/ui";
 import { ButtonRow, FormContainer } from "@/components/Form/Layout";
 import {
 	ErrorContainer,
@@ -13,6 +13,20 @@ import {
 	ExpenseFields,
 	BudgetFields,
 } from "./FormFields";
+import styled from "styled-components";
+
+const StyledForm = styled(FormContainer)`
+  max-width: 680px;
+  label { color: var(--ui-text); }
+  input:not([type="checkbox"]), select {
+    border-color: var(--ui-border-strong);
+    border-radius: var(--ui-radius-sm);
+  }
+  input:focus-visible, select:focus-visible {
+    outline: 3px solid var(--ui-focus);
+    outline-offset: 2px;
+  }
+`;
 
 interface ScheduledActionFormProps {
 	form: any;
@@ -52,7 +66,7 @@ export const ScheduledActionForm: React.FC<ScheduledActionFormProps> = ({
 	paidByUserId,
 }) => {
 	return (
-		<FormContainer
+		<StyledForm
 			onSubmit={(e) => {
 				e.preventDefault();
 				form.handleSubmit();
@@ -85,8 +99,9 @@ export const ScheduledActionForm: React.FC<ScheduledActionFormProps> = ({
 			)}
 
 			<ButtonRow>
-				<Button
+				<UiButton
 					type="submit"
+					$tone="primary"
 					data-test-id="sa-submit"
 					disabled={
 						!canSubmit ||
@@ -100,8 +115,8 @@ export const ScheduledActionForm: React.FC<ScheduledActionFormProps> = ({
 							? "Saving..."
 							: "Creating..."
 						: (submitLabel ?? (mode === "edit" ? "Save" : "Create"))}
-				</Button>
+				</UiButton>
 			</ButtonRow>
-		</FormContainer>
+		</StyledForm>
 	);
 };

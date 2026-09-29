@@ -1,45 +1,27 @@
 import BackButton from "@/components/BackButton";
 import ScheduledActionsHistory from "@/components/ScheduledActionsHistory";
+import { UiPage, UiPageDescription, UiPageHeader, UiPageTitle } from "@/components/ui";
 import { useScheduledActionDetails } from "@/hooks/useScheduledActions";
 import React from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import type { ScheduledAction } from "split-expense-shared-types";
-import styled from "styled-components";
 
 const ActionHistoryPage: React.FC = () => {
 	const navigate = useNavigate();
 	const { id } = useParams<{ id: string }>();
 	const { data: details } = useScheduledActionDetails(id);
 	const action = details as ScheduledAction | undefined;
-	const Header = styled.div`
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 16px;
-  `;
-	// Reused BackButton component
-	const Title = styled.h3`
-    margin: 0;
-  `;
-	const Description = styled.div`
-    margin-bottom: 16px;
-    font-weight: 600;
-    font-size: 18px;
-    color: #111827;
-  `;
-
 	return (
-		<div
-			className="settings-container"
-			data-test-id="scheduled-actions-history"
-		>
-			<Header>
+		<UiPage data-test-id="scheduled-actions-history">
+			<UiPageHeader>
+				<div>
+					<UiPageTitle>Action History</UiPageTitle>
+					<UiPageDescription>{action?.actionData.description || "Review upcoming and completed runs."}</UiPageDescription>
+				</div>
 				<BackButton onClick={() => navigate(-1)} />
-				<Title>Action History</Title>
-			</Header>
-			{action && <Description>{action.actionData.description}</Description>}
+			</UiPageHeader>
 			<ScheduledActionsHistory scheduledActionId={id} />
-		</div>
+		</UiPage>
 	);
 };
 

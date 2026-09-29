@@ -62,3 +62,41 @@ export const FieldLabel = styled.label`
     background-color: var(--ui-surface);
   }
 `;
+
+export const UiPage = styled.main`
+  width: min(100%, 960px);
+  margin: 0 auto;
+  padding: 24px 16px 60px;
+  color: var(--ui-text);
+  @media (max-width: 600px) { padding: 16px 0 40px; }
+`;
+
+export const UiPageHeader = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 22px;
+  flex-wrap: wrap;
+`;
+
+export const UiPageTitle = styled.h1`
+  margin: 0;
+  color: var(--ui-text);
+  font-size: clamp(24px, 3vw, 30px);
+  font-weight: 750;
+  line-height: 1.15;
+`;
+
+export const UiPageDescription = styled.p`
+  margin: 8px 0 0;
+  color: var(--ui-text-muted);
+  font-size: 14px;
+`;
+
+export const UiSectionTitle = styled.h2`
+  margin: 0 0 16px;
+  color: var(--ui-text);
+  font-size: 18px;
+  font-weight: 700;
+`;

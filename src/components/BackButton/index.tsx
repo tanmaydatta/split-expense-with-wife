@@ -1,18 +1,10 @@
-import { Button } from "@/components/Button";
+import { UiButton } from "@/components/ui";
 import { ArrowLeft } from "@/components/Icons";
 import React from "react";
 import styled from "styled-components";
 
-const StyledBack = styled(Button)`
-  background: white;
-  color: #1e40af;
-  border: 1px solid #e5e7eb;
-  padding: 6px 10px;
-  min-height: 32px;
-  font-size: 14px;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
+const StyledBack = styled(UiButton)`
+  color: var(--ui-accent);
 `;
 
 type BackButtonProps = {
@@ -21,8 +13,8 @@ type BackButtonProps = {
 };
 
 const BackButton: React.FC<BackButtonProps> = ({ onClick, label = "Back" }) => (
-	<StyledBack onClick={onClick}>
-		<ArrowLeft size={14} color="#1e40af" />
+	<StyledBack type="button" onClick={onClick}>
+		<ArrowLeft size={14} color="currentColor" />
 		{label}
 	</StyledBack>
 );
