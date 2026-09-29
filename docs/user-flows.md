@@ -137,6 +137,8 @@ Click/tap any row or card to expand it. Expanded view shows:
 
 ### Transaction Detail Page (`/transaction/:id`)
 Full detail view for a single transaction:
+
+The detail page shows the expense and any linked budget entry together. Deleting from this page asks for confirmation; a failed deletion leaves the page open and displays an error so it can be retried.
 - All split information (paid by, owed amounts, per-user breakdown)
 - Linked budget entry card when a link exists, with a "View linked budget entry" button → `/budget-entry/:id`
 
@@ -203,6 +205,8 @@ Table/list of all entries for the selected budget:
 
 ### Budget Entry Detail Page (`/budget-entry/:id`)
 Full detail view for a single budget entry:
+
+The detail page shows the budget entry and any linked expense together. Deleting from this page asks for confirmation; a failed deletion leaves the page open and displays an error so it can be retried.
 - Amount, description, date, currency, budget category
 - Linked transaction card when a link exists, with a "View linked transaction" button → `/transaction/:id`
 
@@ -243,6 +247,8 @@ The chart page uses the shared heading and spacing. Time-range and currency cont
 ---
 
 ## 8. Settings (`/settings`)
+
+The page groups the group name, currency, default shares, and budget categories in distinct cards, with a save action at the end. A heading stays visible while settings load.
 
 ### Group Information
 - **Group Name** text input — editable, required
