@@ -1,4 +1,5 @@
 import { Loader } from "@/components/Loader";
+import { UiPageDescription, UiPageTitle } from "@/components/ui";
 import {
 	ErrorContainer,
 	SuccessContainer,
@@ -62,6 +63,10 @@ const Settings: React.FC = () => {
 	if (groupDetailsQuery.isLoading) {
 		return (
 			<div className="settings-container">
+				<header>
+					<UiPageTitle>Settings</UiPageTitle>
+					<UiPageDescription>Manage your group, default shares, and budget categories.</UiPageDescription>
+				</header>
 				<div
 					style={{ display: "flex", justifyContent: "center", padding: "2rem" }}
 				>
@@ -73,6 +78,10 @@ const Settings: React.FC = () => {
 
 	return (
 		<div className="settings-container" data-test-id="settings-container">
+			<header>
+				<UiPageTitle>Settings</UiPageTitle>
+				<UiPageDescription>Manage your group, default shares, and budget categories.</UiPageDescription>
+			</header>
 			{groupDetailsQuery.error && (
 				<ErrorContainer
 					message={

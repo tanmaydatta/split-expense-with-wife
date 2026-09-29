@@ -1,0 +1,20 @@
+.entry-detail-page {
+	max-width: 760px;
+}
+
+.entry-detail-page .transaction-card,
+.entry-detail-page .budget-entry-detail-card {
+	width: 100%;
+}
+
+.entry-detail-actions {
+	display: flex;
+	justify-content: flex-end;
+	margin-top: 20px;
+}
+
+@media (max-width: 600px) {
+	.entry-detail-actions > button {
+		width: 100%;
+	}
+}

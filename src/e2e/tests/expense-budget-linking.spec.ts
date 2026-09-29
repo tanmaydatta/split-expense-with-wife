@@ -236,6 +236,14 @@ test.describe("Expense-Budget Linking", () => {
 		await expect(
 			page.locator('[data-test-id="budget-entry-card-linked-transaction"]'),
 		).toBeVisible({ timeout: 10000 });
+
+		// Deletion is reversible until confirmed.
+		await page.click('[data-test-id="delete"]');
+		const budgetDialog = page.getByRole("alertdialog");
+		await expect(budgetDialog).toBeVisible();
+		await budgetDialog.getByRole("button", { name: "Cancel" }).click();
+		await expect(budgetDialog).not.toBeVisible();
+		await expect(page.locator('[data-test-id="budget-entry-card"]')).toBeVisible();
 	});
 
 	test("deleting a linked transaction cascades and both lists no longer show the entries", async ({
@@ -294,6 +302,9 @@ test.describe("Expense-Budget Linking", () => {
 
 		// Click the delete button on the transaction detail page
 		await page.click('[data-test-id="delete"]');
+		const deleteDialog = page.getByRole("alertdialog");
+		await expect(deleteDialog).toBeVisible();
+		await deleteDialog.getByRole("button", { name: "Delete expense" }).click();
 
 		// Wait for redirect to /expenses
 		await expect(page).toHaveURL("/expenses", { timeout: 10000 });
