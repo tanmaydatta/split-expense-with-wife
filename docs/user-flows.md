@@ -268,22 +268,20 @@ Automate recurring expenses or budget entries (e.g., monthly rent, weekly grocer
 
 ### List Page (`/scheduled-actions`)
 
-Shows all scheduled actions as cards:
-- **Status dot:** green (active) or red (paused)
-- **Description:** e.g., "Monthly Rent"
-- **Metadata:** Frequency (DAILY/WEEKLY/MONTHLY) • Type (Add Expense/Add to Budget) • Next execution date
+Shows scheduled actions in a single-column list of cards on desktop and mobile. Every card shows description, amount and currency, action type, frequency, active or paused status, and next execution date. Expense cards show the payer and each person's split percentage directly. Budget cards show the budget category and credit or debit type directly. Member and budget names are shown when available. **More setup** expands secondary dates, including start date and last run, without repeating the amount.
 
 **Card actions:**
-| Icon | Action |
-|------|--------|
-| Play/Pause | Toggle active/paused status |
-| Pencil | Edit the action |
-| Trash | Delete (with confirmation dialog) |
-| Click card body | View execution history |
+| Button | Action |
+|--------|--------|
+| More setup / Hide setup | Expand or collapse secondary schedule dates |
+| History | View execution history |
+| Edit | Edit the action |
+| Pause / Resume | Toggle active/paused status |
+| Delete | Delete with a confirmation dialog |
 
 **"Add Action"** button in header → create new action.
 
-Infinite scroll loads more actions.
+More actions load as you scroll. A visible **Load more actions** button is also available while more pages remain. The page shows an invitation to create the first action when empty, a loading message during fetch, and a retry button if loading fails.
 
 ### Creating an Action (`/scheduled-actions/new`)
 
