@@ -139,7 +139,9 @@ test.describe("Scheduled Actions", () => {
 		const card = page.locator('[data-test-id^="sa-item-"]').filter({ hasText: "Morning coffee subscription" });
 		await expect(card).toContainText("9.99");
 		await expect(card).toContainText("Active");
-		const visibleSetup = card.locator('[data-test-id^="sa-details-"]');
+		const visibleSetup = card.getByRole("group", {
+			name: "Morning coffee subscription setup",
+		});
 		await expect(visibleSetup.getByText("Paid by")).toBeVisible();
 		await expect(visibleSetup.getByText("Split")).toBeVisible();
 		await expect(visibleSetup).toContainText("100%");
@@ -177,7 +179,9 @@ test.describe("Scheduled Actions", () => {
 			nextDate: startDate,
 		});
 		const card = page.locator('[data-test-id^="sa-item-"]').filter({ hasText: "Monthly house credit" });
-		const visibleSetup = card.locator('[data-test-id^="sa-details-"]');
+		const visibleSetup = card.getByRole("group", {
+			name: "Monthly house credit setup",
+		});
 		await expect(visibleSetup.getByText("Budget", { exact: true })).toBeVisible();
 		await expect(visibleSetup.getByText("Entry type")).toBeVisible();
 		await expect(visibleSetup.getByText("Credit")).toBeVisible();
