@@ -3,8 +3,7 @@ name: CI
 on:
   push:
     branches: [ main ]
-  pull_request:
-    branches: [ main]
+  pull_request: {}
 
 jobs:
   lint-react:
@@ -79,4 +78,4 @@ jobs:
         cd cf-worker
         yarn test
       env:
-        TZ: UTC 
+        TZ: UTC
