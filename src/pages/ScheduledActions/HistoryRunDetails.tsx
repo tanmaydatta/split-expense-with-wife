@@ -1,5 +1,5 @@
 import BackButton from "@/components/BackButton";
-import { Card } from "@/components/Card";
+import { Surface, UiPage, UiPageDescription, UiPageHeader, UiPageTitle } from "@/components/ui";
 import { useScheduledActionHistoryDetails } from "@/hooks/useScheduledActions";
 import { dateToFullStr } from "@/utils/date";
 import React from "react";
@@ -9,23 +9,13 @@ import type { ReduxState } from "split-expense-shared-types";
 import styled from "styled-components";
 
 const Container = styled.div``;
-const Header = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 16px;
-`;
-// Back button reused component
-const Title = styled.h3`
-  margin: 0;
-`;
 const Row = styled.div`
   margin: 8px 0;
   font-size: 14px;
-  color: #111827;
+  color: var(--ui-text);
 `;
 const Label = styled.span`
-  color: #6b7280;
+  color: var(--ui-text-muted);
   margin-right: 6px;
 `;
 
@@ -40,8 +30,8 @@ const InlineList = styled.div`
   align-items: center;
 `;
 const Pill = styled.span`
-  background: #f3f4f6;
-  border: 1px solid #e5e7eb;
+  background: var(--ui-surface-muted);
+  border: 1px solid var(--ui-border);
   border-radius: 9999px;
   padding: 2px 8px;
   font-size: 12px;
@@ -57,24 +47,27 @@ const HistoryRunDetailsPage: React.FC = () => {
 	const usersById = session?.extra?.usersById || {};
 
 	return (
-		<div className="settings-container" data-test-id="sa-history-run">
-			<Header>
+		<UiPage data-test-id="sa-history-run">
+			<UiPageHeader>
+				<div>
+					<UiPageTitle>Run Details</UiPageTitle>
+					<UiPageDescription>Review the result and data from this scheduled run.</UiPageDescription>
+				</div>
 				<BackButton onClick={() => navigate(-1)} />
-				<Title>Run Details</Title>
-			</Header>
+			</UiPageHeader>
 			{isLoading && (
-				<Card className="settings-card">
+				<Surface>
 					<div>Loading...</div>
-				</Card>
+				</Surface>
 			)}
 			{isError && (
-				<Card className="settings-card">
+				<Surface>
 					<div>Failed to load</div>
-				</Card>
+				</Surface>
 			)}
 			{!isLoading && !isError && data && (
 				<Container>
-					<Card className="settings-card">
+					<Surface>
 						<Row>
 							<Label>ID:</Label> {data.id}
 						</Row>
@@ -92,9 +85,9 @@ const HistoryRunDetailsPage: React.FC = () => {
 								<Label>Error:</Label> {data.errorMessage}
 							</Row>
 						)}
-					</Card>
+					</Surface>
 
-					<Card className="settings-card" style={{ marginTop: 16 }}>
+					<Surface style={{ marginTop: 16 }}>
 						<SectionTitle>Action Data</SectionTitle>
 						<Row>
 							<Label>Type:</Label> {data.actionType}
@@ -151,10 +144,10 @@ const HistoryRunDetailsPage: React.FC = () => {
 								)}
 							</>
 						)}
-					</Card>
+					</Surface>
 				</Container>
 			)}
-		</div>
+		</UiPage>
 	);
 };
 

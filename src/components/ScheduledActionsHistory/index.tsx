@@ -1,5 +1,4 @@
-import { Button } from "@/components/Button";
-import { Card } from "@/components/Card";
+import { Surface, UiButton } from "@/components/ui";
 import { Input } from "@/components/Form/Input";
 import {
 	useRunScheduledActionNow,
@@ -25,9 +24,20 @@ const List = styled.div`
   display: flex;
   flex-direction: column;
   gap: 12px;
+  margin-top: 16px;
 `;
 
-const Row = styled.div`
+const HistoryItem = styled(Surface)`
+  width: 100%;
+  color: var(--ui-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  &:hover { border-color: var(--ui-border-strong); background: var(--ui-surface-muted); }
+  &:focus-visible { outline: 3px solid var(--ui-focus); outline-offset: 2px; }
+`;
+
+const Row = styled.span`
   display: flex;
   align-items: center;
   gap: 12px;
@@ -46,15 +56,17 @@ const StatusDot = styled.span<{ $status: "success" | "failed" | "started" }>`
   flex-shrink: 0;
 `;
 
-const TitleText = styled.div`
+const TitleText = styled.span`
+  display: block;
   font-size: 16px;
-  color: #111827;
+  color: var(--ui-text);
   font-weight: 700;
 `;
 
-const Subtext = styled.div`
+const Subtext = styled.span`
+  display: block;
   font-size: 13px;
-  color: #4b5563;
+  color: var(--ui-text-muted);
 `;
 
 const Separator = styled.span`
@@ -92,7 +104,7 @@ const ControlsBar = styled.div`
   gap: 12px;
 `;
 
-const ActionButton = styled(Button)`
+const ActionButton = styled(UiButton)`
   height: 44px;
   min-width: 120px;
   padding: 0 16px;
@@ -148,7 +160,7 @@ const ScheduledActionsHistory: React.FC<Props> = ({
 
 	return (
 		<div data-test-id="sa-history">
-			<Card className="settings-card">
+			<Surface data-test-id="sa-upcoming">
 				<UpcomingContainer>
 					<UpcomingLeft>
 						<TitleText>Upcoming run</TitleText>
@@ -158,6 +170,7 @@ const ScheduledActionsHistory: React.FC<Props> = ({
 					</UpcomingLeft>
 					<ControlsBar>
 						<RunButton
+							$tone="primary"
 							onClick={() => {
 								if (!scheduledActionId || runNow.isPending) return;
 								runNow.mutate({ id: scheduledActionId });
@@ -208,27 +221,27 @@ const ScheduledActionsHistory: React.FC<Props> = ({
 						</SetButton>
 					</ControlsBar>
 				</UpcomingContainer>
-			</Card>
+			</Surface>
 			{isLoading && <div>Loading...</div>}
 			{isError && <div>Failed to load history</div>}
 			{!isLoading && !isError && data && list.length === 0 && (
-				<Card className="settings-card">
+				<Surface>
 					<div>No history yet.</div>
-				</Card>
+				</Surface>
 			)}
 			{!isLoading && !isError && list.length > 0 && (
 				<List>
 					{list.map((h: ScheduledActionHistory) => (
-						<Card
+						<HistoryItem
+							as="button"
+							type="button"
 							key={h.id}
-							className="settings-card"
 							onClick={() => navigate(`/scheduled-actions/history/run/${h.id}`)}
 							data-test-id={`sa-history-item-${h.id}`}
-							style={{ cursor: "pointer" }}
 						>
 							<Row>
 								<StatusDot $status={h.executionStatus} />
-								<div>
+								<span>
 									<TitleText>
 										{dateToFullStr(new Date(h.executedAt.replace(" ", "T")))}
 									</TitleText>
@@ -239,9 +252,9 @@ const ScheduledActionsHistory: React.FC<Props> = ({
 										<Separator>•</Separator>
 										Status: {h.executionStatus}
 									</Subtext>
-								</div>
+								</span>
 							</Row>
-						</Card>
+						</HistoryItem>
 					))}
 				</List>
 			)}

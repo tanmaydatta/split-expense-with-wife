@@ -8,7 +8,7 @@ import type {
 } from "split-expense-shared-types";
 import styled from "styled-components";
 import { Select } from "@/components/Form/Select";
-import { FieldLabel, Surface, UiButton } from "@/components/ui";
+import { FieldLabel, Surface, UiButton, UiPage, UiPageDescription, UiPageHeader, UiPageTitle } from "@/components/ui";
 import {
 	useDeleteScheduledAction,
 	useInfiniteScheduledActionsList,
@@ -16,37 +16,6 @@ import {
 } from "@/hooks/useScheduledActions";
 import { ActionCard } from "./ActionCard";
 import { useConfirmDialog, useIntersectionObserver } from "./hooks";
-
-const PageShell = styled.main`
-  width: min(100%, 960px);
-  margin: 0 auto;
-  padding: 24px 16px 60px;
-  color: var(--ui-text);
-  @media (max-width: 600px) { padding: 16px 0 40px; }
-`;
-
-const HeaderTitle = styled.h1`
-  margin: 0;
-  color: var(--ui-text);
-  font-size: clamp(24px, 3vw, 30px);
-  font-weight: 750;
-  line-height: 1.15;
-`;
-
-const HeaderCopy = styled.p`
-  margin: 8px 0 0;
-  color: var(--ui-text-muted);
-  font-size: 14px;
-`;
-
-const PageHeader = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 22px;
-  gap: 16px;
-  flex-wrap: wrap;
-`;
 
 const ActionsGrid = styled.div`
   display: grid;
@@ -260,16 +229,16 @@ const ScheduledActionsPage: React.FC = () => {
 	};
 
 	return (
-		<PageShell data-test-id="scheduled-actions-page">
-			<PageHeader>
+		<UiPage data-test-id="scheduled-actions-page">
+			<UiPageHeader>
 				<div>
-					<HeaderTitle>Scheduled actions</HeaderTitle>
-					<HeaderCopy>Manage what happens automatically, and when.</HeaderCopy>
+					<UiPageTitle>Scheduled actions</UiPageTitle>
+					<UiPageDescription>Manage what happens automatically, and when.</UiPageDescription>
 				</div>
 				<UiButton type="button" $tone="primary" onClick={() => navigate("/scheduled-actions/new")}>
 					<span aria-hidden="true">＋</span> Add action
 				</UiButton>
-			</PageHeader>
+			</UiPageHeader>
 			<FilterControls
 				filters={filters}
 				totalCount={totalCount}
@@ -356,7 +325,7 @@ const ScheduledActionsPage: React.FC = () => {
 					)}
 				</ActionsGrid>
 			)}
-		</PageShell>
+		</UiPage>
 	);
 };
 

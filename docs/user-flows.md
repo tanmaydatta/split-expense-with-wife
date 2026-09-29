@@ -289,6 +289,8 @@ More actions load as you scroll. A visible **Load more actions** button is also 
 
 ### Creating an Action (`/scheduled-actions/new`)
 
+The create and edit pages use the shared page heading, explanation, back button, and action-details surface. The primary save action is visually distinct. The history and run-details pages use the same page layout and surfaces; history entries are keyboard-operable buttons.
+
 **Step 1: Choose Action Type** (toggle)
 - "Add Expense" or "Add to Budget"
 

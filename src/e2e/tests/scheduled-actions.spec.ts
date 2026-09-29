@@ -337,7 +337,7 @@ test.describe("Scheduled Actions", () => {
 		// Capture current upcoming date
 		const upcomingText = await page
 			.locator(
-				'[data-test-id="sa-history"] .settings-card:has-text("Upcoming run")',
+				'[data-test-id="sa-upcoming"]',
 			)
 			.textContent();
 		const currentMatch = (upcomingText || "").match(
@@ -352,7 +352,7 @@ test.describe("Scheduled Actions", () => {
 		// Expect next date to change
 		const upcomingText2 = await page
 			.locator(
-				'[data-test-id="sa-history"] .settings-card:has-text("Upcoming run")',
+				'[data-test-id="sa-upcoming"]',
 			)
 			.textContent();
 		const newMatch = (upcomingText2 || "").match(
@@ -374,7 +374,7 @@ test.describe("Scheduled Actions", () => {
 
 		const upcomingText3 = await page
 			.locator(
-				'[data-test-id="sa-history"] .settings-card:has-text("Upcoming run")',
+				'[data-test-id="sa-upcoming"]',
 			)
 			.textContent();
 		expect(upcomingText3).toContain(`Next: ${customDate}`);
@@ -398,7 +398,7 @@ test.describe("Scheduled Actions", () => {
 		// Capture current upcoming date
 		const beforeText = await page
 			.locator(
-				'[data-test-id="sa-history"] .settings-card:has-text("Upcoming run")',
+				'[data-test-id="sa-upcoming"]',
 			)
 			.textContent();
 		const beforeMatch = (beforeText || "").match(
@@ -416,7 +416,7 @@ test.describe("Scheduled Actions", () => {
 		await page.waitForTimeout(getCITimeout(2000));
 		const afterText = await page
 			.locator(
-				'[data-test-id="sa-history"] .settings-card:has-text("Upcoming run")',
+				'[data-test-id="sa-upcoming"]',
 			)
 			.textContent();
 		const afterMatch = (afterText || "").match(
