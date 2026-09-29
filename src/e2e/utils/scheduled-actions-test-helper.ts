@@ -137,7 +137,7 @@ export class ScheduledActionsTestHelper {
 	}): Promise<void> {
 		const { description, containsText } = params;
 		const card = this.authenticatedPage.page
-			.locator(".settings-card")
+			.locator('[data-test-id^="sa-item-"]')
 			.filter({ hasText: description });
 		await expect(card.first()).toBeVisible({ timeout: getCITimeout(10000) });
 		if (containsText) {
@@ -160,7 +160,7 @@ export class ScheduledActionsTestHelper {
 	}): Promise<void> {
 		const { description, frequency, typeText } = params;
 		const card = this.authenticatedPage.page
-			.locator(".settings-card")
+			.locator('[data-test-id^="sa-item-"]')
 			.filter({ hasText: description })
 			.first();
 		await expect(card).toBeVisible({ timeout: getCITimeout(10000) });
@@ -233,7 +233,7 @@ export class ScheduledActionsTestHelper {
 
 	private async findCard(description: string) {
 		return this.authenticatedPage.page
-			.locator(".settings-card")
+			.locator('[data-test-id^="sa-item-"]')
 			.filter({ hasText: description });
 	}
 
@@ -268,7 +268,7 @@ export class ScheduledActionsTestHelper {
 		const actionId = deleteBtnTestId?.replace("sa-delete-", "");
 		await deleteBtn.click();
 		const dialog = this.authenticatedPage.page
-			.getByRole("dialog", { name: "Delete action?" })
+			.getByRole("alertdialog", { name: "Delete action?" })
 			.first();
 		await expect(dialog).toBeVisible({ timeout: getCITimeout(5000) });
 		if (opts?.confirm === false) {
@@ -290,7 +290,7 @@ export class ScheduledActionsTestHelper {
 				// Fallback: remove by description if id not found (less precise)
 				await expect(
 					this.authenticatedPage.page
-						.locator(".settings-card")
+						.locator('[data-test-id^="sa-item-"]')
 						.filter({ hasText: description }),
 				).toHaveCount(0, { timeout: getCITimeout(10000) });
 			}

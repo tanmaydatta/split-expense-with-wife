@@ -8,7 +8,7 @@ const DefinitionList = styled.dl`
   gap: 8px 16px;
   margin: 0;
   font-size: 14px;
-  dt { color: #6b7280; }
+  dt { color: var(--ui-text-muted); }
   dd { margin: 0; overflow-wrap: anywhere; }
   @media (max-width: 480px) {
     grid-template-columns: 1fr;
@@ -25,15 +25,15 @@ const PrimaryDetails = styled.fieldset`
   padding: 14px 0 0;
   min-width: 0;
   border: 0;
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid var(--ui-border);
 `;
 
 const SecondaryDetails = styled.section`
   margin-top: 10px;
   padding: 14px;
-  border-radius: 8px;
-  background: #f8fafc;
-  border: 1px solid #e5e7eb;
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-surface-muted);
+  border: 1px solid var(--ui-border);
 `;
 
 interface ActionDetailsProps {

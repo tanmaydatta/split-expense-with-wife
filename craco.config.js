@@ -10,6 +10,9 @@ module.exports = {
 	jest: {
 		configure: {
 			moduleNameMapper: {
+				// Jest 27 cannot resolve Radix's development/production conditional export.
+				"^@radix-ui/primitive/is-development$":
+					"<rootDir>/node_modules/@radix-ui/primitive/dist/internal/is-development.true.js",
 				"^@/(.*)$": "<rootDir>/src/$1",
 				"^@shared-types/(.*)$": "<rootDir>/shared-types/$1",
 			},

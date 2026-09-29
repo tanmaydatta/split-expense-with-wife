@@ -11,6 +11,7 @@ This folder contains comprehensive documentation for the Split Expense With Wife
 - [**API Documentation**](./api.md) - REST endpoints, types, and integration guide
 - [**Deployment Guide**](./deployment.md) - Production deployment and configuration
 - [**Testing Guide**](./testing.md) - Testing strategy, frameworks, and best practices
+- [**UI Foundation**](./ui-system.md) - Shared visual components and screen migration plan
 
 ## Quick Start
 

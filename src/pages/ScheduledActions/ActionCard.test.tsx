@@ -101,7 +101,8 @@ describe("ActionCard detail-first layout", () => {
     expect(primary).toHaveTextContent("Groceries");
     expect(primary).toHaveTextContent("Entry type");
     expect(primary).toHaveTextContent("Credit");
-    expect(screen.getByText("Next: 2026-10-01")).toBeVisible();
+    expect(screen.getByText("Next:", { exact: false })).toBeVisible();
+    expect(screen.getByText("2026-10-01")).toBeVisible();
     expect(screen.getByRole("button", { name: "History" })).toBeVisible();
   });
 });
