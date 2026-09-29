@@ -1,4 +1,13 @@
-import type { Currency } from "split-expense-shared-types";
+import type { BillScheduledOption, Currency } from "split-expense-shared-types";
+
+export function scheduledRunsOnDate(action: BillScheduledOption | undefined, date: string): boolean {
+	if (!action || date < action.startDate) return false;
+	if (action.frequency === "daily") return true;
+	if (action.frequency === "weekly") return Math.round((Date.parse(`${date}T00:00:00Z`) - Date.parse(`${action.startDate}T00:00:00Z`)) / 86_400_000) % 7 === 0;
+	const day = Number(action.startDate.slice(8, 10));
+	const [year, month] = date.split("-").map(Number);
+	return Number(date.slice(8, 10)) === Math.min(day, new Date(Date.UTC(year, month, 0)).getUTCDate());
+}
 
 export function amountToMinor(value: string, currency: Currency): number | null {
 	const decimals = currency === "JPY" ? 0 : 2;

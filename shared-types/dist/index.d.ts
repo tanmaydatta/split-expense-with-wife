@@ -513,6 +513,7 @@ export declare const BillCreateSchema: z.ZodObject<
 		payerUserId: z.ZodString;
 		splitBasisPoints: z.ZodRecord<z.ZodString, z.ZodNumber>;
 		scheduledActionId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+		scheduledBudgetActionId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
 	},
 	z.core.$strip
 >;
@@ -547,6 +548,7 @@ export declare const BillUpdateSchema: z.ZodObject<
 		payerUserId: z.ZodOptional<z.ZodString>;
 		splitBasisPoints: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodNumber>>;
 		scheduledActionId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+		scheduledBudgetActionId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
 		isActive: z.ZodOptional<z.ZodBoolean>;
 	},
 	z.core.$strip
@@ -589,6 +591,7 @@ export interface BillPlan {
 	splitBasisPoints: Record<string, number>;
 	isActive: boolean;
 	scheduledActionId: string | null;
+	scheduledBudgetActionId: string | null;
 }
 export interface BillOccurrenceView {
 	id: string;
@@ -602,6 +605,7 @@ export interface BillOccurrenceView {
 	paidAt: string | null;
 	linkedTransactionId: string | null;
 	scheduledTransactionId: string | null;
+	scheduledBudgetEntryId: string | null;
 }
 export interface BillMonthResponse {
 	month: string;
@@ -618,13 +622,16 @@ export interface BillMonthResponse {
 }
 export interface BillScheduledOption {
 	id: string;
+	actionType: "add_expense" | "add_budget";
 	description: string;
 	amount: number;
 	currency: string;
 	frequency: "daily" | "weekly" | "monthly";
 	startDate: string;
-	payerUserId: string;
-	splitPctShares: Record<string, number>;
+	payerUserId?: string;
+	splitPctShares?: Record<string, number>;
+	budgetId?: string;
+	budgetType?: "Credit" | "Debit";
 	isActive: boolean;
 }
 export interface BillReminderView {

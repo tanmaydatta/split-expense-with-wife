@@ -1,4 +1,4 @@
-import { and, asc, eq, gte, lt, isNull, ne } from "drizzle-orm";
+import { and, asc, eq, gte, lt, isNull, ne, sql } from "drizzle-orm";
 import { ulid } from "ulid";
 import {
 	BillCreateSchema, BillIdSchema, BillMonthQuerySchema, BillPaymentSchema,
@@ -6,11 +6,11 @@ import {
 } from "../../../shared-types";
 import type { getDb } from "../db";
 import { user } from "../db/schema/auth-schema";
-import { bills, billOccurrences, billReminders, expenseBudgetLinks, groupBudgets, scheduledActions, transactions, transactionUsers } from "../db/schema/schema";
+import { bills, billOccurrences, billReminders, budgetEntries, expenseBudgetLinks, groupBudgets, scheduledActions, transactions, transactionUsers } from "../db/schema/schema";
 import type { CurrentSession } from "../types";
 import { createErrorResponse, createJsonResponse, formatZodError, generateRandomId, withAuth } from "../utils";
 import { allocatedShares, dueDatesInMonth } from "../utils/bill-dates";
-import { createBudgetEntryStatements, createSplitTransactionFromRequest, generateDeterministicTransactionId } from "../utils/scheduled-action-execution";
+import { createBudgetEntryStatements, createSplitTransactionFromRequest, generateDeterministicBudgetId, generateDeterministicTransactionId } from "../utils/scheduled-action-execution";
 
 type Db = ReturnType<typeof getDb>;
 type Bill = typeof bills.$inferSelect;
@@ -50,29 +50,51 @@ function majorAmount(amountMinor: number, currency: string): number {
 	return amountMinor / (currency === "JPY" ? 1 : 100);
 }
 
-async function validateScheduledLink(db: Db, group: string, plan: Pick<Bill, "scheduledActionId" | "recurrence" | "firstDueDate" | "amountMinor" | "currency" | "payerUserId" | "splitBasisPoints">): Promise<string | null> {
-	if (!plan.scheduledActionId) return null;
-	if (plan.recurrence === "once") return "One-time bills cannot link to a recurring scheduled action";
+async function scheduledOutputId(db: Db, actionId: string | null | undefined, dueDate: string, group: string, kind: "expense" | "budget"): Promise<string | null> {
+	if (!actionId) return null;
 	const row = (await db.select({ action: scheduledActions, owner: user }).from(scheduledActions)
-		.innerJoin(user, eq(scheduledActions.userId, user.id))
-		.where(eq(scheduledActions.id, plan.scheduledActionId)).limit(1))[0];
-	if (!row || row.owner.groupid !== group || row.action.actionType !== "add_expense") return "Choose a scheduled expense from this group";
-	const action = row.action;
-	const data = action.actionData;
-	if (action.frequency !== plan.recurrence || action.startDate !== plan.firstDueDate ||
-		data.amount !== majorAmount(plan.amountMinor, plan.currency) || data.currency !== plan.currency ||
-		!("paidByUserId" in data) || data.paidByUserId !== plan.payerUserId ||
-		Object.keys(plan.splitBasisPoints).some((id) => Math.abs((data.splitPctShares[id] ?? 0) * 100 - plan.splitBasisPoints[id]) > 0.01) ||
-		Object.keys(data.splitPctShares).some((id) => !(id in plan.splitBasisPoints))) {
-		return "Scheduled expense must have the same first date, cadence, amount, currency, payer and split as the bill";
+		.innerJoin(user, eq(scheduledActions.userId, user.id)).where(eq(scheduledActions.id, actionId)).limit(1))[0];
+	if (!row || row.owner.groupid !== group || row.action.actionType !== (kind === "expense" ? "add_expense" : "add_budget") ||
+		!dueDatesInMonth(row.action.startDate, row.action.frequency, dueDate.slice(0, 7)).includes(dueDate)) return null;
+	return kind === "expense" ? generateDeterministicTransactionId(actionId, dueDate) : generateDeterministicBudgetId(actionId, dueDate);
+}
+
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: validates two linked action types and their shared run schedule
+async function validateScheduledLink(db: Db, group: string, plan: Pick<Bill, "scheduledActionId" | "scheduledBudgetActionId">): Promise<string | null> {
+	const choices = [[plan.scheduledActionId, "add_expense"], [plan.scheduledBudgetActionId, "add_budget"]] as const;
+	const selected = [];
+	for (const [id, type] of choices) {
+		if (!id) continue;
+		const row = (await db.select({ action: scheduledActions, owner: user }).from(scheduledActions)
+			.innerJoin(user, eq(scheduledActions.userId, user.id)).where(eq(scheduledActions.id, id)).limit(1))[0];
+		if (!row || row.owner.groupid !== group || row.action.actionType !== type) return `Choose a scheduled ${type === "add_expense" ? "expense" : "budget"} from this group`;
+		selected.push(row.action);
+	}
+	if (selected.length === 2 && (selected[0].frequency !== selected[1].frequency || selected[0].startDate !== selected[1].startDate)) {
+		return "Selected expense and budget actions must have the same first date and repeat schedule";
 	}
 	return null;
 }
 
-async function scheduledLinkInUse(db: Db, actionId: string | null | undefined, exceptBillId?: string): Promise<boolean> {
+async function scheduledLinkInUse(db: Db, actionId: string | null | undefined, exceptBillId?: string, kind: "expense" | "budget" = "expense"): Promise<boolean> {
 	if (!actionId) return false;
-	const condition = exceptBillId ? and(eq(bills.scheduledActionId, actionId), ne(bills.id, exceptBillId)) : eq(bills.scheduledActionId, actionId);
+	const column = kind === "budget" ? bills.scheduledBudgetActionId : bills.scheduledActionId;
+	const condition = exceptBillId ? and(eq(column, actionId), ne(bills.id, exceptBillId)) : eq(column, actionId);
 	return (await db.select({ id: bills.id }).from(bills).where(condition).limit(1)).length > 0;
+}
+
+async function pairExistingScheduledOutputs(db: Db, bill: Pick<Bill, "id" | "groupId" | "scheduledActionId" | "scheduledBudgetActionId">): Promise<void> {
+	if (!bill.scheduledActionId || !bill.scheduledBudgetActionId) return;
+	const expensePrefix = `tx_${bill.scheduledActionId}_`;
+	const budgetPrefix = `bge_${bill.scheduledBudgetActionId}_`;
+	await db.run(sql`INSERT INTO expense_budget_links (id, transaction_id, budget_entry_id, group_id, created_at)
+		SELECT ${`ebl_bill_${bill.id}_`} || SUBSTR(t.transaction_id, LENGTH(${expensePrefix}) + 1), t.transaction_id, be.budget_entry_id, ${bill.groupId}, ${new Date().toISOString()}
+		FROM transactions t
+		INNER JOIN budget_entries be ON be.budget_entry_id = ${budgetPrefix} || SUBSTR(t.transaction_id, LENGTH(${expensePrefix}) + 1)
+		INNER JOIN group_budgets gb ON gb.id = be.budget_id
+		WHERE SUBSTR(t.transaction_id, 1, LENGTH(${expensePrefix})) = ${expensePrefix} AND LENGTH(t.transaction_id) = LENGTH(${expensePrefix}) + 10
+			AND t.group_id = ${bill.groupId} AND gb.group_id = ${bill.groupId} AND t.deleted IS NULL AND be.deleted IS NULL
+		ON CONFLICT DO NOTHING`);
 }
 
 export async function materializeBillMonth(db: Db, bill: Bill, month: string): Promise<void> {
@@ -103,17 +125,19 @@ export async function handleBillCreate(request: Request, env: Env): Promise<Resp
 		if (!validMembers(session, parsed.data.payerUserId, parsed.data.splitBasisPoints)) {
 			return createErrorResponse("Payer and split users must belong to your group", 400, request, env);
 		}
-		const linkError = await validateScheduledLink(db, group, { ...parsed.data, scheduledActionId: parsed.data.scheduledActionId ?? null });
+		const linkError = await validateScheduledLink(db, group, { ...parsed.data, scheduledActionId: parsed.data.scheduledActionId ?? null, scheduledBudgetActionId: parsed.data.scheduledBudgetActionId ?? null });
 		if (linkError) return createErrorResponse(linkError, 400, request, env);
 		if (await scheduledLinkInUse(db, parsed.data.scheduledActionId)) {
 			return createErrorResponse("Scheduled expense is already linked to a bill", 409, request, env);
 		}
+		if (await scheduledLinkInUse(db, parsed.data.scheduledBudgetActionId, undefined, "budget")) return createErrorResponse("Scheduled budget action is already linked to a bill", 409, request, env);
 		const now = new Date().toISOString();
 		const bill: typeof bills.$inferInsert = {
 			id: generateRandomId(), groupId: group, ...parsed.data, isActive: true, createdAt: now, updatedAt: now,
 		};
 		await db.insert(bills).values(bill);
 		await materializeBillMonth(db, bill as Bill, bill.firstDueDate.slice(0, 7));
+		await pairExistingScheduledOutputs(db, bill as Bill);
 		return createJsonResponse({ id: bill.id }, 201, {}, request, env);
 	});
 }
@@ -135,20 +159,24 @@ export async function handleBillMonth(request: Request, env: Env): Promise<Respo
 		const occurrences = await Promise.all(rows.map(async (occurrence) => {
 			const currency = occurrence.currency as Currency;
 			addToSummary(summaries, occurrence);
-			const actionId = plansById.get(occurrence.billId)?.scheduledActionId;
-			const candidateId = actionId ? generateDeterministicTransactionId(actionId, occurrence.dueDate) : null;
-			const scheduledTransactionId = candidateId && await matchesExpense(db, candidateId, group, occurrence) ? candidateId : null;
+			const plan = plansById.get(occurrence.billId);
+			const candidateId = await scheduledOutputId(db, plan?.scheduledActionId, occurrence.dueDate, group, "expense");
+			const scheduledTransactionId = candidateId && (await db.select({ id: transactions.transactionId }).from(transactions).where(and(eq(transactions.transactionId, candidateId), eq(transactions.groupId, group), isNull(transactions.deleted))).limit(1)).length ? candidateId : null;
+			const budgetCandidateId = await scheduledOutputId(db, plan?.scheduledBudgetActionId, occurrence.dueDate, group, "budget");
+			const scheduledBudgetEntryId = budgetCandidateId && (await db.select({ id: budgetEntries.budgetEntryId }).from(budgetEntries)
+				.innerJoin(groupBudgets, eq(budgetEntries.budgetId, groupBudgets.id))
+				.where(and(eq(budgetEntries.budgetEntryId, budgetCandidateId), eq(groupBudgets.groupId, group), isNull(budgetEntries.deleted))).limit(1)).length ? budgetCandidateId : null;
 			return { id: occurrence.id, billId: occurrence.billId, title: occurrence.title, dueDate: occurrence.dueDate,
 				amountMinor: occurrence.amountMinor, currency, payerUserId: occurrence.payerUserId,
 				splitBasisPoints: occurrence.splitBasisPoints, paidAt: occurrence.paidAt,
-				linkedTransactionId: occurrence.linkedTransactionId, scheduledTransactionId };
+				linkedTransactionId: occurrence.linkedTransactionId, scheduledTransactionId, scheduledBudgetEntryId };
 		}));
 		const response: BillMonthResponse = {
 			month,
 			bills: plans.map((plan) => ({ id: plan.id, title: plan.title, amountMinor: plan.amountMinor,
 				currency: plan.currency as Currency, firstDueDate: plan.firstDueDate, recurrence: plan.recurrence,
 				payerUserId: plan.payerUserId, splitBasisPoints: plan.splitBasisPoints, isActive: plan.isActive,
-				scheduledActionId: plan.scheduledActionId })),
+				scheduledActionId: plan.scheduledActionId, scheduledBudgetActionId: plan.scheduledBudgetActionId })),
 			occurrences,
 			summary: [...summaries.values()].sort((a, b) => a.currency.localeCompare(b.currency)),
 		};
@@ -162,14 +190,14 @@ export async function handleBillScheduledOptions(request: Request, env: Env): Pr
 		if (!group) return createErrorResponse("User not in a group", 400, request, env);
 		const rows = await db.select({ action: scheduledActions }).from(scheduledActions)
 			.innerJoin(user, eq(scheduledActions.userId, user.id))
-			.where(and(eq(user.groupid, group), eq(scheduledActions.actionType, "add_expense")))
+			.where(eq(user.groupid, group))
 			.orderBy(asc(scheduledActions.createdAt));
 		return createJsonResponse(rows.map(({ action }) => {
 			const data = action.actionData;
-			if (!("paidByUserId" in data)) return null;
-			return { id: action.id, description: data.description, amount: data.amount, currency: data.currency,
-				frequency: action.frequency, startDate: action.startDate, payerUserId: data.paidByUserId,
-				splitPctShares: data.splitPctShares, isActive: action.isActive };
+			return { id: action.id, actionType: action.actionType, description: data.description, amount: data.amount, currency: data.currency,
+				frequency: action.frequency, startDate: action.startDate,
+				...("paidByUserId" in data ? { payerUserId: data.paidByUserId, splitPctShares: data.splitPctShares } : { budgetId: data.budgetId, budgetType: data.type }),
+				isActive: action.isActive };
 		}).filter((option) => option !== null), 200, {}, request, env);
 	});
 }
@@ -192,6 +220,7 @@ export async function handleBillUpdate(request: Request, env: Env): Promise<Resp
 		if (await scheduledLinkInUse(db, next.scheduledActionId, existing.id)) {
 			return createErrorResponse("Scheduled expense is already linked to a bill", 409, request, env);
 		}
+		if (await scheduledLinkInUse(db, next.scheduledBudgetActionId, existing.id, "budget")) return createErrorResponse("Scheduled budget action is already linked to a bill", 409, request, env);
 		const { id: _id, ...fields } = parsed.data;
 		// Paid occurrences retain their historical snapshot. Refresh unpaid dates
 		// so editing a plan never silently alters a recorded payment.
@@ -199,6 +228,7 @@ export async function handleBillUpdate(request: Request, env: Env): Promise<Resp
 			db.update(bills).set({ ...fields, updatedAt: new Date().toISOString() }).where(and(eq(bills.id, existing.id), eq(bills.groupId, group))),
 			db.delete(billOccurrences).where(and(eq(billOccurrences.billId, existing.id), eq(billOccurrences.groupId, group), isNull(billOccurrences.paidAt), isNull(billOccurrences.linkedTransactionId))),
 		]);
+		await pairExistingScheduledOutputs(db, next);
 		// The next month request will materialize the updated plan.
 		return createJsonResponse({ message: "Bill updated" }, 200, {}, request, env);
 	});
@@ -240,13 +270,15 @@ export async function handleBillPayment(request: Request, env: Env): Promise<Res
 		}
 		if (occurrence.paidAt) return createErrorResponse("Bill is already marked paid", 409, request, env);
 		const plan = await findBill(db, occurrence.billId, group);
-		const scheduledId = plan?.scheduledActionId ? generateDeterministicTransactionId(plan.scheduledActionId, occurrence.dueDate) : null;
-		const existingScheduled = scheduledId && await matchesExpense(db, scheduledId, group, occurrence) ? scheduledId : null;
+		const scheduledId = await scheduledOutputId(db, plan?.scheduledActionId, occurrence.dueDate, group, "expense");
+		const existingScheduled = scheduledId && (await db.select({ id: transactions.transactionId }).from(transactions).where(and(eq(transactions.transactionId, scheduledId), eq(transactions.groupId, group), isNull(transactions.deleted))).limit(1)).length ? scheduledId : null;
 		const currentLink = occurrence.linkedTransactionId ?? existingScheduled;
+		if (input.createExpense && scheduledId) return createErrorResponse("A scheduled expense is linked to this date. Unlink it from the bill before creating a separate expense", 409, request, env);
+		if (input.budgetId && await scheduledOutputId(db, plan?.scheduledBudgetActionId, occurrence.dueDate, group, "budget")) return createErrorResponse("A scheduled budget action is linked to this date. Do not create another budget entry", 409, request, env);
 		if (input.createExpense && currentLink) return createErrorResponse("This bill already has an expense. Link it instead of creating another", 409, request, env);
 		if (input.linkedTransactionId && currentLink && input.linkedTransactionId !== currentLink) return createErrorResponse("This bill already has a different expense", 409, request, env);
-		const transactionId = input.createExpense ? scheduledId ?? `tx_bill_${occurrence.id}` : input.linkedTransactionId ?? currentLink;
-		if (transactionId && !input.createExpense && !await matchesExpense(db, transactionId, group, occurrence)) {
+		const transactionId = input.createExpense ? `tx_bill_${occurrence.id}` : input.linkedTransactionId ?? occurrence.linkedTransactionId;
+		if (transactionId && !input.createExpense && transactionId !== existingScheduled && transactionId !== occurrence.linkedTransactionId && !await matchesExpense(db, transactionId, group, occurrence)) {
 			return createErrorResponse("Linked expense must match this group's amount, currency and payer", 400, request, env);
 		}
 		if (transactionId && (await db.select({ id: billOccurrences.id }).from(billOccurrences)

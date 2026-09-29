@@ -289,9 +289,14 @@ the list remains available on narrow screens.
 **Add bill** opens a form for name, amount, currency, first due date, cadence
 (one time, daily, weekly, monthly), payer, and per-member split percentages.
 Shares must total 100%. The form uses the group's default currency and shares
-when available. A recurring bill can optionally link a group scheduled expense
-with the same first date, cadence, amount, currency, payer, and split. Scheduled
-expenses create balance entries on their run date; they do not confirm payment.
+when available. Searchable pickers let you choose a group scheduled expense,
+a scheduled budget action, or both. They show amount, currency, run schedule,
+active status, and any differences from the bill. Budget actions are labelled
+Credit or Debit. When both are chosen, they must share a first date and cadence;
+their generated entries are linked on each shared run date, even if either runs
+first or both ran before the bill was linked. Scheduled actions do not confirm payment.
+The picker is shown in [desktop](previews/bill-action-pickers-desktop.png) and
+[mobile](previews/bill-action-pickers-mobile.png) previews.
 Existing plans can be edited, stopped, or resumed. Editing refreshes
 unpaid occurrences that have no expense while keeping paid and linked records;
 stopping removes future unpaid dates with no expense and keeps recorded payments.
@@ -301,8 +306,11 @@ pending/overdue/paid status. **Mark paid** offers three explicit choices:
 record the payment only, link an existing matching expense, or create an
 expense from the bill's payer and split. When creating an expense, a budget
 category can optionally be debited by the same amount. These changes are saved
-together. If a linked scheduled action already produced the expense for that
-due date, the dialog offers that expense and blocks creation of a duplicate.
+together. If a linked scheduled expense runs on the due date, the dialog blocks
+creating another expense and can link its output after it runs. It warns if that
+output's amount, currency, or payer differs from the bill. If a linked scheduled
+budget action runs on the due date, the dialog does not offer a second manual
+debit. The budget action's own Credit or Debit setting determines its effect.
 **Mark pending** reverses only the paid status; any expense or budget debit
 remains and stays linked to prevent a second creation. The payment choices are
 shown in [desktop](previews/bill-payment-desktop.png) and

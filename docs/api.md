@@ -780,9 +780,9 @@ calendar dates. Bills can be one-time, daily, weekly, or monthly.
 
 | Method | Path | Request | Result |
 | --- | --- | --- | --- |
-| POST | `/.netlify/functions/bills` | `title`, `amountMinor`, `currency`, `firstDueDate`, `recurrence`, `payerUserId`, `splitBasisPoints`, `scheduledActionId?` | `{ id }` |
+| POST | `/.netlify/functions/bills` | `title`, `amountMinor`, `currency`, `firstDueDate`, `recurrence`, `payerUserId`, `splitBasisPoints`, `scheduledActionId?`, `scheduledBudgetActionId?` | `{ id }` |
 | GET | `/.netlify/functions/bills/month?month=YYYY-MM` | Month query | Plans, dated occurrences, and per-currency monthly totals |
-| GET | `/.netlify/functions/bills/scheduled-options` | None | Current group's scheduled expense actions for bill setup |
+| GET | `/.netlify/functions/bills/scheduled-options` | None | Current group's expense and budget actions, including active status, schedule, amount, currency, and Credit/Debit type |
 | POST | `/.netlify/functions/bills/update` | `id` and optional plan fields | Updates the plan; paid occurrences keep their historical title and financial snapshot |
 | DELETE | `/.netlify/functions/bills/delete` | `{ id }` | Stops future recurrence |
 | POST | `/.netlify/functions/bills/payment` | `{ occurrenceId, paid, linkedTransactionId?, createExpense?, budgetId? }` | Records or reverses payment; optional expense and budget changes are atomic |
@@ -794,12 +794,22 @@ For example, `{ "alice": 5000, "bob": 5000 }` is a 50/50 split. The payer and
 all split members must belong to the current group. `month` is a valid
 `YYYY-MM`. Weekly bills repeat every seven UTC calendar days from the first due
 date. Monthly bills due on days 29–31 use the last day in shorter months.
-`scheduledActionId` must name an expense action in the group whose first date,
-frequency, amount, currency, payer, and split match the bill. One action can
-link to one bill. An existing scheduled expense appears as
-`scheduledTransactionId` on the occurrence, but does not mark it paid.
+`scheduledActionId` and `scheduledBudgetActionId` must name an expense and
+budget action in the group, respectively. Their details can differ from the
+bill; the picker shows those differences. When both are selected, the two
+actions must have the same first date and frequency. Each action can link to
+one bill. Their generated expense and budget entry are linked by run date,
+regardless of which action runs first; existing matching outputs are paired
+when the bill is linked. A scheduled budget Credit adds funds;
+a Debit subtracts them. Existing outputs appear as `scheduledTransactionId`
+and `scheduledBudgetEntryId` on the occurrence when they ran on its due date.
+Scheduled actions do not mark the bill paid.
 When `createExpense` is true, the expense uses the bill snapshot and `budgetId`
 may name an active budget in the same group. A debit requires expense creation.
+The API rejects a new expense when a linked scheduled expense runs on that
+due date, and rejects a manual budget debit when a linked scheduled budget
+action runs on that date. Explicitly linking the scheduled expense is allowed
+even if its details differ from the bill; the payment dialog warns about this.
 An expense can be linked to only one bill. Marking pending leaves the linked
 expense and any budget debit intact; a later payment cannot create them again.
 The month response includes `plannedMinor` (all occurrences), `dueMinor`

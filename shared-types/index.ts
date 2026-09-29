@@ -504,6 +504,7 @@ export const BillCreateSchema = z.object({
 	payerUserId: z.string().min(1),
 	splitBasisPoints: z.record(z.string(), z.number().int().min(0).max(10_000)),
 	scheduledActionId: z.string().min(1).nullable().optional(),
+	scheduledBudgetActionId: z.string().min(1).nullable().optional(),
 }).refine((value) => Object.values(value.splitBasisPoints).reduce((sum, share) => sum + share, 0) === 10_000, {
 	message: "Split shares must total 100%",
 	path: ["splitBasisPoints"],
@@ -518,6 +519,7 @@ export const BillUpdateSchema = z.object({
 	payerUserId: z.string().min(1).optional(),
 	splitBasisPoints: z.record(z.string(), z.number().int().min(0).max(10_000)).optional(),
 	scheduledActionId: z.string().min(1).nullable().optional(),
+	scheduledBudgetActionId: z.string().min(1).nullable().optional(),
 	isActive: z.boolean().optional(),
 }).refine((value) => !value.splitBasisPoints || Object.values(value.splitBasisPoints).reduce((sum, share) => sum + share, 0) === 10_000, {
 	message: "Split shares must total 100%",
@@ -558,6 +560,7 @@ export interface BillPlan {
 	splitBasisPoints: Record<string, number>;
 	isActive: boolean;
 	scheduledActionId: string | null;
+	scheduledBudgetActionId: string | null;
 }
 export interface BillOccurrenceView {
 	id: string;
@@ -571,6 +574,7 @@ export interface BillOccurrenceView {
 	paidAt: string | null;
 	linkedTransactionId: string | null;
 	scheduledTransactionId: string | null;
+	scheduledBudgetEntryId: string | null;
 }
 export interface BillMonthResponse {
 	month: string;
@@ -587,13 +591,16 @@ export interface BillMonthResponse {
 }
 export interface BillScheduledOption {
 	id: string;
+	actionType: "add_expense" | "add_budget";
 	description: string;
 	amount: number;
 	currency: string;
 	frequency: "daily" | "weekly" | "monthly";
 	startDate: string;
-	payerUserId: string;
-	splitPctShares: Record<string, number>;
+	payerUserId?: string;
+	splitPctShares?: Record<string, number>;
+	budgetId?: string;
+	budgetType?: "Credit" | "Debit";
 	isActive: boolean;
 }
 export interface BillReminderView {

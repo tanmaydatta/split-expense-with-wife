@@ -67,6 +67,7 @@ function OccurrenceCard({ item, members, onPayment, busy }: { item: BillOccurren
 		<Muted>Split: {Object.entries(item.splitBasisPoints).filter(([, share]) => share > 0).map(([id, share]) => `${members[id] ?? "Member"} ${(share / 100).toFixed(2)}%`).join(" · ")}</Muted>
 		{item.linkedTransactionId && <Muted>Linked expense: {item.linkedTransactionId}</Muted>}
 		{!item.linkedTransactionId && item.scheduledTransactionId && <Muted>Scheduled expense available: {item.scheduledTransactionId}</Muted>}
+		{item.scheduledBudgetEntryId && <Muted>Scheduled budget entry available: {item.scheduledBudgetEntryId}</Muted>}
 		<RowActions><UiButton type="button" disabled={busy} onClick={() => onPayment(item)}>{busy ? "Saving…" : item.paidAt ? "Mark pending" : "Mark paid"}</UiButton></RowActions>
 	</Row>;
 }
@@ -141,6 +142,6 @@ export default function BillsPage() {
 			<PlanList>{data.bills.length === 0 ? <Surface><Muted>No bill plans yet.</Muted></Surface> : data.bills.map((plan: BillPlan) => <PlanRow key={plan.id}><div><strong>{plan.title}</strong><Muted>{formatMoney(plan.amountMinor, plan.currency)} · {plan.recurrence} · {plan.isActive ? "Active" : "Stopped"}</Muted></div><RowActions><UiButton type="button" onClick={() => setForm(plan.id)}>Edit</UiButton>{plan.isActive ? <UiButton type="button" $tone="danger" onClick={() => setStopId(plan.id)}>Stop</UiButton> : <UiButton type="button" onClick={() => void resumeBill(plan.id)}>Resume</UiButton>}</RowActions></PlanRow>)}</PlanList>
 		</>}
 		<ConfirmDialog open={!!stopId} title="Stop this bill?" message="Future unpaid dates for this bill will be removed. Recorded payments remain visible." confirmText="Stop bill" onCancel={() => setStopId(null)} onConfirm={() => { if (stopId) void stopBill(stopId); }} />
-		<PaymentDialog key={paying?.id ?? "closed"} item={paying} budgets={group?.budgets ?? []} onClose={() => setPaying(null)} onRecord={recordPayment} busy={payment.isPending} />
+		<PaymentDialog key={paying?.id ?? "closed"} item={paying} plan={data?.bills.find((plan) => plan.id === paying?.billId)} budgets={group?.budgets ?? []} onClose={() => setPaying(null)} onRecord={recordPayment} busy={payment.isPending} />
 	</UiPage>;
 }

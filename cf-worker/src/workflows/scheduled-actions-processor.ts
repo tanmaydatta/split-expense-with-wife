@@ -3,7 +3,7 @@ import {
 	type WorkflowEvent,
 	type WorkflowStep,
 } from "cloudflare:workers";
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import type { BatchItem } from "drizzle-orm/batch";
 import type {
 	AddBudgetActionData,
@@ -13,7 +13,7 @@ import type {
 } from "../../../shared-types";
 import { getDb } from "../db";
 import { user } from "../db/schema/auth-schema";
-import { scheduledActionHistory, scheduledActions } from "../db/schema/schema";
+import { bills, budgetEntries, expenseBudgetLinks, groupBudgets, scheduledActionHistory, scheduledActions, transactions } from "../db/schema/schema";
 import { calculateNextExecutionDate } from "../handlers/scheduled-actions";
 import {
 	createHistoryId,
@@ -320,6 +320,21 @@ export async function executeActionStatements(
 	now: Date = new Date(),
 ): Promise<void> {
 	const db = getDb(env);
+	const linkedBills = await db.select().from(bills).where(or(eq(bills.scheduledActionId, action.id), eq(bills.scheduledBudgetActionId, action.id)));
+	const pairStatements = linkedBills.flatMap((bill) => {
+		if (!bill.scheduledActionId || !bill.scheduledBudgetActionId) return [];
+		const transactionId = generateDeterministicTransactionId(bill.scheduledActionId, now.toISOString().slice(0, 10));
+		const budgetEntryId = generateDeterministicBudgetId(bill.scheduledBudgetActionId, now.toISOString().slice(0, 10));
+		const linkId = `ebl_bill_${bill.id}_${now.toISOString().slice(0, 10)}`;
+		return [{ query: db.insert(expenseBudgetLinks).select(db.select({
+			id: sql<string>`${linkId}`.as("id"), transactionId: transactions.transactionId,
+			budgetEntryId: budgetEntries.budgetEntryId, groupId: sql<string>`${bill.groupId}`.as("group_id"),
+			createdAt: sql<string>`${formatSQLiteTime()}`.as("created_at"),
+		}).from(transactions).innerJoin(budgetEntries, eq(budgetEntries.budgetEntryId, budgetEntryId))
+			.innerJoin(groupBudgets, eq(groupBudgets.id, budgetEntries.budgetId))
+			.where(and(eq(transactions.transactionId, transactionId), eq(transactions.groupId, bill.groupId), eq(groupBudgets.groupId, bill.groupId), isNull(transactions.deleted), isNull(budgetEntries.deleted))))
+			.onConflictDoNothing() }];
+	});
 
 	// Calculate next execution date
 	const frequency = action.frequency as "daily" | "weekly" | "monthly";
@@ -332,6 +347,7 @@ export async function executeActionStatements(
 	// Add statements ensuring we mark history success LAST to ensure idempotency
 	const allStatements = [
 		...actionStatements,
+		...pairStatements,
 		{
 			query: db
 				.update(scheduledActions)
