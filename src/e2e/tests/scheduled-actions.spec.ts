@@ -187,6 +187,36 @@ test.describe("Scheduled Actions", () => {
 		await expect(visibleSetup.getByText("Credit")).toBeVisible();
 	});
 
+	test("filter and sort scheduled actions with shareable URL state", async ({ seed, page }) => {
+		await seedSingleUserAuthedPage(seed, page);
+		const helper = new ScheduledActionsTestHelper(new TestHelper(page));
+		await helper.createExpenseAction({ description: "Zebra expense", amount: 5 });
+		await helper.createBudgetAction({ description: "Alpha budget", amount: 10 });
+		await helper.gotoListPage();
+		const cards = page.locator('[data-test-id^="sa-item-"]');
+		await expect(cards).toHaveCount(2);
+		await expect(page.getByRole("status")).toHaveText("2 matching actions");
+		await page.getByRole("combobox", { name: "Sort by" }).selectOption("name");
+		await expect(cards.first()).toContainText("Alpha budget");
+		await page.getByRole("combobox", { name: "Type" }).selectOption("add_expense");
+		await expect(cards).toHaveCount(1);
+		await expect(cards.first()).toContainText("Zebra expense");
+		await expect(page.getByRole("status")).toHaveText("1 matching action");
+		await page.reload();
+		await expect(page.getByRole("combobox", { name: "Type" })).toHaveValue("add_expense");
+		await page.getByRole("combobox", { name: "Frequency" }).selectOption("monthly");
+		await expect(page.getByText("No matching scheduled actions")).toBeVisible();
+		await page.getByRole("button", { name: "Clear filters" }).last().click();
+		await expect(cards).toHaveCount(2);
+		await expect(page.getByRole("combobox", { name: "Sort by" })).toHaveValue("name");
+		const budgetId = await helper.getActionIdFromCard("Alpha budget");
+		expect(budgetId).toBeTruthy();
+		await page.locator(`[data-test-id="sa-toggle-${budgetId}"]`).click();
+		await page.getByRole("combobox", { name: "Status" }).selectOption("paused");
+		await expect(cards).toHaveCount(1);
+		await expect(cards.first()).toContainText("Alpha budget");
+	});
+
 	test("edit an action's frequency and amount", async ({ seed, page }) => {
 		await seedSingleUserAuthedPage(seed, page);
 		const helper = new ScheduledActionsTestHelper(new TestHelper(page));

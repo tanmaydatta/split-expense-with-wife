@@ -1,4 +1,4 @@
-import { and, count, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, sql } from "drizzle-orm";
 import { ulid } from "ulid";
 import { z } from "zod";
 import {
@@ -9,6 +9,7 @@ import {
 	type CreateScheduledActionRequest,
 	CURRENCIES,
 	type ScheduledAction,
+	type ScheduledActionListQuery,
 	ScheduledActionHistoryQuerySchema,
 	ScheduledActionListQuerySchema,
 	type ScheduledActionListResponse,
@@ -271,6 +272,90 @@ export async function handleScheduledActionCreate(
 	});
 }
 
+async function listScheduledActions(
+	db: ReturnType<typeof getDb>,
+	groupUserIds: string[],
+	query: ScheduledActionListQuery,
+): Promise<ScheduledActionListResponse> {
+	const { offset, limit, status, actionType, frequency, sort } = query;
+	const conditions = [inArray(scheduledActions.userId, groupUserIds)];
+	if (status !== "all")
+		conditions.push(eq(scheduledActions.isActive, status === "active"));
+	if (actionType !== "all")
+		conditions.push(eq(scheduledActions.actionType, actionType));
+	if (frequency !== "all")
+		conditions.push(eq(scheduledActions.frequency, frequency));
+	const where = and(...conditions);
+
+	// Get total count
+	const totalCountResult = await db
+		.select({ count: count() })
+		.from(scheduledActions)
+		.where(where);
+
+	const totalCount = totalCountResult[0]?.count || 0;
+
+	// Effective dates include skipped/custom dates and stale recurring dates. Compute
+	// them before slicing so every page uses the same order shown on the cards.
+	let actions: (typeof scheduledActions.$inferSelect)[];
+	if (sort === "next_run") {
+		const candidates = await db.select().from(scheduledActions).where(where);
+		const nextDates = new Map(
+			candidates.map((action) => [
+				action.id,
+				getEffectiveNextDate(
+					action.nextExecutionDate,
+					action.startDate,
+					action.frequency,
+				),
+			]),
+		);
+		actions = candidates
+			.sort(
+				(a, b) =>
+					(nextDates.get(a.id) ?? "").localeCompare(
+						nextDates.get(b.id) ?? "",
+					) || a.id.localeCompare(b.id),
+			)
+			.slice(offset, offset + limit);
+	} else {
+		const order =
+			sort === "name"
+				? [
+						asc(
+							sql<string>`lower(json_extract(${scheduledActions.actionData}, '$.description'))`,
+						),
+						asc(scheduledActions.id),
+					]
+				: [desc(scheduledActions.createdAt), desc(scheduledActions.id)];
+		actions = await db
+			.select()
+			.from(scheduledActions)
+			.where(where)
+			.orderBy(...order)
+			.limit(limit)
+			.offset(offset);
+	}
+
+	// Convert null to undefined for TypeScript compatibility and use smart date calculation
+	const convertedActions = actions.map((action) => ({
+		...action,
+		lastExecutedAt: action.lastExecutedAt || undefined,
+		// Use smart calculation that preserves user-set future dates
+		nextExecutionDate: getEffectiveNextDate(
+			action.nextExecutionDate,
+			action.startDate,
+			action.frequency,
+		),
+	}));
+
+	return {
+		scheduledActions: convertedActions,
+		totalCount,
+		hasMore: offset + limit < totalCount,
+	};
+}
+
 export async function handleScheduledActionList(
 	request: Request,
 	env: Env,
@@ -280,10 +365,14 @@ export async function handleScheduledActionList(
 		if (!group) {
 			return createErrorResponse("User not in a group", 400, request, env);
 		}
-		const url = new URL(request.url);
+		const params = new URL(request.url).searchParams;
 		const parseQuery = ScheduledActionListQuerySchema.safeParse({
-			offset: url.searchParams.get("offset") ?? "0",
-			limit: url.searchParams.get("limit") ?? "10",
+			offset: params.get("offset") ?? "0",
+			limit: params.get("limit") ?? "10",
+			status: params.get("status") ?? "all",
+			actionType: params.get("actionType") ?? "all",
+			frequency: params.get("frequency") ?? "all",
+			sort: params.get("sort") ?? "recent",
 		});
 		if (!parseQuery.success) {
 			return createErrorResponse(
@@ -293,43 +382,11 @@ export async function handleScheduledActionList(
 				env,
 			);
 		}
-		const { offset, limit } = parseQuery.data;
-
-		// Get total count
-		const totalCountResult = await db
-			.select({ count: count() })
-			.from(scheduledActions)
-			.where(inArray(scheduledActions.userId, group.userids));
-
-		const totalCount = totalCountResult[0]?.count || 0;
-
-		// Get scheduled actions
-		const actions = await db
-			.select()
-			.from(scheduledActions)
-			.where(inArray(scheduledActions.userId, group.userids))
-			.orderBy(desc(scheduledActions.createdAt))
-			.limit(limit)
-			.offset(offset);
-
-		// Convert null to undefined for TypeScript compatibility and use smart date calculation
-		const convertedActions = actions.map((action) => ({
-			...action,
-			lastExecutedAt: action.lastExecutedAt || undefined,
-			// Use smart calculation that preserves user-set future dates
-			nextExecutionDate: getEffectiveNextDate(
-				action.nextExecutionDate,
-				action.startDate,
-				action.frequency,
-			),
-		}));
-
-		const response: ScheduledActionListResponse = {
-			scheduledActions: convertedActions,
-			totalCount,
-			hasMore: offset + limit < totalCount,
-		};
-
+		const response = await listScheduledActions(
+			db,
+			group.userids,
+			parseQuery.data,
+		);
 		return createJsonResponse(response, 200, {}, request, env);
 	});
 }
