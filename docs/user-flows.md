@@ -296,8 +296,9 @@ dates and keeps recorded payments.
 Each occurrence shows its UTC calendar due date, payer, amount, split, and
 pending/overdue/paid status. **Mark paid** opens a payment dialog where a recent
 matching expense may be linked; **Mark pending** reverses the recorded status.
-Neither action creates an expense or changes balances. Summary
-amounts and planned member shares are separate for each currency; there is no
+Neither action creates an expense or changes balances. The monthly summary
+shows unpaid dues, paid totals, and planned amounts owed by non-payers for
+unpaid bills. These are separate for each currency and are not settled balances; there is no
 exchange-rate conversion. Monthly due dates on days 29–31 use the last day of
 shorter months, and weekly dates repeat every seven UTC calendar days.
 

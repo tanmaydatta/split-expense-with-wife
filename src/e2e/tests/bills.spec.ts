@@ -19,11 +19,14 @@ test.describe("Shared bills", () => {
 		const due = page.getByRole("heading", { name: "Due this month" }).locator("xpath=following-sibling::div[1]");
 		await expect(due).toContainText("Electricity");
 		await expect(due).toContainText("68.50");
+		const summary = page.locator('section[aria-label$=" summary"]');
+		await expect(summary).toContainText("68.50 due");
 		await due.getByRole("button", { name: "Mark paid" }).click();
 		const payment = page.getByRole("dialog", { name: "Record bill payment" });
 		await expect(payment.getByLabel("Link a recent matching expense (optional)")).toBeVisible();
 		await payment.getByRole("button", { name: "Record payment" }).click();
 		await expect(due).toContainText("Paid");
+		await expect(summary).toContainText("0.00 due");
 		await due.getByRole("button", { name: "Mark pending" }).click();
 		await expect(due).toContainText("Pending");
 	});
