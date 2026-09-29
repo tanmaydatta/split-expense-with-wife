@@ -1,0 +1,17 @@
+.not-found-card {
+	max-width: 560px;
+	margin: 48px auto;
+	text-align: center;
+}
+
+.not-found-code {
+	margin: 0 0 12px;
+	color: var(--ui-accent);
+	font-size: 14px;
+	font-weight: 750;
+	letter-spacing: 0.08em;
+}
+
+.not-found-card h1 { margin: 0 0 12px; color: var(--ui-text); font-size: 30px; }
+.not-found-card > p:not(.not-found-code) { color: var(--ui-text-muted); line-height: 1.5; }
+.not-found-actions { display: flex; justify-content: center; gap: 10px; margin-top: 24px; flex-wrap: wrap; }

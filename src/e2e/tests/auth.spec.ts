@@ -84,6 +84,29 @@ test.describe("Authentication Flow", () => {
 		await expect(page.locator('[data-test-id="login-form"]')).toBeVisible();
 	});
 
+	test("landing links lead to labelled signup and login forms", async ({ page }) => {
+		await page.goto("/");
+		await expect(page.getByRole("heading", { name: "Keep shared expenses in one place." })).toBeVisible();
+		await expect(page.getByRole("complementary", { name: "Example expense split" })).toBeVisible();
+		await page.getByRole("main").getByRole("link", { name: "Create account" }).click();
+		await expect(page).toHaveURL("/signup");
+		await expect(page.getByRole("textbox", { name: "First name" })).toBeVisible();
+		await expect(page.getByRole("textbox", { name: "Email" })).toBeVisible();
+		await page.getByRole("link", { name: "Log in" }).click();
+		await expect(page).toHaveURL("/login");
+		await expect(page.getByRole("textbox", { name: "Username or email" })).toBeVisible();
+	});
+
+	test("public pages fit a narrow mobile viewport", async ({ page }) => {
+		await page.setViewportSize({ width: 390, height: 844 });
+		for (const path of ["/", "/signup", "/login"]) {
+			await page.goto(path);
+			await expect(page.locator("body")).toBeVisible();
+			const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
+			expect(scrollWidth).toBeLessThanOrEqual(390);
+		}
+	});
+
 	test("should successfully login with valid credentials", async ({
 		page,
 		seed,

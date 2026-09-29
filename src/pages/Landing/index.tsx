@@ -1,133 +1,83 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { Button } from "@/components/Button";
-import { Card } from "@/components/Card";
 import "./index.css";
 
-const Landing: React.FC = () => {
-	const features = [
-		{
-			icon: "💰",
-			title: "Smart Expense Splitting",
-			description:
-				"Automatically split expenses between partners with flexible percentage allocation and multi-currency support.",
-		},
-		{
-			icon: "📊",
-			title: "Budget Management",
-			description:
-				"Set monthly budgets for different categories and track your spending with visual analytics and insights.",
-		},
-		{
-			icon: "⚖️",
-			title: "Balance Tracking",
-			description:
-				"Keep track of who owes whom with real-time balance calculations across multiple currencies.",
-		},
-		{
-			icon: "📱",
-			title: "Mobile Friendly",
-			description:
-				"Access your finances anywhere with a responsive design that works perfectly on all devices.",
-		},
-		{
-			icon: "🔒",
-			title: "Secure & Private",
-			description:
-				"Your financial data is protected with secure authentication and privacy-focused design.",
-		},
-		{
-			icon: "📈",
-			title: "Detailed Analytics",
-			description:
-				"View spending trends, monthly reports, and detailed transaction history to understand your finances better.",
-		},
-	];
+const features = [
+	{
+		number: "01",
+		title: "Split shared expenses",
+		description: "Record who paid and choose how each person shares the cost.",
+	},
+	{
+		number: "02",
+		title: "Know where you stand",
+		description: "See balances by person and currency in one place.",
+	},
+	{
+		number: "03",
+		title: "Keep budgets in view",
+		description: "Group entries by category and follow spending over time.",
+	},
+	{
+		number: "04",
+		title: "Plan repeat actions",
+		description: "Schedule recurring expenses and budget updates.",
+	},
+];
 
-	return (
-		<div className="landing-container">
-			<header className="landing-header">
-				<h1 className="landing-logo">Split Expense</h1>
-				<div className="header-actions">
-					<Link to="/login">
-						<Button as="div" className="header-button login-button">
-							Login
-						</Button>
-					</Link>
-					<Link to="/signup">
-						<Button as="div" className="header-button signup-button">
-							Sign Up
-						</Button>
-					</Link>
-				</div>
-			</header>
+const Landing: React.FC = () => (
+	<div className="landing-container">
+		<header className="landing-header">
+			<Link className="landing-logo" to="/" aria-label="Split Expense home">Split Expense</Link>
+			<nav className="landing-nav" aria-label="Account">
+				<Link className="landing-link" to="/login">Log in</Link>
+				<Link className="landing-button landing-button-primary" to="/signup">Create account</Link>
+			</nav>
+		</header>
 
-			<main className="landing-main">
-				<section className="hero-section">
-					<h1 className="hero-title">
-						Manage Shared Expenses
-						<br />
-						<span className="hero-title-highlight">Effortlessly</span>
-					</h1>
+		<main className="landing-main">
+			<section className="hero-section" aria-labelledby="landing-title">
+				<div className="hero-copy">
+					<p className="hero-eyebrow">Shared money, made clearer</p>
+					<h1 id="landing-title">Keep shared expenses in one place.</h1>
 					<p className="hero-subtitle">
-						The simple way for couples to track, split, and manage shared
-						expenses. Set budgets, monitor balances, and keep your finances
-						organized together.
+						Track what you spend together, see what each person owes, and stay on top of your budgets.
 					</p>
 					<div className="hero-cta">
-						<Link to="/signup">
-							<Button as="div" className="hero-button hero-button-primary">
-								Get Started Free
-							</Button>
-						</Link>
-						<Link to="/login">
-							<Button
-								as="div"
-								className="hero-button hero-button-secondary login-style"
-							>
-								I Have an Account
-							</Button>
-						</Link>
+						<Link className="landing-button landing-button-primary" to="/signup">Create account</Link>
+						<Link className="landing-button landing-button-secondary" to="/login">Log in</Link>
 					</div>
-				</section>
+					<p className="hero-note">Account creation is currently available to approved users.</p>
+				</div>
+				<aside className="landing-example" aria-label="Example expense split">
+					<p className="example-caption">An example split</p>
+					<div className="example-heading"><span>Groceries</span><strong>£64.00</strong></div>
+					<p className="example-detail">Paid by Alex · split equally</p>
+					<div className="example-divider" />
+					<div className="example-share"><span>Alex's share</span><strong>£32.00</strong></div>
+					<div className="example-share"><span>Sam's share</span><strong>£32.00</strong></div>
+				</aside>
+			</section>
 
-				<section className="features-section">
-					<h2 className="section-title">
-						Everything You Need to Manage Shared Finances
-					</h2>
-					<div className="features-grid">
-						{features.map((feature, index) => (
-							<Card key={index} className="feature-card">
-								<div className="feature-icon">{feature.icon}</div>
-								<h3 className="feature-title">{feature.title}</h3>
-								<p className="feature-description">{feature.description}</p>
-							</Card>
-						))}
-					</div>
-				</section>
+			<section className="features-section" aria-labelledby="features-title">
+				<div className="features-heading">
+					<p className="section-eyebrow">The essentials</p>
+					<h2 id="features-title">A clearer view of your shared finances</h2>
+				</div>
+				<div className="features-grid">
+					{features.map((feature) => (
+						<article className="feature-card" key={feature.number}>
+							<span className="feature-number" aria-hidden="true">{feature.number}</span>
+							<h3>{feature.title}</h3>
+							<p>{feature.description}</p>
+						</article>
+					))}
+				</div>
+			</section>
+		</main>
 
-				<section className="cta-section">
-					<h2 className="cta-title">Ready to Simplify Your Shared Finances?</h2>
-					<p className="cta-description">
-						Join couples who have already simplified their expense management.
-						Start tracking, splitting, and budgeting together today.
-					</p>
-					<Link to="/signup">
-						<Button as="div" className="cta-button">
-							Start Your Journey
-						</Button>
-					</Link>
-				</section>
-			</main>
-
-			<footer className="landing-footer">
-				<p>
-					&copy; 2025 Split Expense. Built with ❤️ for managing shared expenses
-					efficiently.
-				</p>
-			</footer>
-		</div>
-	);
-};
+		<footer className="landing-footer">© {new Date().getFullYear()} Split Expense</footer>
+	</div>
+);
 
 export default Landing;

@@ -1,0 +1,111 @@
+.auth-container {
+	min-height: 100vh;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 24px;
+	padding: 40px 16px;
+	background: var(--ui-page);
+	color: var(--ui-text);
+}
+
+.auth-brand {
+	color: var(--ui-text);
+	font-size: 20px;
+	font-weight: 750;
+	text-decoration: none;
+}
+
+.auth-brand:focus-visible,
+.auth-switch a:focus-visible {
+	outline: 3px solid var(--ui-focus);
+	outline-offset: 3px;
+}
+
+.auth-form {
+	width: min(100%, 460px);
+	display: flex;
+	flex-direction: column;
+	gap: 18px;
+	padding: 32px;
+	background: var(--ui-surface);
+	border: 1px solid var(--ui-border);
+	border-radius: var(--ui-radius-lg);
+	box-shadow: var(--ui-shadow);
+}
+
+.auth-title {
+	margin: 0;
+	color: var(--ui-text);
+	font-size: clamp(26px, 4vw, 32px);
+	font-weight: 750;
+	line-height: 1.15;
+}
+
+.auth-subtitle {
+	margin: -8px 0 6px;
+	color: var(--ui-text-muted);
+	font-size: 14px;
+	line-height: 1.5;
+}
+
+.auth-field {
+	display: grid;
+	gap: 7px;
+	min-width: 0;
+}
+
+.auth-field label {
+	color: var(--ui-text);
+	font-size: 14px;
+	font-weight: 650;
+}
+
+.auth-field input {
+	width: 100%;
+	min-height: 44px;
+	font-size: 16px;
+}
+
+.auth-name-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 14px;
+}
+
+.auth-submit { width: 100%; min-height: 46px; }
+
+.auth-message {
+	padding: 11px 13px;
+	border-radius: var(--ui-radius-sm);
+	font-size: 14px;
+	line-height: 1.4;
+}
+
+.auth-message-error {
+	background: var(--ui-danger-soft);
+	border: 1px solid var(--ui-danger-border);
+	color: var(--ui-danger);
+}
+
+.auth-message-success {
+	background: #eef8f0;
+	border: 1px solid #b7ddc2;
+	color: #146c36;
+}
+
+.auth-switch {
+	margin: 2px 0 0;
+	color: var(--ui-text-muted);
+	font-size: 14px;
+	text-align: center;
+}
+
+.auth-switch a { color: var(--ui-accent); font-weight: 700; }
+
+@media (max-width: 600px) {
+	.auth-container { justify-content: flex-start; padding-top: 40px; }
+	.auth-form { padding: 24px 18px; }
+	.auth-name-grid { grid-template-columns: 1fr; gap: 18px; }
+}
