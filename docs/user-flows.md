@@ -70,6 +70,8 @@ Active page is highlighted and announced as the current page in the sidebar. Sha
 
 ## 3. Dashboard — Adding Expenses & Budget Entries (`/`)
 
+The dashboard opens with a page heading and an explanation of the two possible actions. The entry form sits in a shared surface and uses the app's common field and primary-button styling.
+
 The main form for day-to-day use. Supports two actions simultaneously: adding an expense and/or updating a budget. When both are selected, the submit is **atomic** — a single API call (`/dashboard_submit`) creates the expense, the budget entry, and a link between them. Either both are saved or neither is.
 
 ### Form Fields (always visible)
@@ -113,6 +115,8 @@ Both can be checked simultaneously to create an expense AND a budget entry in on
 
 ## 4. Expenses / Transactions (`/expenses`)
 
+The page starts with a heading and a short explanation, followed by search and the responsive transaction list.
+
 ### What You See
 - **Desktop:** Table with columns: Date, Description, Amount (with currency symbol), Your Share (color-coded)
 - **Mobile:** Card layout with the same info per card
@@ -151,6 +155,8 @@ Full detail view for a single transaction:
 
 ## 5. Balances (`/balances`)
 
+The page heading stays visible for populated, empty, and error states; each person's balance remains grouped by currency.
+
 ### What You See
 Read-only page showing who owes whom, grouped by person.
 
@@ -175,6 +181,8 @@ No user actions on this page — purely informational.
 ---
 
 ## 6. Budget (`/budget`)
+
+The page uses the shared heading and spacing, with more room around the remaining amount, category selector, search, and entries on mobile.
 
 ### Budget Summary
 Top card shows "Budget left" with remaining amounts per currency for the selected budget.
@@ -212,6 +220,8 @@ Full detail view for a single budget entry:
 ---
 
 ## 7. Monthly Budget Charts (`/monthly-budget`)
+
+The chart page uses the shared heading and spacing. Time-range and currency controls use the same selected, hover, and focus styling as other controls.
 
 ### Controls
 | Control | Options | Purpose |

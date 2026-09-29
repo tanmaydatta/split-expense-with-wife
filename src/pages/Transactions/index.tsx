@@ -1,4 +1,5 @@
 import { Button } from "@/components/Button";
+import { UiPageDescription, UiPageTitle } from "@/components/ui";
 import {
 	ArrowDownUp,
 	Calendar,
@@ -252,6 +253,10 @@ const Transactions: React.FC = () => {
 
 	return (
 		<div className="transactions-container" data-test-id="expenses-container">
+			<header>
+				<UiPageTitle>Expenses</UiPageTitle>
+				<UiPageDescription>Search and review the group's shared expenses.</UiPageDescription>
+			</header>
 			{error && (
 				<ErrorContainer
 					message={error}

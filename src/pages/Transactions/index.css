@@ -2,12 +2,12 @@
 	display: flex;
 	flex-direction: column;
 	gap: var(--spacing-medium);
-	padding: var(--spacing-large);
+	padding: 24px 16px 60px;
 	margin: 0 auto;
-	min-height: 100vh;
-	background: var(--color-light);
+	min-height: 0;
+	background: transparent;
 	width: 100%;
-	max-width: 1200px;
+	max-width: 960px;
 	box-sizing: border-box;
 }
 
@@ -87,8 +87,8 @@
 /* Mobile - Switch to card layout */
 @media (max-width: 768px) {
 	.transactions-container {
-		padding: 8px;
-		gap: 8px;
+		padding: 16px 0 40px;
+		gap: 16px;
 	}
 
 	/* Hide table, show cards */
@@ -109,7 +109,7 @@
 /* Small mobile */
 @media (max-width: 480px) {
 	.transactions-container {
-		padding: 4px;
+		padding: 16px 0 40px;
 	}
 
 	.transaction-details-container {

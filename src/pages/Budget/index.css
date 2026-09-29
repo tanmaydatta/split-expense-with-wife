@@ -2,12 +2,12 @@
 	display: flex;
 	flex-direction: column;
 	gap: var(--spacing-medium);
-	padding: var(--spacing-large);
+	padding: 24px 16px 60px;
 	margin: 0 auto;
-	min-height: 100vh;
-	background: var(--color-light);
+	min-height: 0;
+	background: transparent;
 	width: 100%;
-	max-width: 1200px;
+	max-width: 960px;
 	box-sizing: border-box;
 }
 
@@ -229,8 +229,8 @@
 /* Mobile - Switch to card layout */
 @media (max-width: 768px) {
 	.budget-container {
-		padding: 8px;
-		gap: 8px;
+		padding: 16px 0 40px;
+		gap: 16px;
 	}
 
 	/* Hide table, show cards */
@@ -250,7 +250,7 @@
 
 	/* Make budget card very compact on mobile */
 	.budget-card {
-		padding: 8px 12px 4px 12px !important; /* Very compact padding */
+		padding: 16px !important;
 		margin-bottom: var(--spacing-small);
 	}
 
@@ -283,7 +283,7 @@
 /* Small mobile */
 @media (max-width: 480px) {
 	.budget-container {
-		padding: 4px;
+		padding: 16px 0 40px;
 	}
 
 	.budget-card {
@@ -297,6 +297,6 @@
 
 	/* Ultra compact budget card on small mobile */
 	.budget-card {
-		padding: 6px 8px 2px 8px !important; /* Ultra compact padding */
+		padding: 16px !important;
 	}
 }

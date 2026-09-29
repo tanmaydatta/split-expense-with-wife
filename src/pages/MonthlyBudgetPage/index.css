@@ -2,12 +2,12 @@
 	display: flex;
 	flex-direction: column;
 	gap: var(--spacing-medium);
-	padding: var(--spacing-large);
+	padding: 24px 16px 60px;
 	margin: 0 auto;
-	min-height: 100vh;
-	background: var(--color-light);
+	min-height: 0;
+	background: transparent;
 	width: 100%;
-	max-width: 1400px;
+	max-width: 1100px;
 	box-sizing: border-box;
 }
 
@@ -18,7 +18,7 @@
 	align-items: center;
 	margin-bottom: var(--spacing-medium);
 	padding-bottom: var(--spacing-medium);
-	border-bottom: 1px solid #e8e8e8;
+	border-bottom: 1px solid var(--ui-border);
 }
 
 .chart-title {
@@ -35,10 +35,10 @@
 
 .time-range-btn {
 	padding: 8px 16px;
-	border: 1px solid #d1d5db;
+	border: 1px solid var(--ui-border-strong);
 	background: var(--color-white);
-	color: #6b7280;
-	border-radius: 6px;
+	color: var(--ui-text-muted);
+	border-radius: var(--ui-radius-sm);
 	font-size: 0.875rem;
 	font-weight: 500;
 	cursor: pointer;
@@ -46,14 +46,20 @@
 }
 
 .time-range-btn:hover {
-	background: #f9fafb;
-	border-color: #9ca3af;
+	background: var(--ui-surface-muted);
+	border-color: var(--ui-accent);
 }
 
 .time-range-btn.active {
-	background: #3b82f6;
-	border-color: #3b82f6;
+	background: var(--ui-accent);
+	border-color: var(--ui-accent);
 	color: var(--color-white);
+}
+
+.time-range-btn:focus-visible,
+.currency-btn:focus-visible {
+	outline: 3px solid var(--ui-focus);
+	outline-offset: 2px;
 }
 
 /* Currency Selector */
@@ -65,10 +71,10 @@
 
 .currency-btn {
 	padding: 8px 12px;
-	border: 1px solid #d1d5db;
+	border: 1px solid var(--ui-border-strong);
 	background: var(--color-white);
-	color: #6b7280;
-	border-radius: 6px;
+	color: var(--ui-text-muted);
+	border-radius: var(--ui-radius-sm);
 	font-size: 0.875rem;
 	font-weight: 500;
 	cursor: pointer;
@@ -76,13 +82,13 @@
 }
 
 .currency-btn:hover {
-	background: #f9fafb;
-	border-color: #9ca3af;
+	background: var(--ui-surface-muted);
+	border-color: var(--ui-accent);
 }
 
 .currency-btn.active {
-	background: #3b82f6;
-	border-color: #3b82f6;
+	background: var(--ui-accent);
+	border-color: var(--ui-accent);
 	color: var(--color-white);
 }
 
@@ -94,17 +100,17 @@
 /* Chart Wrapper */
 .chart-wrapper {
 	margin-top: var(--spacing-medium);
-	background: var(--color-white);
-	border-radius: 8px;
+	background: var(--ui-surface-muted);
+	border-radius: var(--ui-radius-lg);
 	padding: var(--spacing-large);
-	border: 1px solid #e8e8e8;
+	border: 1px solid var(--ui-border);
 }
 
 /* Tooltip Styling */
 .custom-tooltip {
 	background: var(--color-white);
-	border: 1px solid #e8e8e8;
-	border-radius: 8px;
+	border: 1px solid var(--ui-border);
+	border-radius: var(--ui-radius-sm);
 	padding: 12px;
 	box-shadow:
 		0 4px 6px -1px rgba(0, 0, 0, 0.1),
@@ -128,7 +134,7 @@
 .no-data {
 	text-align: center;
 	padding: calc(var(--spacing-large) * 2);
-	color: #6b7280;
+	color: var(--ui-text-muted);
 }
 
 .no-data p {
@@ -153,7 +159,7 @@
 /* Mobile */
 @media (max-width: 768px) {
 	.monthly-budget-container {
-		padding: var(--spacing-small);
+		padding: 16px 0 40px;
 		gap: var(--spacing-small);
 	}
 
@@ -210,7 +216,7 @@
 /* Small mobile */
 @media (max-width: 480px) {
 	.monthly-budget-container {
-		padding: 8px;
+		padding: 16px 0 40px;
 	}
 
 	.chart-title {

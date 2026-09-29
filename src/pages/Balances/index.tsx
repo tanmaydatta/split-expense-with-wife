@@ -2,7 +2,15 @@ import React from "react";
 import { useBalances } from "@/hooks/useBalances";
 import { Loader } from "@/components/Loader";
 import { AmountGrid, AmountItem } from "@/components/AmountGrid";
+import { UiPageDescription, UiPageTitle } from "@/components/ui";
 import "./index.css";
+
+const BalancesHeader = () => (
+	<header>
+		<UiPageTitle>Balances</UiPageTitle>
+		<UiPageDescription>See each person's net position by currency.</UiPageDescription>
+	</header>
+);
 
 const Balances: React.FC = () => {
 	const { data: balances, isLoading, error } = useBalances();
@@ -14,6 +22,7 @@ const Balances: React.FC = () => {
 	if (error) {
 		return (
 			<div className="balances-container" data-test-id="balances-container">
+				<BalancesHeader />
 				<div className="empty-state">
 					Error loading balances: {error.message}
 				</div>
@@ -24,6 +33,7 @@ const Balances: React.FC = () => {
 	if (!balances || balances.size === 0) {
 		return (
 			<div className="balances-container" data-test-id="balances-container">
+				<BalancesHeader />
 				<div className="empty-state" data-test-id="empty-balances">
 					No balances to display
 				</div>
@@ -33,6 +43,7 @@ const Balances: React.FC = () => {
 
 	return (
 		<div className="balances-container" data-test-id="balances-container">
+			<BalancesHeader />
 			{Array.from(balances, ([userName, userBalances]) => {
 				const amounts: AmountItem[] = Array.from(
 					userBalances,
