@@ -48,12 +48,15 @@ describe("shared bills", () => {
 			payerUserId: users.user1.id, splitBasisPoints: { [users.user1.id]: 10000 } };
 		await fetchBill(request("bills", "POST", cookies, body), env);
 		const monthResponse = await fetchBill(request("bills/month?month=2026-09", "GET", cookies), env);
-		const month = await monthResponse.json() as { occurrences: Array<{ id: string }>; summary: Array<{ paidMinor: number; dueMinor: number; plannedMinor: number; plannedOwedByUserMinor: Record<string, number> }> };
+		const month = await monthResponse.json() as { occurrences: Array<{ id: string; title: string; amountMinor: number }>; summary: Array<{ paidMinor: number; dueMinor: number; plannedMinor: number; plannedOwedByUserMinor: Record<string, number> }> };
 		const occurrenceId = month.occurrences[0].id;
 		const invalidLink = await fetchBill(request("bills/payment", "POST", cookies, { occurrenceId, paid: true, linkedTransactionId: "other" }), env);
 		expect(invalidLink.status).toBe(400);
 		expect((await fetchBill(request("bills/payment", "POST", cookies, { occurrenceId, paid: true }), env)).status).toBe(200);
+		const plans = await (await fetchBill(request("bills/month?month=2026-09", "GET", cookies), env)).json() as { bills: Array<{ id: string }> };
+		expect((await fetchBill(request("bills/update", "POST", cookies, { id: plans.bills[0].id, title: "Renamed internet", amountMinor: 5000 }), env)).status).toBe(200);
 		const paid = await (await fetchBill(request("bills/month?month=2026-09", "GET", cookies), env)).json() as typeof month;
+		expect(paid.occurrences[0]).toMatchObject({ title: "Internet", amountMinor: 4000 });
 		expect(paid.summary[0].paidMinor).toBe(4000);
 		expect(paid.summary[0].dueMinor).toBe(0);
 		expect(paid.summary[0].plannedMinor).toBe(4000);

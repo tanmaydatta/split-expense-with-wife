@@ -363,6 +363,7 @@ export const billOccurrences = sqliteTable(
 		id: text("id").primaryKey(),
 		billId: text("bill_id").notNull().references(() => bills.id, { onDelete: "cascade" }),
 		groupId: text("group_id").notNull().references(() => groups.groupid),
+		title: text("title").notNull(),
 		dueDate: text("due_date").notNull(),
 		amountMinor: integer("amount_minor").notNull(),
 		currency: text("currency").notNull(),

@@ -50,6 +50,7 @@ export async function materializeBillMonth(db: Db, bill: Bill, month: string): P
 		id: generateRandomId(),
 		billId: bill.id,
 		groupId: bill.groupId,
+		title: bill.title,
 		dueDate,
 		amountMinor: bill.amountMinor,
 		currency: bill.currency,
@@ -88,15 +89,14 @@ export async function handleBillMonth(request: Request, env: Env): Promise<Respo
 		const { month } = parsed.data;
 		const plans = await db.select().from(bills).where(eq(bills.groupId, group)).orderBy(asc(bills.title));
 		for (const plan of plans) await materializeBillMonth(db, plan, month);
-		const rows = await db.select({ occurrence: billOccurrences, bill: bills }).from(billOccurrences)
-			.innerJoin(bills, eq(billOccurrences.billId, bills.id))
+		const rows = await db.select().from(billOccurrences)
 			.where(and(eq(billOccurrences.groupId, group), gte(billOccurrences.dueDate, `${month}-01`), lt(billOccurrences.dueDate, `${month}-32`)))
-			.orderBy(asc(billOccurrences.dueDate), asc(bills.title));
+			.orderBy(asc(billOccurrences.dueDate), asc(billOccurrences.title));
 		const summaries = new Map<Currency, BillMonthResponse["summary"][number]>();
-		const occurrences = rows.map(({ occurrence, bill }) => {
+		const occurrences = rows.map((occurrence) => {
 			const currency = occurrence.currency as Currency;
 			addToSummary(summaries, occurrence);
-			return { id: occurrence.id, billId: bill.id, title: bill.title, dueDate: occurrence.dueDate,
+			return { id: occurrence.id, billId: occurrence.billId, title: occurrence.title, dueDate: occurrence.dueDate,
 				amountMinor: occurrence.amountMinor, currency, payerUserId: occurrence.payerUserId,
 				splitBasisPoints: occurrence.splitBasisPoints, paidAt: occurrence.paidAt,
 				linkedTransactionId: occurrence.linkedTransactionId };
@@ -187,14 +187,13 @@ export async function handleBillReminders(request: Request, env: Env): Promise<R
 	return withAuth(request, env, async (session, db) => {
 		const group = groupId(session);
 		if (!group) return createErrorResponse("User not in a group", 400, request, env);
-		const rows = await db.select({ reminder: billReminders, occurrence: billOccurrences, bill: bills })
+		const rows = await db.select({ reminder: billReminders, occurrence: billOccurrences })
 			.from(billReminders).innerJoin(billOccurrences, eq(billReminders.occurrenceId, billOccurrences.id))
-			.innerJoin(bills, eq(billOccurrences.billId, bills.id))
 			.where(and(eq(billReminders.userId, session.currentUser.id), eq(billOccurrences.groupId, group)))
 			.orderBy(asc(billReminders.readAt), asc(billOccurrences.dueDate)).limit(100);
-		return createJsonResponse(rows.map(({ reminder, occurrence, bill }) => ({
+		return createJsonResponse(rows.map(({ reminder, occurrence }) => ({
 			id: reminder.id, occurrenceId: occurrence.id, userId: reminder.userId, kind: reminder.kind,
-			createdAt: reminder.createdAt, readAt: reminder.readAt, title: bill.title, dueDate: occurrence.dueDate,
+			createdAt: reminder.createdAt, readAt: reminder.readAt, title: occurrence.title, dueDate: occurrence.dueDate,
 		})), 200, {}, request, env);
 	});
 }

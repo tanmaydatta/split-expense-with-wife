@@ -782,7 +782,7 @@ calendar dates. Bills can be one-time, daily, weekly, or monthly.
 | --- | --- | --- | --- |
 | POST | `/.netlify/functions/bills` | `title`, `amountMinor`, `currency`, `firstDueDate`, `recurrence`, `payerUserId`, `splitBasisPoints` | `{ id }` |
 | GET | `/.netlify/functions/bills/month?month=YYYY-MM` | Month query | Plans, dated occurrences, and per-currency monthly totals |
-| POST | `/.netlify/functions/bills/update` | `id` and optional plan fields | Updates the plan; paid occurrences keep their historical snapshot |
+| POST | `/.netlify/functions/bills/update` | `id` and optional plan fields | Updates the plan; paid occurrences keep their historical title and financial snapshot |
 | DELETE | `/.netlify/functions/bills/delete` | `{ id }` | Stops future recurrence |
 | POST | `/.netlify/functions/bills/payment` | `{ occurrenceId, paid, linkedTransactionId? }` | Records or reverses payment state |
 | GET | `/.netlify/functions/bills/reminders` | None | Current user's in-app reminders |
