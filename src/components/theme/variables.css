@@ -17,14 +17,14 @@
 	--ui-radius-lg: 16px;
 	--ui-shadow: 0 3px 16px rgba(30, 54, 90, 0.055);
 	/* Colors */
-	--color-primary: #007bff;
-	--color-secondary: #6c757d;
-	--color-success: #28a745;
-	--color-danger: #dc3545;
+	--color-primary: var(--ui-accent);
+	--color-secondary: var(--ui-text-muted);
+	--color-success: #146c36;
+	--color-danger: var(--ui-danger);
 	--color-warning: #ffc107;
-	--color-info: #17a2b8;
-	--color-light: #f8f9fa;
-	--color-dark: #343a40;
+	--color-info: var(--ui-accent);
+	--color-light: var(--ui-page);
+	--color-dark: var(--ui-text);
 	--color-white: #fff;
 	--color-black: #000;
 
@@ -42,11 +42,11 @@
 	--spacing-large: 2rem;
 
 	/* Border Radius */
-	--border-radius: 0.25rem;
+	--border-radius: var(--ui-radius-sm);
 
 	/* Shadows */
-	--shadow-small: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24);
-	--shadow-medium: 0 3px 6px rgba(0, 0, 0, 0.16), 0 3px 6px rgba(0, 0, 0, 0.23);
+	--shadow-small: var(--ui-shadow);
+	--shadow-medium: 0 8px 26px rgba(30, 54, 90, 0.11);
 	--shadow-large:
 		0 10px 20px rgba(0, 0, 0, 0.19), 0 6px 6px rgba(0, 0, 0, 0.23);
 }

@@ -3,12 +3,12 @@
 .currency-select,
 .paid-by-select {
 	padding: var(--spacing-small) var(--spacing-medium);
-	border: 1px solid var(--color-secondary);
-	border-radius: var(--border-radius);
+	border: 1px solid var(--ui-border-strong);
+	border-radius: var(--ui-radius-sm);
 	font-size: var(--font-size-medium);
-	font-family: var(--font-family);
-	background-color: var(--color-white);
-	color: var(--color-dark);
+	font-family: var(--font-main);
+	background-color: var(--ui-surface);
+	color: var(--ui-text);
 	min-height: 44px;
 	cursor: pointer;
 	transition:
@@ -37,7 +37,7 @@
 	.paid-by-select {
 		/* Ensure proper styling in Safari */
 		background-color: var(--color-white);
-		border: 1px solid var(--color-secondary);
+		border: 1px solid var(--ui-border-strong);
 		padding-right: 40px; /* Extra space for arrow in Safari */
 	}
 }
@@ -59,9 +59,9 @@
 .form-select:focus,
 .currency-select:focus,
 .paid-by-select:focus {
-	outline: none;
-	border-color: var(--color-primary);
-	box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+	outline: 3px solid var(--ui-focus);
+	outline-offset: 2px;
+	border-color: var(--ui-accent);
 }
 
 /* Validation states */
@@ -71,22 +71,10 @@
 	border-color: var(--color-danger);
 }
 
-.form-select:valid,
-.currency-select:valid,
-.paid-by-select:valid {
-	border-color: var(--color-success);
-}
-
 .form-select:focus:invalid,
 .currency-select:focus:invalid,
 .paid-by-select:focus:invalid {
 	box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.25);
-}
-
-.form-select:focus:valid,
-.currency-select:focus:valid,
-.paid-by-select:focus:valid {
-	box-shadow: 0 0 0 2px rgba(40, 167, 69, 0.25);
 }
 
 /* Disabled state */
