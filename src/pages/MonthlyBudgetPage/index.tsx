@@ -1,4 +1,5 @@
 import { Card } from "@/components/Card";
+import { UiPageDescription, UiPageTitle } from "@/components/ui";
 import { SelectBudget } from "@/SelectBudget";
 import { useMonthlyBudget } from "@/hooks/useMonthlyBudget";
 import getSymbolFromCurrency from "currency-symbol-map";
@@ -94,6 +95,10 @@ export const MonthlyBudgetPage: React.FC = () => {
 				className="monthly-budget-container"
 				data-test-id="monthly-budget-container"
 			>
+				<header>
+					<UiPageTitle>Monthly budget</UiPageTitle>
+					<UiPageDescription>Track spending trends by category and currency.</UiPageDescription>
+				</header>
 				<Card>
 					<p data-test-id="monthly-budget-loading">
 						Loading monthly budget data...
@@ -108,6 +113,10 @@ export const MonthlyBudgetPage: React.FC = () => {
 			className="monthly-budget-container"
 			data-test-id="monthly-budget-container"
 		>
+			<header>
+				<UiPageTitle>Monthly budget</UiPageTitle>
+				<UiPageDescription>Track spending trends by category and currency.</UiPageDescription>
+			</header>
 			<Card>
 				{/* Header Section */}
 				<div className="chart-header">

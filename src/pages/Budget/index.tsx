@@ -2,6 +2,7 @@ import { AmountGrid } from "@/components/AmountGrid";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { Loader } from "@/components/Loader";
+import { UiPageDescription, UiPageTitle } from "@/components/ui";
 import {
 	ErrorContainer,
 	SuccessContainer,
@@ -118,6 +119,10 @@ export const Budget: React.FC = () => {
 
 	return (
 		<div className="budget-container" data-test-id="budget-container">
+			<header>
+				<UiPageTitle>Budget</UiPageTitle>
+				<UiPageDescription>See what remains and review entries by category.</UiPageDescription>
+			</header>
 			{error && (
 				<ErrorContainer
 					message={error}

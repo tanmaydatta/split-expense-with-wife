@@ -1,6 +1,7 @@
 import { Button } from "@/components/Button";
 import { ButtonRow, FormContainer } from "@/components/Form/Layout";
 import { Loader } from "@/components/Loader";
+import { Surface, UiPageDescription, UiPageTitle } from "@/components/ui";
 import {
 	ErrorContainer,
 	SuccessContainer,
@@ -113,6 +114,11 @@ function Dashboard(): JSX.Element {
 
 	return (
 		<div className="dashboard-container" data-test-id="dashboard-container">
+			<header>
+				<UiPageTitle>Add an expense</UiPageTitle>
+				<UiPageDescription>Record a shared expense, update a budget, or do both at once.</UiPageDescription>
+			</header>
+			<Surface className="dashboard-form-surface">
 			<FormContainer data-test-id="expense-form">
 				{/* Error Container */}
 				{error && (
@@ -174,6 +180,7 @@ function Dashboard(): JSX.Element {
 					</Button>
 				</ButtonRow>
 			</FormContainer>
+			</Surface>
 		</div>
 	);
 }
