@@ -117,6 +117,24 @@ async function seedTwoUserAuthedPage(
 test.describe("Scheduled Actions", () => {
 	test.beforeAll(skipIfRemoteBackend);
 
+	test("mobile navigation traps focus and returns it on Escape", async ({ seed, page }) => {
+		await page.setViewportSize({ width: 390, height: 844 });
+		await seedSingleUserAuthedPage(seed, page);
+		await page.goto("/scheduled-actions");
+		const trigger = page.getByRole("button", { name: "Open navigation" });
+		await expect(trigger).toBeVisible();
+		await trigger.click();
+		const dialog = page.getByRole("dialog", { name: "Navigation" });
+		await expect(dialog).toBeVisible();
+		await expect(dialog.getByRole("button", { name: "Scheduled Actions" })).toHaveAttribute("aria-current", "page");
+		await page.keyboard.press("Escape");
+		await expect(dialog).toBeHidden();
+		await expect(trigger).toBeFocused();
+		await trigger.click();
+		await page.getByRole("dialog", { name: "Navigation" }).getByRole("button", { name: "Expenses" }).click();
+		await expect(page).toHaveURL(/\/expenses$/);
+	});
+
 	test("create expense action and see it in list", async ({ seed, page }) => {
 		await seedSingleUserAuthedPage(seed, page);
 		const helper = new ScheduledActionsTestHelper(new TestHelper(page));

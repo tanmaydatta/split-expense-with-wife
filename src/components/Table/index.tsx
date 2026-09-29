@@ -3,9 +3,10 @@ import styled from "styled-components";
 export const TableWrapper = styled.div`
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-  background: ${({ theme }) => theme.colors.white};
-  border-radius: ${({ theme }) => theme.borderRadius};
-  box-shadow: ${({ theme }) => theme.shadows.small};
+  background: var(--ui-surface);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-lg);
+  box-shadow: var(--ui-shadow);
 
   @media (max-width: 768px) {
     margin: 0 -${({ theme }) => theme.spacing.small};
@@ -19,7 +20,7 @@ export const Table = styled.table`
   min-width: 600px; /* Ensure table doesn't get too compressed */
 
   th, td {
-    border: 1px solid ${({ theme }) => theme.colors.secondary};
+    border-bottom: 1px solid var(--ui-border);
     padding: ${({ theme }) => theme.spacing.medium};
     text-align: left;
     vertical-align: top;
@@ -27,12 +28,15 @@ export const Table = styled.table`
   }
 
   th {
-    background: ${({ theme }) => theme.colors.light};
+    background: var(--ui-surface-muted);
+    color: var(--ui-text-muted);
     font-weight: 600;
     position: sticky;
     top: 0;
     z-index: 10;
   }
+
+  tbody tr:hover { background: var(--ui-surface-muted); }
 
   /* Column width distribution for desktop */
   th:nth-child(1), td:nth-child(1) { /* Date */

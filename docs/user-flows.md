@@ -42,14 +42,14 @@ Split Expense is a web app for couples/groups to track shared expenses, manage b
 ## 2. Navigation
 
 ### Desktop Layout
-- Fixed dark sidebar (250px) on the left with navigation links
+- Fixed dark sidebar (260px) on the left with keyboard-operable navigation buttons
 - "Welcome [FirstName]" header at top of sidebar
 - Main content area on the right
 
 ### Mobile Layout (< 768px)
 - Hamburger menu icon in header bar
-- Tapping it slides the sidebar in from the left with a dark overlay
-- Sidebar closes automatically when a link is tapped
+- Tapping it opens a navigation dialog from the left with a dark overlay
+- Focus stays inside the menu while it is open. Escape or tapping outside closes it and returns focus to the menu button. The menu also closes when a destination is chosen.
 - Header shows current page title
 
 ### Sidebar Links
@@ -64,7 +64,7 @@ Split Expense is a web app for couples/groups to track shared expenses, manage b
 | Settings | `/settings` | Group configuration |
 | Logout | — | Ends session |
 
-Active page is highlighted in the sidebar.
+Active page is highlighted and announced as the current page in the sidebar. Shared buttons, cards, fields, and tables use the same palette, borders, spacing, and keyboard focus treatment throughout the app.
 
 ---
 

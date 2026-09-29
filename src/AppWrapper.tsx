@@ -1,4 +1,5 @@
 import Sidebar from "@/components/Sidebar";
+import * as Dialog from "@radix-ui/react-dialog";
 import { theme } from "@/components/theme";
 import { GlobalStyles } from "@/components/theme/GlobalStyles";
 import Logout from "@/Logout";
@@ -21,7 +22,7 @@ import Settings from "@/pages/Settings";
 import SignUpPage from "@/pages/SignUp";
 import Transactions from "@/pages/Transactions";
 import { useEffect, useState } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import styled, { ThemeProvider } from "styled-components";
 import { setData } from "./redux/data";
 import { authClient } from "./utils/authClient";
@@ -31,41 +32,42 @@ import { store } from "./redux/store";
 
 const AppContainer = styled.div`
   display: flex;
-  height: 100vh;
+  height: 100dvh;
   overflow: hidden;
   position: relative;
 `;
 
-const SidebarWrapper = styled.div<{ $isOpen: boolean }>`
-  width: 250px;
+const SidebarWrapper = styled.div`
+  width: 260px;
   flex-shrink: 0;
-  transition: transform 0.3s ease;
-  
-  @media (max-width: 768px) {
-    position: fixed;
-    top: 0;
-    left: 0;
-    height: 100vh;
-    z-index: 1000;
-    transform: translateX(${({ $isOpen }) => ($isOpen ? "0" : "-100%")});
-    background: ${({ theme }) => theme.colors.dark};
-    box-shadow: ${({ theme }) => theme.shadows.large};
-  }
+  @media (max-width: 768px) { display: none; }
 `;
 
-const MobileOverlay = styled.div<{ $isOpen: boolean }>`
-  display: none;
-  
-  @media (max-width: 768px) {
-    display: ${({ $isOpen }) => ($isOpen ? "block" : "none")};
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
-    z-index: 999;
-  }
+const MobileOverlay = styled(Dialog.Overlay)`
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  background: rgba(15, 26, 45, 0.56);
+`;
+
+const MobileMenu = styled(Dialog.Content)`
+  position: fixed;
+  inset: 0 auto 0 0;
+  z-index: 1000;
+  width: min(280px, 85vw);
+  height: 100dvh;
+  background: #182338;
+  box-shadow: 0 20px 50px rgba(11, 26, 52, 0.3);
+  &:focus { outline: none; }
+`;
+
+const MobileMenuTitle = styled(Dialog.Title)`
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
 `;
 
 const MobileHeader = styled.div`
@@ -77,7 +79,7 @@ const MobileHeader = styled.div`
     justify-content: space-between;
     padding: ${({ theme }) => theme.spacing.medium};
     background: ${({ theme }) => theme.colors.white};
-    border-bottom: 1px solid ${({ theme }) => theme.colors.light};
+    border-bottom: 1px solid var(--ui-border);
     position: sticky;
     top: 0;
     z-index: 100;
@@ -85,13 +87,19 @@ const MobileHeader = styled.div`
 `;
 
 const HamburgerButton = styled.button`
-  background: none;
-  border: none;
+  background: var(--ui-surface);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-sm);
   cursor: pointer;
-  padding: ${({ theme }) => theme.spacing.small};
+  padding: 8px;
+  min-width: 44px;
+  min-height: 44px;
   display: flex;
   flex-direction: column;
+  align-items: center;
+  justify-content: center;
   gap: 3px;
+  &:focus-visible { outline: 3px solid var(--ui-focus); outline-offset: 2px; }
   
   span {
     width: 24px;
@@ -113,7 +121,7 @@ const PageTitle = styled.h1`
   font-weight: 600;
 `;
 
-const MainContent = styled.div<{ $sidebarOpen: boolean }>`
+const MainContent = styled.div`
   flex: 1;
   overflow-y: auto;
   display: flex;
@@ -137,6 +145,7 @@ const PageContent = styled.div`
 
 // Create wrapped components outside of render to prevent recreation
 function AppWrapper() {
+	const location = useLocation();
 	const session = authClient.useSession();
 	const { data, error } = session;
 	console.log("session", session);
@@ -165,7 +174,9 @@ function AppWrapper() {
 	// Check if we're on mobile
 	useEffect(() => {
 		const checkMobile = () => {
-			setIsMobile(window.innerWidth <= 768);
+			const mobile = window.innerWidth <= 768;
+			setIsMobile(mobile);
+			if (!mobile) setSidebarOpen(false);
 		};
 
 		checkMobile();
@@ -173,14 +184,9 @@ function AppWrapper() {
 		return () => window.removeEventListener("resize", checkMobile);
 	}, []);
 
-	// Close sidebar when clicking outside on mobile
-	const handleOverlayClick = () => {
-		setSidebarOpen(false);
-	};
-
 	// Get current page title based on location
 	const getPageTitle = () => {
-		const path = window.location.pathname;
+		const path = location.pathname;
 		if (path === "/") return "Add Expense";
 		if (path === "/expenses") return "Expenses";
 		if (path === "/balances") return "Balances";
@@ -204,18 +210,28 @@ function AppWrapper() {
 			<GlobalStyles />
 			{isAuthenticated ? (
 				<AppContainer>
-					<MobileOverlay $isOpen={sidebarOpen} onClick={handleOverlayClick} />
-					<SidebarWrapper $isOpen={sidebarOpen}>
+					<SidebarWrapper>
 						<Sidebar onNavigate={() => setSidebarOpen(false)} />
 					</SidebarWrapper>
-					<MainContent $sidebarOpen={sidebarOpen}>
+					<MainContent>
 						{isMobile && (
 							<MobileHeader>
-								<HamburgerButton onClick={() => setSidebarOpen(!sidebarOpen)}>
-									<span />
-									<span />
-									<span />
-								</HamburgerButton>
+								<Dialog.Root open={sidebarOpen} onOpenChange={setSidebarOpen}>
+									<Dialog.Trigger asChild>
+										<HamburgerButton type="button" aria-label="Open navigation">
+											<span />
+											<span />
+											<span />
+										</HamburgerButton>
+									</Dialog.Trigger>
+									<Dialog.Portal>
+										<MobileOverlay />
+										<MobileMenu id="main-navigation" aria-describedby={undefined}>
+											<MobileMenuTitle>Navigation</MobileMenuTitle>
+											<Sidebar onNavigate={() => setSidebarOpen(false)} />
+										</MobileMenu>
+									</Dialog.Portal>
+								</Dialog.Root>
 								<PageTitle>{getPageTitle()}</PageTitle>
 								<div style={{ width: "40px" }} /> {/* Spacer for centering */}
 							</MobileHeader>
