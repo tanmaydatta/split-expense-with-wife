@@ -6,6 +6,8 @@ Radix Primitives supplies behavior for complex controls where the browser alone 
 
 Preview captures from local Playwright flows: [scheduled actions on desktop](previews/scheduled-actions-desktop.jpeg), [scheduled actions on mobile](previews/scheduled-actions-mobile.jpeg), [mobile navigation](previews/mobile-navigation.jpeg), [monthly budget on desktop](previews/finance-monthly-desktop.jpeg) and [mobile](previews/finance-monthly-mobile.jpeg), [settings on desktop](previews/settings-desktop.jpeg) and [mobile](previews/settings-mobile.jpeg), [landing on desktop](previews/landing-desktop.jpeg) and [mobile](previews/landing-mobile.jpeg), and [signup on mobile](previews/signup-mobile.jpeg). They show seeded example data where a session is required.
 
+Shared bills previews from local seeded households: [calendar on desktop](previews/bills-calendar-desktop.jpeg) and [mobile](previews/bills-calendar-mobile.jpeg), plus [due list on desktop](previews/bills-due-list-desktop.jpeg) and [mobile](previews/bills-due-list-mobile.jpeg).
+
 ## Screen inventory and migration order
 
 | Area | Current UI | Next migration |
