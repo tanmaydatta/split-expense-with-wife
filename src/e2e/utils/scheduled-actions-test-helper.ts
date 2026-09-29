@@ -301,7 +301,7 @@ export class ScheduledActionsTestHelper {
 		await this.gotoListPage();
 		const card = await this.findCard(description);
 		await expect(card.first()).toBeVisible({ timeout: getCITimeout(10000) });
-		await card.first().getByText(description).click();
+		await card.first().getByRole("button", { name: "History" }).click();
 		await expect(
 			this.authenticatedPage.page.getByTestId("scheduled-actions-history"),
 		).toBeVisible({ timeout: getCITimeout(10000) });

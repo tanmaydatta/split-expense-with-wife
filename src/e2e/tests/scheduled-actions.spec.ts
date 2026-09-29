@@ -136,6 +136,26 @@ test.describe("Scheduled Actions", () => {
 			typeText: "Add Expense",
 			nextDate: startDate,
 		});
+		const card = page.locator('[data-test-id^="sa-item-"]').filter({ hasText: "Morning coffee subscription" });
+		await expect(card).toContainText("9.99");
+		await expect(card).toContainText("Active");
+		const visibleSetup = card.locator('[data-test-id^="sa-details-"]');
+		await expect(visibleSetup.getByText("Paid by")).toBeVisible();
+		await expect(visibleSetup.getByText("Split")).toBeVisible();
+		await expect(visibleSetup).toContainText("100%");
+		const detailsButton = card.locator('[data-test-id^="sa-details-toggle-"]');
+		const moreSetup = card.locator('[data-test-id^="sa-more-setup-"]');
+		await expect(detailsButton).toHaveAttribute("aria-expanded", "false");
+		await expect(moreSetup).toBeHidden();
+		await detailsButton.focus();
+		await page.keyboard.press("Enter");
+		await expect(detailsButton).toHaveAttribute("aria-expanded", "true");
+		await expect(moreSetup).toBeVisible();
+		await expect(moreSetup).toContainText(startDate);
+		await expect(moreSetup.getByText("Amount", { exact: true })).toHaveCount(0);
+		await card.getByRole("button", { name: "Hide setup" }).click();
+		await expect(detailsButton).toHaveAttribute("aria-expanded", "false");
+		await expect(moreSetup).toBeHidden();
 	});
 
 	test("create budget action and see it in list", async ({ seed, page }) => {
@@ -156,6 +176,11 @@ test.describe("Scheduled Actions", () => {
 			typeText: "Add to Budget",
 			nextDate: startDate,
 		});
+		const card = page.locator('[data-test-id^="sa-item-"]').filter({ hasText: "Monthly house credit" });
+		const visibleSetup = card.locator('[data-test-id^="sa-details-"]');
+		await expect(visibleSetup.getByText("Budget", { exact: true })).toBeVisible();
+		await expect(visibleSetup.getByText("Entry type")).toBeVisible();
+		await expect(visibleSetup.getByText("Credit")).toBeVisible();
 	});
 
 	test("edit an action's frequency and amount", async ({ seed, page }) => {

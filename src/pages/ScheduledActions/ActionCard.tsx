@@ -1,67 +1,105 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
+import type { ReduxState, ScheduledAction } from "split-expense-shared-types";
+import styled from "styled-components";
 import { Card } from "@/components/Card";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
-import { Pause, Pencil, Play, Trash } from "@/components/Icons";
-import { useNavigate } from "react-router-dom";
-import type { ScheduledAction } from "split-expense-shared-types";
-import styled, { useTheme } from "styled-components";
+import { ActionDetails, ActionMoreSetup } from "./ActionDetails";
 
-const CardRow = styled.div`
+const ActionCardShell = styled(Card)`
+  border: 1px solid #e5e7eb;
+`;
+const CardHeader = styled.div`
   display: flex;
   justify-content: space-between;
-  gap: 12px;
-  align-items: center;
+  align-items: flex-start;
+  gap: 16px;
+  @media (max-width: 600px) { flex-direction: column; gap: 10px; }
 `;
-
-const LeftSection = styled.div`
+const Description = styled.h4`
+  margin: 0 0 8px;
+  font-size: 18px;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+`;
+const Badges = styled.div`
   display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+`;
+const Badge = styled.span`
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
-  cursor: pointer;
-`;
-
-const StatusDot = styled.span<{ $active: boolean }>`
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background-color: ${(p) => (p.$active ? p.theme.colors.success : p.theme.colors.danger)};
-  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.03);
-  flex: 0 0 auto;
-`;
-
-const TitleText = styled.div`
-  font-weight: 600;
-  font-size: 16px;
-`;
-
-const Subtext = styled.div`
+  border-radius: 999px;
+  padding: 4px 9px;
+  background: #f3f4f6;
+  color: #374151;
   font-size: 12px;
-  color: ${({ theme }) => theme.colors.secondary};
+  font-weight: 600;
 `;
-
-const Separator = styled.span`
-  margin: 0 6px;
-  color: ${({ theme }) => theme.colors.secondary};
+const StatusBadge = styled(Badge)<{ $active: boolean }>`
+  background: ${({ $active }) => ($active ? "#e8f7ed" : "#fff3e5")};
+  color: ${({ $active }) => ($active ? "#146c36" : "#895000")};
 `;
-
-const RightActions = styled.div`
-  display: inline-flex;
+const Amount = styled.div`
+  color: #111827;
+  font-size: 22px;
+  line-height: 1.2;
+  font-weight: 700;
+  white-space: nowrap;
+`;
+const Currency = styled.span`
+  margin-left: 5px;
+  color: #6b7280;
+  font-size: 13px;
+  font-weight: 600;
+`;
+const NextRun = styled.div`
+  margin-top: 16px;
+  color: #4b5563;
+  font-size: 14px;
+`;
+const Actions = styled.div`
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid #e5e7eb;
 `;
-
-const IconButton = styled.span`
+const MoreSetup = styled.div`
+  margin-top: 12px;
+`;
+const ActionButton = styled.button<{ $danger?: boolean }>`
+  min-height: 40px;
+  border: 1px solid ${({ $danger }) => ($danger ? "#f4c7c7" : "#d1d5db")};
+  border-radius: 8px;
+  padding: 8px 12px;
+  background: #fff;
+  color: ${({ $danger }) => ($danger ? "#a32929" : "#1f2937")};
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
   cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 12px;
+  &:hover { background: ${({ $danger }) => ($danger ? "#fff4f4" : "#f3f4f6")}; }
+  &:focus-visible { outline: 3px solid #007bff; outline-offset: 2px; }
+  &:disabled { opacity: 0.55; cursor: wait; }
+  @media (max-width: 600px) { flex: 1 1 calc(50% - 8px); }
+`;
+const MoreSetupButton = styled(ActionButton)`
+  min-height: 38px;
+  color: ${({ theme }) => theme.colors.primary};
 `;
 
 interface ActionCardProps {
 	sa: ScheduledAction;
+	session: ReduxState["value"];
 	busyId: string | null;
 	setBusyId: (id: string | null) => void;
-	updateAction: any;
+	updateAction: {
+		mutateAsync: (data: { id: string; isActive: boolean }) => Promise<unknown>;
+	};
 	requestDelete: (id: string) => void;
 	confirmOpen: boolean;
 	pendingDeleteId: string | null;
@@ -71,6 +109,7 @@ interface ActionCardProps {
 
 export const ActionCard: React.FC<ActionCardProps> = ({
 	sa,
+	session,
 	busyId,
 	setBusyId,
 	updateAction,
@@ -81,100 +120,105 @@ export const ActionCard: React.FC<ActionCardProps> = ({
 	closeConfirm,
 }) => {
 	const navigate = useNavigate();
-	const theme = useTheme();
+	const [moreSetupOpen, setMoreSetupOpen] = React.useState(false);
+	const [toggleError, setToggleError] = React.useState(false);
+	const moreSetupId = `sa-more-setup-${sa.id}`;
+	const isBusy = busyId === sa.id;
+	const amount = Number(sa.actionData.amount).toLocaleString(undefined, {
+		minimumFractionDigits: 2,
+		maximumFractionDigits: 2,
+	});
 
 	const handleToggleActive = async () => {
 		if (busyId) return;
 		setBusyId(sa.id);
+		setToggleError(false);
 		try {
-			await updateAction.mutateAsync({
-				id: sa.id,
-				isActive: !sa.isActive,
-			});
+			await updateAction.mutateAsync({ id: sa.id, isActive: !sa.isActive });
+		} catch {
+			setToggleError(true);
 		} finally {
 			setBusyId(null);
 		}
 	};
 
 	return (
-		<Card
-			key={sa.id}
+		<ActionCardShell
 			className="settings-card"
 			data-test-id={`sa-item-${sa.id}`}
-			style={
-				busyId === sa.id ? { opacity: 0.6, pointerEvents: "none" } : undefined
-			}
+			aria-busy={isBusy}
 		>
-			<CardRow>
-				<LeftSection
+			<CardHeader>
+				<div>
+					<Description>{sa.actionData.description}</Description>
+					<Badges>
+						<StatusBadge $active={sa.isActive}>
+							{sa.isActive ? "Active" : "Paused"}
+						</StatusBadge>
+						<Badge>
+							{sa.actionType === "add_expense"
+								? "Add Expense"
+								: "Add to Budget"}
+						</Badge>
+						<Badge>{sa.frequency.toUpperCase()}</Badge>
+					</Badges>
+				</div>
+				<Amount>
+					{amount}
+					<Currency>{sa.actionData.currency}</Currency>
+				</Amount>
+			</CardHeader>
+			<NextRun>Next: {sa.nextExecutionDate}</NextRun>
+			<ActionDetails action={sa} session={session} />
+			<MoreSetup>
+				<MoreSetupButton
+					type="button"
+					data-test-id={`sa-details-toggle-${sa.id}`}
+					aria-expanded={moreSetupOpen}
+					aria-controls={moreSetupId}
+					onClick={() => setMoreSetupOpen((open) => !open)}
+				>
+					{moreSetupOpen ? "Hide setup" : "More setup"}
+				</MoreSetupButton>
+				<ActionMoreSetup id={moreSetupId} action={sa} hidden={!moreSetupOpen} />
+			</MoreSetup>
+			<Actions>
+				<ActionButton
+					type="button"
 					onClick={() => navigate(`/scheduled-actions/${sa.id}`, { state: sa })}
 				>
-					<StatusDot
-						$active={sa.isActive}
-						aria-label={sa.isActive ? "Active" : "Inactive"}
-						title={sa.isActive ? "Active" : "Inactive"}
-					/>
-					<div>
-						<TitleText>{sa.actionData.description}</TitleText>
-						<Subtext>
-							<span
-								style={{
-									textTransform: "uppercase",
-									letterSpacing: 0.3 as unknown as number,
-								}}
-							>
-								{sa.frequency}
-							</span>
-							<Separator>•</Separator>
-							<span>
-								{sa.actionType === "add_expense"
-									? "Add Expense"
-									: "Add to Budget"}
-							</span>
-							<Separator>•</Separator>
-							<span>Next: {sa.nextExecutionDate}</span>
-						</Subtext>
-					</div>
-				</LeftSection>
-				<RightActions>
-					<IconButton
-						onClick={handleToggleActive}
-						data-test-id={`sa-toggle-${sa.id}`}
-						aria-label={sa.isActive ? "Deactivate action" : "Activate action"}
-						title={sa.isActive ? "Deactivate action" : "Activate action"}
-					>
-						{busyId === sa.id ? (
-							<span aria-busy="true" style={{ opacity: 0.6 }}>
-								•••
-							</span>
-						) : sa.isActive ? (
-							<Pause size={18} color={theme.colors.danger} />
-						) : (
-							<Play size={18} color={theme.colors.success} />
-						)}
-					</IconButton>
-					<IconButton
-						onClick={() =>
-							navigate(`/scheduled-actions/${sa.id}/edit`, {
-								state: sa,
-							})
-						}
-						data-test-id={`sa-edit-${sa.id}`}
-						aria-label="Edit"
-						title="Edit"
-					>
-						<Pencil size={18} color={theme.colors.primary} outline />
-					</IconButton>
-					<IconButton
-						onClick={() => requestDelete(sa.id)}
-						data-test-id={`sa-delete-${sa.id}`}
-						aria-label="Delete"
-						title="Delete"
-					>
-						<Trash size={18} color={theme.colors.danger} />
-					</IconButton>
-				</RightActions>
-			</CardRow>
+					History
+				</ActionButton>
+				<ActionButton
+					type="button"
+					data-test-id={`sa-edit-${sa.id}`}
+					onClick={() =>
+						navigate(`/scheduled-actions/${sa.id}/edit`, { state: sa })
+					}
+				>
+					Edit
+				</ActionButton>
+				<ActionButton
+					type="button"
+					data-test-id={`sa-toggle-${sa.id}`}
+					aria-label={sa.isActive ? "Deactivate action" : "Activate action"}
+					disabled={Boolean(busyId)}
+					onClick={handleToggleActive}
+				>
+					{isBusy ? "Saving…" : sa.isActive ? "Pause" : "Resume"}
+				</ActionButton>
+				<ActionButton
+					type="button"
+					$danger
+					data-test-id={`sa-delete-${sa.id}`}
+					onClick={() => requestDelete(sa.id)}
+				>
+					Delete
+				</ActionButton>
+			</Actions>
+			{toggleError && (
+				<p role="alert">Could not update this action. Please try again.</p>
+			)}
 			{confirmOpen && pendingDeleteId === sa.id && (
 				<ConfirmDialog
 					open={confirmOpen}
@@ -186,6 +230,6 @@ export const ActionCard: React.FC<ActionCardProps> = ({
 					onCancel={closeConfirm}
 				/>
 			)}
-		</Card>
+		</ActionCardShell>
 	);
 };
