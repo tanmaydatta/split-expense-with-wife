@@ -93,6 +93,11 @@ yarn db:migrate:dev   # for development
 yarn db:migrate:prod  # for production
 ```
 
+For shared bills, migration `0021_shared_bills.sql` creates the bill, dated
+occurrence, and in-app reminder tables. Apply it before deploying the bill API
+and UI. It only adds new tables and indexes; existing expenses and scheduled
+actions are not backfilled into bills.
+
 #### 5. Deploy to Cloudflare Workers
 ```bash
 cd cf-worker

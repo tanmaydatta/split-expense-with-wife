@@ -13,6 +13,42 @@ export const CURRENCIES = [
     "CNY",
     "SGD",
 ];
+const BillDateSchema = z.iso.date();
+export const BillCreateSchema = z.object({
+    title: z.string().trim().min(2).max(100),
+    amountMinor: z.number().int().positive().max(1000000000),
+    currency: z.enum(CURRENCIES),
+    firstDueDate: BillDateSchema,
+    recurrence: z.enum(["once", "daily", "weekly", "monthly"]),
+    payerUserId: z.string().min(1),
+    splitBasisPoints: z.record(z.string(), z.number().int().min(0).max(10000)),
+}).refine((value) => Object.values(value.splitBasisPoints).reduce((sum, share) => sum + share, 0) === 10000, {
+    message: "Split shares must total 100%",
+    path: ["splitBasisPoints"],
+});
+export const BillUpdateSchema = z.object({
+    id: z.string().min(1),
+    title: z.string().trim().min(2).max(100).optional(),
+    amountMinor: z.number().int().positive().max(1000000000).optional(),
+    currency: z.enum(CURRENCIES).optional(),
+    firstDueDate: BillDateSchema.optional(),
+    recurrence: z.enum(["once", "daily", "weekly", "monthly"]).optional(),
+    payerUserId: z.string().min(1).optional(),
+    splitBasisPoints: z.record(z.string(), z.number().int().min(0).max(10000)).optional(),
+    isActive: z.boolean().optional(),
+}).refine((value) => !value.splitBasisPoints || Object.values(value.splitBasisPoints).reduce((sum, share) => sum + share, 0) === 10000, {
+    message: "Split shares must total 100%",
+    path: ["splitBasisPoints"],
+});
+export const BillMonthQuerySchema = z.object({
+    month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/),
+});
+export const BillPaymentSchema = z.object({
+    occurrenceId: z.string().min(1),
+    paid: z.boolean(),
+    linkedTransactionId: z.string().min(1).optional(),
+});
+export const BillIdSchema = z.object({ id: z.string().min(1) });
 // Group Budget Data Schema
 export const GroupBudgetDataSchema = z.object({
     id: z.string().min(1),

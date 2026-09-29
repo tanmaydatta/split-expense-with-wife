@@ -369,6 +369,13 @@ export interface DashboardUser {
 
 // API endpoint types for type-safe API calls
 export interface ApiEndpoints {
+	"/bills": { request: BillCreateInput; response: { id: string } };
+	"/bills/month": { request: { month: string }; response: BillMonthResponse };
+	"/bills/update": { request: BillUpdateInput; response: { message: string } };
+	"/bills/delete": { request: { id: string }; response: { message: string } };
+	"/bills/payment": { request: { occurrenceId: string; paid: boolean; linkedTransactionId?: string }; response: { message: string } };
+	"/bills/reminders": { request: {}; response: BillReminderView[] };
+	"/bills/reminders/read": { request: { id: string }; response: { message: string } };
 	"/login": {
 		request: LoginRequest;
 		response: LoginResponse;
@@ -486,8 +493,95 @@ export const CURRENCIES = [
 	"SGD",
 ] as const;
 
+const BillDateSchema = z.iso.date();
+export const BillCreateSchema = z.object({
+	title: z.string().trim().min(2).max(100),
+	amountMinor: z.number().int().positive().max(1_000_000_000),
+	currency: z.enum(CURRENCIES),
+	firstDueDate: BillDateSchema,
+	recurrence: z.enum(["once", "daily", "weekly", "monthly"]),
+	payerUserId: z.string().min(1),
+	splitBasisPoints: z.record(z.string(), z.number().int().min(0).max(10_000)),
+}).refine((value) => Object.values(value.splitBasisPoints).reduce((sum, share) => sum + share, 0) === 10_000, {
+	message: "Split shares must total 100%",
+	path: ["splitBasisPoints"],
+});
+export const BillUpdateSchema = z.object({
+	id: z.string().min(1),
+	title: z.string().trim().min(2).max(100).optional(),
+	amountMinor: z.number().int().positive().max(1_000_000_000).optional(),
+	currency: z.enum(CURRENCIES).optional(),
+	firstDueDate: BillDateSchema.optional(),
+	recurrence: z.enum(["once", "daily", "weekly", "monthly"]).optional(),
+	payerUserId: z.string().min(1).optional(),
+	splitBasisPoints: z.record(z.string(), z.number().int().min(0).max(10_000)).optional(),
+	isActive: z.boolean().optional(),
+}).refine((value) => !value.splitBasisPoints || Object.values(value.splitBasisPoints).reduce((sum, share) => sum + share, 0) === 10_000, {
+	message: "Split shares must total 100%",
+	path: ["splitBasisPoints"],
+});
+export const BillMonthQuerySchema = z.object({
+	month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/),
+});
+export const BillPaymentSchema = z.object({
+	occurrenceId: z.string().min(1),
+	paid: z.boolean(),
+	linkedTransactionId: z.string().min(1).optional(),
+});
+export const BillIdSchema = z.object({ id: z.string().min(1) });
+export type BillCreateInput = z.infer<typeof BillCreateSchema>;
+export type BillUpdateInput = z.infer<typeof BillUpdateSchema>;
+
 // Types
 export type Currency = (typeof CURRENCIES)[number];
+
+// Bill amounts use integer minor units. Due dates are calendar dates in UTC.
+export type BillRecurrence = "once" | "daily" | "weekly" | "monthly";
+export interface BillPlan {
+	id: string;
+	title: string;
+	amountMinor: number;
+	currency: Currency;
+	firstDueDate: string;
+	recurrence: BillRecurrence;
+	payerUserId: string;
+	splitBasisPoints: Record<string, number>;
+	isActive: boolean;
+}
+export interface BillOccurrenceView {
+	id: string;
+	billId: string;
+	title: string;
+	dueDate: string;
+	amountMinor: number;
+	currency: Currency;
+	payerUserId: string;
+	splitBasisPoints: Record<string, number>;
+	paidAt: string | null;
+	linkedTransactionId: string | null;
+}
+export interface BillMonthResponse {
+	month: string;
+	bills: BillPlan[];
+	occurrences: BillOccurrenceView[];
+	summary: Array<{
+		currency: Currency;
+		dueMinor: number;
+		paidMinor: number;
+		pendingMinor: number;
+		sharesByUserMinor: Record<string, number>;
+	}>;
+}
+export interface BillReminderView {
+	id: string;
+	occurrenceId: string;
+	userId: string;
+	kind: "upcoming" | "overdue";
+	createdAt: string;
+	readAt: string | null;
+	title: string;
+	dueDate: string;
+}
 
 // Group Budget Data Schema
 export const GroupBudgetDataSchema = z.object({
