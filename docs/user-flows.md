@@ -270,6 +270,8 @@ Automate recurring expenses or budget entries (e.g., monthly rent, weekly grocer
 
 Shows scheduled actions in a single-column list of cards on desktop and mobile. Every card shows description, amount and currency, action type, frequency, active or paused status, and next execution date. Expense cards show the payer and each person's split percentage directly. Budget cards show the budget category and credit or debit type directly. Member and budget names are shown when available. **More setup** expands secondary dates, including start date and last run, without repeating the amount.
 
+The page uses the shared surface, button, and field-label styling, with a clear page heading and explanation. The delete confirmation uses an accessible alert dialog: focus starts on **Cancel**, Escape dismisses it, and the background cannot be operated while it is open.
+
 Use the labelled native controls above the list to filter by status (**All**, **Active**, **Paused**), type (**All**, **Expense**, **Budget**), or frequency (**Any**, **Daily**, **Weekly**, **Monthly**). Sort by **Recently added**, **Next run soonest**, or **Name A–Z**. The matching count updates with the filters. Filter and sort choices remain in the page URL for sharing and reloading. **Clear filters** removes the three filters while keeping the chosen sort. When nothing matches, the page offers a clear action distinct from the empty account state.
 
 **Card actions:**

@@ -243,7 +243,7 @@ test.describe("Scheduled Actions", () => {
 		await helper.gotoListPage();
 		// Initially active: status dot is green, button should say Deactivate
 		const card = page
-			.locator(".settings-card")
+			.locator('[data-test-id^="sa-item-"]')
 			.filter({ hasText: "Toggle me" })
 			.first();
 		await expect(card).toBeVisible();

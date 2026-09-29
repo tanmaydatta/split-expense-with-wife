@@ -2,12 +2,13 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import type { ReduxState, ScheduledAction } from "split-expense-shared-types";
 import styled from "styled-components";
-import { Card } from "@/components/Card";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { Surface, UiButton } from "@/components/ui";
 import { ActionDetails, ActionMoreSetup } from "./ActionDetails";
 
-const ActionCardShell = styled(Card)`
-  border: 1px solid #e5e7eb;
+const ActionCardShell = styled(Surface)`
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+  &:hover { border-color: var(--ui-border-strong); box-shadow: 0 8px 26px rgba(30, 54, 90, 0.09); }
 `;
 const CardHeader = styled.div`
   display: flex;
@@ -18,6 +19,7 @@ const CardHeader = styled.div`
 `;
 const Description = styled.h4`
   margin: 0 0 8px;
+  color: var(--ui-text);
   font-size: 18px;
   line-height: 1.3;
   overflow-wrap: anywhere;
@@ -32,8 +34,8 @@ const Badge = styled.span`
   align-items: center;
   border-radius: 999px;
   padding: 4px 9px;
-  background: #f3f4f6;
-  color: #374151;
+  background: var(--ui-surface-muted);
+  color: var(--ui-text-muted);
   font-size: 12px;
   font-weight: 600;
 `;
@@ -42,7 +44,7 @@ const StatusBadge = styled(Badge)<{ $active: boolean }>`
   color: ${({ $active }) => ($active ? "#146c36" : "#895000")};
 `;
 const Amount = styled.div`
-  color: #111827;
+  color: var(--ui-text);
   font-size: 22px;
   line-height: 1.2;
   font-weight: 700;
@@ -50,13 +52,13 @@ const Amount = styled.div`
 `;
 const Currency = styled.span`
   margin-left: 5px;
-  color: #6b7280;
+  color: var(--ui-text-muted);
   font-size: 13px;
   font-weight: 600;
 `;
 const NextRun = styled.div`
   margin-top: 16px;
-  color: #4b5563;
+  color: var(--ui-text-muted);
   font-size: 14px;
 `;
 const Actions = styled.div`
@@ -66,30 +68,17 @@ const Actions = styled.div`
   gap: 8px;
   margin-top: 16px;
   padding-top: 14px;
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid var(--ui-border);
 `;
 const MoreSetup = styled.div`
   margin-top: 12px;
 `;
-const ActionButton = styled.button<{ $danger?: boolean }>`
-  min-height: 40px;
-  border: 1px solid ${({ $danger }) => ($danger ? "#f4c7c7" : "#d1d5db")};
-  border-radius: 8px;
-  padding: 8px 12px;
-  background: #fff;
-  color: ${({ $danger }) => ($danger ? "#a32929" : "#1f2937")};
-  font: inherit;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  &:hover { background: ${({ $danger }) => ($danger ? "#fff4f4" : "#f3f4f6")}; }
-  &:focus-visible { outline: 3px solid #007bff; outline-offset: 2px; }
-  &:disabled { opacity: 0.55; cursor: wait; }
+const ActionButton = styled(UiButton)`
   @media (max-width: 600px) { flex: 1 1 calc(50% - 8px); }
 `;
 const MoreSetupButton = styled(ActionButton)`
   min-height: 38px;
-  color: ${({ theme }) => theme.colors.primary};
+  color: var(--ui-accent);
 `;
 
 interface ActionCardProps {
@@ -144,7 +133,6 @@ export const ActionCard: React.FC<ActionCardProps> = ({
 
 	return (
 		<ActionCardShell
-			className="settings-card"
 			data-test-id={`sa-item-${sa.id}`}
 			aria-busy={isBusy}
 		>
@@ -168,7 +156,7 @@ export const ActionCard: React.FC<ActionCardProps> = ({
 					<Currency>{sa.actionData.currency}</Currency>
 				</Amount>
 			</CardHeader>
-			<NextRun>Next: {sa.nextExecutionDate}</NextRun>
+			<NextRun>Next: <strong>{sa.nextExecutionDate}</strong></NextRun>
 			<ActionDetails action={sa} session={session} />
 			<MoreSetup>
 				<MoreSetupButton
@@ -209,7 +197,7 @@ export const ActionCard: React.FC<ActionCardProps> = ({
 				</ActionButton>
 				<ActionButton
 					type="button"
-					$danger
+					$tone="danger"
 					data-test-id={`sa-delete-${sa.id}`}
 					onClick={() => requestDelete(sa.id)}
 				>

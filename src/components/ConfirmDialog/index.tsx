@@ -1,6 +1,7 @@
-import { Button } from "@/components/Button";
+import * as AlertDialog from "@radix-ui/react-alert-dialog";
 import React from "react";
 import styled from "styled-components";
+import { UiButton } from "@/components/ui";
 
 type ConfirmDialogProps = {
 	open: boolean;
@@ -12,54 +13,47 @@ type ConfirmDialogProps = {
 	onCancel: () => void;
 };
 
-const Overlay = styled.div`
+const Overlay = styled(AlertDialog.Overlay)`
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
   z-index: 2000;
+  background: rgba(15, 26, 45, 0.56);
 `;
 
-const Dialog = styled.div`
-  background: #ffffff;
-  border-radius: 10px;
-  width: min(420px, 92vw);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
-  overflow: hidden;
+const Content = styled(AlertDialog.Content)`
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 2001;
+  width: min(440px, calc(100vw - 32px));
+  transform: translate(-50%, -50%);
+  padding: 24px;
+  background: var(--ui-surface);
+  color: var(--ui-text);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-lg);
+  box-shadow: 0 24px 70px rgba(11, 26, 52, 0.25);
 `;
 
-const Header = styled.div`
-  padding: 14px 16px;
-  border-bottom: 1px solid #e5e7eb;
-  font-weight: 600;
+const Title = styled(AlertDialog.Title)`
+  margin: 0 0 8px;
+  color: var(--ui-text);
+  font-size: 20px;
+  font-weight: 700;
 `;
 
-const Body = styled.div`
-  padding: 16px;
-  color: #374151;
+const Description = styled(AlertDialog.Description)`
+  margin: 0;
+  color: var(--ui-text-muted);
+  line-height: 1.5;
 `;
 
 const Footer = styled.div`
   display: flex;
   justify-content: flex-end;
   gap: 10px;
-  padding: 12px 16px 16px 16px;
-`;
-
-const SecondaryButton = styled(Button)`
-  background: #ffffff;
-  color: #374151;
-  border: 1px solid #e5e7eb;
-  min-height: 36px;
-`;
-
-const DangerButton = styled(Button)`
-  background: #dc2626;
-  color: #ffffff;
-  border: 1px solid #dc2626;
-  min-height: 36px;
+  margin-top: 24px;
+  @media (max-width: 480px) { flex-direction: column-reverse; }
 `;
 
 export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
@@ -70,20 +64,24 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
 	cancelText = "Cancel",
 	onCancel,
 	onConfirm,
-}) => {
-	if (!open) return null;
-	return (
-		<Overlay role="dialog" aria-modal="true" aria-label={title}>
-			<Dialog>
-				<Header>{title}</Header>
-				<Body>{message}</Body>
+}) => (
+	<AlertDialog.Root open={open} onOpenChange={(nextOpen) => { if (!nextOpen) onCancel(); }}>
+		<AlertDialog.Portal>
+			<Overlay />
+			<Content>
+				<Title>{title}</Title>
+				<Description>{message}</Description>
 				<Footer>
-					<SecondaryButton onClick={onCancel}>{cancelText}</SecondaryButton>
-					<DangerButton onClick={onConfirm}>{confirmText}</DangerButton>
+					<AlertDialog.Cancel asChild>
+						<UiButton type="button" onClick={onCancel}>{cancelText}</UiButton>
+					</AlertDialog.Cancel>
+					<AlertDialog.Action asChild>
+						<UiButton type="button" $tone="danger" onClick={onConfirm}>{confirmText}</UiButton>
+					</AlertDialog.Action>
 				</Footer>
-			</Dialog>
-		</Overlay>
-	);
-};
+			</Content>
+		</AlertDialog.Portal>
+	</AlertDialog.Root>
+);
 
 export default ConfirmDialog;

@@ -6,11 +6,9 @@ import type {
 	ScheduledAction,
 	ScheduledActionListRequest,
 } from "split-expense-shared-types";
-import styled, { useTheme } from "styled-components";
-import { Button } from "@/components/Button";
-import { Card } from "@/components/Card";
-import { Plus } from "@/components/Icons";
+import styled from "styled-components";
 import { Select } from "@/components/Form/Select";
+import { FieldLabel, Surface, UiButton } from "@/components/ui";
 import {
 	useDeleteScheduledAction,
 	useInfiniteScheduledActionsList,
@@ -19,70 +17,54 @@ import {
 import { ActionCard } from "./ActionCard";
 import { useConfirmDialog, useIntersectionObserver } from "./hooks";
 
-const HeaderTitle = styled.h3`
-  margin: 0;
-  font-size: 20px;
-  line-height: 36px;
+const PageShell = styled.main`
+  width: min(100%, 960px);
+  margin: 0 auto;
+  padding: 24px 16px 60px;
+  color: var(--ui-text);
+  @media (max-width: 600px) { padding: 16px 0 40px; }
 `;
 
-const StyledIconButton = styled(Button)`
-  background: ${({ theme }) => theme.colors.white};
-  color: ${({ theme }) => theme.colors.primary};
-  border: 1px solid ${({ theme }) => theme.colors.light};
-  padding: 8px 12px;
-  min-height: 36px;
-  font-size: 15px;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
+const HeaderTitle = styled.h1`
+  margin: 0;
+  color: var(--ui-text);
+  font-size: clamp(24px, 3vw, 30px);
+  font-weight: 750;
+  line-height: 1.15;
+`;
 
-  @media (max-width: 768px) {
-    padding: 6px 10px;
-    min-height: 32px;
-    font-size: 14px;
-  }
+const HeaderCopy = styled.p`
+  margin: 8px 0 0;
+  color: var(--ui-text-muted);
+  font-size: 14px;
 `;
 
 const PageHeader = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
-  gap: 12px;
+  margin-bottom: 22px;
+  gap: 16px;
   flex-wrap: wrap;
 `;
 
 const ActionsGrid = styled.div`
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 12px;
+  gap: 16px;
 `;
 
-const FilterPanel = styled.div`
-  padding: 16px;
-  margin-bottom: 16px;
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  background: ${({ theme }) => theme.colors.white};
+const FilterPanel = styled(Surface)`
+  margin-bottom: 22px;
 `;
 
 const FilterGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
+  gap: 14px;
 
   @media (max-width: 768px) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   @media (max-width: 480px) { grid-template-columns: minmax(0, 1fr); }
-`;
-
-const FilterField = styled.label`
-  display: grid;
-  gap: 5px;
-  font-size: 14px;
-  font-weight: 600;
-  min-width: 0;
-
-  .form-select { border-color: #b8bec8; }
 `;
 
 const FilterSummary = styled.div`
@@ -90,8 +72,10 @@ const FilterSummary = styled.div`
   justify-content: space-between;
   align-items: center;
   gap: 12px;
-  margin-top: 12px;
-  color: #4b5563;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--ui-border);
+  color: var(--ui-text-muted);
   font-size: 14px;
 `;
 
@@ -166,7 +150,7 @@ function FilterControls({
 	return (
 		<FilterPanel as="section" aria-label="Filter and sort scheduled actions">
 			<FilterGrid>
-				<FilterField>
+				<FieldLabel>
 					Status
 					<Select
 						value={filters.status}
@@ -176,8 +160,8 @@ function FilterControls({
 						<option value="active">Active</option>
 						<option value="paused">Paused</option>
 					</Select>
-				</FilterField>
-				<FilterField>
+				</FieldLabel>
+				<FieldLabel>
 					Type
 					<Select
 						value={filters.actionType}
@@ -187,8 +171,8 @@ function FilterControls({
 						<option value="add_expense">Expense</option>
 						<option value="add_budget">Budget</option>
 					</Select>
-				</FilterField>
-				<FilterField>
+				</FieldLabel>
+				<FieldLabel>
 					Frequency
 					<Select
 						value={filters.frequency}
@@ -199,8 +183,8 @@ function FilterControls({
 						<option value="weekly">Weekly</option>
 						<option value="monthly">Monthly</option>
 					</Select>
-				</FilterField>
-				<FilterField>
+				</FieldLabel>
+				<FieldLabel>
 					Sort by
 					<Select
 						value={filters.sort}
@@ -210,7 +194,7 @@ function FilterControls({
 						<option value="next_run">Next run soonest</option>
 						<option value="name">Name A–Z</option>
 					</Select>
-				</FilterField>
+				</FieldLabel>
 			</FilterGrid>
 			<FilterSummary>
 				<span role="status">
@@ -219,22 +203,21 @@ function FilterControls({
 						: `${totalCount} matching ${totalCount === 1 ? "action" : "actions"}`}
 				</span>
 				{hasFilters && (
-					<StyledIconButton type="button" onClick={clearFilters}>
+					<UiButton type="button" $tone="quiet" onClick={clearFilters}>
 						Clear filters
-					</StyledIconButton>
+					</UiButton>
 				)}
 			</FilterSummary>
 		</FilterPanel>
 	);
 }
 
-const StateMessage = styled(Card)`
-  border: 1px solid #e5e7eb;
+const StateMessage = styled(Surface)`
   h4 { margin: 0 0 6px; }
-  p { margin: 0 0 14px; color: #4b5563; }
+  p { margin: 0 0 14px; color: var(--ui-text-muted); }
 `;
 
-const LoadMore = styled(StyledIconButton)`
+const LoadMore = styled(UiButton)`
   justify-self: center;
   margin: 8px 0;
 `;
@@ -242,7 +225,6 @@ const LoadMore = styled(StyledIconButton)`
 const ScheduledActionsPage: React.FC = () => {
 	const navigate = useNavigate();
 	const session = useSelector((state: ReduxState) => state.value);
-	const theme = useTheme();
 	const { filters, hasFilters, setFilter, clearFilters } = useActionFilters();
 	const {
 		data,
@@ -278,13 +260,15 @@ const ScheduledActionsPage: React.FC = () => {
 	};
 
 	return (
-		<div className="settings-container" data-test-id="scheduled-actions-page">
+		<PageShell data-test-id="scheduled-actions-page">
 			<PageHeader>
-				<HeaderTitle>Scheduled Actions</HeaderTitle>
-				<StyledIconButton onClick={() => navigate("/scheduled-actions/new")}>
-					<Plus size={14} color={theme.colors.primary} />
-					Add Action
-				</StyledIconButton>
+				<div>
+					<HeaderTitle>Scheduled actions</HeaderTitle>
+					<HeaderCopy>Manage what happens automatically, and when.</HeaderCopy>
+				</div>
+				<UiButton type="button" $tone="primary" onClick={() => navigate("/scheduled-actions/new")}>
+					<span aria-hidden="true">＋</span> Add action
+				</UiButton>
 			</PageHeader>
 			<FilterControls
 				filters={filters}
@@ -296,43 +280,43 @@ const ScheduledActionsPage: React.FC = () => {
 			/>
 
 			{isLoading && (
-				<StateMessage as="output" className="settings-card">
+				<StateMessage as="output">
 					<h4>Loading scheduled actions…</h4>
 					<p>Getting your recurring expenses and budget entries.</p>
 				</StateMessage>
 			)}
 			{isError && (
-				<StateMessage className="settings-card" role="alert">
+				<StateMessage role="alert">
 					<h4>Could not load scheduled actions</h4>
 					<p>Check your connection and try again.</p>
-					<StyledIconButton type="button" onClick={() => refetch()}>
+					<UiButton type="button" onClick={() => refetch()}>
 						Try again
-					</StyledIconButton>
+					</UiButton>
 				</StateMessage>
 			)}
 
 			{!isLoading && !isError && actions.length === 0 && hasFilters && (
-				<StateMessage className="settings-card">
+				<StateMessage>
 					<h4>No matching scheduled actions</h4>
 					<p>Try another filter or clear the filters to see all actions.</p>
-					<StyledIconButton type="button" onClick={clearFilters}>
+					<UiButton type="button" onClick={clearFilters}>
 						Clear filters
-					</StyledIconButton>
+					</UiButton>
 				</StateMessage>
 			)}
 			{!isLoading && !isError && actions.length === 0 && !hasFilters && (
-				<StateMessage className="settings-card">
+				<StateMessage>
 					<h4>No scheduled actions yet</h4>
 					<p>
 						Create an action to add an expense or update a budget automatically
 						on a schedule.
 					</p>
-					<StyledIconButton
+					<UiButton
 						type="button"
 						onClick={() => navigate("/scheduled-actions/new")}
 					>
 						Add your first action
-					</StyledIconButton>
+					</UiButton>
 				</StateMessage>
 			)}
 
@@ -366,13 +350,13 @@ const ScheduledActionsPage: React.FC = () => {
 						</>
 					)}
 					{isFetchingNextPage && (
-						<Card className="settings-card">
+						<Surface>
 							<div>Loading more...</div>
-						</Card>
+						</Surface>
 					)}
 				</ActionsGrid>
 			)}
-		</div>
+		</PageShell>
 	);
 };
 
