@@ -71,9 +71,6 @@ export function BillForm({ initial, members, defaultCurrency, defaultShares, onS
 	const total = Object.values(shares).reduce((sum, share) => sum + (Number(share) || 0), 0);
 	const expenseOptions = options.data?.filter((option) => option.actionType === "add_expense") ?? [];
 	const budgetOptions = options.data?.filter((option) => option.actionType === "add_budget") ?? [];
-	const selectedExpense = expenseOptions.find((option) => option.id === scheduledActionId);
-	const selectedBudget = budgetOptions.find((option) => option.id === scheduledBudgetActionId);
-	const pairMismatch = selectedExpense && selectedBudget && (selectedExpense.frequency !== selectedBudget.frequency || selectedExpense.startDate !== selectedBudget.startDate);
 	function differences(option: BillScheduledOption): string[] {
 		const result: string[] = [];
 		if (option.startDate !== firstDueDate) result.push("first date");
@@ -91,7 +88,6 @@ export function BillForm({ initial, members, defaultCurrency, defaultShares, onS
 	async function submit(event: React.FormEvent) {
 		event.preventDefault();
 		setError("");
-		if (pairMismatch) { setError("Expense and budget actions must have the same first date and repeat schedule to link their entries."); return; }
 		const amountMinor = amountToMinor(amount, currency);
 		if (amountMinor === null) { setError("Enter a positive amount with the correct currency precision."); return; }
 		const splitBasisPoints = Object.fromEntries(members.map(({ id }) => [id, Math.round(Number(shares[id] || 0) * 100)]));
@@ -117,8 +113,7 @@ export function BillForm({ initial, members, defaultCurrency, defaultShares, onS
 			</Grid>
 			<ActionPicker label="Scheduled expense (optional)" selected={scheduledActionId} onSelect={setScheduledActionId} options={expenseOptions} differences={differences} />
 			<ActionPicker label="Scheduled budget (optional)" selected={scheduledBudgetActionId} onSelect={setScheduledBudgetActionId} options={budgetOptions} differences={differences} />
-			<Hint>Different bill details are shown above. When both actions are selected, they must run on the same dates; their expense and budget entries are linked after both run. Credit actions add to a budget; Debit actions subtract from it. Scheduled actions never mark a bill paid.</Hint>
-			{pairMismatch && <Hint role="alert">Expense and budget actions need the same first date and repeat schedule to pair their entries.</Hint>}
+			<Hint>Different bill details are shown above. When both actions are selected, their expense and budget entries are linked only on dates when both actions run, even if their first dates or repeat schedules differ. Credit actions add to a budget; Debit actions subtract from it. Scheduled actions never mark a bill paid.</Hint>
 			<UiSectionTitle>Split between members</UiSectionTitle>
 			<Grid>{members.map((member) => <FieldLabel key={member.id}>{member.name} %<Input type="number" min="0" max="100" step="0.01" value={shares[member.id] ?? "0"} onChange={(event) => setShares((current) => ({ ...current, [member.id]: event.target.value }))} /></FieldLabel>)}</Grid>
 			<Hint role="status">Total split: {total.toFixed(2)}%</Hint>

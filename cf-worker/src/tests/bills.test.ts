@@ -113,14 +113,15 @@ describe("shared bills", () => {
 		expect((await db.select().from(transactions).where(eq(transactions.transactionId, `tx_${actionId}_${date}`))).length).toBe(1);
 	});
 
-	it.each(["expense-first", "budget-first"])("pairs scheduled expense and budget entries when %s", async (order: string) => {
+	it.each(["expense-first", "budget-first"])("pairs overlapping runs with different first dates when %s", async (order: string) => {
 		const db = getDb(env);
-		const date = "2026-12-04";
+		const date = "2026-10-01";
+		const earlierDate = "2026-07-01";
 		const now = new Date().toISOString();
 		const expenseId = `pair-expense-${order}`;
 		const budgetId = `pair-budget-${order}`;
 		await db.insert(scheduledActions).values([
-			{ id: expenseId, userId: users.user1.id, actionType: "add_expense", frequency: "monthly", startDate: date, nextExecutionDate: date, createdAt: now, updatedAt: now,
+			{ id: expenseId, userId: users.user1.id, actionType: "add_expense", frequency: "monthly", startDate: earlierDate, nextExecutionDate: earlierDate, createdAt: now, updatedAt: now,
 				actionData: { amount: 30, description: "Different expense", currency: "USD", paidByUserId: users.user1.id, splitPctShares: { [users.user1.id]: 100 } } },
 			{ id: budgetId, userId: users.user1.id, actionType: "add_budget", frequency: "monthly", startDate: date, nextExecutionDate: date, createdAt: now, updatedAt: now,
 				actionData: { amount: 20, description: "Different budget", currency: "USD", budgetId: users.budgetIds.house, type: "Debit" } },
@@ -128,14 +129,18 @@ describe("shared bills", () => {
 		const body = { title: "Rent", amountMinor: 5000, currency: "USD", firstDueDate: date, recurrence: "monthly",
 			payerUserId: users.user2.id, splitBasisPoints: { [users.user1.id]: 5000, [users.user2.id]: 5000 }, scheduledActionId: expenseId, scheduledBudgetActionId: budgetId };
 		expect((await fetchBill(request("bills", "POST", cookies, body), env)).status).toBe(201);
+		const earlyAction = (await db.select().from(scheduledActions).where(eq(scheduledActions.id, expenseId)))[0];
+		const owner = { groupid: users.testGroupId } as Parameters<typeof processExpenseAction>[2];
+		const earlyRun = await processExpenseAction(env, earlyAction, owner, earlierDate);
+		await executeActionStatements(env, earlyAction, `history-${expenseId}-early`, 1, earlyRun.resultData, earlyRun.statements, new Date(`${earlierDate}T00:00:00Z`));
+		expect(await db.select().from(expenseBudgetLinks)).toHaveLength(0);
 		const options = await (await fetchBill(request("bills/scheduled-options", "GET", cookies), env)).json() as Array<{ id: string; actionType: string; budgetType?: string }>;
 		expect(options.find((option) => option.id === budgetId)).toMatchObject({ actionType: "add_budget", budgetType: "Debit" });
-		const occurrenceId = ((await (await fetchBill(request("bills/month?month=2026-12", "GET", cookies), env)).json()) as { occurrences: Array<{ id: string }> }).occurrences[0].id;
+		const occurrenceId = ((await (await fetchBill(request("bills/month?month=2026-10", "GET", cookies), env)).json()) as { occurrences: Array<{ id: string }> }).occurrences[0].id;
 		expect((await fetchBill(request("bills/payment", "POST", cookies, { occurrenceId, paid: true, createExpense: true, budgetId: users.budgetIds.house }), env)).status).toBe(409);
 		const actions = await db.select().from(scheduledActions);
 		for (const id of order === "expense-first" ? [expenseId, budgetId] : [budgetId, expenseId]) {
 			const action = actions.find((candidate) => candidate.id === id)!;
-			const owner = { groupid: users.testGroupId } as Parameters<typeof processExpenseAction>[2];
 			const result = id === expenseId ? await processExpenseAction(env, action, owner, date) : await processBudgetAction(env, action, owner, date);
 			await executeActionStatements(env, action, `history-${id}`, 1, result.resultData, result.statements, new Date(`${date}T00:00:00Z`));
 		}
@@ -147,31 +152,66 @@ describe("shared bills", () => {
 		expect((await db.select().from(expenseBudgetLinks))).toHaveLength(1);
 	});
 
-	it("rejects a pair whose run schedules differ", async () => {
+	it("allows actions with nonoverlapping run dates without linking entries", async () => {
 		const db = getDb(env);
-		const date = "2026-12-04";
+		const expenseDate = "2026-10-01";
+		const budgetDate = "2026-10-02";
 		const now = new Date().toISOString();
 		await db.insert(scheduledActions).values([
-			{ id: "mismatch-expense", userId: users.user1.id, actionType: "add_expense", frequency: "monthly", startDate: date, nextExecutionDate: date, createdAt: now, updatedAt: now,
+			{ id: "mismatch-expense", userId: users.user1.id, actionType: "add_expense", frequency: "monthly", startDate: expenseDate, nextExecutionDate: expenseDate, createdAt: now, updatedAt: now,
 				actionData: { amount: 30, description: "Expense", currency: "USD", paidByUserId: users.user1.id, splitPctShares: { [users.user1.id]: 100 } } },
-			{ id: "mismatch-budget", userId: users.user1.id, actionType: "add_budget", frequency: "weekly", startDate: date, nextExecutionDate: date, createdAt: now, updatedAt: now,
+			{ id: "mismatch-budget", userId: users.user1.id, actionType: "add_budget", frequency: "monthly", startDate: budgetDate, nextExecutionDate: budgetDate, createdAt: now, updatedAt: now,
+				actionData: { amount: 20, description: "Budget", currency: "USD", budgetId: users.budgetIds.house, type: "Credit" } },
+		]);
+		const response = await fetchBill(request("bills", "POST", cookies, { title: "Rent", amountMinor: 5000, currency: "USD", firstDueDate: expenseDate, recurrence: "monthly", payerUserId: users.user1.id,
+			splitBasisPoints: { [users.user1.id]: 10000 }, scheduledActionId: "mismatch-expense", scheduledBudgetActionId: "mismatch-budget" }), env);
+		expect(response.status).toBe(201);
+		for (const [id, date] of [["mismatch-expense", expenseDate], ["mismatch-budget", budgetDate]]) {
+			const action = (await db.select().from(scheduledActions).where(eq(scheduledActions.id, id)))[0];
+			const owner = { groupid: users.testGroupId } as Parameters<typeof processExpenseAction>[2];
+			const result = id === "mismatch-expense" ? await processExpenseAction(env, action, owner, date) : await processBudgetAction(env, action, owner, date);
+			await executeActionStatements(env, action, `history-${id}`, 1, result.resultData, result.statements, new Date(`${date}T00:00:00Z`));
+		}
+		expect(await db.select().from(expenseBudgetLinks)).toHaveLength(0);
+	});
+
+	it("accepts different frequencies and pairs a shared run date", async () => {
+		const db = getDb(env);
+		const date = "2026-10-01";
+		const now = new Date().toISOString();
+		await db.insert(scheduledActions).values([
+			{ id: "weekly-expense", userId: users.user1.id, actionType: "add_expense", frequency: "weekly", startDate: date, nextExecutionDate: date, createdAt: now, updatedAt: now,
+				actionData: { amount: 30, description: "Expense", currency: "USD", paidByUserId: users.user1.id, splitPctShares: { [users.user1.id]: 100 } } },
+			{ id: "monthly-budget", userId: users.user1.id, actionType: "add_budget", frequency: "monthly", startDate: date, nextExecutionDate: date, createdAt: now, updatedAt: now,
 				actionData: { amount: 20, description: "Budget", currency: "USD", budgetId: users.budgetIds.house, type: "Credit" } },
 		]);
 		const response = await fetchBill(request("bills", "POST", cookies, { title: "Rent", amountMinor: 5000, currency: "USD", firstDueDate: date, recurrence: "monthly", payerUserId: users.user1.id,
-			splitBasisPoints: { [users.user1.id]: 10000 }, scheduledActionId: "mismatch-expense", scheduledBudgetActionId: "mismatch-budget" }), env);
-		expect(response.status).toBe(400);
+			splitBasisPoints: { [users.user1.id]: 10000 }, scheduledActionId: "weekly-expense", scheduledBudgetActionId: "monthly-budget" }), env);
+		expect(response.status).toBe(201);
+		for (const id of ["weekly-expense", "monthly-budget"]) {
+			const action = (await db.select().from(scheduledActions).where(eq(scheduledActions.id, id)))[0];
+			const owner = { groupid: users.testGroupId } as Parameters<typeof processExpenseAction>[2];
+			const result = id === "weekly-expense" ? await processExpenseAction(env, action, owner, date) : await processBudgetAction(env, action, owner, date);
+			await executeActionStatements(env, action, `history-${id}`, 1, result.resultData, result.statements, new Date(`${date}T00:00:00Z`));
+		}
+		expect(await db.select().from(expenseBudgetLinks)).toHaveLength(1);
 	});
 
 	it("pairs prior outputs when a bill is linked after both actions ran", async () => {
 		const db = getDb(env);
-		const date = "2026-12-05";
+		const date = "2026-10-01";
+		const earlierDate = "2026-07-01";
 		const now = new Date().toISOString();
 		await db.insert(scheduledActions).values([
-			{ id: "prior-expense", userId: users.user1.id, actionType: "add_expense", frequency: "monthly", startDate: date, nextExecutionDate: date, createdAt: now, updatedAt: now,
+			{ id: "prior-expense", userId: users.user1.id, actionType: "add_expense", frequency: "monthly", startDate: earlierDate, nextExecutionDate: earlierDate, createdAt: now, updatedAt: now,
 				actionData: { amount: 40, description: "Prior expense", currency: "USD", paidByUserId: users.user1.id, splitPctShares: { [users.user1.id]: 100 } } },
 			{ id: "prior-budget", userId: users.user1.id, actionType: "add_budget", frequency: "monthly", startDate: date, nextExecutionDate: date, createdAt: now, updatedAt: now,
 				actionData: { amount: 40, description: "Prior credit", currency: "USD", budgetId: users.budgetIds.house, type: "Credit" } },
 		]);
+		const earlyAction = (await db.select().from(scheduledActions).where(eq(scheduledActions.id, "prior-expense")))[0];
+		const earlyOwner = { groupid: users.testGroupId } as Parameters<typeof processExpenseAction>[2];
+		const earlyRun = await processExpenseAction(env, earlyAction, earlyOwner, earlierDate);
+		await db.batch([earlyRun.statements[0].query, ...earlyRun.statements.slice(1).map((statement) => statement.query)]);
 		for (const action of await db.select().from(scheduledActions)) {
 			const owner = { groupid: users.testGroupId } as Parameters<typeof processExpenseAction>[2];
 			const result = action.actionType === "add_expense" ? await processExpenseAction(env, action, owner, date) : await processBudgetAction(env, action, owner, date);
@@ -181,6 +221,6 @@ describe("shared bills", () => {
 		const response = await fetchBill(request("bills", "POST", cookies, { title: "Later linked bill", amountMinor: 4000, currency: "USD", firstDueDate: date, recurrence: "monthly",
 			payerUserId: users.user1.id, splitBasisPoints: { [users.user1.id]: 10000 }, scheduledActionId: "prior-expense", scheduledBudgetActionId: "prior-budget" }), env);
 		expect(response.status).toBe(201);
-		expect((await db.select().from(expenseBudgetLinks))).toHaveLength(1);
+		expect(await db.select().from(expenseBudgetLinks)).toMatchObject([{ transactionId: `tx_prior-expense_${date}`, budgetEntryId: `bge_prior-budget_${date}` }]);
 	});
 });

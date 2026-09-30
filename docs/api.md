@@ -797,10 +797,10 @@ date. Monthly bills due on days 29–31 use the last day in shorter months.
 `scheduledActionId` and `scheduledBudgetActionId` must name an expense and
 budget action in the group, respectively. Their details can differ from the
 bill; the picker shows those differences. When both are selected, the two
-actions must have the same first date and frequency. Each action can link to
-one bill. Their generated expense and budget entry are linked by run date,
-regardless of which action runs first; existing matching outputs are paired
-when the bill is linked. A scheduled budget Credit adds funds;
+actions may have different first dates and frequencies. Each action can link to
+one bill. Their generated expense and budget entry are linked only on dates
+when both actions run, regardless of which runs first. Existing matching
+outputs are paired when the bill is linked. A scheduled budget Credit adds funds;
 a Debit subtracts them. Existing outputs appear as `scheduledTransactionId`
 and `scheduledBudgetEntryId` on the occurrence when they ran on its due date.
 Scheduled actions do not mark the bill paid.
