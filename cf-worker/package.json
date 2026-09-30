@@ -8,7 +8,7 @@
 		"build:ui": "cd .. && yarn build",
 		"clean:redirects": "node -e \"require('fs').writeFileSync('../build/_redirects', '')\"",
 		"deploy:dev": "yarn build:ui && yarn clean:redirects && vitest run && wrangler deploy -e dev && yarn seed:dummy:dev",
-		"deploy:prod": "yarn build:ui && yarn clean:redirects && vitest run && wrangler deploy -e prod",
+		"deploy:prod": "REACT_APP_AUTH_BASE_URL=https://budget.wastd.dev REACT_APP_API_BASE_URL=/.netlify/functions yarn build:ui && yarn clean:redirects && vitest run && wrangler deploy -e prod --name splitexpense",
 		"seed:dummy": "node scripts/seed-dummy.mjs",
 		"seed:dummy:dev": "SEED_BACKEND_URL=https://budget-dev.wastd.dev node scripts/seed-dummy.mjs",
 		"build": "wrangler publish --dry-run",
