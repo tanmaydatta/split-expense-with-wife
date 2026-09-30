@@ -203,6 +203,17 @@ CREATE INDEX expense_budget_links_group_idx ON expense_budget_links (group_id);
 - **Foreign keys use `ON DELETE NO ACTION`**: Referential integrity is enforced but cascade deletes are handled at the application layer (inside `db.batch()` in handlers), not via FK triggers.
 - **Added in Migration 0018** (`0018_sleepy_sauron.sql`): new table only, no data migration.
 
+#### Bill action links (Migration 0024)
+
+`bills.scheduled_action_id` references a scheduled expense action.
+`0024_bill_scheduled_budget_action.sql` adds nullable
+`bills.scheduled_budget_action_id` for a scheduled budget action and a unique
+index so each budget action belongs to at most one bill. Both actions must be
+in the bill's group. If both are selected, they share a start date and cadence.
+Their deterministic transaction and budget entry IDs are paired in
+`expense_budget_links` for each shared run date; the pair insert is idempotent
+and runs in the same D1 batch as whichever scheduled action completes second.
+
 #### `scheduled_actions` Table
 ```sql
 CREATE TABLE scheduled_actions (

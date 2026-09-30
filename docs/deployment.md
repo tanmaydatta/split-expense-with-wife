@@ -98,8 +98,10 @@ occurrence, and in-app reminder tables. Apply it before deploying the bill API
 and UI. It only adds new tables and indexes; existing expenses and scheduled
 actions are not backfilled into bills.
 Migration `0022_bill_occurrence_title.sql` adds a historical title snapshot and
-backfills existing bill occurrences from their plans. Apply both migrations in
-order before deploying the updated API.
+backfills existing bill occurrences from their plans. Migration
+`0023_bill_scheduled_expenses.sql` adds the optional scheduled expense link;
+`0024_bill_scheduled_budget_action.sql` adds the optional scheduled budget
+link. Apply all four migrations in order before deploying the updated API.
 
 The shared-bill reminder generator runs alongside scheduled actions in the
 existing `0 0 * * *` Cloudflare cron (configured in the Cloudflare dashboard).

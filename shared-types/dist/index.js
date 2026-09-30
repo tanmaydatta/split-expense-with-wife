@@ -23,6 +23,7 @@ export const BillCreateSchema = z.object({
     payerUserId: z.string().min(1),
     splitBasisPoints: z.record(z.string(), z.number().int().min(0).max(10000)),
     scheduledActionId: z.string().min(1).nullable().optional(),
+    scheduledBudgetActionId: z.string().min(1).nullable().optional(),
 }).refine((value) => Object.values(value.splitBasisPoints).reduce((sum, share) => sum + share, 0) === 10000, {
     message: "Split shares must total 100%",
     path: ["splitBasisPoints"],
@@ -37,6 +38,7 @@ export const BillUpdateSchema = z.object({
     payerUserId: z.string().min(1).optional(),
     splitBasisPoints: z.record(z.string(), z.number().int().min(0).max(10000)).optional(),
     scheduledActionId: z.string().min(1).nullable().optional(),
+    scheduledBudgetActionId: z.string().min(1).nullable().optional(),
     isActive: z.boolean().optional(),
 }).refine((value) => !value.splitBasisPoints || Object.values(value.splitBasisPoints).reduce((sum, share) => sum + share, 0) === 10000, {
     message: "Split shares must total 100%",

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { BillCreateInput, BillPlan, Currency } from "split-expense-shared-types";
+import type { BillCreateInput, BillPlan, BillScheduledOption, Currency } from "split-expense-shared-types";
 import { CURRENCIES } from "split-expense-shared-types";
 import styled from "styled-components";
 import { Input } from "@/components/Form/Input";
@@ -21,6 +21,23 @@ const Grid = styled.div`
 `;
 const Actions = styled.div`display: flex; gap: 10px; flex-wrap: wrap;`;
 const Hint = styled.p`margin: 0; color: var(--ui-text-muted); font-size: 13px;`;
+const Picker = styled.fieldset`border: 1px solid var(--ui-border); border-radius: var(--ui-radius-md); padding: 12px; margin: 0; min-width: 0; legend { font-weight: 700; padding: 0 4px; }`;
+const PickerList = styled.div`display: grid; gap: 6px; max-height: 220px; overflow-y: auto; margin-top: 8px;`;
+const PickerChoice = styled.label`display: flex; gap: 10px; align-items: flex-start; border: 1px solid var(--ui-border); border-radius: 8px; padding: 10px; cursor: pointer; input { margin-top: 4px; } span { display: grid; gap: 3px; } small { color: var(--ui-text-muted); }`;
+
+function ActionPicker({ label, selected, onSelect, options, differences }: { label: string; selected: string; onSelect: (id: string) => void; options: BillScheduledOption[]; differences: (option: BillScheduledOption) => string[] }) {
+	const [search, setSearch] = useState("");
+	const visible = options.filter((option) => `${option.description} ${option.currency} ${option.frequency} ${option.budgetType ?? ""}`.toLowerCase().includes(search.toLowerCase()));
+	return <Picker><legend>{label}</legend>
+		<Input aria-label={`Search ${label.toLowerCase()}`} type="search" placeholder="Search scheduled actions" value={search} onChange={(event) => setSearch(event.target.value)} />
+		<PickerList>
+			<PickerChoice><input type="radio" name={label} checked={!selected} onChange={() => onSelect("")} /><span>None</span></PickerChoice>
+			{visible.map((option) => <PickerChoice key={option.id}><input type="radio" name={label} checked={selected === option.id} onChange={() => onSelect(option.id)} /><span><strong>{option.description}</strong><small>{option.budgetType ? `${option.budgetType} · ` : ""}{option.amount} {option.currency} · {option.frequency} from {option.startDate}{option.isActive ? "" : " · Paused"}</small>{differences(option).length > 0 && <small>Differs from bill: {differences(option).join(", ")}</small>}</span></PickerChoice>)}
+			{visible.length === 0 && <Hint>No actions found.</Hint>}
+			{selected && !options.some((option) => option.id === selected) && <Hint>Previously linked action is unavailable. Choose another or None.</Hint>}
+		</PickerList>
+	</Picker>;
+}
 
 type Member = { id: string; name: string };
 function initialShares(members: Member[], defaults: Record<string, number>, initial?: BillPlan): Record<string, string> {
@@ -49,15 +66,32 @@ export function BillForm({ initial, members, defaultCurrency, defaultShares, onS
 	const [shares, setShares] = useState(() => initialShares(members, defaultShares, initial));
 	const [error, setError] = useState("");
 	const [scheduledActionId, setScheduledActionId] = useState(initial?.scheduledActionId ?? "");
+	const [scheduledBudgetActionId, setScheduledBudgetActionId] = useState(initial?.scheduledBudgetActionId ?? "");
 	const options = useBillScheduledOptions(true);
 	const total = Object.values(shares).reduce((sum, share) => sum + (Number(share) || 0), 0);
-	const compatibleActions = options.data?.filter((option) => option.frequency === recurrence && option.startDate === firstDueDate &&
-		option.amount === (amountMinorForMatch(amount, currency)) && option.currency === currency && option.payerUserId === payerUserId &&
-		members.every(({ id }) => Math.abs((option.splitPctShares[id] ?? 0) - Number(shares[id] || 0)) < 0.01)) ?? [];
+	const expenseOptions = options.data?.filter((option) => option.actionType === "add_expense") ?? [];
+	const budgetOptions = options.data?.filter((option) => option.actionType === "add_budget") ?? [];
+	const selectedExpense = expenseOptions.find((option) => option.id === scheduledActionId);
+	const selectedBudget = budgetOptions.find((option) => option.id === scheduledBudgetActionId);
+	const pairMismatch = selectedExpense && selectedBudget && (selectedExpense.frequency !== selectedBudget.frequency || selectedExpense.startDate !== selectedBudget.startDate);
+	function differences(option: BillScheduledOption): string[] {
+		const result: string[] = [];
+		if (option.startDate !== firstDueDate) result.push("first date");
+		if (option.frequency !== recurrence) result.push("repeat schedule");
+		if (option.amount !== amountMinorForMatch(amount, currency)) result.push("amount");
+		if (option.currency !== currency) result.push("currency");
+		if (option.actionType === "add_expense") {
+			if (option.payerUserId !== payerUserId) result.push("payer");
+			if (members.some(({ id }) => Math.abs((option.splitPctShares?.[id] ?? 0) - Number(shares[id] || 0)) >= 0.01)) result.push("split");
+		}
+		if (!option.isActive) result.push("paused");
+		return result;
+	}
 
 	async function submit(event: React.FormEvent) {
 		event.preventDefault();
 		setError("");
+		if (pairMismatch) { setError("Expense and budget actions must have the same first date and repeat schedule to link their entries."); return; }
 		const amountMinor = amountToMinor(amount, currency);
 		if (amountMinor === null) { setError("Enter a positive amount with the correct currency precision."); return; }
 		const splitBasisPoints = Object.fromEntries(members.map(({ id }) => [id, Math.round(Number(shares[id] || 0) * 100)]));
@@ -65,14 +99,14 @@ export function BillForm({ initial, members, defaultCurrency, defaultShares, onS
 			setError("Split percentages must total 100%."); return;
 		}
 		try {
-			await onSubmit({ title: title.trim(), amountMinor, currency, firstDueDate, recurrence, payerUserId, splitBasisPoints, scheduledActionId: scheduledActionId || null });
+			await onSubmit({ title: title.trim(), amountMinor, currency, firstDueDate, recurrence, payerUserId, splitBasisPoints, scheduledActionId: scheduledActionId || null, scheduledBudgetActionId: scheduledBudgetActionId || null });
 		} catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to save bill."); }
 	}
 
 	return (
 		<Form onSubmit={submit} aria-label={initial ? `Edit ${initial.title}` : "Add bill"}>
 			<UiSectionTitle>{initial ? "Edit bill" : "Add a bill"}</UiSectionTitle>
-			<Hint>Due dates use UTC calendar days. You can link a matching scheduled expense and choose how to record payment later.</Hint>
+			<Hint>Due dates use UTC calendar days. Choose scheduled actions below to associate their entries with this bill. Payment is confirmed separately.</Hint>
 			<Grid>
 				<FieldLabel>Bill name<Input required minLength={2} maxLength={100} value={title} onChange={(event) => setTitle(event.target.value)} /></FieldLabel>
 				<FieldLabel>Amount<Input required inputMode="decimal" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder={currency === "JPY" ? "1000" : "10.00"} /></FieldLabel>
@@ -81,14 +115,10 @@ export function BillForm({ initial, members, defaultCurrency, defaultShares, onS
 				<FieldLabel>Repeat<Select value={recurrence} onChange={(event) => setRecurrence(event.target.value as BillCreateInput["recurrence"])}><option value="once">One time</option><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option></Select></FieldLabel>
 				<FieldLabel>Who pays?<Select value={payerUserId} onChange={(event) => setPayerUserId(event.target.value)}>{members.map((member) => <option key={member.id} value={member.id}>{member.name}</option>)}</Select></FieldLabel>
 			</Grid>
-			<FieldLabel>Scheduled expense (optional)
-				<Select value={scheduledActionId} onChange={(event) => setScheduledActionId(event.target.value)}>
-					<option value="">No scheduled expense</option>
-					{compatibleActions.map((option) => <option key={option.id} value={option.id}>{option.description}{option.isActive ? "" : " (paused)"}</option>)}
-					{scheduledActionId && !compatibleActions.some((option) => option.id === scheduledActionId) && <option value={scheduledActionId}>Previously linked expense (settings no longer match)</option>}
-				</Select>
-			</FieldLabel>
-			<Hint>Matching actions use the same first date, cadence, amount, currency, payer, and split. A scheduled run creates an expense; it does not mark the bill paid.</Hint>
+			<ActionPicker label="Scheduled expense (optional)" selected={scheduledActionId} onSelect={setScheduledActionId} options={expenseOptions} differences={differences} />
+			<ActionPicker label="Scheduled budget (optional)" selected={scheduledBudgetActionId} onSelect={setScheduledBudgetActionId} options={budgetOptions} differences={differences} />
+			<Hint>Different bill details are shown above. When both actions are selected, they must run on the same dates; their expense and budget entries are linked after both run. Credit actions add to a budget; Debit actions subtract from it. Scheduled actions never mark a bill paid.</Hint>
+			{pairMismatch && <Hint role="alert">Expense and budget actions need the same first date and repeat schedule to pair their entries.</Hint>}
 			<UiSectionTitle>Split between members</UiSectionTitle>
 			<Grid>{members.map((member) => <FieldLabel key={member.id}>{member.name} %<Input type="number" min="0" max="100" step="0.01" value={shares[member.id] ?? "0"} onChange={(event) => setShares((current) => ({ ...current, [member.id]: event.target.value }))} /></FieldLabel>)}</Grid>
 			<Hint role="status">Total split: {total.toFixed(2)}%</Hint>
