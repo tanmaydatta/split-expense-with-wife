@@ -8,6 +8,8 @@ Preview captures from local Playwright flows: [scheduled actions on desktop](pre
 
 Shared bills previews from local seeded households: [calendar on desktop](previews/bills-calendar-desktop.jpeg) and [mobile](previews/bills-calendar-mobile.jpeg), plus [due list on desktop](previews/bills-due-list-desktop.jpeg) and [mobile](previews/bills-due-list-mobile.jpeg).
 
+The in-app reminder panel is shown on [desktop](previews/bills-reminders-desktop.jpeg) and [mobile](previews/bills-reminders-mobile.jpeg). The bill is seeded locally; the upcoming reminder response is a local Playwright fixture so the panel can be captured without running the daily cron.
+
 ## Screen inventory and migration order
 
 | Area | Current UI | Next migration |

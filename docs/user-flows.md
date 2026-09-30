@@ -302,6 +302,14 @@ unpaid bills. These are separate for each currency and are not settled balances;
 exchange-rate conversion. Monthly due dates on days 29–31 use the last day of
 shorter months, and weekly dates repeat every seven UTC calendar days.
 
+The **Reminders** panel shows unread in-app notices for upcoming and overdue
+bills, with a **Dismiss** action. Notices disappear when dismissed or when the
+bill occurrence is marked paid. At the daily midnight UTC cron, daily bills
+receive a due-today notice, weekly bills a one-day advance notice, and one-time
+or monthly bills a three-day advance notice. Unpaid occurrences also get one
+overdue notice after their due date. Reminder delivery depends on opening the
+app; email is deferred.
+
 ## 9. Scheduled Actions
 
 Automate recurring expenses or budget entries (e.g., monthly rent, weekly grocery budget).

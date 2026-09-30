@@ -189,7 +189,7 @@ export async function handleBillReminders(request: Request, env: Env): Promise<R
 		if (!group) return createErrorResponse("User not in a group", 400, request, env);
 		const rows = await db.select({ reminder: billReminders, occurrence: billOccurrences })
 			.from(billReminders).innerJoin(billOccurrences, eq(billReminders.occurrenceId, billOccurrences.id))
-			.where(and(eq(billReminders.userId, session.currentUser.id), eq(billOccurrences.groupId, group)))
+			.where(and(eq(billReminders.userId, session.currentUser.id), eq(billOccurrences.groupId, group), isNull(billOccurrences.paidAt)))
 			.orderBy(asc(billReminders.readAt), asc(billOccurrences.dueDate)).limit(100);
 		return createJsonResponse(rows.map(({ reminder, occurrence }) => ({
 			id: reminder.id, occurrenceId: occurrence.id, userId: reminder.userId, kind: reminder.kind,
