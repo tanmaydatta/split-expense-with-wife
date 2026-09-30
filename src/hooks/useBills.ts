@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { BillCreateInput, BillMonthResponse, BillUpdateInput } from "split-expense-shared-types";
+import type { BillCreateInput, BillMonthResponse, BillPaymentInput, BillUpdateInput } from "split-expense-shared-types";
 import type { TransactionsListResponse } from "split-expense-shared-types";
 import { typedApi } from "@/utils/api";
 
@@ -8,6 +8,10 @@ export function useBillMonth(month: string) {
 		queryKey: ["bills", "month", month],
 		queryFn: () => typedApi.get("/bills/month", { queryParams: { month } }),
 	});
+}
+
+export function useBillScheduledOptions(enabled: boolean) {
+	return useQuery({ queryKey: ["bills", "scheduled-options"], enabled, queryFn: () => typedApi.get("/bills/scheduled-options") });
 }
 
 function useBillMutation<T>(mutate: (input: T) => Promise<unknown>) {
@@ -28,7 +32,10 @@ export function useStopBill() {
 }
 
 export function useSetBillPayment() {
-	return useBillMutation((input: { occurrenceId: string; paid: boolean; linkedTransactionId?: string }) => typedApi.post("/bills/payment", input));
+	const client = useQueryClient();
+	return useMutation({ mutationFn: (input: BillPaymentInput) => typedApi.post("/bills/payment", input), onSuccess: () => {
+		for (const key of ["bills", "transactions", "balances", "budget"]) void client.invalidateQueries({ queryKey: [key] });
+	} });
 }
 
 export function useBillReminders() {

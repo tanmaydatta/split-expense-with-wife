@@ -371,9 +371,10 @@ export interface DashboardUser {
 export interface ApiEndpoints {
 	"/bills": { request: BillCreateInput; response: { id: string } };
 	"/bills/month": { request: { month: string }; response: BillMonthResponse };
+	"/bills/scheduled-options": { request: {}; response: BillScheduledOption[] };
 	"/bills/update": { request: BillUpdateInput; response: { message: string } };
 	"/bills/delete": { request: { id: string }; response: { message: string } };
-	"/bills/payment": { request: { occurrenceId: string; paid: boolean; linkedTransactionId?: string }; response: { message: string } };
+	"/bills/payment": { request: BillPaymentInput; response: { message: string; transactionId?: string; budgetEntryId?: string } };
 	"/bills/reminders": { request: {}; response: BillReminderView[] };
 	"/bills/reminders/read": { request: { id: string }; response: { message: string } };
 	"/login": {
@@ -502,6 +503,7 @@ export const BillCreateSchema = z.object({
 	recurrence: z.enum(["once", "daily", "weekly", "monthly"]),
 	payerUserId: z.string().min(1),
 	splitBasisPoints: z.record(z.string(), z.number().int().min(0).max(10_000)),
+	scheduledActionId: z.string().min(1).nullable().optional(),
 }).refine((value) => Object.values(value.splitBasisPoints).reduce((sum, share) => sum + share, 0) === 10_000, {
 	message: "Split shares must total 100%",
 	path: ["splitBasisPoints"],
@@ -515,6 +517,7 @@ export const BillUpdateSchema = z.object({
 	recurrence: z.enum(["once", "daily", "weekly", "monthly"]).optional(),
 	payerUserId: z.string().min(1).optional(),
 	splitBasisPoints: z.record(z.string(), z.number().int().min(0).max(10_000)).optional(),
+	scheduledActionId: z.string().min(1).nullable().optional(),
 	isActive: z.boolean().optional(),
 }).refine((value) => !value.splitBasisPoints || Object.values(value.splitBasisPoints).reduce((sum, share) => sum + share, 0) === 10_000, {
 	message: "Split shares must total 100%",
@@ -527,10 +530,17 @@ export const BillPaymentSchema = z.object({
 	occurrenceId: z.string().min(1),
 	paid: z.boolean(),
 	linkedTransactionId: z.string().min(1).optional(),
+	createExpense: z.boolean().optional(),
+	budgetId: z.string().min(1).optional(),
+}).superRefine((value, ctx) => {
+	if (!value.paid && (value.linkedTransactionId || value.createExpense || value.budgetId)) ctx.addIssue({ code: "custom", message: "Payment options require paid=true" });
+	if (value.linkedTransactionId && value.createExpense) ctx.addIssue({ code: "custom", message: "Choose an existing expense or create a new one" });
+	if (value.budgetId && !value.createExpense) ctx.addIssue({ code: "custom", message: "Budget debit requires a new expense" });
 });
 export const BillIdSchema = z.object({ id: z.string().min(1) });
 export type BillCreateInput = z.infer<typeof BillCreateSchema>;
 export type BillUpdateInput = z.infer<typeof BillUpdateSchema>;
+export type BillPaymentInput = z.infer<typeof BillPaymentSchema>;
 
 // Types
 export type Currency = (typeof CURRENCIES)[number];
@@ -547,6 +557,7 @@ export interface BillPlan {
 	payerUserId: string;
 	splitBasisPoints: Record<string, number>;
 	isActive: boolean;
+	scheduledActionId: string | null;
 }
 export interface BillOccurrenceView {
 	id: string;
@@ -559,6 +570,7 @@ export interface BillOccurrenceView {
 	splitBasisPoints: Record<string, number>;
 	paidAt: string | null;
 	linkedTransactionId: string | null;
+	scheduledTransactionId: string | null;
 }
 export interface BillMonthResponse {
 	month: string;
@@ -572,6 +584,17 @@ export interface BillMonthResponse {
 		sharesByUserMinor: Record<string, number>;
 		plannedOwedByUserMinor: Record<string, number>;
 	}>;
+}
+export interface BillScheduledOption {
+	id: string;
+	description: string;
+	amount: number;
+	currency: string;
+	frequency: "daily" | "weekly" | "monthly";
+	startDate: string;
+	payerUserId: string;
+	splitPctShares: Record<string, number>;
+	isActive: boolean;
 }
 export interface BillReminderView {
 	id: string;

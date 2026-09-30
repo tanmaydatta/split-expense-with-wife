@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useSelector } from "react-redux";
 import { useSearchParams } from "react-router-dom";
-import type { BillCreateInput, BillOccurrenceView, BillPlan, Currency, ReduxState } from "split-expense-shared-types";
+import type { BillCreateInput, BillOccurrenceView, BillPaymentInput, BillPlan, Currency, ReduxState } from "split-expense-shared-types";
 import styled from "styled-components";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { Surface, UiButton, UiPage, UiPageDescription, UiPageHeader, UiPageTitle, UiSectionTitle } from "@/components/ui";
@@ -66,6 +66,7 @@ function OccurrenceCard({ item, members, onPayment, busy }: { item: BillOccurren
 		<strong>{formatMoney(item.amountMinor, item.currency)}</strong>
 		<Muted>Split: {Object.entries(item.splitBasisPoints).filter(([, share]) => share > 0).map(([id, share]) => `${members[id] ?? "Member"} ${(share / 100).toFixed(2)}%`).join(" · ")}</Muted>
 		{item.linkedTransactionId && <Muted>Linked expense: {item.linkedTransactionId}</Muted>}
+		{!item.linkedTransactionId && item.scheduledTransactionId && <Muted>Scheduled expense available: {item.scheduledTransactionId}</Muted>}
 		<RowActions><UiButton type="button" disabled={busy} onClick={() => onPayment(item)}>{busy ? "Saving…" : item.paidAt ? "Mark pending" : "Mark paid"}</UiButton></RowActions>
 	</Row>;
 }
@@ -105,10 +106,10 @@ export default function BillsPage() {
 		try { await payment.mutateAsync({ occurrenceId: item.id, paid: false }); }
 		catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to update payment."); }
 	}
-	async function recordPayment(linkedTransactionId?: string) {
+	async function recordPayment(options: Pick<BillPaymentInput, "linkedTransactionId" | "createExpense" | "budgetId">) {
 		if (!paying) return;
 		setError("");
-		try { await payment.mutateAsync({ occurrenceId: paying.id, paid: true, ...(linkedTransactionId ? { linkedTransactionId } : {}) }); setPaying(null); }
+		try { await payment.mutateAsync({ occurrenceId: paying.id, paid: true, ...options }); setPaying(null); }
 		catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to record payment."); }
 	}
 	async function stopBill(id: string) {
@@ -140,6 +141,6 @@ export default function BillsPage() {
 			<PlanList>{data.bills.length === 0 ? <Surface><Muted>No bill plans yet.</Muted></Surface> : data.bills.map((plan: BillPlan) => <PlanRow key={plan.id}><div><strong>{plan.title}</strong><Muted>{formatMoney(plan.amountMinor, plan.currency)} · {plan.recurrence} · {plan.isActive ? "Active" : "Stopped"}</Muted></div><RowActions><UiButton type="button" onClick={() => setForm(plan.id)}>Edit</UiButton>{plan.isActive ? <UiButton type="button" $tone="danger" onClick={() => setStopId(plan.id)}>Stop</UiButton> : <UiButton type="button" onClick={() => void resumeBill(plan.id)}>Resume</UiButton>}</RowActions></PlanRow>)}</PlanList>
 		</>}
 		<ConfirmDialog open={!!stopId} title="Stop this bill?" message="Future unpaid dates for this bill will be removed. Recorded payments remain visible." confirmText="Stop bill" onCancel={() => setStopId(null)} onConfirm={() => { if (stopId) void stopBill(stopId); }} />
-		<PaymentDialog key={paying?.id ?? "closed"} item={paying} onClose={() => setPaying(null)} onRecord={recordPayment} busy={payment.isPending} />
+		<PaymentDialog key={paying?.id ?? "closed"} item={paying} budgets={group?.budgets ?? []} onClose={() => setPaying(null)} onRecord={recordPayment} busy={payment.isPending} />
 	</UiPage>;
 }

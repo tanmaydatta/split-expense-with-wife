@@ -289,15 +289,25 @@ the list remains available on narrow screens.
 **Add bill** opens a form for name, amount, currency, first due date, cadence
 (one time, daily, weekly, monthly), payer, and per-member split percentages.
 Shares must total 100%. The form uses the group's default currency and shares
-when available. Existing plans can be edited, stopped, or resumed. Editing refreshes
-unpaid occurrences while keeping paid records; stopping removes future unpaid
-dates and keeps recorded payments.
+when available. A recurring bill can optionally link a group scheduled expense
+with the same first date, cadence, amount, currency, payer, and split. Scheduled
+expenses create balance entries on their run date; they do not confirm payment.
+Existing plans can be edited, stopped, or resumed. Editing refreshes
+unpaid occurrences that have no expense while keeping paid and linked records;
+stopping removes future unpaid dates with no expense and keeps recorded payments.
 
 Each occurrence shows its UTC calendar due date, payer, amount, split, and
-pending/overdue/paid status. **Mark paid** opens a payment dialog where a recent
-matching expense may be linked; **Mark pending** reverses the recorded status.
-Neither action creates an expense or changes balances. The monthly summary
-shows unpaid dues, paid totals, and planned amounts owed by non-payers for
+pending/overdue/paid status. **Mark paid** offers three explicit choices:
+record the payment only, link an existing matching expense, or create an
+expense from the bill's payer and split. When creating an expense, a budget
+category can optionally be debited by the same amount. These changes are saved
+together. If a linked scheduled action already produced the expense for that
+due date, the dialog offers that expense and blocks creation of a duplicate.
+**Mark pending** reverses only the paid status; any expense or budget debit
+remains and stays linked to prevent a second creation. The payment choices are
+shown in [desktop](previews/bill-payment-desktop.png) and
+[mobile](previews/bill-payment-mobile.png) previews. The monthly summary shows
+unpaid dues, paid totals, and planned amounts owed by non-payers for
 unpaid bills. These are separate for each currency and are not settled balances; there is no
 exchange-rate conversion. Monthly due dates on days 29–31 use the last day of
 shorter months, and weekly dates repeat every seven UTC calendar days.

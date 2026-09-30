@@ -8,7 +8,7 @@ import {
 	handleBudgetTotal,
 } from "./handlers/budget";
 import { handleCron } from "./handlers/cron";
-import { handleBillCreate, handleBillDelete, handleBillMonth, handleBillPayment, handleBillReminderRead, handleBillReminders, handleBillUpdate } from "./handlers/bills";
+import { handleBillCreate, handleBillDelete, handleBillMonth, handleBillPayment, handleBillReminderRead, handleBillReminders, handleBillScheduledOptions, handleBillUpdate } from "./handlers/bills";
 import { handleDashboardSubmit } from "./handlers/dashboard";
 import {
 	handleBudgetEntryGet,
@@ -229,6 +229,7 @@ async function handleApiRoutes(
 	const billRoutes: Record<string, { methods: string[]; handler: (request: Request, env: Env) => Promise<Response> }> = {
 		"bills": { methods: ["POST"], handler: handleBillCreate },
 		"bills/month": { methods: ["GET"], handler: handleBillMonth },
+		"bills/scheduled-options": { methods: ["GET"], handler: handleBillScheduledOptions },
 		"bills/update": { methods: ["POST"], handler: handleBillUpdate },
 		"bills/delete": { methods: ["DELETE"], handler: handleBillDelete },
 		"bills/payment": { methods: ["POST"], handler: handleBillPayment },

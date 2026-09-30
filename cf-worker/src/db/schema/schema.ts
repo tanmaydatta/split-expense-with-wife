@@ -336,8 +336,8 @@ export const expenseBudgetLinks = sqliteTable(
 	],
 );
 
-// Bills are plans, separate from expenses and scheduled actions. An occurrence
-// records whether a dated bill was paid; neither table changes balances.
+// Bills are plans. A linked scheduled expense may supply an occurrence's
+// transaction; payment remains a separate explicit state transition.
 export const bills = sqliteTable(
 	"bills",
 	{
@@ -351,10 +351,14 @@ export const bills = sqliteTable(
 		payerUserId: text("payer_user_id").notNull().references(() => user.id),
 		splitBasisPoints: text("split_basis_points", { mode: "json" }).$type<Record<string, number>>().notNull(),
 		isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+		scheduledActionId: text("scheduled_action_id").references(() => scheduledActions.id, { onDelete: "set null" }),
 		createdAt: text("created_at").notNull(),
 		updatedAt: text("updated_at").notNull(),
 	},
-	(table) => [index("bills_group_active_idx").on(table.groupId, table.isActive)],
+	(table) => [
+		index("bills_group_active_idx").on(table.groupId, table.isActive),
+		uniqueIndex("bills_scheduled_action_unique_idx").on(table.scheduledActionId),
+	],
 );
 
 export const billOccurrences = sqliteTable(
@@ -376,6 +380,7 @@ export const billOccurrences = sqliteTable(
 	(table) => [
 		uniqueIndex("bill_occurrences_bill_date_idx").on(table.billId, table.dueDate),
 		index("bill_occurrences_group_date_idx").on(table.groupId, table.dueDate),
+		uniqueIndex("bill_occurrences_linked_transaction_unique_idx").on(table.linkedTransactionId),
 	],
 );
 
