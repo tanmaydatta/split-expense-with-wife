@@ -33,21 +33,28 @@ Split Expense With Wife uses a **unified deployment strategy** where both fronte
 - **Purpose**: Testing and staging
 
 ### Production Environment
-- **URL**: `https://splitexpense.tanmaydatta.workers.dev`
+- **URL**: `https://budget.wastd.dev`
+- **Live Worker**: `splitexpense` (the top-level Worker, not `splitexpense-prod`)
 - **Database**: `splitexpense` (Cloudflare D1)
 - **Purpose**: Live application
 
 ## Deployment Process
 
-### Automated Deployment Script
+### Automatic deployment and manual fallback
 
-The project includes a comprehensive deployment script: `./deploy.sh`
+Cloudflare Workers Builds deploys `main` to the live `splitexpense` Worker after a
+merge. The `splitexpense-dev` Worker has a separate build. Confirm the
+`Workers Builds: splitexpense` check on the merged commit and the active
+version before merging the next PR. A green PR build for `splitexpense-dev`
+does not prove production deployed.
+
+`./deploy.sh` is a manual fallback, not the normal production release path:
 
 ```bash
 # Deploy to development
 ./deploy.sh dev
 
-# Deploy to production  
+# Deploy to production manually only when automatic deployment is unavailable
 ./deploy.sh prod
 ```
 
@@ -65,8 +72,8 @@ cd cf-worker && npx wrangler whoami
 
 #### 2. Frontend Build
 ```bash
-# Build React application
-yarn build
+# Build React application for production
+REACT_APP_AUTH_BASE_URL=https://budget.wastd.dev REACT_APP_API_BASE_URL=/.netlify/functions yarn build
 
 # Verify build output in /build directory
 ls -la build/
@@ -118,7 +125,10 @@ yarn clean:redirects
 
 # Deploy to specific environment
 npx wrangler deploy -e dev   # development
-npx wrangler deploy -e prod  # production
+npx wrangler deploy -e prod --name splitexpense  # manual production fallback
+
+# Do not run `wrangler deploy -e prod` without `--name splitexpense`:
+# it targets the separate `splitexpense-prod` Worker.
 ```
 
 ## Configuration Management
@@ -148,9 +158,9 @@ LOCAL = false
 #### Production Environment
 ```toml
 [env.prod.vars]
-ALLOWED_ORIGINS = "https://splitexpense.tanmaydatta.workers.dev"
-BASE_URL = "https://splitexpense.tanmaydatta.workers.dev/auth"
-AUTH_TRUSTED_ORIGINS = ["https://splitexpense.tanmaydatta.workers.dev"]
+ALLOWED_ORIGINS = "https://budget.wastd.dev,..."
+BASE_URL = "https://budget.wastd.dev/auth"
+AUTH_TRUSTED_ORIGINS = ["https://budget.wastd.dev", "https://splitexpense.tanmaydatta.workers.dev"]
 LOCAL = false
 ```
 
@@ -217,10 +227,10 @@ run_worker_first = ["/.netlify/functions/*", "/hello", "/auth/*"]
 
 ### Migration Workflow
 
-1. **Development First**: Always migrate dev environment first
-2. **Test Migration**: Verify data integrity after migration
-3. **Production Migration**: Apply same migration to production
-4. **Rollback Plan**: Keep rollback scripts ready
+1. Apply and test each migration on dev.
+2. Record the production D1 Time Travel bookmark and active Worker version.
+3. Apply additive migrations to production before deploying code that needs them.
+4. Verify migration status and database health before merging each PR.
 
 ### Migration Commands
 
@@ -240,12 +250,12 @@ yarn db:migrate:dev
 yarn db:migrate:prod
 
 # View migration status
-npx wrangler d1 migrations list splitexpense-dev -e dev
+npx wrangler d1 migrations list splitexpense -e prod --remote
 ```
 
 ### Migration Best Practices
 
-- **Backup First**: Although D1 handles this, document current state
+- **Bookmark First**: Record the current D1 Time Travel bookmark before each release
 - **Test Locally**: Always test migrations locally first
 - **Incremental Changes**: Small, focused migrations
 - **Zero Downtime**: Design migrations to avoid service interruption
@@ -269,11 +279,8 @@ enabled = true
 
 Access logs via:
 ```bash
-# Real-time logs
-npx wrangler tail -e prod
-
-# Specific time range
-npx wrangler tail -e prod --since 2024-01-01
+# Real-time logs from the live Worker
+npx wrangler tail --name splitexpense
 ```
 
 ### Error Tracking
@@ -327,88 +334,114 @@ npx wrangler secret list -e prod
 - **API Responses**: Conditional caching for appropriate endpoints
 - **Database Queries**: Application-level caching for expensive operations
 
-## Rollback Procedures
+## Shared-bills release and rollback runbook
 
-### Application Rollback
+### Before the first merge
+
+Run these from `cf-worker` with the project-pinned Wrangler. Record the output
+and UTC time in the release notes. The live Worker is `splitexpense`; the D1
+database is `splitexpense` (`56f19864-f964-4c28-b176-001047d58e00`). The
+`-e prod` migration commands select that database. Worker lookup and rollback
+commands must name the live Worker explicitly.
 
 ```bash
-# Deploy previous version
 cd cf-worker
-npx wrangler deploy -e prod --compatibility-date=2024-01-01
-
-# Or rollback via Cloudflare dashboard
-# Workers & Pages > splitexpense > Deployments > Rollback
+yarn wrangler whoami
+yarn wrangler deployments status --name splitexpense --json
+yarn wrangler d1 time-travel info splitexpense -e prod --json
+yarn wrangler d1 migrations list splitexpense -e prod --remote
+curl -fsS https://budget.wastd.dev/health
 ```
 
-### Database Rollback
+Write down the version ID receiving 100% of traffic and the **fresh** D1
+bookmark. Use `yarn wrangler versions view VERSION_ID --name splitexpense
+--json` to check that the live version's `DB` binding points at the production
+database, the health endpoint passes, and the pending list contains exactly
+`0021_shared_bills.sql` through `0024_bill_scheduled_budget_action.sql`.
+Cloudflare Time Travel bookmarks expire after the plan's retention window;
+recapture one immediately before any later restore decision.
+
+Apply migrations before merging the API PR. They add bill tables and columns,
+and should leave old code functional. The project-local Wrangler applies
+pending migrations in filename order. Confirm each result and then require
+an empty pending list before continuing:
 
 ```bash
-# Create rollback migration
-yarn db:generate --name rollback-migration-name
-
-# Apply rollback migration
-yarn db:migrate:prod
+yarn wrangler d1 migrations apply splitexpense -e prod --remote
+yarn wrangler d1 migrations list splitexpense -e prod --remote
 ```
 
-### Emergency Procedures
+Stop if the applied set differs from `0021`, `0022`, `0023`, `0024`, if D1
+reports an error, or if `/health` fails. Do not merge while the schema state
+is uncertain.
 
-1. **Immediate Issues**: Use Cloudflare dashboard for instant rollback
-2. **Database Issues**: Apply emergency rollback migration
-3. **Service Down**: Check Cloudflare status and error logs
-4. **Data Corruption**: Restore from D1 backups (contact Cloudflare support)
+### Merge and verify one PR at a time
+
+Merge in this order: `#99 → #100 → #102 → #103 → #104`, then the release
+runbook PR if still open. Before each merge, confirm the PR is based on
+`main`, is mergeable, and all required checks pass. Stacked PR bases can be
+retargeted after the preceding merge; a merge into an intermediate feature
+branch does **not** release that layer. Use the GitHub stack view to inspect
+the chain. After each merge:
+
+1. Wait for the merged commit's **`Workers Builds: splitexpense`** check to
+   succeed. A GitHub merge result alone does not mean Cloudflare deployed.
+2. Run `yarn wrangler deployments status --name splitexpense --json` from
+   `cf-worker`. Confirm the active 100% version changed. Inspect it with
+   `yarn wrangler versions view VERSION_ID --name splitexpense --json` to
+   confirm the production `DB` binding. Check `https://budget.wastd.dev/health`
+   and a read-only login/API page request.
+3. Inspect production logs or the Cloudflare deployment dashboard if the
+   check fails or the version does not advance. Stop before merging the next
+   PR. Do not use `wrangler deploy -e prod` as an automatic-build substitute.
+
+After `#104`, verify login and bills in a browser, the bill API with a
+production account, and the configured daily `0 0 * * *` cron on
+`splitexpense`. Do not create or modify real bills as a smoke test. A
+configured trigger and manual Workflow test do not prove that the next
+midnight cron delivery succeeds; inspect its actual logs and reminders later.
+
+### If a deployment fails
+
+Stop merging. Capture the failing deployment ID, active version, build logs,
+request errors, and the current D1 bookmark. If a bad new Worker version is
+receiving traffic, roll back **Worker code** to the recorded last healthy
+version (replace `VERSION_ID` with the exact recorded ID):
+
+```bash
+cd cf-worker
+yarn wrangler rollback VERSION_ID --name splitexpense --message "Rollback shared-bills release" --yes
+yarn wrangler deployments status --name splitexpense --json
+curl -fsS https://budget.wastd.dev/health
+```
+
+Cloudflare's dashboard path is Workers & Pages → `splitexpense` → Deployments
+→ Rollback. Verify the selected version receives 100% of traffic. A Worker
+rollback does **not** roll back D1 data or schema, and it can fail if a
+connected resource changed. The additive bill migrations are intended to
+remain in place when older code is restored. If the old code cannot run with
+the migrated schema, investigate and prepare a forward fix; do not improvise
+a destructive schema reversal during an incident.
+
+Use D1 Time Travel only for a confirmed data-corruption incident after
+identifying every write since the bookmark. A restore **overwrites the live
+database and loses intervening writes**, including unrelated users' activity;
+it also cancels in-flight queries. It is not the normal rollback for a bad
+Worker deploy. Coordinate an outage/write freeze and explicit data-loss
+decision before using `yarn wrangler d1 time-travel restore splitexpense -e
+prod --bookmark=BOOKMARK`. Record the pre-restore bookmark so the operation
+can itself be undone if needed.
+
+Cloudflare references: [Worker rollbacks](https://developers.cloudflare.com/workers/versions-and-deployments/rollbacks/)
+and [D1 Time Travel](https://developers.cloudflare.com/d1/reference/time-travel/).
 
 ## CI/CD Integration
 
-### GitHub Actions (Optional)
-
-Example workflow for automated deployments:
-
-```yaml
-name: Deploy to Cloudflare Workers
-
-on:
-  push:
-    branches: [main]
-
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
-          cache: 'yarn'
-      
-      - name: Install dependencies
-        run: yarn install --immutable
-      
-      - name: Build application
-        run: yarn build
-      
-      - name: Deploy to Cloudflare Workers
-        run: |
-          cd cf-worker
-          yarn install --immutable
-          yarn test
-          npx wrangler deploy -e prod
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-```
-
-### Manual Deployment (Current)
-
-The project currently uses manual deployment via the `deploy.sh` script:
-
-```bash
-# Development deployment
-./deploy.sh dev
-
-# Production deployment (after thorough testing)
-./deploy.sh prod
-```
+Cloudflare Workers Builds deploys `main` automatically to `splitexpense` and
+`splitexpense-dev`. The merged `main` commit exposes separate checks for each
+Worker; verify the production check and active version. GitHub Actions run
+lint, Worker tests, and end-to-end tests, but do not deploy production.
+`./deploy.sh` remains a manual fallback.
 
 ## Troubleshooting
 
@@ -438,10 +471,10 @@ npx wrangler d1 execute splitexpense-dev -e dev --file=./src/db/migrations/fix.s
 npx wrangler whoami
 
 # Check worker status
-npx wrangler deployments list -e prod
+npx wrangler deployments status --name splitexpense --json
 
 # View real-time logs
-npx wrangler tail -e prod
+npx wrangler tail --name splitexpense
 ```
 
 ### Debug Mode

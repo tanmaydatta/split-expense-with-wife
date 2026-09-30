@@ -3,15 +3,15 @@
 [![E2E Tests](https://github.com/tanmaydatta/split-expense-with-wife/actions/workflows/e2e-tests.yml/badge.svg)](https://github.com/tanmaydatta/split-expense-with-wife/actions/workflows/e2e-tests.yml)
 [![CF Worker Tests](https://github.com/tanmaydatta/split-expense-with-wife/actions/workflows/cf-worker-tests.yml/badge.svg)](https://github.com/tanmaydatta/split-expense-with-wife/actions/workflows/cf-worker-tests.yml)
 
-A full-stack expense splitting application built with React frontend, Cloudflare Workers backend, and Netlify Functions. This app helps couples manage shared expenses, budgets, and track financial balances.
+A full-stack expense splitting application built with React, Cloudflare Workers, and D1. This app helps couples manage shared expenses, budgets, and track financial balances.
 
 ## 🏗️ Architecture
 
 - **Frontend**: React with TypeScript, Redux for state management
 - **Backend**: Cloudflare Workers with Hono framework
 - **Database**: Cloudflare D1 (SQLite)
-- **Deployment**: Netlify (frontend) + Cloudflare Workers (API)
-- **Additional Services**: Netlify Functions (Go) for supplementary endpoints
+- **Deployment**: Cloudflare Workers (React static assets and API)
+- **Legacy Services**: Netlify Functions (Go) remain in the repository
 
 ## 🚀 Features
 
@@ -48,7 +48,6 @@ split-expense-with-wife/
 - Node.js 22+
 - npm or yarn
 - Cloudflare account (for Workers)
-- Netlify account (for deployment)
 
 ### Frontend Development
 
@@ -83,7 +82,7 @@ npm run test
 # Deploy to dev environment
 npm run deploy:dev
 
-# Deploy to production
+# Manual production fallback; normal production deployment runs on merge to main
 npm run deploy:prod
 ```
 
@@ -137,13 +136,13 @@ Both workflows:
 
 ## 📦 Deployment
 
-### Frontend (Netlify)
+### Frontend and backend (Cloudflare Workers)
 
-The React app is automatically deployed to Netlify when changes are pushed to the main branch.
-
-### Backend (Cloudflare Workers)
-
-Deploy the backend using Wrangler:
+Cloudflare Workers Builds automatically deploys merged `main` to the live
+`splitexpense` Worker at `https://budget.wastd.dev`; the React build is served
+as Worker static assets. The `splitexpense-dev` Worker is separate. See the
+[deployment and rollback runbook](docs/deployment.md) before merging a
+database-dependent release. Wrangler commands below are manual fallbacks:
 
 ```bash
 cd cf-worker

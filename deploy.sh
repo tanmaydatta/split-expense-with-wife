@@ -55,8 +55,14 @@ print_step "Linting React app..."
 yarn lint
 print_success "React app linting passed"
 
-# Step 3: Build UI
+# Step 3: Build UI with the target environment's auth origin baked into React.
 print_step "Building UI..."
+if [ "$ENV" = "prod" ]; then
+    export REACT_APP_AUTH_BASE_URL="https://budget.wastd.dev"
+else
+    export REACT_APP_AUTH_BASE_URL="https://budget-dev.wastd.dev"
+fi
+export REACT_APP_API_BASE_URL="/.netlify/functions"
 yarn build
 print_success "UI build completed"
 
@@ -78,8 +84,14 @@ print_success "CF Worker tests passed"
 
 # Step 7: Deploy to Cloudflare Workers
 print_step "Deploying to Cloudflare Workers ($ENV environment)..."
-yarn clean:redirects && yarn wrangler deploy -e $ENV
+yarn clean:redirects
+if [ "$ENV" = "prod" ]; then
+    # The live Worker is named splitexpense. -e prod alone targets splitexpense-prod.
+    yarn wrangler deploy -e prod --name splitexpense
+else
+    yarn wrangler deploy -e dev
+fi
 print_success "Deployment to $ENV completed!"
 
 cd ..
-print_success "All deployment steps completed successfully! 🚀" 
+print_success "All deployment steps completed successfully! 🚀"
