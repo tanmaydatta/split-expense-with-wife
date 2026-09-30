@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { getDb } from "../db";
-import { bankConnections } from "../db/schema/schema";
+import { bankAccounts, bankConnections, bankTransactions } from "../db/schema/schema";
 import { plaidEnabled, plaidRequest } from "../utils/plaid";
 import { syncBankConnection } from "../utils/plaid-sync";
 
@@ -47,7 +47,7 @@ export async function handlePlaidWebhook(request: Request, env: Env): Promise<Re
 	if (!event.item_id) return new Response("Invalid body", { status: 400 });
 	const db = getDb(env);
 	const connection = (await db.select().from(bankConnections).where(eq(bankConnections.plaidItemId, event.item_id)).limit(1))[0];
-	if (!connection || connection.status === "disconnected") return new Response("OK");
+	if (!connection || (connection.status === "disconnected" && event.webhook_code !== "USER_PERMISSION_REVOKED")) return new Response("OK");
 	try {
 		if (event.webhook_type === "TRANSACTIONS" && event.webhook_code === "SYNC_UPDATES_AVAILABLE") {
 			await syncBankConnection(env, db, connection);
@@ -56,7 +56,13 @@ export async function handlePlaidWebhook(request: Request, env: Env): Promise<Re
 		} else if (event.webhook_type === "ITEM" && event.webhook_code === "LOGIN_REPAIRED") {
 			await db.update(bankConnections).set({ status: "connected", updatedAt: new Date().toISOString() }).where(eq(bankConnections.id, connection.id));
 		} else if (event.webhook_type === "ITEM" && event.webhook_code === "USER_PERMISSION_REVOKED") {
-			await db.update(bankConnections).set({ status: "disconnected", accessTokenEncrypted: "", updatedAt: new Date().toISOString() }).where(eq(bankConnections.id, connection.id));
+			// Plaid has ended consent. Remove the private source in one D1 batch;
+			// confirmed shared expenses have no foreign key to these rows and remain.
+			await db.batch([
+				db.delete(bankTransactions).where(eq(bankTransactions.connectionId, connection.id)),
+				db.delete(bankAccounts).where(eq(bankAccounts.connectionId, connection.id)),
+				db.delete(bankConnections).where(eq(bankConnections.id, connection.id)),
+			]);
 		}
 		return new Response("OK");
 	} catch (error) {
