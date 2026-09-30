@@ -11,7 +11,7 @@ type PlaidEnv = Env & {
 export function plaidEnabled(env: Env): boolean {
 	const config = env as PlaidEnv;
 	return config.PLAID_SANDBOX_ENABLED === "true" && !!config.PLAID_CLIENT_ID &&
-		!!config.PLAID_SANDBOX_SECRET && !!config.PLAID_TOKEN_ENCRYPTION_KEY;
+		!!config.PLAID_SANDBOX_SECRET && (config.PLAID_TOKEN_ENCRYPTION_KEY?.length ?? 0) >= 32;
 }
 
 export async function plaidRequest<T>(env: Env, path: string, body: Record<string, unknown>): Promise<T> {

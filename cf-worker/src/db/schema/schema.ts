@@ -427,11 +427,22 @@ export const bankTransactions = sqliteTable("bank_transactions", {
 	amountMinor: integer("amount_minor").notNull(),
 	currency: text("currency").notNull(),
 	pending: integer("pending", { mode: "boolean" }).notNull(),
+	pendingTransactionId: text("pending_transaction_id"),
 	removedAt: text("removed_at"),
 	linkedTransactionId: text("linked_transaction_id"),
 	createdAt: text("created_at").notNull(),
 	updatedAt: text("updated_at").notNull(),
 }, (table) => [index("bank_transactions_user_date_idx").on(table.userId, table.date)]);
+
+export const bankAccounts = sqliteTable("bank_accounts", {
+	id: text("id").primaryKey(),
+	connectionId: text("connection_id").notNull().references(() => bankConnections.id),
+	name: text("name").notNull(),
+	mask: text("mask"),
+	type: text("type").notNull(),
+	subtype: text("subtype"),
+	selected: integer("selected", { mode: "boolean" }).notNull().default(true),
+}, (table) => [index("bank_accounts_connection_idx").on(table.connectionId)]);
 
 // Create schema object for Drizzle
 export const schema = {
@@ -454,6 +465,7 @@ export const schema = {
 	billReminders,
 	bankConnections,
 	bankTransactions,
+	bankAccounts,
 };
 
 // Export inferred types

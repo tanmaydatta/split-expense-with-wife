@@ -5,3 +5,11 @@
 .bank-import-page ul { padding: 0; list-style: none; }
 .bank-import-page li { display: flex; justify-content: space-between; gap: 16px; padding: 14px; border: 1px solid #d8e0eb; border-radius: 8px; margin-bottom: 8px; }
 .bank-import-error { color: #a51425; }
+.bank-import-page .bank-connection { display: block; }
+.bank-connection > div:first-child { display: flex; justify-content: space-between; }
+.bank-connection-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.bank-import-page .bank-connection-actions button { background: #eef3fb; color: #1746a2; border: 1px solid #b7c7dd; }
+.bank-connection label { display: block; padding: 5px 0; }
+.bank-connection input { margin-right: 8px; }
+.bank-activity-list li { align-items: center; }
+.bank-activity-list small { display: block; color: #58657b; margin-top: 4px; }
