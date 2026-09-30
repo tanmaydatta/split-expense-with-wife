@@ -110,6 +110,7 @@ export async function handleBankAccounts(request: Request, env: Env): Promise<Re
 
 export async function handleBankSelectAccount(request: Request, env: Env): Promise<Response> {
 	if (!plaidEnabled(env)) return unavailable(request, env);
+	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: ownership, deletion, and backfill form one account-selection operation
 	return withAuthLite(request, env, async (session, db) => {
 		const parsed = SelectInput.safeParse(await request.json());
 		if (!parsed.success) return createErrorResponse("Invalid account selection", 400, request, env);
@@ -117,6 +118,17 @@ export async function handleBankSelectAccount(request: Request, env: Env): Promi
 		if (!connection) return createErrorResponse("Bank connection not found", 404, request, env);
 		const updated = await db.update(bankAccounts).set({ selected: parsed.data.selected }).where(and(eq(bankAccounts.id, parsed.data.accountId), eq(bankAccounts.connectionId, connection.id))).returning({ id: bankAccounts.id });
 		if (!updated.length) return createErrorResponse("Bank account not found", 404, request, env);
+		if (!parsed.data.selected) {
+			await db.delete(bankTransactions).where(and(eq(bankTransactions.connectionId, connection.id), eq(bankTransactions.accountId, parsed.data.accountId)));
+		} else {
+			// A full replay imports history for a newly selected account without retaining other accounts.
+			await db.update(bankConnections).set({ cursor: null }).where(eq(bankConnections.id, connection.id));
+			try {
+				await syncBankConnection(env, db, { ...connection, cursor: null });
+			} catch (error) {
+				console.warn("Plaid account backfill deferred", error instanceof Error ? error.message : "unknown");
+			}
+		}
 		return createJsonResponse({ selected: parsed.data.selected }, 200, {}, request, env);
 	});
 }
@@ -183,7 +195,11 @@ export async function handleBankDisconnect(request: Request, env: Env): Promise<
 				return createErrorResponse("Could not disconnect bank", 502, request, env);
 			}
 		}
-		await db.update(bankConnections).set({ status: "disconnected", accessTokenEncrypted: "", cursor: null, updatedAt: new Date().toISOString() }).where(eq(bankConnections.id, connection.id));
+		await db.batch([
+			db.delete(bankTransactions).where(eq(bankTransactions.connectionId, connection.id)),
+			db.delete(bankAccounts).where(eq(bankAccounts.connectionId, connection.id)),
+			db.delete(bankConnections).where(eq(bankConnections.id, connection.id)),
+		]);
 		return createJsonResponse({ status: "disconnected" }, 200, {}, request, env);
 	});
 }

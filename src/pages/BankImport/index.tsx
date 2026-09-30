@@ -72,7 +72,7 @@ export default function BankImport(): JSX.Element {
 						try {
 							if (connectionId) await api.post("/bank-import/reconnected", { connectionId });
 							else await api.post("/bank-import/exchange", { publicToken, institutionName: metadata.institution?.name ?? "Connected bank" });
-							setMessage(connectionId ? "Bank reconnected." : "Bank connected. You can now review posted bank activity.");
+						setMessage(connectionId ? "Bank reconnected." : "Bank connected. Select an account to import its posted activity.");
 							await refresh();
 						} catch {
 							setError("The bank connected in Plaid, but we could not save it. Please try again.");
@@ -108,11 +108,11 @@ export default function BankImport(): JSX.Element {
 	}
 
 	async function disconnect(connectionId: string): Promise<void> {
-		if (!window.confirm("Disconnect this bank? Its imported activity will remain visible, but it will stop syncing.")) return;
+		if (!window.confirm("Disconnect this bank and delete its imported activity? Confirmed shared expenses will remain.")) return;
 		try {
 			await api.post("/bank-import/disconnect", { connectionId });
 			await refresh();
-			setMessage("Bank disconnected.");
+			setMessage("Bank disconnected and imported activity deleted.");
 		} catch { setError("Could not disconnect this bank."); }
 	}
 
@@ -137,7 +137,7 @@ export default function BankImport(): JSX.Element {
 				</label>)}
 			</li>)}</ul>}
 		<h2>Review inbox</h2>
-		<p>Posted activity from selected accounts appears below. Connecting or syncing does not create expenses or change balances.</p>
+		<p>Select an account to import its posted activity. Deselecting deletes that account's imported activity. Connecting or syncing does not create expenses or change balances.</p>
 		{transactions.length === 0 ? <p>No posted bank activity yet.</p> : <ul className="bank-activity-list">
 			{transactions.map(transaction => <li key={transaction.id}>
 				<div><strong>{transaction.merchantName ?? transaction.name}</strong><small>{transaction.date} · {transaction.accountName}</small></div>
