@@ -13,3 +13,13 @@
 .bank-connection input { margin-right: 8px; }
 .bank-activity-list li { align-items: center; }
 .bank-activity-list small { display: block; color: #58657b; margin-top: 4px; }
+.bank-activity-list li { display: block; }
+.bank-activity-list li > span { float: right; }
+.bank-review-tabs { display: flex; gap: 8px; margin: 16px 0; }
+.bank-import-page .bank-review-tabs button[aria-pressed="false"] { background: #eef3fb; color: #1746a2; }
+.bank-review-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; clear: both; }
+.bank-import-page .bank-review-actions button, .bank-import-page .bank-review-panel button[type="button"] { background: #eef3fb; color: #1746a2; border: 1px solid #b7c7dd; }
+.bank-review-panel { margin-top: 14px; padding: 16px; border: 1px solid #b7c7dd; border-radius: 8px; background: #f8faff; }
+.bank-review-panel label { display: block; margin: 10px 0; }
+.bank-review-panel input:not([type="checkbox"]), .bank-review-panel select { display: block; width: min(100%, 380px); min-height: 40px; padding: 8px; margin-top: 4px; }
+.bank-review-panel button { margin: 4px 8px 4px 0; }

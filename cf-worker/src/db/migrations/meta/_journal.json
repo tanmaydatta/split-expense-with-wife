@@ -190,6 +190,13 @@
 			"when": 1790640000005,
 			"tag": "0026_bank_accounts",
 			"breakpoints": true
+		},
+		{
+			"idx": 25,
+			"version": "6",
+			"when": 1790640000004,
+			"tag": "0025_bank_review",
+			"breakpoints": true
 		}
 	]
 }
