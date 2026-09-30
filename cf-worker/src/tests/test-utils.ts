@@ -5,6 +5,9 @@ import { getDb } from "../db";
 import { account, session, user, verification } from "../db/schema/auth-schema";
 import {
 	budgetEntries,
+	bills,
+	billOccurrences,
+	billReminders,
 	budgetTotals,
 	expenseBudgetLinks,
 	groupBudgets,
@@ -180,6 +183,14 @@ export async function setupDatabase(env: Env): Promise<void> {
 	await env.DB.exec(
 		"CREATE TABLE IF NOT EXISTS scheduled_action_history (id TEXT PRIMARY KEY, scheduled_action_id TEXT NOT NULL, user_id TEXT NOT NULL, action_type TEXT NOT NULL, executed_at TEXT NOT NULL, execution_status TEXT NOT NULL, workflow_instance_id TEXT, workflow_status TEXT, action_data TEXT NOT NULL, result_data TEXT, error_message TEXT, execution_duration_ms INTEGER, FOREIGN KEY (scheduled_action_id) REFERENCES scheduled_actions(id) ON UPDATE no action ON DELETE cascade, FOREIGN KEY (user_id) REFERENCES user(id) ON UPDATE no action ON DELETE no action)",
 	);
+	await env.DB.exec("CREATE TABLE IF NOT EXISTS bills (id TEXT PRIMARY KEY, group_id TEXT NOT NULL, title TEXT NOT NULL, amount_minor INTEGER NOT NULL, currency TEXT NOT NULL, first_due_date TEXT NOT NULL, recurrence TEXT NOT NULL, payer_user_id TEXT NOT NULL, split_basis_points TEXT NOT NULL, is_active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)");
+	await env.DB.exec("CREATE INDEX IF NOT EXISTS bills_group_active_idx ON bills (group_id, is_active)");
+	await env.DB.exec("CREATE TABLE IF NOT EXISTS bill_occurrences (id TEXT PRIMARY KEY, bill_id TEXT NOT NULL, group_id TEXT NOT NULL, title TEXT NOT NULL, due_date TEXT NOT NULL, amount_minor INTEGER NOT NULL, currency TEXT NOT NULL, payer_user_id TEXT NOT NULL, split_basis_points TEXT NOT NULL, paid_at TEXT, linked_transaction_id TEXT, created_at TEXT NOT NULL, FOREIGN KEY (bill_id) REFERENCES bills(id) ON DELETE CASCADE)");
+	await env.DB.exec("CREATE UNIQUE INDEX IF NOT EXISTS bill_occurrences_bill_date_idx ON bill_occurrences (bill_id, due_date)");
+	await env.DB.exec("CREATE INDEX IF NOT EXISTS bill_occurrences_group_date_idx ON bill_occurrences (group_id, due_date)");
+	await env.DB.exec("CREATE TABLE IF NOT EXISTS bill_reminders (id TEXT PRIMARY KEY, occurrence_id TEXT NOT NULL, user_id TEXT NOT NULL, kind TEXT NOT NULL, created_at TEXT NOT NULL, read_at TEXT, FOREIGN KEY (occurrence_id) REFERENCES bill_occurrences(id) ON DELETE CASCADE)");
+	await env.DB.exec("CREATE UNIQUE INDEX IF NOT EXISTS bill_reminders_unique_idx ON bill_reminders (occurrence_id, user_id, kind)");
+	await env.DB.exec("CREATE INDEX IF NOT EXISTS bill_reminders_user_read_idx ON bill_reminders (user_id, read_at)");
 
 	// Create indexes for performance
 	await env.DB.exec(
@@ -236,6 +247,9 @@ export async function setupDatabase(env: Env): Promise<void> {
 export async function completeCleanupDatabase(env: Env): Promise<void> {
 	const db = getDb(env);
 	// Delete data from all tables in reverse order of creation/dependency
+	await db.delete(billReminders);
+	await db.delete(billOccurrences);
+	await db.delete(bills);
 	await db.delete(scheduledActionHistory);
 	await db.delete(scheduledActions);
 	await db.delete(session); // Delete sessions before users

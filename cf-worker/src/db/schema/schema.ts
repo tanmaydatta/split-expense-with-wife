@@ -336,6 +336,65 @@ export const expenseBudgetLinks = sqliteTable(
 	],
 );
 
+// Bills are plans, separate from expenses and scheduled actions. An occurrence
+// records whether a dated bill was paid; neither table changes balances.
+export const bills = sqliteTable(
+	"bills",
+	{
+		id: text("id").primaryKey(),
+		groupId: text("group_id").notNull().references(() => groups.groupid),
+		title: text("title").notNull(),
+		amountMinor: integer("amount_minor").notNull(),
+		currency: text("currency").notNull(),
+		firstDueDate: text("first_due_date").notNull(),
+		recurrence: text("recurrence", { enum: ["once", "daily", "weekly", "monthly"] }).notNull(),
+		payerUserId: text("payer_user_id").notNull().references(() => user.id),
+		splitBasisPoints: text("split_basis_points", { mode: "json" }).$type<Record<string, number>>().notNull(),
+		isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+		createdAt: text("created_at").notNull(),
+		updatedAt: text("updated_at").notNull(),
+	},
+	(table) => [index("bills_group_active_idx").on(table.groupId, table.isActive)],
+);
+
+export const billOccurrences = sqliteTable(
+	"bill_occurrences",
+	{
+		id: text("id").primaryKey(),
+		billId: text("bill_id").notNull().references(() => bills.id, { onDelete: "cascade" }),
+		groupId: text("group_id").notNull().references(() => groups.groupid),
+		title: text("title").notNull(),
+		dueDate: text("due_date").notNull(),
+		amountMinor: integer("amount_minor").notNull(),
+		currency: text("currency").notNull(),
+		payerUserId: text("payer_user_id").notNull().references(() => user.id),
+		splitBasisPoints: text("split_basis_points", { mode: "json" }).$type<Record<string, number>>().notNull(),
+		paidAt: text("paid_at"),
+		linkedTransactionId: text("linked_transaction_id"),
+		createdAt: text("created_at").notNull(),
+	},
+	(table) => [
+		uniqueIndex("bill_occurrences_bill_date_idx").on(table.billId, table.dueDate),
+		index("bill_occurrences_group_date_idx").on(table.groupId, table.dueDate),
+	],
+);
+
+export const billReminders = sqliteTable(
+	"bill_reminders",
+	{
+		id: text("id").primaryKey(),
+		occurrenceId: text("occurrence_id").notNull().references(() => billOccurrences.id, { onDelete: "cascade" }),
+		userId: text("user_id").notNull().references(() => user.id),
+		kind: text("kind", { enum: ["upcoming", "overdue"] }).notNull(),
+		createdAt: text("created_at").notNull(),
+		readAt: text("read_at"),
+	},
+	(table) => [
+		uniqueIndex("bill_reminders_unique_idx").on(table.occurrenceId, table.userId, table.kind),
+		index("bill_reminders_user_read_idx").on(table.userId, table.readAt),
+	],
+);
+
 // Create schema object for Drizzle
 export const schema = {
 	user,
@@ -352,6 +411,9 @@ export const schema = {
 	scheduledActions,
 	scheduledActionHistory,
 	expenseBudgetLinks,
+	bills,
+	billOccurrences,
+	billReminders,
 };
 
 // Export inferred types
@@ -380,3 +442,6 @@ export type NewScheduledActionHistory =
 	typeof scheduledActionHistory.$inferInsert;
 export type ExpenseBudgetLink = typeof expenseBudgetLinks.$inferSelect;
 export type NewExpenseBudgetLink = typeof expenseBudgetLinks.$inferInsert;
+export type Bill = typeof bills.$inferSelect;
+export type BillOccurrence = typeof billOccurrences.$inferSelect;
+export type BillReminder = typeof billReminders.$inferSelect;

@@ -8,6 +8,7 @@ import {
 	handleBudgetTotal,
 } from "./handlers/budget";
 import { handleCron } from "./handlers/cron";
+import { handleBillCreate, handleBillDelete, handleBillMonth, handleBillPayment, handleBillReminderRead, handleBillReminders, handleBillUpdate } from "./handlers/bills";
 import { handleDashboardSubmit } from "./handlers/dashboard";
 import {
 	handleBudgetEntryGet,
@@ -225,6 +226,17 @@ async function handleApiRoutes(
 	}
 
 	const apiPath = path.replace("/.netlify/functions/", "");
+	const billRoutes: Record<string, { methods: string[]; handler: (request: Request, env: Env) => Promise<Response> }> = {
+		"bills": { methods: ["POST"], handler: handleBillCreate },
+		"bills/month": { methods: ["GET"], handler: handleBillMonth },
+		"bills/update": { methods: ["POST"], handler: handleBillUpdate },
+		"bills/delete": { methods: ["DELETE"], handler: handleBillDelete },
+		"bills/payment": { methods: ["POST"], handler: handleBillPayment },
+		"bills/reminders": { methods: ["GET"], handler: handleBillReminders },
+		"bills/reminders/read": { methods: ["POST"], handler: handleBillReminderRead },
+	};
+	const billRoute = billRoutes[apiPath];
+	if (billRoute) return validateMethodAndHandle(request, env, billRoute.methods, billRoute.handler);
 
 	// Try scheduled actions routes first
 	const scheduledActionsResponse = await handleScheduledActionsRoutes(

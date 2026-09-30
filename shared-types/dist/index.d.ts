@@ -301,6 +301,54 @@ export interface DashboardUser {
 	percentage?: number;
 }
 export interface ApiEndpoints {
+	"/bills": {
+		request: BillCreateInput;
+		response: {
+			id: string;
+		};
+	};
+	"/bills/month": {
+		request: {
+			month: string;
+		};
+		response: BillMonthResponse;
+	};
+	"/bills/update": {
+		request: BillUpdateInput;
+		response: {
+			message: string;
+		};
+	};
+	"/bills/delete": {
+		request: {
+			id: string;
+		};
+		response: {
+			message: string;
+		};
+	};
+	"/bills/payment": {
+		request: {
+			occurrenceId: string;
+			paid: boolean;
+			linkedTransactionId?: string;
+		};
+		response: {
+			message: string;
+		};
+	};
+	"/bills/reminders": {
+		request: {};
+		response: BillReminderView[];
+	};
+	"/bills/reminders/read": {
+		request: {
+			id: string;
+		};
+		response: {
+			message: string;
+		};
+	};
 	"/login": {
 		request: LoginRequest;
 		response: LoginResponse;
@@ -437,7 +485,138 @@ export declare const CURRENCIES: readonly [
 	"CNY",
 	"SGD",
 ];
+export declare const BillCreateSchema: z.ZodObject<
+	{
+		title: z.ZodString;
+		amountMinor: z.ZodNumber;
+		currency: z.ZodEnum<{
+			USD: "USD";
+			EUR: "EUR";
+			GBP: "GBP";
+			INR: "INR";
+			CAD: "CAD";
+			AUD: "AUD";
+			JPY: "JPY";
+			CHF: "CHF";
+			CNY: "CNY";
+			SGD: "SGD";
+		}>;
+		firstDueDate: z.ZodISODate;
+		recurrence: z.ZodEnum<{
+			once: "once";
+			daily: "daily";
+			weekly: "weekly";
+			monthly: "monthly";
+		}>;
+		payerUserId: z.ZodString;
+		splitBasisPoints: z.ZodRecord<z.ZodString, z.ZodNumber>;
+	},
+	z.core.$strip
+>;
+export declare const BillUpdateSchema: z.ZodObject<
+	{
+		id: z.ZodString;
+		title: z.ZodOptional<z.ZodString>;
+		amountMinor: z.ZodOptional<z.ZodNumber>;
+		currency: z.ZodOptional<
+			z.ZodEnum<{
+				USD: "USD";
+				EUR: "EUR";
+				GBP: "GBP";
+				INR: "INR";
+				CAD: "CAD";
+				AUD: "AUD";
+				JPY: "JPY";
+				CHF: "CHF";
+				CNY: "CNY";
+				SGD: "SGD";
+			}>
+		>;
+		firstDueDate: z.ZodOptional<z.ZodISODate>;
+		recurrence: z.ZodOptional<
+			z.ZodEnum<{
+				once: "once";
+				daily: "daily";
+				weekly: "weekly";
+				monthly: "monthly";
+			}>
+		>;
+		payerUserId: z.ZodOptional<z.ZodString>;
+		splitBasisPoints: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodNumber>>;
+		isActive: z.ZodOptional<z.ZodBoolean>;
+	},
+	z.core.$strip
+>;
+export declare const BillMonthQuerySchema: z.ZodObject<
+	{
+		month: z.ZodString;
+	},
+	z.core.$strip
+>;
+export declare const BillPaymentSchema: z.ZodObject<
+	{
+		occurrenceId: z.ZodString;
+		paid: z.ZodBoolean;
+		linkedTransactionId: z.ZodOptional<z.ZodString>;
+	},
+	z.core.$strip
+>;
+export declare const BillIdSchema: z.ZodObject<
+	{
+		id: z.ZodString;
+	},
+	z.core.$strip
+>;
+export type BillCreateInput = z.infer<typeof BillCreateSchema>;
+export type BillUpdateInput = z.infer<typeof BillUpdateSchema>;
 export type Currency = (typeof CURRENCIES)[number];
+export type BillRecurrence = "once" | "daily" | "weekly" | "monthly";
+export interface BillPlan {
+	id: string;
+	title: string;
+	amountMinor: number;
+	currency: Currency;
+	firstDueDate: string;
+	recurrence: BillRecurrence;
+	payerUserId: string;
+	splitBasisPoints: Record<string, number>;
+	isActive: boolean;
+}
+export interface BillOccurrenceView {
+	id: string;
+	billId: string;
+	title: string;
+	dueDate: string;
+	amountMinor: number;
+	currency: Currency;
+	payerUserId: string;
+	splitBasisPoints: Record<string, number>;
+	paidAt: string | null;
+	linkedTransactionId: string | null;
+}
+export interface BillMonthResponse {
+	month: string;
+	bills: BillPlan[];
+	occurrences: BillOccurrenceView[];
+	summary: Array<{
+		currency: Currency;
+		plannedMinor: number;
+		dueMinor: number;
+		paidMinor: number;
+		sharesByUserMinor: Record<string, number>;
+		plannedOwedByUserMinor: Record<string, number>;
+	}>;
+}
+export interface BillReminderView {
+	id: string;
+	occurrenceId: string;
+	userId: string;
+	kind: "upcoming" | "overdue";
+	createdAt: string;
+	readAt: string | null;
+	title: string;
+	dueDate: string;
+}
 export declare const GroupBudgetDataSchema: z.ZodObject<
 	{
 		id: z.ZodString;

@@ -770,6 +770,36 @@ try {
 }
 ```
 
+## Shared bills API
+
+All routes below require a session and scope data to the current group. Bill
+amounts are integer minor units (100 units per major currency unit, except
+JPY which has 1). A bill is a plan; marking it paid records a status but does
+not create an expense or change balances. Due dates are `YYYY-MM-DD` UTC
+calendar dates. Bills can be one-time, daily, weekly, or monthly.
+
+| Method | Path | Request | Result |
+| --- | --- | --- | --- |
+| POST | `/.netlify/functions/bills` | `title`, `amountMinor`, `currency`, `firstDueDate`, `recurrence`, `payerUserId`, `splitBasisPoints` | `{ id }` |
+| GET | `/.netlify/functions/bills/month?month=YYYY-MM` | Month query | Plans, dated occurrences, and per-currency monthly totals |
+| POST | `/.netlify/functions/bills/update` | `id` and optional plan fields | Updates the plan; paid occurrences keep their historical title and financial snapshot |
+| DELETE | `/.netlify/functions/bills/delete` | `{ id }` | Stops future recurrence |
+| POST | `/.netlify/functions/bills/payment` | `{ occurrenceId, paid, linkedTransactionId? }` | Records or reverses payment state |
+| GET | `/.netlify/functions/bills/reminders` | None | Current user's in-app reminders |
+| POST | `/.netlify/functions/bills/reminders/read` | `{ id }` | Marks own reminder read |
+
+`splitBasisPoints` maps group user IDs to integer shares that sum to 10,000.
+For example, `{ "alice": 5000, "bob": 5000 }` is a 50/50 split. The payer and
+all split members must belong to the current group. `month` is a valid
+`YYYY-MM`. Weekly bills repeat every seven UTC calendar days from the first due
+date. Monthly bills due on days 29–31 use the last day in shorter months.
+The month response includes `plannedMinor` (all occurrences), `dueMinor`
+(unpaid occurrences), `paidMinor`, `sharesByUserMinor` (all planned portions),
+and `plannedOwedByUserMinor` (unpaid portions owed to someone other than the
+payer), separately for each currency. These are plans, not settled balances.
+Rounding remainder goes to the last user ID in sorted order. An optional linked transaction must already
+exist in the group and match amount and currency.
+
 ## Testing
 
 ### API Testing
