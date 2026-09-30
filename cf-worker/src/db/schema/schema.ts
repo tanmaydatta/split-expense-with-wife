@@ -7,7 +7,7 @@ import {
 	text,
 	uniqueIndex,
 } from "drizzle-orm/sqlite-core";
-import { isNull } from "drizzle-orm";
+import { isNull, sql } from "drizzle-orm";
 import type {
 	ScheduledActionData,
 	ScheduledActionResultData,
@@ -428,11 +428,15 @@ export const bankTransactions = sqliteTable("bank_transactions", {
 	currency: text("currency").notNull(),
 	pending: integer("pending", { mode: "boolean" }).notNull(),
 	pendingTransactionId: text("pending_transaction_id"),
+	reviewStatus: text("review_status", { enum: ["unreviewed", "ignored", "matched", "created"] }).notNull().default("unreviewed"),
 	removedAt: text("removed_at"),
 	linkedTransactionId: text("linked_transaction_id"),
 	createdAt: text("created_at").notNull(),
 	updatedAt: text("updated_at").notNull(),
-}, (table) => [index("bank_transactions_user_date_idx").on(table.userId, table.date)]);
+}, (table) => [
+	index("bank_transactions_user_date_idx").on(table.userId, table.date),
+	uniqueIndex("bank_transactions_linked_expense_idx").on(table.linkedTransactionId).where(sql`${table.linkedTransactionId} IS NOT NULL`),
+]);
 
 export const bankAccounts = sqliteTable("bank_accounts", {
 	id: text("id").primaryKey(),

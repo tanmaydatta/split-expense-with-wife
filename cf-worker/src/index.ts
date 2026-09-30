@@ -21,6 +21,7 @@ import {
 import { handleHealth } from "./handlers/health";
 import { handleBankAccounts, handleBankConnections, handleBankDisconnect, handleBankExchange, handleBankInbox, handleBankLinkToken, handleBankReconnected, handleBankSelectAccount, handleBankSync } from "./handlers/bank-import";
 import { handlePlaidWebhook } from "./handlers/plaid-webhook";
+import { handleBankCandidates, handleBankCreateExpense, handleBankIgnore, handleBankLinkedIds, handleBankMatch, handleBankRestore } from "./handlers/bank-review";
 import { handleTestSeed } from "./handlers/test-seed";
 import { handleHelloWorld } from "./handlers/hello";
 import {
@@ -248,6 +249,12 @@ async function handleApiRoutes(
 		"bank-import/inbox": { methods: ["GET"], handler: handleBankInbox },
 		"bank-import/reconnected": { methods: ["POST"], handler: handleBankReconnected },
 		"bank-import/disconnect": { methods: ["POST"], handler: handleBankDisconnect },
+		"bank-import/candidates": { methods: ["GET"], handler: handleBankCandidates },
+		"bank-import/match": { methods: ["POST"], handler: handleBankMatch },
+		"bank-import/create-expense": { methods: ["POST"], handler: handleBankCreateExpense },
+		"bank-import/ignore": { methods: ["POST"], handler: handleBankIgnore },
+		"bank-import/restore": { methods: ["POST"], handler: handleBankRestore },
+		"bank-import/linked-ids": { methods: ["GET"], handler: handleBankLinkedIds },
 	};
 	const bankRoute = bankRoutes[apiPath];
 	if (bankRoute) return validateMethodAndHandle(request, env, bankRoute.methods, bankRoute.handler);

@@ -435,6 +435,61 @@ can itself be undone if needed.
 Cloudflare references: [Worker rollbacks](https://developers.cloudflare.com/workers/versions-and-deployments/rollbacks/)
 and [D1 Time Travel](https://developers.cloudflare.com/d1/reference/time-travel/).
 
+## Plaid Sandbox stack release and rollback
+
+This release is the development-only Sandbox stack `#107 → #108 → #110`.
+Production keeps `PLAID_SANDBOX_ENABLED` unset and needs no Plaid secrets. The
+production build may include the new routes and hidden UI, but `plaidEnabled`
+rejects bank operations while the flag is absent. Do not enable it as part of
+this release.
+
+Before merging, from `cf-worker`, record the UTC time, active 100% version of
+`splitexpense`, its production `DB` binding, a fresh D1 Time Travel bookmark,
+the pending migration list, and a successful `https://budget.wastd.dev/health`
+response. Keep the bookmark private. The only pending migrations should be
+`0025_plaid_sandbox.sql`, `0026_bank_accounts.sql`, and
+`0027_bank_review.sql`. Apply them **before** the first merge, confirm Wrangler
+applies them in that numeric order, then require an empty pending list and a
+healthy production Worker:
+
+```bash
+cd cf-worker
+yarn wrangler deployments status --name splitexpense --json
+yarn wrangler d1 time-travel info splitexpense -e prod --json
+yarn wrangler d1 migrations list splitexpense -e prod --remote
+curl -fsS https://budget.wastd.dev/health
+yarn wrangler d1 migrations apply splitexpense -e prod --remote
+yarn wrangler d1 migrations list splitexpense -e prod --remote
+curl -fsS https://budget.wastd.dev/health
+```
+
+These migrations add only bank tables and bank-only columns/indexes; the old
+Worker ignores them. Stop if the pending set or apply order differs, a
+migration errors, or health fails. Do not merge into an uncertain schema.
+
+Merge `#107`, then `#108`, then `#110` into `main`, one at a time. After each
+merge, ensure the next PR is based on `main`, wait for **Workers Builds:
+splitexpense** on the merged commit, and verify the active production Worker
+version changes and still binds production D1. Check health and read-only
+login, expenses, budgets, and bills paths before continuing. A green
+`splitexpense-dev` build does not prove production deployed. Also confirm the
+active production version has no `PLAID_SANDBOX_ENABLED` binding. Do not use a
+bank connection or write real app data as a smoke test.
+
+If a deployed layer regresses, stop the remaining merges and roll back Worker
+code to the recorded last healthy `splitexpense` version:
+
+```bash
+cd cf-worker
+yarn wrangler rollback VERSION_ID --name splitexpense --message "Rollback Plaid Sandbox stack" --yes
+yarn wrangler deployments status --name splitexpense --json
+curl -fsS https://budget.wastd.dev/health
+```
+
+Leave the additive D1 tables in place; a Worker rollback does not reverse
+migrations. Use D1 Time Travel restore only for confirmed data corruption and
+a separate decision about losing intervening live writes.
+
 ## CI/CD Integration
 
 Cloudflare Workers Builds deploys `main` automatically to `splitexpense` and

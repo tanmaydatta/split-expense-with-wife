@@ -23,6 +23,7 @@ import {
 	useTransactionsList,
 } from "@/hooks/useTransactions";
 import { dateToFullStr } from "@/utils/date";
+import api from "@/utils/api";
 import getSymbolFromCurrency from "currency-symbol-map";
 import React, { useEffect, useRef, useState } from "react";
 import { useSelector } from "react-redux";
@@ -36,7 +37,8 @@ import "./index.css";
 const TransactionList: React.FC<{
 	transactions: FrontendTransaction[];
 	deleteTransaction(id: string): void;
-}> = ({ transactions, deleteTransaction }) => {
+	bankLinkedIds: Set<string>;
+}> = ({ transactions, deleteTransaction, bankLinkedIds }) => {
 	const [selectedTransaction, setSelectedTransaction] =
 		useState<FrontendTransaction | null>(null);
 
@@ -85,6 +87,7 @@ const TransactionList: React.FC<{
 										<td>{dateToFullStr(new Date(transaction.date))}</td>
 										<td className="description-cell">
 											{transaction.description}
+											{bankLinkedIds.has(transaction.transactionId) && <span title="Matched to your bank activity" aria-label="Matched to your bank activity"> · Bank linked</span>}
 											{(transaction.linkedBudgetEntryIds?.length ?? 0) > 0 && (
 												<span
 													className="linked-icon"
@@ -159,7 +162,7 @@ const TransactionList: React.FC<{
 			{/* Mobile Card View */}
 			<div className="mobile-cards">
 				{transactions.map((transaction) => (
-					<TransactionCard
+						<TransactionCard
 						key={transaction.transactionId}
 						transaction={transaction}
 						isSelected={
@@ -167,7 +170,8 @@ const TransactionList: React.FC<{
 						}
 						onSelect={handleSelect}
 						onDelete={deleteTransaction}
-					>
+						>
+						{bankLinkedIds.has(transaction.transactionId) && <small>Bank linked</small>}
 						<TransactionDetails {...transaction} />
 					</TransactionCard>
 				))}
@@ -179,6 +183,13 @@ const TransactionList: React.FC<{
 
 const Transactions: React.FC = () => {
 	const [transactions, setTransactions] = useState<FrontendTransaction[]>([]);
+	const [bankLinkedIds, setBankLinkedIds] = useState<Set<string>>(new Set());
+	useEffect(() => {
+		if (!["localhost", "budget-dev.wastd.dev", "splitexpense-dev.tanmaydatta.workers.dev"].includes(window.location.hostname)) return;
+		void api.get<{ transactionIds: Array<string | null> }>("/bank-import/linked-ids")
+			.then(response => setBankLinkedIds(new Set(response.data.transactionIds.filter((id): id is string => !!id))))
+			.catch(() => undefined);
+	}, []);
 	const [searchParams, setSearchParams] = useSearchParams();
 	const q = searchParams.get("q") ?? "";
 
@@ -283,6 +294,7 @@ const Transactions: React.FC = () => {
 					<TransactionList
 						transactions={transactions}
 						deleteTransaction={handleDeleteTransaction}
+						bankLinkedIds={bankLinkedIds}
 					/>
 					<Button
 						data-test-id="show-more-button"

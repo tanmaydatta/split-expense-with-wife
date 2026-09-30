@@ -120,9 +120,9 @@ yarn lint
 
 #### Plaid Sandbox setup
 
-Bank imports use Plaid Sandbox only. Set `PLAID_CLIENT_ID`, `PLAID_SANDBOX_SECRET`, and `PLAID_TOKEN_ENCRYPTION_KEY` (a random string of at least 32 characters) as secrets in `cf-worker/.dev.vars` for local work, or with `wrangler secret put <NAME> -e dev` for the development Worker. Never commit or print their values. `PLAID_SANDBOX_ENABLED=true` is configured for local and development environments in `wrangler.toml`; the production environment does not enable it. Apply D1 migrations `0025`–`0026` locally or on development before connecting a bank. The token encryption key must remain stable or saved Item tokens cannot be decrypted.
+Bank imports use Plaid Sandbox only. Set `PLAID_CLIENT_ID`, `PLAID_SANDBOX_SECRET`, and `PLAID_TOKEN_ENCRYPTION_KEY` (a random string of at least 32 characters) as secrets in `cf-worker/.dev.vars` for local work, or with `wrangler secret put <NAME> -e dev` for the development Worker. Never commit or print their values. `PLAID_SANDBOX_ENABLED=true` is configured for local and development environments in `wrangler.toml`; the production environment does not enable it. Apply D1 migrations `0025`–`0027` locally or on development before connecting a bank. The token encryption key must remain stable or saved Item tokens cannot be decrypted.
 
-The connection and sync layers support Link exchange, selected accounts, cursor-based Transactions sync, verified Plaid webhooks on the development Worker, update-mode reconnect, and disconnect. New accounts start unselected; selecting one backfills its history, and deselecting deletes its private imported rows. Disconnecting revokes the Plaid Item and deletes its private source data. A signed permission-revoked webhook also deletes that Item’s private source data; confirmed shared expenses remain. A local Worker cannot receive Plaid webhooks directly; use **Sync now** in the UI. The webhook URL is derived from the Worker `BASE_URL` and is sent only for HTTPS environments. Plaid Sandbox test credentials are required for live Link testing; local type checks run without them. User review actions are added by the next stacked change.
+The connection and sync layers support Link exchange, selected accounts, cursor-based Transactions sync, verified Plaid webhooks on the development Worker, update-mode reconnect, and disconnect. New accounts start unselected; selecting one backfills its history, and deselecting deletes its private imported rows. Disconnecting revokes the Plaid Item and deletes its private source data while leaving confirmed shared expenses intact. A signed permission-revoked webhook also deletes that Item’s private source data. A local Worker cannot receive Plaid webhooks directly; use **Sync now** in the UI. The webhook URL is derived from the Worker `BASE_URL` and is sent only for HTTPS environments. Plaid Sandbox test credentials are required for live Link testing; local type checks run without them. Review actions are explicit: Match links an existing expense, Add creates a shared expense, and Ignore hides a bank row from the review inbox. Imports never mark bills paid or update budgets automatically.
 
 Navigate to `cf-worker/` directory:
 
@@ -138,11 +138,16 @@ yarn test
 # Run tests with coverage report
 yarn test:coverage
 
-# Deploy to development environment (includes build, tests)
+# Deploy to development environment (builds for budget-dev, runs tests, preserves Worker secrets, seeds dummy users)
 yarn deploy:dev
 
 # Deploy to production environment (includes build, tests)
 yarn deploy:prod
+
+# For a direct development Wrangler deploy, first build the UI with
+# REACT_APP_AUTH_BASE_URL=https://budget-dev.wastd.dev and
+# REACT_APP_API_BASE_URL=/.netlify/functions, then clean build/_redirects.
+# Use wrangler deploy -e dev --keep-vars to retain existing dev secrets.
 
 # TypeScript check and Biome linting
 yarn lint

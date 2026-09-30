@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, isNull, ne } from "drizzle-orm";
 import { ulid } from "ulid";
 import { z } from "zod";
 import { bankAccounts, bankConnections, bankTransactions } from "../db/schema/schema";
@@ -154,14 +154,17 @@ export async function handleBankSync(request: Request, env: Env): Promise<Respon
 export async function handleBankInbox(request: Request, env: Env): Promise<Response> {
 	if (!plaidEnabled(env)) return unavailable(request, env);
 	return withAuthLite(request, env, async (session, db) => {
+		const reviewed = new URL(request.url).searchParams.get("status") === "reviewed";
 		const rows = await db.select({
 			id: bankTransactions.id, connectionId: bankTransactions.connectionId,
 			accountId: bankTransactions.accountId, accountName: bankAccounts.name,
 			date: bankTransactions.date, name: bankTransactions.name,
 			merchantName: bankTransactions.merchantName, amountMinor: bankTransactions.amountMinor,
 			currency: bankTransactions.currency, linkedTransactionId: bankTransactions.linkedTransactionId,
+			reviewStatus: bankTransactions.reviewStatus,
 		}).from(bankTransactions).innerJoin(bankAccounts, eq(bankTransactions.accountId, bankAccounts.id))
-			.where(and(eq(bankTransactions.userId, session.user.id), eq(bankAccounts.selected, true), eq(bankTransactions.pending, false), isNull(bankTransactions.removedAt)))
+			.where(and(eq(bankTransactions.userId, session.user.id), eq(bankAccounts.selected, true), eq(bankTransactions.pending, false), isNull(bankTransactions.removedAt),
+				reviewed ? ne(bankTransactions.reviewStatus, "unreviewed") : eq(bankTransactions.reviewStatus, "unreviewed")))
 			.orderBy(desc(bankTransactions.date)).limit(100);
 		return createJsonResponse({ transactions: rows }, 200, {}, request, env);
 	});
