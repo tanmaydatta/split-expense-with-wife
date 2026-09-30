@@ -20,6 +20,7 @@ A full-stack expense splitting application built with React, Cloudflare Workers,
 - **Balance Calculation**: Real-time balance tracking between partners
 - **Authentication**: Secure PIN-based authentication
 - **Responsive Design**: Mobile-friendly interface
+- **Bank imports (development only)**: Connect a Plaid Sandbox bank for a separate review workflow. Bank activity does not change shared expenses or balances when connected.
 - **Real-time Updates**: Automatic data synchronization
 
 ## 📁 Project Structure

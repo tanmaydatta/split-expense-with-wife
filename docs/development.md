@@ -118,6 +118,12 @@ yarn lint
 
 ### Cloudflare Worker Backend
 
+#### Plaid Sandbox setup
+
+Bank imports use Plaid Sandbox only. Set `PLAID_CLIENT_ID`, `PLAID_SANDBOX_SECRET`, and `PLAID_TOKEN_ENCRYPTION_KEY` (a random string of at least 32 characters) as secrets in `cf-worker/.dev.vars` for local work, or with `wrangler secret put <NAME> -e dev` for the development Worker. Never commit or print their values. `PLAID_SANDBOX_ENABLED=true` is configured for local and development environments in `wrangler.toml`; the production environment does not enable it. Apply D1 migration `0025_plaid_sandbox` locally or on development before connecting a bank. The token encryption key must remain stable or saved Item tokens cannot be decrypted.
+
+The first slice supports the Link exchange and connection list. Transaction synchronization and review actions are added by later stacked changes. Plaid Sandbox test credentials are required for live Link testing; local type checks run without them.
+
 Navigate to `cf-worker/` directory:
 
 ```bash
