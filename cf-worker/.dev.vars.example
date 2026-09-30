@@ -11,3 +11,8 @@
 # Use any opaque value; the secret is required as the X-E2E-Seed-Secret header.
 # Never set this in production.
 E2E_SEED_SECRET=local-only-do-not-deploy
+
+# Optional Plaid Sandbox imports. Use values from the Plaid developer dashboard.
+PLAID_CLIENT_ID=replace-with-plaid-client-id
+PLAID_SANDBOX_SECRET=replace-with-plaid-sandbox-secret
+PLAID_TOKEN_ENCRYPTION_KEY=replace-with-a-random-secret-of-at-least-32-characters

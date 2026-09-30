@@ -19,6 +19,7 @@ import {
 	handleUpdateGroupMetadata,
 } from "./handlers/group";
 import { handleHealth } from "./handlers/health";
+import { handleBankConnections, handleBankExchange, handleBankLinkToken } from "./handlers/bank-import";
 import { handleTestSeed } from "./handlers/test-seed";
 import { handleHelloWorld } from "./handlers/hello";
 import {
@@ -236,6 +237,13 @@ async function handleApiRoutes(
 		"bills/reminders": { methods: ["GET"], handler: handleBillReminders },
 		"bills/reminders/read": { methods: ["POST"], handler: handleBillReminderRead },
 	};
+	const bankRoutes: Record<string, { methods: string[]; handler: (request: Request, env: Env) => Promise<Response> }> = {
+		"bank-import/link-token": { methods: ["POST"], handler: handleBankLinkToken },
+		"bank-import/exchange": { methods: ["POST"], handler: handleBankExchange },
+		"bank-import/connections": { methods: ["GET"], handler: handleBankConnections },
+	};
+	const bankRoute = bankRoutes[apiPath];
+	if (bankRoute) return validateMethodAndHandle(request, env, bankRoute.methods, bankRoute.handler);
 	const billRoute = billRoutes[apiPath];
 	if (billRoute) return validateMethodAndHandle(request, env, billRoute.methods, billRoute.handler);
 

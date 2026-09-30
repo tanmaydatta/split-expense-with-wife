@@ -1,0 +1,7 @@
+.bank-import-page { max-width: 760px; margin: 0 auto; padding: 24px; }
+.bank-import-page h1 { margin-top: 0; }
+.bank-import-page button { min-height: 44px; padding: 10px 16px; border: 0; border-radius: 8px; background: #1746a2; color: white; cursor: pointer; }
+.bank-import-page button:disabled { opacity: .6; cursor: wait; }
+.bank-import-page ul { padding: 0; list-style: none; }
+.bank-import-page li { display: flex; justify-content: space-between; gap: 16px; padding: 14px; border: 1px solid #d8e0eb; border-radius: 8px; margin-bottom: 8px; }
+.bank-import-error { color: #a51425; }

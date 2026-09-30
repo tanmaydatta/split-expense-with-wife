@@ -402,6 +402,37 @@ export const billReminders = sqliteTable(
 	],
 );
 
+// Plaid data belongs to the connecting user. Imported rows never participate in balances.
+export const bankConnections = sqliteTable("bank_connections", {
+	id: text("id").primaryKey(),
+	userId: text("user_id").notNull().references(() => user.id),
+	groupId: text("group_id").notNull().references(() => groups.groupid),
+	plaidItemId: text("plaid_item_id").notNull().unique(),
+	institutionName: text("institution_name").notNull(),
+	accessTokenEncrypted: text("access_token_encrypted").notNull(),
+	cursor: text("cursor"),
+	status: text("status", { enum: ["connected", "needs_attention", "disconnected"] }).notNull(),
+	createdAt: text("created_at").notNull(),
+	updatedAt: text("updated_at").notNull(),
+}, (table) => [index("bank_connections_user_idx").on(table.userId, table.status)]);
+
+export const bankTransactions = sqliteTable("bank_transactions", {
+	id: text("id").primaryKey(),
+	connectionId: text("connection_id").notNull().references(() => bankConnections.id),
+	userId: text("user_id").notNull().references(() => user.id),
+	accountId: text("account_id").notNull(),
+	date: text("date").notNull(),
+	name: text("name").notNull(),
+	merchantName: text("merchant_name"),
+	amountMinor: integer("amount_minor").notNull(),
+	currency: text("currency").notNull(),
+	pending: integer("pending", { mode: "boolean" }).notNull(),
+	removedAt: text("removed_at"),
+	linkedTransactionId: text("linked_transaction_id"),
+	createdAt: text("created_at").notNull(),
+	updatedAt: text("updated_at").notNull(),
+}, (table) => [index("bank_transactions_user_date_idx").on(table.userId, table.date)]);
+
 // Create schema object for Drizzle
 export const schema = {
 	user,
@@ -421,6 +452,8 @@ export const schema = {
 	bills,
 	billOccurrences,
 	billReminders,
+	bankConnections,
+	bankTransactions,
 };
 
 // Export inferred types

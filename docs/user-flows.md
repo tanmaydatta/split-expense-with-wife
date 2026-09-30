@@ -329,6 +329,12 @@ or monthly bills a three-day advance notice. Unpaid occurrences also get one
 overdue notice after their due date. Reminder delivery depends on opening the
 app; email is deferred.
 
+## Bank imports (`/bank-import`, local and development)
+
+The **Bank imports** navigation item opens Plaid Sandbox Link. A user can connect a test bank and see their own connection status. A connected bank is stored under the connecting user, even when the user belongs to a shared group. A separate review inbox will display imported transactions after synchronization is enabled. Connecting a bank never creates a shared expense, marks a bill paid, or changes balances.
+
+The feature is unavailable on the production Worker. Sandbox institutions and transactions are test data; linking a real UK bank requires a separate production Plaid arrangement.
+
 ## 9. Scheduled Actions
 
 Automate recurring expenses or budget entries (e.g., monthly rent, weekly grocery budget).

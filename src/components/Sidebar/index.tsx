@@ -97,6 +97,13 @@ function Sidebar({ onNavigate }: SidebarProps): JSX.Element {
 			>
 				Shared Bills
 			</SidebarItem>
+			{["localhost", "budget-dev.wastd.dev", "splitexpense-dev.tanmaydatta.workers.dev"].includes(window.location.hostname) && (
+				<SidebarItem type="button" $active={isActive("/bank-import")}
+					aria-current={isActive("/bank-import") ? "page" : undefined}
+					onClick={() => handleNavigate("/bank-import")} data-test-id="sidebar-bank-import">
+					Bank imports
+				</SidebarItem>
+			)}
 			<SidebarItem
 				type="button"
 				$active={isActive("/balances")}
