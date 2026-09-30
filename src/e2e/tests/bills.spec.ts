@@ -56,19 +56,22 @@ test.describe("Shared bills", () => {
 		await expect(due).toContainText("Linked expense:");
 	});
 
-	test("pick different scheduled expense and budget actions and explain payment behavior", async ({ page, seed }, testInfo) => {
+	test("pick monthly actions with different first dates and explain payment behavior", async ({ page, seed }, testInfo) => {
 		const result = await seed({ users: [factories.user({ alias: "u" })], groups: [factories.group({ alias: "g", members: ["u"], budgets: [{ alias: "b", name: "House" }] })], authenticate: ["u"] });
 		const userId = result.ids.users.u.id;
 		const cookie = result.sessions.u.cookies.map((entry) => `${entry.name}=${entry.value}`).join("; ");
 		const headers = { "Content-Type": "application/json", Cookie: cookie };
 		const groupResponse = await fetch(`${backend}/.netlify/functions/group/details`, { headers });
 		const group = await groupResponse.json() as { budgets: Array<{ id: string }> };
-		const date = new Date().toISOString().slice(0, 10);
+		const now = new Date();
+		const targetMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
+		const date = targetMonth.toISOString().slice(0, 10);
+		const expenseStartDate = new Date(Date.UTC(targetMonth.getUTCFullYear(), targetMonth.getUTCMonth() - 3, 1)).toISOString().slice(0, 10);
 		for (const action of [
-			{ actionType: "add_expense", actionData: { amount: 30, description: "Monthly phone expense", currency: "GBP", paidByUserId: userId, splitPctShares: { [userId]: 100 } } },
-			{ actionType: "add_budget", actionData: { amount: 20, description: "Monthly house credit", currency: "GBP", budgetId: group.budgets[0].id, type: "Credit" } },
+			{ actionType: "add_expense", startDate: expenseStartDate, actionData: { amount: 30, description: "Monthly phone expense", currency: "GBP", paidByUserId: userId, splitPctShares: { [userId]: 100 } } },
+			{ actionType: "add_budget", startDate: date, actionData: { amount: 20, description: "Monthly house credit", currency: "GBP", budgetId: group.budgets[0].id, type: "Credit" } },
 		]) {
-			const response = await fetch(`${backend}/.netlify/functions/scheduled-actions`, { method: "POST", headers, body: JSON.stringify({ ...action, frequency: "monthly", startDate: date }) });
+			const response = await fetch(`${backend}/.netlify/functions/scheduled-actions`, { method: "POST", headers, body: JSON.stringify({ ...action, frequency: "monthly" }) });
 			expect(response.status).toBe(201);
 		}
 		await page.goto(`/bills?month=${date.slice(0, 7)}`);
@@ -84,6 +87,7 @@ test.describe("Shared bills", () => {
 		await form.getByRole("searchbox", { name: "Search scheduled budget (optional)" }).fill("house");
 		await form.getByRole("radio", { name: /Monthly house credit/ }).check();
 		await expect(form).toContainText("Credit · 20 GBP");
+		await expect(form).toContainText("linked only on dates when both actions run");
 		if (process.env.CAPTURE_BILL_PREVIEWS) await page.screenshot({ path: `docs/previews/bill-action-pickers-${testInfo.project.name === "chromium" ? "desktop" : "mobile"}.png`, fullPage: true });
 		await form.getByRole("button", { name: "Add bill" }).click();
 		await expect(form).toBeHidden();

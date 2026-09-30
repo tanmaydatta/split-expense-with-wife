@@ -292,9 +292,10 @@ Shares must total 100%. The form uses the group's default currency and shares
 when available. Searchable pickers let you choose a group scheduled expense,
 a scheduled budget action, or both. They show amount, currency, run schedule,
 active status, and any differences from the bill. Budget actions are labelled
-Credit or Debit. When both are chosen, they must share a first date and cadence;
-their generated entries are linked on each shared run date, even if either runs
-first or both ran before the bill was linked. Scheduled actions do not confirm payment.
+Credit or Debit. When both are chosen, their generated entries are linked only
+on dates when both actions actually run, even if their first dates or repeat
+schedules differ, either runs first, or both ran before the bill was linked.
+Scheduled actions do not confirm payment.
 The picker is shown in [desktop](previews/bill-action-pickers-desktop.png) and
 [mobile](previews/bill-action-pickers-mobile.png) previews.
 Existing plans can be edited, stopped, or resumed. Editing refreshes

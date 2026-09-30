@@ -59,19 +59,13 @@ async function scheduledOutputId(db: Db, actionId: string | null | undefined, du
 	return kind === "expense" ? generateDeterministicTransactionId(actionId, dueDate) : generateDeterministicBudgetId(actionId, dueDate);
 }
 
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: validates two linked action types and their shared run schedule
 async function validateScheduledLink(db: Db, group: string, plan: Pick<Bill, "scheduledActionId" | "scheduledBudgetActionId">): Promise<string | null> {
 	const choices = [[plan.scheduledActionId, "add_expense"], [plan.scheduledBudgetActionId, "add_budget"]] as const;
-	const selected = [];
 	for (const [id, type] of choices) {
 		if (!id) continue;
 		const row = (await db.select({ action: scheduledActions, owner: user }).from(scheduledActions)
 			.innerJoin(user, eq(scheduledActions.userId, user.id)).where(eq(scheduledActions.id, id)).limit(1))[0];
 		if (!row || row.owner.groupid !== group || row.action.actionType !== type) return `Choose a scheduled ${type === "add_expense" ? "expense" : "budget"} from this group`;
-		selected.push(row.action);
-	}
-	if (selected.length === 2 && (selected[0].frequency !== selected[1].frequency || selected[0].startDate !== selected[1].startDate)) {
-		return "Selected expense and budget actions must have the same first date and repeat schedule";
 	}
 	return null;
 }
