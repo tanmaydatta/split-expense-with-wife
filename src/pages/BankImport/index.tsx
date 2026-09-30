@@ -46,6 +46,7 @@ export default function BankImport(): JSX.Element {
 	const [description, setDescription] = useState("");
 	const [shares, setShares] = useState<Record<string, number>>({});
 	const [allowPossibleDuplicate, setAllowPossibleDuplicate] = useState(false);
+	const [duplicateWarning, setDuplicateWarning] = useState(false);
 	const [saving, setSaving] = useState(false);
 
 	const members = Object.values(data?.extra?.usersById ?? {}) as Array<{ id: string; firstName: string }>;
@@ -78,6 +79,7 @@ export default function BankImport(): JSX.Element {
 		setAction(nextAction);
 		setError("");
 		setAllowPossibleDuplicate(false);
+		setDuplicateWarning(false);
 		if (nextAction === "match") {
 			try {
 				const { data } = await api.get<{ candidates: Candidate[] }>(`/bank-import/candidates?bankTransactionId=${encodeURIComponent(transaction.id)}`);
@@ -107,8 +109,10 @@ export default function BankImport(): JSX.Element {
 			setAction(null);
 			await refresh();
 		} catch (caught) {
-			const apiError = caught as { response?: { data?: { error?: string } } };
-			setError(apiError.response?.data?.error ?? "Could not review bank activity.");
+			const apiError = caught as { response?: { status?: number; data?: { error?: string } } };
+			const detail = apiError.response?.data?.error ?? "Could not review bank activity.";
+			setDuplicateWarning(kind === "create" && apiError.response?.status === 409 && detail.includes("scheduled expense"));
+			setError(detail);
 		} finally { setSaving(false); }
 	}
 
@@ -174,7 +178,7 @@ export default function BankImport(): JSX.Element {
 	}
 
 	return <BankImportView {...{ connections, accounts, transactions, loading, connecting, error, message, reviewed,
-    active, action, candidates, candidateId, description, shares, allowPossibleDuplicate, saving, members, shareTotal,
+    active, action, candidates, candidateId, description, shares, allowPossibleDuplicate, duplicateWarning, saving, members, shareTotal,
     amountText, connect, sync, selectAccount, disconnect, openReview, completeReview, setReviewed, setActive,
     setCandidateId, setDescription, setShares, setAllowPossibleDuplicate }} />;
 }
@@ -183,7 +187,7 @@ type BankImportViewProps = {
   connections: BankConnection[]; accounts: BankAccount[]; transactions: BankTransaction[];
   loading: boolean; connecting: boolean; error: string; message: string; reviewed: boolean;
   active: BankTransaction | null; action: "match" | "create" | null; candidates: Candidate[];
-  candidateId: string; description: string; shares: Record<string, number>; allowPossibleDuplicate: boolean;
+  candidateId: string; description: string; shares: Record<string, number>; allowPossibleDuplicate: boolean; duplicateWarning: boolean;
   saving: boolean; members: Array<{ id: string; firstName: string }>; shareTotal: number;
   amountText: (transaction: BankTransaction) => string;
   connect: (connectionId?: string) => Promise<void>; sync: (connectionId: string) => Promise<void>;
@@ -196,7 +200,7 @@ type BankImportViewProps = {
 };
 
 function BankImportView({ connections, accounts, transactions, loading, connecting, error, message, reviewed,
-  active, action, candidates, candidateId, description, shares, allowPossibleDuplicate, saving, members, shareTotal,
+  active, action, candidates, candidateId, description, shares, allowPossibleDuplicate, duplicateWarning, saving, members, shareTotal,
   amountText, connect, sync, selectAccount, disconnect, openReview, completeReview, setReviewed, setActive,
   setCandidateId, setDescription, setShares, setAllowPossibleDuplicate }: BankImportViewProps): JSX.Element {
 	return <main className="bank-import-page">
@@ -250,7 +254,7 @@ function BankImportView({ connections, accounts, transactions, loading, connecti
 						<input type="number" min="0" max="100" step="0.01" value={shares[member.id] ?? 0}
 							onChange={event => setShares({ ...shares, [member.id]: Number(event.target.value) })} /></label>)}
 					<p>Shares total {shareTotal.toFixed(2)}%.</p>
-					<label><input type="checkbox" checked={allowPossibleDuplicate} onChange={event => setAllowPossibleDuplicate(event.target.checked)} /> Add anyway if a nearby scheduled expense has the same amount</label>
+					{duplicateWarning && <><p id="bank-duplicate-warning">A scheduled expense may already cover this charge. Match it if it is the same purchase. For a separate purchase, confirm below.</p><label><input type="checkbox" checked={allowPossibleDuplicate} aria-describedby="bank-duplicate-warning" onChange={event => setAllowPossibleDuplicate(event.target.checked)} /> Add anyway if this is a separate purchase</label></>}
 					<button type="submit" disabled={saving || Math.abs(shareTotal - 100) > 0.001}>Confirm shared expense</button>
 					<button type="button" onClick={() => setActive(null)}>Cancel</button>
 				</form>}

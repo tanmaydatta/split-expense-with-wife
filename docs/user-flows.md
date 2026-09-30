@@ -335,6 +335,8 @@ The **Bank imports** navigation item opens Plaid Sandbox Link. A user can connec
 
 Each unreviewed posted debit offers **Match existing**, **Add shared expense**, and **Ignore**. Incoming payments and refunds can be ignored but cannot create an expense. Match lists same-amount, same-currency expenses in the group, including scheduled expenses; suggestions still require confirmation. Add prefills the bank amount, currency, merchant, payer, and group split. The user can edit the description and split before confirming. If a nearby scheduled expense has the same amount, the app warns and requires an explicit **Add anyway** choice for a separate purchase. Ignore can be restored from the Reviewed tab. A confirmed match links the bank record to an existing expense; Add creates one linked expense and changes balances. Neither action marks a bill paid or changes a budget. The Expenses page shows a small **Bank linked** label only to the connecting user.
 
+If the connecting user changes groups, Match and Add are unavailable for activity from the earlier group.
+
 The feature is unavailable on the production Worker. Sandbox institutions and transactions are test data; linking a real UK bank requires a separate production Plaid arrangement.
 
 ## 9. Scheduled Actions

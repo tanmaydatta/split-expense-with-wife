@@ -2,7 +2,7 @@ import { createExecutionContext, env as testEnv } from "cloudflare:test";
 import { eq } from "drizzle-orm";
 import worker from "../index";
 import { getDb } from "../db";
-import { bankAccounts, bankConnections, bankTransactions, transactions, userBalances } from "../db/schema/schema";
+import { bankAccounts, bankConnections, bankTransactions, groups, transactions, userBalances } from "../db/schema/schema";
 import { encryptPlaidToken } from "../utils/plaid";
 import { completeCleanupDatabase, createTestUserData, setupAndCleanDatabase, signInAndGetCookies } from "./test-utils";
 
@@ -81,5 +81,35 @@ describe("bank review confirmation", () => {
 		expect((await db.select().from(bankTransactions))[0].reviewStatus).toBe("ignored");
 		expect((await fetchRoute("restore", { bankTransactionId: "plaid_1" })).status).toBe(200);
 		expect((await db.select().from(bankTransactions))[0].reviewStatus).toBe("unreviewed");
+	});
+
+	it("deletes deselected and disconnected private imports while retaining confirmed expenses", async () => {
+		const { users, cookie, db } = await fixture();
+		await db.insert(transactions).values({ transactionId: "tx_manual", groupId: users.testGroupId,
+			description: "Coffee", amount: 12.34, currency: "GBP", createdAt: "2026-09-01 12:00:00" });
+		const call = (route: string, body: unknown) => worker.fetch(request(route, "POST", cookie, body), env, createExecutionContext());
+		expect((await call("match", { bankTransactionId: "plaid_1", transactionId: "tx_manual" })).status).toBe(200);
+		expect((await call("accounts/select", { connectionId: "bank_test", accountId: "account_1", selected: false })).status).toBe(200);
+		expect(await db.select().from(bankTransactions)).toHaveLength(0);
+		expect(await db.select().from(transactions)).toHaveLength(1);
+		vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ removed: true }), { status: 200 }));
+		expect((await call("disconnect", { connectionId: "bank_test" })).status).toBe(200);
+		expect(await db.select().from(bankAccounts)).toHaveLength(0);
+		expect(await db.select().from(bankConnections)).toHaveLength(0);
+		expect(await db.select().from(transactions)).toHaveLength(1);
+		vi.restoreAllMocks();
+	});
+
+	it("does not match or create an expense after the owner changes groups", async () => {
+		const { users, cookie, db } = await fixture();
+		await db.insert(groups).values({ groupid: "another_group", groupName: "Another group" });
+		await db.update(bankConnections).set({ groupId: "another_group" }).where(eq(bankConnections.id, "bank_test"));
+		await db.insert(transactions).values({ transactionId: "tx_manual", groupId: users.testGroupId,
+			description: "Coffee", amount: 12.34, currency: "GBP", createdAt: "2026-09-01 12:00:00" });
+		const call = (route: string, body: unknown) => worker.fetch(request(route, "POST", cookie, body), env, createExecutionContext());
+		expect((await call("match", { bankTransactionId: "plaid_1", transactionId: "tx_manual" })).status).toBe(400);
+		expect((await call("create-expense", { bankTransactionId: "plaid_1", description: "Coffee",
+			splitPctShares: { [users.user1.id]: 50, [users.user2.id]: 50 } })).status).toBe(400);
+		expect(await db.select().from(transactions)).toHaveLength(1);
 	});
 });

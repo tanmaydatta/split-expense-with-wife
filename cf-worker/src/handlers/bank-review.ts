@@ -2,7 +2,7 @@ import { and, desc, eq, isNotNull, isNull } from "drizzle-orm";
 import { z } from "zod";
 import type { SplitRequest } from "../../../shared-types";
 import type { getDb } from "../db";
-import { bankTransactions, transactions } from "../db/schema/schema";
+import { bankConnections, bankTransactions, transactions } from "../db/schema/schema";
 import { createErrorResponse, createJsonResponse, withAuth } from "../utils";
 import { createSplitTransactionFromRequest } from "../utils/scheduled-action-execution";
 import { plaidEnabled } from "../utils/plaid";
@@ -24,6 +24,12 @@ async function ownedBankRow(db: Db, bankTransactionId: string, userId: string) {
 	return (await db.select().from(bankTransactions).where(and(eq(bankTransactions.id, bankTransactionId), eq(bankTransactions.userId, userId))).limit(1))[0];
 }
 
+async function belongsToCurrentGroup(db: Db, connectionId: string, groupId: string): Promise<boolean> {
+	const rows = await db.select({ id: bankConnections.id }).from(bankConnections)
+		.where(and(eq(bankConnections.id, connectionId), eq(bankConnections.groupId, groupId))).limit(1);
+	return rows.length > 0;
+}
+
 function canReview(row: typeof bankTransactions.$inferSelect | undefined): boolean {
 	return !!row && !row.pending && !row.removedAt && !row.linkedTransactionId && row.amountMinor > 0 && row.reviewStatus === "unreviewed";
 }
@@ -37,7 +43,7 @@ export async function handleBankCandidates(request: Request, env: Env): Promise<
 	return withAuth(request, env, async (session, db) => {
 		const bankTransactionId = new URL(request.url).searchParams.get("bankTransactionId") ?? "";
 		const bank = await ownedBankRow(db, bankTransactionId, session.user.id);
-		if (!canReview(bank) || !session.group) return createErrorResponse("Bank activity cannot be reviewed", 400, request, env);
+		if (!canReview(bank) || !session.group || !await belongsToCurrentGroup(db, bank.connectionId, session.group.groupid)) return createErrorResponse("Bank activity cannot be reviewed in this group", 400, request, env);
 		const rows = await db.select({ id: transactions.transactionId, description: transactions.description,
 			amount: transactions.amount, currency: transactions.currency, date: transactions.createdAt })
 			.from(transactions).where(and(eq(transactions.groupId, session.group.groupid), eq(transactions.currency, bank.currency), isNull(transactions.deleted)))
@@ -58,6 +64,7 @@ export async function handleBankMatch(request: Request, env: Env): Promise<Respo
 		if (!parsed.success || !session.group) return createErrorResponse("Invalid match", 400, request, env);
 		const bank = await ownedBankRow(db, parsed.data.bankTransactionId, session.user.id);
 		if (!canReview(bank)) return createErrorResponse("Bank activity was already reviewed", 409, request, env);
+		if (!await belongsToCurrentGroup(db, bank.connectionId, session.group.groupid)) return createErrorResponse("Bank activity belongs to another group", 400, request, env);
 		const app = (await db.select().from(transactions).where(and(eq(transactions.transactionId, parsed.data.transactionId), eq(transactions.groupId, session.group.groupid), isNull(transactions.deleted))).limit(1))[0];
 		if (!app || app.currency !== bank.currency || Math.round(app.amount * (bank.currency === "JPY" ? 1 : 100)) !== bank.amountMinor) {
 			return createErrorResponse("Expense amount and currency must match the bank charge", 400, request, env);
@@ -109,6 +116,7 @@ export async function handleBankCreateExpense(request: Request, env: Env): Promi
 		if (!parsed.success || !session.group) return createErrorResponse("Invalid expense", 400, request, env);
 		const bank = await ownedBankRow(db, parsed.data.bankTransactionId, session.user.id);
 		if (!canReview(bank)) return createErrorResponse("Bank activity was already reviewed", 409, request, env);
+		if (!await belongsToCurrentGroup(db, bank.connectionId, session.group.groupid)) return createErrorResponse("Bank activity belongs to another group", 400, request, env);
 		const members = new Set(session.group.userids);
 		const shares = parsed.data.splitPctShares;
 		if (Object.keys(shares).length === 0 || Object.keys(shares).some(id => !members.has(id)) || Math.abs(Object.values(shares).reduce((sum, value) => sum + value, 0) - 100) > 0.001) {
