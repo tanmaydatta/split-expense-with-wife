@@ -1,9 +1,10 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import { ulid } from "ulid";
 import { z } from "zod";
-import { bankConnections } from "../db/schema/schema";
+import { bankAccounts, bankConnections, bankTransactions } from "../db/schema/schema";
 import { createErrorResponse, createJsonResponse, withAuthLite } from "../utils";
-import { encryptPlaidToken, plaidEnabled, plaidRequest } from "../utils/plaid";
+import { decryptPlaidToken, encryptPlaidToken, plaidEnabled, plaidRequest } from "../utils/plaid";
+import { refreshBankAccounts, syncBankConnection } from "../utils/plaid-sync";
 
 const ExchangeInput = z.object({
 	publicToken: z.string().min(1).max(500),
@@ -16,17 +17,29 @@ function unavailable(request: Request, env: Env): Response {
 
 export async function handleBankLinkToken(request: Request, env: Env): Promise<Response> {
 	if (!plaidEnabled(env)) return unavailable(request, env);
-	return withAuthLite(request, env, async (session) => {
+	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: update-mode guards and Plaid request handling belong to one authenticated operation
+	return withAuthLite(request, env, async (session, db) => {
 		if (!session.currentUser.groupid) return createErrorResponse("Join a group first", 400, request, env);
 		try {
-			const result = await plaidRequest<{ link_token: string }>(env, "/link/token/create", {
+			const body: Record<string, unknown> = {
 				client_name: "Split Expense Sandbox",
 				language: "en",
 				country_codes: ["GB"],
 				products: ["transactions"],
 				transactions: { days_requested: 90 },
 				user: { client_user_id: session.user.id },
-			});
+			};
+			const connectionId = new URL(request.url).searchParams.get("connectionId");
+			if (connectionId) {
+				const connection = (await db.select().from(bankConnections).where(and(eq(bankConnections.id, connectionId), eq(bankConnections.userId, session.user.id))).limit(1))[0];
+				if (!connection || connection.status === "disconnected") return createErrorResponse("Bank connection not found", 404, request, env);
+				body.access_token = await decryptPlaidToken(env, connection.accessTokenEncrypted);
+				delete body.products;
+				delete body.transactions;
+			}
+			const webhookOrigin = new URL(env.BASE_URL).origin;
+			if (webhookOrigin.startsWith("https://")) body.webhook = `${webhookOrigin}/plaid/webhook`;
+			const result = await plaidRequest<{ link_token: string }>(env, "/link/token/create", body);
 			return createJsonResponse({ linkToken: result.link_token }, 200, {}, request, env);
 		} catch (error) {
 			console.error("Plaid Link token creation failed", error instanceof Error ? error.message : "unknown");
@@ -64,11 +77,114 @@ export async function handleBankExchange(request: Request, env: Env): Promise<Re
 				createdAt: now,
 				updatedAt: now,
 			});
+			const saved = (await db.select().from(bankConnections).where(eq(bankConnections.id, id)).limit(1))[0];
+			if (saved) {
+				try {
+					await refreshBankAccounts(env, db, saved);
+					await syncBankConnection(env, db, saved);
+				} catch (syncError) {
+					console.warn("Initial Plaid sync deferred", syncError instanceof Error ? syncError.message : "unknown");
+				}
+			}
 			return createJsonResponse({ id }, 201, {}, request, env);
 		} catch (error) {
 			console.error("Plaid exchange failed", error instanceof Error ? error.message : "unknown");
 			return createErrorResponse("Could not save bank connection", 502, request, env);
 		}
+	});
+}
+
+const ConnectionInput = z.object({ connectionId: z.string().min(1).max(100) });
+const SelectInput = ConnectionInput.extend({ accountId: z.string().min(1).max(200), selected: z.boolean() });
+
+export async function handleBankAccounts(request: Request, env: Env): Promise<Response> {
+	if (!plaidEnabled(env)) return unavailable(request, env);
+	return withAuthLite(request, env, async (session, db) => {
+		const connectionId = new URL(request.url).searchParams.get("connectionId") ?? "";
+		const connection = (await db.select().from(bankConnections).where(and(eq(bankConnections.id, connectionId), eq(bankConnections.userId, session.user.id))).limit(1))[0];
+		if (!connection) return createErrorResponse("Bank connection not found", 404, request, env);
+		const accounts = await db.select().from(bankAccounts).where(eq(bankAccounts.connectionId, connection.id));
+		return createJsonResponse({ accounts }, 200, {}, request, env);
+	});
+}
+
+export async function handleBankSelectAccount(request: Request, env: Env): Promise<Response> {
+	if (!plaidEnabled(env)) return unavailable(request, env);
+	return withAuthLite(request, env, async (session, db) => {
+		const parsed = SelectInput.safeParse(await request.json());
+		if (!parsed.success) return createErrorResponse("Invalid account selection", 400, request, env);
+		const connection = (await db.select().from(bankConnections).where(and(eq(bankConnections.id, parsed.data.connectionId), eq(bankConnections.userId, session.user.id))).limit(1))[0];
+		if (!connection) return createErrorResponse("Bank connection not found", 404, request, env);
+		const updated = await db.update(bankAccounts).set({ selected: parsed.data.selected }).where(and(eq(bankAccounts.id, parsed.data.accountId), eq(bankAccounts.connectionId, connection.id))).returning({ id: bankAccounts.id });
+		if (!updated.length) return createErrorResponse("Bank account not found", 404, request, env);
+		return createJsonResponse({ selected: parsed.data.selected }, 200, {}, request, env);
+	});
+}
+
+export async function handleBankSync(request: Request, env: Env): Promise<Response> {
+	if (!plaidEnabled(env)) return unavailable(request, env);
+	return withAuthLite(request, env, async (session, db) => {
+		const parsed = ConnectionInput.safeParse(await request.json());
+		if (!parsed.success) return createErrorResponse("Invalid bank connection", 400, request, env);
+		const connection = (await db.select().from(bankConnections).where(and(eq(bankConnections.id, parsed.data.connectionId), eq(bankConnections.userId, session.user.id))).limit(1))[0];
+		if (!connection) return createErrorResponse("Bank connection not found", 404, request, env);
+		try {
+			await refreshBankAccounts(env, db, connection);
+			const counts = await syncBankConnection(env, db, connection);
+			return createJsonResponse(counts, 200, {}, request, env);
+		} catch (error) {
+			console.error("Plaid sync failed", error instanceof Error ? error.message : "unknown");
+			return createErrorResponse("Could not sync bank activity", 502, request, env);
+		}
+	});
+}
+
+export async function handleBankInbox(request: Request, env: Env): Promise<Response> {
+	if (!plaidEnabled(env)) return unavailable(request, env);
+	return withAuthLite(request, env, async (session, db) => {
+		const rows = await db.select({
+			id: bankTransactions.id, connectionId: bankTransactions.connectionId,
+			accountId: bankTransactions.accountId, accountName: bankAccounts.name,
+			date: bankTransactions.date, name: bankTransactions.name,
+			merchantName: bankTransactions.merchantName, amountMinor: bankTransactions.amountMinor,
+			currency: bankTransactions.currency, linkedTransactionId: bankTransactions.linkedTransactionId,
+		}).from(bankTransactions).innerJoin(bankAccounts, eq(bankTransactions.accountId, bankAccounts.id))
+			.where(and(eq(bankTransactions.userId, session.user.id), eq(bankAccounts.selected, true), eq(bankTransactions.pending, false), isNull(bankTransactions.removedAt)))
+			.orderBy(desc(bankTransactions.date)).limit(100);
+		return createJsonResponse({ transactions: rows }, 200, {}, request, env);
+	});
+}
+
+export async function handleBankReconnected(request: Request, env: Env): Promise<Response> {
+	if (!plaidEnabled(env)) return unavailable(request, env);
+	return withAuthLite(request, env, async (session, db) => {
+		const parsed = ConnectionInput.safeParse(await request.json());
+		if (!parsed.success) return createErrorResponse("Invalid bank connection", 400, request, env);
+		const connection = (await db.select().from(bankConnections).where(and(eq(bankConnections.id, parsed.data.connectionId), eq(bankConnections.userId, session.user.id))).limit(1))[0];
+		if (!connection || connection.status === "disconnected") return createErrorResponse("Bank connection not found", 404, request, env);
+		await db.update(bankConnections).set({ status: "connected", updatedAt: new Date().toISOString() }).where(eq(bankConnections.id, connection.id));
+		return createJsonResponse({ status: "connected" }, 200, {}, request, env);
+	});
+}
+
+export async function handleBankDisconnect(request: Request, env: Env): Promise<Response> {
+	if (!plaidEnabled(env)) return unavailable(request, env);
+	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: revoke first, then clear locally only after Plaid confirms
+	return withAuthLite(request, env, async (session, db) => {
+		const parsed = ConnectionInput.safeParse(await request.json());
+		if (!parsed.success) return createErrorResponse("Invalid bank connection", 400, request, env);
+		const connection = (await db.select().from(bankConnections).where(and(eq(bankConnections.id, parsed.data.connectionId), eq(bankConnections.userId, session.user.id))).limit(1))[0];
+		if (!connection) return createErrorResponse("Bank connection not found", 404, request, env);
+		if (connection.status !== "disconnected") {
+			try {
+				await plaidRequest(env, "/item/remove", { access_token: await decryptPlaidToken(env, connection.accessTokenEncrypted) });
+			} catch (error) {
+				console.error("Plaid disconnect failed", error instanceof Error ? error.message : "unknown");
+				return createErrorResponse("Could not disconnect bank", 502, request, env);
+			}
+		}
+		await db.update(bankConnections).set({ status: "disconnected", accessTokenEncrypted: "", cursor: null, updatedAt: new Date().toISOString() }).where(eq(bankConnections.id, connection.id));
+		return createJsonResponse({ status: "disconnected" }, 200, {}, request, env);
 	});
 }
 

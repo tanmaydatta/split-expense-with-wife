@@ -19,7 +19,8 @@ import {
 	handleUpdateGroupMetadata,
 } from "./handlers/group";
 import { handleHealth } from "./handlers/health";
-import { handleBankConnections, handleBankExchange, handleBankLinkToken } from "./handlers/bank-import";
+import { handleBankAccounts, handleBankConnections, handleBankDisconnect, handleBankExchange, handleBankInbox, handleBankLinkToken, handleBankReconnected, handleBankSelectAccount, handleBankSync } from "./handlers/bank-import";
+import { handlePlaidWebhook } from "./handlers/plaid-webhook";
 import { handleTestSeed } from "./handlers/test-seed";
 import { handleHelloWorld } from "./handlers/hello";
 import {
@@ -241,6 +242,12 @@ async function handleApiRoutes(
 		"bank-import/link-token": { methods: ["POST"], handler: handleBankLinkToken },
 		"bank-import/exchange": { methods: ["POST"], handler: handleBankExchange },
 		"bank-import/connections": { methods: ["GET"], handler: handleBankConnections },
+		"bank-import/accounts": { methods: ["GET"], handler: handleBankAccounts },
+		"bank-import/accounts/select": { methods: ["POST"], handler: handleBankSelectAccount },
+		"bank-import/sync": { methods: ["POST"], handler: handleBankSync },
+		"bank-import/inbox": { methods: ["GET"], handler: handleBankInbox },
+		"bank-import/reconnected": { methods: ["POST"], handler: handleBankReconnected },
+		"bank-import/disconnect": { methods: ["POST"], handler: handleBankDisconnect },
 	};
 	const bankRoute = bankRoutes[apiPath];
 	if (bankRoute) return validateMethodAndHandle(request, env, bankRoute.methods, bankRoute.handler);
@@ -283,6 +290,7 @@ async function handleStaticAssets(
 }
 
 export default {
+	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: routing priorities are intentionally explicit
 	async fetch(
 		request: Request,
 		env: Env,
@@ -300,6 +308,7 @@ export default {
 		if (path === "/health") {
 			return await handleHealth(request, env);
 		}
+		if (path === "/plaid/webhook") return handlePlaidWebhook(request, env);
 
 		// Priority 0.5: Handle /test/seed endpoint for E2E test fixture seeding
 		if (path === "/test/seed") {

@@ -183,6 +183,13 @@
 			"when": 1790640000004,
 			"tag": "0025_plaid_sandbox",
 			"breakpoints": true
+		},
+		{
+			"idx": 24,
+			"version": "6",
+			"when": 1790640000003,
+			"tag": "0024_bank_accounts",
+			"breakpoints": true
 		}
 	]
 }
