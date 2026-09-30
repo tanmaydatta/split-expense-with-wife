@@ -138,11 +138,16 @@ yarn test
 # Run tests with coverage report
 yarn test:coverage
 
-# Deploy to development environment (includes build, tests)
+# Deploy to development environment (builds for budget-dev, runs tests, preserves Worker secrets, seeds dummy users)
 yarn deploy:dev
 
 # Deploy to production environment (includes build, tests)
 yarn deploy:prod
+
+# For a direct development Wrangler deploy, first build the UI with
+# REACT_APP_AUTH_BASE_URL=https://budget-dev.wastd.dev and
+# REACT_APP_API_BASE_URL=/.netlify/functions, then clean build/_redirects.
+# Use wrangler deploy -e dev --keep-vars to retain existing dev secrets.
 
 # TypeScript check and Biome linting
 yarn lint
