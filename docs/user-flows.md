@@ -200,8 +200,11 @@ Table/list of all entries for the selected budget:
 - Date, Description, Amount, Currency
 - A link icon (🔗) appears on entries that have a linked expense transaction
 - Click to expand for details; expanded view shows a "View linked transaction" link when a link exists → `/transaction/:id`
+- On mobile, tap a budget entry card to open its detail page at `/budget-entry/:id`. The Delete button is a separate control on the card.
 - Red trash icon to delete entries
 - "Show more" for pagination
+
+![Mobile budget entry with separate View details and Delete controls](images/mobile-budget-entry-card.png)
 
 ### Budget Entry Detail Page (`/budget-entry/:id`)
 Full detail view for a single budget entry:

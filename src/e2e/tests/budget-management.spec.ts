@@ -655,6 +655,52 @@ test.describe("Budget Management", () => {
 		await budgetHelper.verifyBudgetDataDisplay();
 	});
 
+	test("mobile budget card opens details while Delete stays separate", async (
+		{ seed, page },
+		testInfo,
+	) => {
+		test.skip(testInfo.project.name !== "Mobile Chrome", "Mobile Chrome only");
+		await seedBudgetAuthedPage(seed, page);
+		const budgetHelper = new BudgetTestHelper(page);
+		await budgetHelper.navigateToPage("Add");
+		const entry = await budgetHelper.addBudgetEntry(
+			{ name: "house", amount: 50, currency: "USD" },
+			"Credit",
+		);
+
+		await budgetHelper.navigateToPage("Budget");
+		await budgetHelper.selectBudgetCategory("house");
+		const card = page
+			.getByTestId("mobile-cards")
+			.getByTestId("budget-entry-card")
+			.filter({ hasText: entry.description });
+		const detailsLink = card.getByTestId("budget-entry-link");
+		const deleteButton = card.getByRole("button", {
+			name: "Delete budget entry",
+		});
+		await expect(detailsLink).toBeVisible();
+		await expect(deleteButton).toBeVisible();
+		await expect(detailsLink.locator("button")).toHaveCount(0);
+		await testInfo.attach("mobile-budget-card", {
+			body: await page.screenshot(),
+			contentType: "image/png",
+		});
+		await detailsLink.tap();
+		await expect(page).toHaveURL(/\/budget-entry\/[^/]+$/);
+		await expect(page.getByTestId("budget-entry-detail-page")).toContainText(
+			entry.description,
+		);
+
+		await page.getByTestId("back-link").click();
+		await expect(page).toHaveURL(/\/budget$/);
+		await budgetHelper.selectBudgetCategory("house");
+		await card.getByRole("button", { name: "Delete budget entry" }).tap();
+		await expect(page).toHaveURL(/\/budget$/);
+		await expect(page.getByTestId("success-container")).toContainText(
+			"Successfully deleted budget entry",
+		);
+	});
+
 	test("should handle budget page navigation with URL parameters", async ({
 		seed,
 		page,
