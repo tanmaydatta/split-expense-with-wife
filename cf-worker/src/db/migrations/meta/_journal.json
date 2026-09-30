@@ -185,10 +185,10 @@
 			"breakpoints": true
 		},
 		{
-			"idx": 24,
+			"idx": 26,
 			"version": "6",
-			"when": 1790640000003,
-			"tag": "0024_bank_accounts",
+			"when": 1790640000005,
+			"tag": "0026_bank_accounts",
 			"breakpoints": true
 		}
 	]
