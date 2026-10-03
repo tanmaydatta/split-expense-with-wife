@@ -24,3 +24,32 @@ The in-app reminder panel is shown on [desktop](previews/bills-reminders-desktop
 Shared `Button`, `Card`, `Input`, `Select`, and `Table` now use the same palette and focus styles as the new UI layer, giving the dashboard, expenses, budget, balances, settings, and auth screens a common foundation. Their page-specific spacing and dense layouts can be refined in later passes.
 
 Use Radix only for interactions that need its managed semantics and focus. Keep data visualizations and simple HTML form controls native. Each migration should update its user-flow documentation and run local component and browser tests at desktop and mobile widths.
+
+
+## Budget and expense list filters
+
+Search stays visible above a native **Filters** disclosure. Desktop starts with
+filters expanded; mobile starts collapsed. Its active count and **Clear all**
+control make the filtered state visible. Clear all keeps the chosen budget.
+Filters remain available while results load, and changing filters starts a new
+first page. URL parameters preserve filters, budget selection, refresh, and
+browser back/forward navigation. Existing `q` search URLs still work.
+
+Dates use the stored entry's UTC calendar date, with both bounds included.
+**Total amount** compares the magnitude of the whole entry, in its original
+currency; budget credit/debit signs do not affect the range. Choose currency to
+compare like amounts; no conversion occurs. Budget direction is Credit or Debit.
+Expense direction is **You are owed**, **You owe**, or **No net balance**, based
+on the signed-in user's net share when the transaction was created, rounded to
+the existing two-decimal display. This is historical contribution, not payment
+status. **Budget left** remains a lifetime total independent of filters.
+
+Sort by newest/oldest or total amount low/high; stable ID ties prevent duplicates
+between pages. Invalid date or amount ranges show an inline message. A filtered
+empty list offers Clear all; pagination errors keep the list and offer retry via
+Show more. Detail and delete interactions remain available in filtered results.
+
+Local synthetic example screenshots: [Budget desktop](images/budget-list-filters-desktop.png),
+[Budget mobile](images/budget-list-filters-mobile.png),
+[Expenses desktop](images/expense-list-filters-desktop.png), and
+[Expenses mobile](images/expense-list-filters-mobile.png).

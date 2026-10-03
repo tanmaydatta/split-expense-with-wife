@@ -7,7 +7,8 @@ import {
 	ErrorContainer,
 	SuccessContainer,
 } from "@/components/MessageContainer";
-import { SearchInput } from "@/components/SearchInput";
+import { FinanceListFilters } from "@/components/FinanceListFilters";
+import { useFinanceListFilters } from "@/hooks/useFinanceListFilters";
 import { SelectBudget } from "@/SelectBudget";
 import {
 	useBudgetTotal,
@@ -18,15 +19,19 @@ import {
 import { useEffect, useRef, useState, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useSelector } from "react-redux";
-import { BudgetEntry, ReduxState } from "split-expense-shared-types";
+import {
+	BudgetEntry,
+	BudgetListRequest,
+	ReduxState,
+} from "split-expense-shared-types";
 import BudgetTable from "./BudgetTable";
 import "./index.css";
 
-export const Budget: React.FC = () => {
-	const [budget, setBudget] = useState("");
+function useBudgetPage() {
 	const [budgetHistory, setBudgetHistory] = useState<BudgetEntry[]>([]);
 	const [searchParams, setSearchParams] = useSearchParams();
-	const q = searchParams.get("q") ?? "";
+	const filterState = useFinanceListFilters(["all", "credit", "debit"]);
+	const q = filterState.filters.q ?? "";
 
 	const data = useSelector((state: ReduxState) => state.value);
 	const budgets = useMemo(
@@ -34,69 +39,165 @@ export const Budget: React.FC = () => {
 		[data?.extra?.group?.budgets],
 	);
 
+	const selectedBudget = searchParams.get("budget");
+	const budget = budgets.some((b) => b.id === selectedBudget)
+		? selectedBudget!
+		: (budgets[0]?.id ?? "");
+	const sessionContext = `${data?.user?.id ?? ""}:${data?.extra?.group?.groupid ?? ""}`;
+	const filters = filterState.filters as Omit<
+		BudgetListRequest,
+		"offset" | "budgetId"
+	>;
+	const listKey = `${budget}:${sessionContext}:${filterState.key}`;
+	const currentKey = useRef(listKey);
+	const listGeneration = useRef(0);
+	if (currentKey.current !== listKey) listGeneration.current++;
+	currentKey.current = listKey;
+	const [loadMoreError, setLoadMoreError] = useState("");
+	const [loadingMore, setLoadingMore] = useState(false);
+	const [hasMore, setHasMore] = useState(true);
+
 	const budgetTotalQuery = useBudgetTotal(budget);
-	const budgetHistoryQuery = useInfiniteBudgetHistory(budget, q);
+	const budgetHistoryQuery = useInfiniteBudgetHistory(
+		budget,
+		q,
+		25,
+		filters,
+		sessionContext,
+		!filterState.error,
+	);
 	const deleteBudgetMutation = useDeleteBudgetEntry();
 	const loadMoreHistory = useLoadMoreBudgetHistory();
 
 	const navigate = useNavigate();
 
-	// Track the last q+budget combo we've synced into local state so that a
-	// stale cache hit for the same key doesn't get overwritten by the reset
-	// effect that fires in the same render cycle (mirrors the Transactions page
-	// pattern with lastSyncedQRef).
+	// Keep the first page distinct from the locally accumulated history.
 	const lastSyncedKeyRef = useRef<string | null>(null);
 
 	const handleChangeBudget = (val: string) => {
-		setBudget(val);
-		// Clear q whenever the selected budget changes
-		const params = new URLSearchParams(searchParams);
-		params.delete("q");
-		setSearchParams(params, { replace: true });
+		setSearchParams((previous) => {
+			const params = new URLSearchParams(previous);
+			params.set("budget", val);
+			return params;
+		});
 	};
 
-	const handleSetQ = (next: string) => {
-		const params = new URLSearchParams(searchParams);
-		if (next) params.set("q", next);
-		else params.delete("q");
-		setSearchParams(params, { replace: true });
-	};
-
-	useEffect(() => {
-		if (budgets.length > 0 && !budget) {
-			setBudget(budgets[0].id);
-		}
-	}, [budgets, budget]);
-
-	// Reset accumulated history when q or budget changes (provides clean visual
-	// during refetch). Must run BEFORE the data-sync effect (declaration order).
+	// Reset before syncing the new first page when filters or budget change.
 	useEffect(() => {
 		setBudgetHistory([]);
 		lastSyncedKeyRef.current = null;
-	}, [q, budget]);
+		setHasMore(true);
+		setLoadingMore(false);
+		setLoadMoreError("");
+	}, [listKey]);
 
 	useEffect(() => {
-		const key = `${budget}:${q}`;
+		const key = listKey;
 		if (budgetHistoryQuery.data && lastSyncedKeyRef.current !== key) {
 			setBudgetHistory(budgetHistoryQuery.data);
 			lastSyncedKeyRef.current = key;
+			setHasMore(budgetHistoryQuery.data.length === 5);
 		}
-	}, [budgetHistoryQuery.data, budget, q]);
+	}, [budgetHistoryQuery.data, listKey]);
 
 	const handleDeleteBudgetEntry = (id: string) => {
-		deleteBudgetMutation.mutate(id);
+		const requestKey = listKey;
+		const requestGeneration = listGeneration.current;
+		deleteBudgetMutation.mutate(id, {
+			onSuccess: () => {
+				if (
+					currentKey.current !== requestKey ||
+					listGeneration.current !== requestGeneration
+				)
+					return;
+				setBudgetHistory((entries) =>
+					entries.filter((entry) => entry.id !== id),
+				);
+				lastSyncedKeyRef.current = null;
+				void budgetHistoryQuery.refetch();
+			},
+		});
 	};
 
 	const handleLoadMoreHistory = async () => {
+		const requestKey = listKey;
+		const requestGeneration = listGeneration.current;
 		try {
-			const newEntries = await loadMoreHistory(budget, budgetHistory, q);
+			setLoadingMore(true);
+			setLoadMoreError("");
+			const newEntries = await loadMoreHistory(
+				budget,
+				budgetHistory,
+				q,
+				filters,
+				sessionContext,
+			);
+			if (
+				currentKey.current !== requestKey ||
+				listGeneration.current !== requestGeneration
+			)
+				return;
+			setHasMore(newEntries.length === 5);
 			if (newEntries && newEntries.length > 0) {
 				setBudgetHistory((prev) => [...prev, ...newEntries]);
 			}
 		} catch (error) {
-			console.error("Error loading more history:", error);
+			if (
+				currentKey.current !== requestKey ||
+				listGeneration.current !== requestGeneration
+			)
+				return;
+			setLoadMoreError(
+				error instanceof Error
+					? error.message
+					: "Could not load more budget entries. Try again.",
+			);
+		} finally {
+			if (
+				currentKey.current === requestKey &&
+				listGeneration.current === requestGeneration
+			)
+				setLoadingMore(false);
 		}
 	};
+
+	return {
+		budget,
+		budgetHistory,
+		filterState,
+		data,
+		budgetTotalQuery,
+		budgetHistoryQuery,
+		deleteBudgetMutation,
+		handleChangeBudget,
+		handleDeleteBudgetEntry,
+		handleLoadMoreHistory,
+		hasMore,
+		loadingMore,
+		loadMoreError,
+		setLoadMoreError,
+		navigate,
+	};
+}
+
+export const Budget: React.FC = () => {
+	const {
+		budget,
+		budgetHistory,
+		filterState,
+		data,
+		budgetTotalQuery,
+		budgetHistoryQuery,
+		deleteBudgetMutation,
+		handleChangeBudget,
+		handleDeleteBudgetEntry,
+		handleLoadMoreHistory,
+		hasMore,
+		loadingMore,
+		loadMoreError,
+		setLoadMoreError,
+		navigate,
+	} = useBudgetPage();
 
 	const isLoading =
 		budgetTotalQuery.isLoading ||
@@ -115,13 +216,18 @@ export const Budget: React.FC = () => {
 
 	const budgetsLeft = budgetTotalQuery.data || [];
 	const showEmptyState =
-		!isLoading && q.length > 0 && budgetHistory.length === 0;
+		!isLoading &&
+		!filterState.error &&
+		filterState.activeCount > 0 &&
+		budgetHistory.length === 0;
 
 	return (
 		<div className="budget-container" data-test-id="budget-container">
 			<header>
 				<UiPageTitle>Budget</UiPageTitle>
-				<UiPageDescription>See what remains and review entries by category.</UiPageDescription>
+				<UiPageDescription>
+					See what remains and review entries by category.
+				</UiPageDescription>
 			</header>
 			{error && (
 				<ErrorContainer
@@ -137,11 +243,20 @@ export const Budget: React.FC = () => {
 				/>
 			)}
 
+			{loadMoreError && (
+				<ErrorContainer
+					message={loadMoreError}
+					onClose={() => setLoadMoreError("")}
+				/>
+			)}
 			{isLoading && <Loader />}
-			{!isLoading && (
+			{
 				<>
 					<Card className="budget-card">
 						<h3>Budget left</h3>
+						<p className="finance-filter-help">
+							Lifetime total · unaffected by list filters
+						</p>
 						<AmountGrid amounts={budgetsLeft} />
 					</Card>
 					<SelectBudget
@@ -151,26 +266,33 @@ export const Budget: React.FC = () => {
 					<Button onClick={() => navigate(`/monthly-budget/${budget}`)}>
 						View Monthly Budget Breakdown
 					</Button>
-					<SearchInput
-						value={q}
-						onDebouncedChange={handleSetQ}
-						placeholder="Search this budget by description"
+					<FinanceListFilters
+						state={filterState}
+						currencies={data?.extra?.currencies ?? ["GBP", "USD", "EUR"]}
+						kind="budget"
 					/>
-					{!showEmptyState && (
+					{!showEmptyState && !isLoading && !filterState.error && (
 						<>
 							<BudgetTable
 								entries={budgetHistory}
 								onDelete={handleDeleteBudgetEntry}
 							/>
-							<Button onClick={handleLoadMoreHistory}>Show more</Button>
+							{hasMore && (
+								<Button disabled={loadingMore} onClick={handleLoadMoreHistory}>
+									{loadingMore ? "Loading…" : "Show more"}
+								</Button>
+							)}
 						</>
 					)}
 					{showEmptyState && (
-						<div data-test-id="search-empty-state" style={{ padding: "24px 0" }}>
-							No matches for "{q}".{" "}
+						<div
+							data-test-id="search-empty-state"
+							style={{ padding: "24px 0" }}
+						>
+							No budget entries match these filters.{" "}
 							<button
 								type="button"
-								onClick={() => handleSetQ("")}
+								onClick={filterState.clear}
 								style={{
 									background: "none",
 									border: "none",
@@ -179,12 +301,12 @@ export const Budget: React.FC = () => {
 									padding: 0,
 								}}
 							>
-								Clear search
+								Clear all filters
 							</button>
 						</div>
 					)}
 				</>
-			)}
+			}
 		</div>
 	);
 };

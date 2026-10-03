@@ -17,6 +17,7 @@ A full-stack expense splitting application built with React, Cloudflare Workers,
 
 - **Expense Tracking**: Add, edit, and delete shared expenses
 - **Budget Management**: Set and monitor monthly budgets
+- **Finance list filters**: Search Budget and Expenses by text, inclusive UTC dates, total amount, original currency and direction; sort by date or amount. Filters and selected budgets survive refresh and browser navigation.
 - **Balance Calculation**: Real-time balance tracking between partners
 - **Authentication**: Secure PIN-based authentication
 - **Responsive Design**: Mobile-friendly interface

@@ -13,7 +13,8 @@ import {
 	ErrorContainer,
 	SuccessContainer,
 } from "@/components/MessageContainer";
-import { SearchInput } from "@/components/SearchInput";
+import { FinanceListFilters } from "@/components/FinanceListFilters";
+import { useFinanceListFilters } from "@/hooks/useFinanceListFilters";
 import { Table, TableWrapper } from "@/components/Table";
 import { TransactionCard } from "@/components/TransactionCard";
 import { TransactionDetails } from "@/components/TransactionDetails";
@@ -27,10 +28,11 @@ import api from "@/utils/api";
 import getSymbolFromCurrency from "currency-symbol-map";
 import React, { useEffect, useRef, useState } from "react";
 import { useSelector } from "react-redux";
-import { useSearchParams } from "react-router-dom";
+
 import type {
 	FrontendTransaction,
 	ReduxState,
+	TransactionsListRequest,
 } from "split-expense-shared-types";
 import "./index.css";
 
@@ -87,7 +89,15 @@ const TransactionList: React.FC<{
 										<td>{dateToFullStr(new Date(transaction.date))}</td>
 										<td className="description-cell">
 											{transaction.description}
-											{bankLinkedIds.has(transaction.transactionId) && <span title="Matched to your bank activity" aria-label="Matched to your bank activity"> · Bank linked</span>}
+											{bankLinkedIds.has(transaction.transactionId) && (
+												<span
+													title="Matched to your bank activity"
+													aria-label="Matched to your bank activity"
+												>
+													{" "}
+													· Bank linked
+												</span>
+											)}
 											{(transaction.linkedBudgetEntryIds?.length ?? 0) > 0 && (
 												<span
 													className="linked-icon"
@@ -162,7 +172,7 @@ const TransactionList: React.FC<{
 			{/* Mobile Card View */}
 			<div className="mobile-cards">
 				{transactions.map((transaction) => (
-						<TransactionCard
+					<TransactionCard
 						key={transaction.transactionId}
 						transaction={transaction}
 						isSelected={
@@ -170,8 +180,10 @@ const TransactionList: React.FC<{
 						}
 						onSelect={handleSelect}
 						onDelete={deleteTransaction}
-						>
-						{bankLinkedIds.has(transaction.transactionId) && <small>Bank linked</small>}
+					>
+						{bankLinkedIds.has(transaction.transactionId) && (
+							<small>Bank linked</small>
+						)}
 						<TransactionDetails {...transaction} />
 					</TransactionCard>
 				))}
@@ -180,93 +192,212 @@ const TransactionList: React.FC<{
 	);
 };
 
-
-const Transactions: React.FC = () => {
-	const [transactions, setTransactions] = useState<FrontendTransaction[]>([]);
+function useBankLinkedIds() {
 	const [bankLinkedIds, setBankLinkedIds] = useState<Set<string>>(new Set());
 	useEffect(() => {
-		if (!["localhost", "budget-dev.wastd.dev", "splitexpense-dev.tanmaydatta.workers.dev"].includes(window.location.hostname)) return;
-		void api.get<{ transactionIds: Array<string | null> }>("/bank-import/linked-ids")
-			.then(response => setBankLinkedIds(new Set(response.data.transactionIds.filter((id): id is string => !!id))))
+		if (
+			![
+				"localhost",
+				"budget-dev.wastd.dev",
+				"splitexpense-dev.tanmaydatta.workers.dev",
+			].includes(window.location.hostname)
+		)
+			return;
+		void api
+			.get<{ transactionIds: Array<string | null> }>("/bank-import/linked-ids")
+			.then((response) =>
+				setBankLinkedIds(
+					new Set(
+						response.data.transactionIds.filter((id): id is string => !!id),
+					),
+				),
+			)
 			.catch(() => undefined);
 	}, []);
-	const [searchParams, setSearchParams] = useSearchParams();
-	const q = searchParams.get("q") ?? "";
+	return bankLinkedIds;
+}
+
+function useTransactionsPage() {
+	const [transactions, setTransactions] = useState<FrontendTransaction[]>([]);
+	const bankLinkedIds = useBankLinkedIds();
+	const filterState = useFinanceListFilters(["all", "owed", "owe", "zero"]);
+	const q = filterState.filters.q;
 
 	const data = useSelector((state: ReduxState) => state.value);
 
-	const infiniteTransactions = useInfiniteTransactionsList(data?.user?.id, q);
-	const initialTransactionsQuery = useTransactionsList(0, data?.user?.id, q);
+	const sessionContext = `${data?.user?.id ?? ""}:${data?.extra?.group?.groupid ?? ""}`;
+	const filters = filterState.filters as Omit<
+		TransactionsListRequest,
+		"offset"
+	>;
+	const listKey = `${sessionContext}:${filterState.key}`;
+	const currentKey = useRef(listKey);
+	const listGeneration = useRef(0);
+	if (currentKey.current !== listKey) listGeneration.current++;
+	currentKey.current = listKey;
+	const [loadMoreError, setLoadMoreError] = useState("");
+	const [loadingMore, setLoadingMore] = useState(false);
+	const [hasMore, setHasMore] = useState(true);
+	const infiniteTransactions = useInfiniteTransactionsList(
+		data?.user?.id,
+		q,
+		filters,
+		sessionContext,
+	);
+	const initialTransactionsQuery = useTransactionsList(
+		0,
+		data?.user?.id,
+		q,
+		filters,
+		sessionContext,
+		!filterState.error,
+	);
 	const deleteTransactionMutation = useDeleteTransaction();
 
-	// Track the last q value we've synced into local state. This lets us
-	// re-populate on every successful fetch for the current q (including
-	// delete-triggered refetches) while still resetting when q changes.
+	// Sync the first page once per filter set while retaining loaded pages.
 	const lastSyncedQRef = useRef<string | null>(null);
 
-	// Reset accumulated list when q changes (provides clean visual during refetch)
+	// Reset before syncing results for a new filter set or session.
 	useEffect(() => {
 		setTransactions([]);
-	}, [q]);
+		lastSyncedQRef.current = null;
+		setHasMore(true);
+		setLoadingMore(false);
+		setLoadMoreError("");
+	}, [listKey]);
 
 	useEffect(() => {
 		if (
 			initialTransactionsQuery.isSuccess &&
 			initialTransactionsQuery.data &&
-			lastSyncedQRef.current !== q
+			lastSyncedQRef.current !== listKey
 		) {
 			setTransactions(initialTransactionsQuery.data);
-			lastSyncedQRef.current = q;
+			lastSyncedQRef.current = listKey;
+			setHasMore(initialTransactionsQuery.data.length === 10);
 		}
-	}, [initialTransactionsQuery.data, initialTransactionsQuery.isSuccess, q]);
-
-	const handleSetQ = (next: string) => {
-		const params = new URLSearchParams(searchParams);
-		if (next) params.set("q", next);
-		else params.delete("q");
-		setSearchParams(params, { replace: true });
-	};
+	}, [
+		initialTransactionsQuery.data,
+		initialTransactionsQuery.isSuccess,
+		listKey,
+	]);
 
 	const handleLoadMoreTransactions = async () => {
+		const requestKey = listKey;
+		const requestGeneration = listGeneration.current;
 		try {
+			setLoadingMore(true);
+			setLoadMoreError("");
 			const currentTransactions =
 				transactions.length > 0
 					? transactions
 					: initialTransactionsQuery.data || [];
 			const newTransactions =
 				await infiniteTransactions.loadMore(currentTransactions);
+			if (
+				currentKey.current !== requestKey ||
+				listGeneration.current !== requestGeneration
+			)
+				return;
+			setHasMore(newTransactions.length === 10);
 			if (newTransactions && newTransactions.length > 0) {
 				setTransactions((prev) => [...prev, ...newTransactions]);
 			}
 		} catch (error) {
-			console.error("Error loading more transactions:", error);
+			if (
+				currentKey.current !== requestKey ||
+				listGeneration.current !== requestGeneration
+			)
+				return;
+			setLoadMoreError(
+				error instanceof Error
+					? error.message
+					: "Could not load more expenses. Try again.",
+			);
+		} finally {
+			if (
+				currentKey.current === requestKey &&
+				listGeneration.current === requestGeneration
+			)
+				setLoadingMore(false);
 		}
 	};
 
 	const handleDeleteTransaction = (id: string) => {
+		const requestKey = listKey;
+		const requestGeneration = listGeneration.current;
 		deleteTransactionMutation.mutate(id, {
 			onSuccess: () => {
+				if (
+					currentKey.current !== requestKey ||
+					listGeneration.current !== requestGeneration
+				)
+					return;
+				setTransactions((previous) =>
+					previous.filter((transaction) => transaction.transactionId !== id),
+				);
+				lastSyncedQRef.current = null;
 				initialTransactionsQuery.refetch();
 			},
 		});
 	};
 
+	return {
+		transactions,
+		bankLinkedIds,
+		filterState,
+		data,
+		initialTransactionsQuery,
+		deleteTransactionMutation,
+		handleLoadMoreTransactions,
+		handleDeleteTransaction,
+		hasMore,
+		loadingMore,
+		loadMoreError,
+		setLoadMoreError,
+	};
+}
+
+const Transactions: React.FC = () => {
+	const {
+		transactions,
+		bankLinkedIds,
+		filterState,
+		data,
+		initialTransactionsQuery,
+		deleteTransactionMutation,
+		handleLoadMoreTransactions,
+		handleDeleteTransaction,
+		hasMore,
+		loadingMore,
+		loadMoreError,
+		setLoadMoreError,
+	} = useTransactionsPage();
+
 	const isLoading =
 		deleteTransactionMutation.isPending || initialTransactionsQuery.isLoading;
-	const error = deleteTransactionMutation.error?.message || "";
+	const error =
+		deleteTransactionMutation.error?.message ||
+		initialTransactionsQuery.error?.message ||
+		"";
 	const success = deleteTransactionMutation.isSuccess
 		? deleteTransactionMutation.data?.message ||
 			"Transaction deleted successfully"
 		: "";
 
 	const showEmptyState =
-		!isLoading && q.length > 0 && transactions.length === 0;
+		!isLoading &&
+		!filterState.error &&
+		filterState.activeCount > 0 &&
+		transactions.length === 0;
 
 	return (
 		<div className="transactions-container" data-test-id="expenses-container">
 			<header>
 				<UiPageTitle>Expenses</UiPageTitle>
-				<UiPageDescription>Search and review the group's shared expenses.</UiPageDescription>
+				<UiPageDescription>
+					Search and review the group's shared expenses.
+				</UiPageDescription>
 			</header>
 			{error && (
 				<ErrorContainer
@@ -282,34 +413,43 @@ const Transactions: React.FC = () => {
 				/>
 			)}
 
-			<SearchInput
-				value={q}
-				onDebouncedChange={handleSetQ}
-				placeholder="Search expenses by description"
+			<FinanceListFilters
+				state={filterState}
+				currencies={data?.extra?.currencies ?? ["GBP", "USD", "EUR"]}
+				kind="expenses"
 			/>
 
+			{loadMoreError && (
+				<ErrorContainer
+					message={loadMoreError}
+					onClose={() => setLoadMoreError("")}
+				/>
+			)}
 			{isLoading && <Loader />}
-			{!isLoading && !showEmptyState && (
+			{!isLoading && !showEmptyState && !filterState.error && (
 				<>
 					<TransactionList
 						transactions={transactions}
 						deleteTransaction={handleDeleteTransaction}
 						bankLinkedIds={bankLinkedIds}
 					/>
-					<Button
-						data-test-id="show-more-button"
-						onClick={handleLoadMoreTransactions}
-					>
-						Show more
-					</Button>
+					{hasMore && (
+						<Button
+							disabled={loadingMore}
+							data-test-id="show-more-button"
+							onClick={handleLoadMoreTransactions}
+						>
+							{loadingMore ? "Loading…" : "Show more"}
+						</Button>
+					)}
 				</>
 			)}
 			{showEmptyState && (
 				<div data-test-id="search-empty-state" style={{ padding: "24px 0" }}>
-					No matches for "{q}".{" "}
+					No expenses match these filters.{" "}
 					<button
 						type="button"
-						onClick={() => handleSetQ("")}
+						onClick={filterState.clear}
 						style={{
 							background: "none",
 							border: "none",
@@ -318,7 +458,7 @@ const Transactions: React.FC = () => {
 							padding: 0,
 						}}
 					>
-						Clear search
+						Clear all filters
 					</button>
 				</div>
 			)}

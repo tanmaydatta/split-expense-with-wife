@@ -34,7 +34,7 @@ export function buildFrontendTransaction(
 		amountOwed: metadata.owedAmounts,
 		paidBy: metadata.paidByShares,
 		owedTo: metadata.owedToAmounts,
-		totalOwed,
+		totalOwed: Number(totalOwed.toFixed(2)),
 		currency: tx.currency,
 		linkedBudgetEntryIds: tx.linkedBudgetEntryIds,
 	};
