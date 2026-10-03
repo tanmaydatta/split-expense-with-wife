@@ -74,7 +74,17 @@ export interface BudgetRequest {
 	groupid: string;
 	currency: string;
 }
-export interface BudgetListRequest {
+export interface FinanceListFilters {
+    q?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    minAmount?: number;
+    maxAmount?: number;
+    currency?: string;
+    sort?: "newest" | "oldest" | "amount-asc" | "amount-desc";
+}
+export interface BudgetListRequest extends FinanceListFilters {
+    direction?: "all" | "credit" | "debit";
 	offset: number;
 	budgetId: string;
 	q?: string;
@@ -107,7 +117,8 @@ export interface SplitNewRequest {
 export interface SplitDeleteRequest {
 	id: string;
 }
-export interface TransactionsListRequest {
+export interface TransactionsListRequest extends FinanceListFilters {
+    direction?: "all" | "owed" | "owe" | "zero";
 	offset: number;
 	q?: string;
 }

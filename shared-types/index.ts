@@ -94,7 +94,18 @@ export interface BudgetRequest {
 	currency: string;
 }
 
-export interface BudgetListRequest {
+export interface FinanceListFilters {
+	q?: string;
+	dateFrom?: string; // inclusive UTC calendar date
+	dateTo?: string; // inclusive UTC calendar date
+	minAmount?: number; // absolute original-currency total
+	maxAmount?: number;
+	currency?: string;
+	sort?: "newest" | "oldest" | "amount-asc" | "amount-desc";
+}
+
+export interface BudgetListRequest extends FinanceListFilters {
+	direction?: "all" | "credit" | "debit";
 	offset: number;
 	budgetId: string;
 	q?: string; // optional case-insensitive substring filter on description or stringified amount
@@ -134,7 +145,8 @@ export interface SplitDeleteRequest {
 	id: string;
 }
 
-export interface TransactionsListRequest {
+export interface TransactionsListRequest extends FinanceListFilters {
+	direction?: "all" | "owed" | "owe" | "zero";
 	offset: number;
 	q?: string; // optional case-insensitive substring filter on description or stringified amount
 }
