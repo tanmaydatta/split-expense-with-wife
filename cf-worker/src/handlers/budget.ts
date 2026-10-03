@@ -31,7 +31,13 @@ import {
 } from "../utils";
 
 import { createBudgetEntryStatements } from "../utils/scheduled-action-execution";
-import { buildLikePattern, MAX_Q_LENGTH } from "../utils/search";
+import { buildLikePattern } from "../utils/search";
+
+import {
+	listFilterConditions,
+	listOrder,
+	validateListFilters,
+} from "../utils/list-filters";
 
 // Helper: fetch a transactionId[] for each budgetEntryId, excluding soft-deleted txs
 async function buildBudgetLinkMap(
@@ -637,6 +643,9 @@ export async function handleBudgetList(
 	try {
 		return withAuthLite(request, env, async (session, db) => {
 			const body = (await request.json()) as BudgetListRequest;
+			const filterError = validateListFilters(body, ["all", "credit", "debit"]);
+			if (filterError)
+				return createErrorResponse(filterError, 400, request, env);
 
 			// Validate budget ID using direct database lookup
 			if (
@@ -645,9 +654,7 @@ export async function handleBudgetList(
 				return createErrorResponse("Unauthorized", 401, request, env);
 			}
 
-			if (body.q && body.q.trim().length > MAX_Q_LENGTH) {
-				return createErrorResponse("q too long", 400, request, env);
-			}
+
 
 			const currentTime = formatSQLiteTime();
 			const pattern = buildLikePattern(body.q);
@@ -655,7 +662,17 @@ export async function handleBudgetList(
 				lt(budgetEntries.addedTime, currentTime),
 				eq(budgetEntries.budgetId, body.budgetId),
 				isNull(budgetEntries.deleted),
+				...listFilterConditions(
+					body,
+					budgetEntries.addedTime,
+					budgetEntries.amount,
+					budgetEntries.currency,
+				),
 			];
+			if (body.direction === "credit")
+				baseConditions.push(sql`${budgetEntries.amount} > 0`);
+			if (body.direction === "debit")
+				baseConditions.push(lt(budgetEntries.amount, 0));
 			if (pattern) {
 				// biome-ignore lint/style/noNonNullAssertion: or() with two defined args always returns SQL
 				const filterCondition = or(
@@ -669,7 +686,14 @@ export async function handleBudgetList(
 				.select()
 				.from(budgetEntries)
 				.where(and(...baseConditions))
-				.orderBy(desc(budgetEntries.addedTime))
+				.orderBy(
+					...listOrder(
+						body,
+						budgetEntries.addedTime,
+						budgetEntries.amount,
+						budgetEntries.budgetEntryId,
+					),
+				)
 				.limit(5)
 				.offset(body.offset);
 

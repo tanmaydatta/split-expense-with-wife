@@ -901,3 +901,22 @@ The handler is atomic: if any phase fails, all earlier inserts are rolled back s
 - **Request metrics**: Tracked via Cloudflare Analytics
 - **Error rates**: Monitored through Cloudflare Logs
 - **Performance**: Database query timing and optimization
+
+### Budget and expense list filters
+
+Both `budget_list` and `transactions_list` accept optional `q`, `dateFrom`,
+`dateTo` (inclusive UTC `YYYY-MM-DD` dates), `minAmount`, `maxAmount`, `currency`
+(three uppercase letters), and `sort` (`newest`, `oldest`, `amount-asc`, or
+`amount-desc`; default `newest`). Amount bounds are finite, nonnegative,
+inclusive magnitudes of the total entry amount in its original currency. Budget
+amounts use their absolute value. Select currency when comparing like amounts;
+there is no currency conversion. Search retains description/stringified amount
+substring matching. Invalid dates, inverted ranges, enums and offsets return 400.
+
+Budget `direction` is `all`, `credit` (positive stored amount), or `debit`
+(negative stored amount). Expenses accept `all`, `owed`, `owe`, or `zero`, using
+the authenticated user's net transaction contribution: incoming shares minus
+outgoing shares, rounded to the existing two-decimal money display. `zero` means **No net balance** for that expense, not payment or
+settlement status. The API ignores client user IDs and always uses its session.
+All filters run before pagination; sorting has a stable transaction/entry ID tie
+breaker. Budget lifetime totals are independent of list filters.

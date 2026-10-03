@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { ulid } from "ulid";
 import type {
 	SplitDeleteRequest,
@@ -23,8 +23,14 @@ import {
 	generateDrizzleBalanceUpdates,
 	withAuth,
 } from "../utils";
-import { buildLikePattern, MAX_Q_LENGTH } from "../utils/search";
+import { buildLikePattern } from "../utils/search";
 import { createSplitTransactionFromRequest } from "../utils/scheduled-action-execution";
+
+import {
+	listFilterConditions,
+	listOrder,
+	validateListFilters,
+} from "../utils/list-filters";
 
 // Helper function to create split transaction
 async function createSplitTransactionHandler(
@@ -58,6 +64,7 @@ async function createSplitTransactionHandler(
 // Helper function to get transactions list
 async function getTransactionsList(
 	body: TransactionsListRequest,
+	userId: string,
 	groupId: string,
 	db: ReturnType<typeof getDb>,
 ): Promise<{
@@ -71,7 +78,23 @@ async function getTransactionsList(
 	const baseConditions = [
 		eq(transactions.groupId, groupIdStr),
 		isNull(transactions.deleted),
+		...listFilterConditions(
+			body,
+			transactions.createdAt,
+			transactions.amount,
+			transactions.currency,
+		),
 	];
+	if (body.direction && body.direction !== "all") {
+		const net = sql`ROUND(COALESCE((SELECT SUM(CASE WHEN tu.owed_to_user_id = ${userId} THEN tu.amount ELSE 0 END - CASE WHEN tu.user_id = ${userId} THEN tu.amount ELSE 0 END) FROM transaction_users tu WHERE tu.transaction_id = ${transactions.transactionId} AND tu.group_id = ${groupIdStr} AND tu.deleted IS NULL), 0), 2)`;
+		baseConditions.push(
+			body.direction === "owed"
+				? sql`${net} > 0`
+				: body.direction === "owe"
+					? sql`${net} < 0`
+					: sql`${net} = 0`,
+		);
+	}
 	if (pattern) {
 		const filterCondition = or(
 			sql`LOWER(${transactions.description}) LIKE LOWER(${pattern}) ESCAPE '\\'`,
@@ -86,7 +109,14 @@ async function getTransactionsList(
 		.select()
 		.from(transactions)
 		.where(and(...baseConditions))
-		.orderBy(desc(transactions.createdAt))
+		.orderBy(
+			...listOrder(
+				body,
+				transactions.createdAt,
+				transactions.amount,
+				transactions.transactionId,
+			),
+		)
 		.limit(10)
 		.offset(body.offset);
 
@@ -427,11 +457,17 @@ export async function handleTransactionsList(
 			}
 
 			const body = (await request.json()) as TransactionsListRequest;
-			if (body.q && body.q.trim().length > MAX_Q_LENGTH) {
-				return createErrorResponse("q too long", 400, request, env);
-			}
+			const filterError = validateListFilters(body, [
+				"all",
+				"owed",
+				"owe",
+				"zero",
+			]);
+			if (filterError)
+				return createErrorResponse(filterError, 400, request, env);
 			const response = await getTransactionsList(
 				body,
+				session.user.id,
 				session.group.groupid,
 				db,
 			);
