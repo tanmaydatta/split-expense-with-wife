@@ -60,7 +60,7 @@ export default function BudgetTable(props: Props): JSX.Element {
 							{props.entries.map((e) => {
 								const isExpanded = expandedId === e.id;
 								return (
-									<React.Fragment key={e.addedTime}>
+									<React.Fragment key={e.id}>
 										<tr
 											className="budget-row"
 											style={{ cursor: "pointer" }}
@@ -140,7 +140,7 @@ export default function BudgetTable(props: Props): JSX.Element {
 			{/* Mobile Card View */}
 			<div className="mobile-cards" data-test-id="mobile-cards">
 				{props.entries.map((e) => (
-					<BudgetCard key={e.addedTime} entry={e} onDelete={props.onDelete} />
+					<BudgetCard key={e.id} entry={e} onDelete={props.onDelete} />
 				))}
 			</div>
 		</>

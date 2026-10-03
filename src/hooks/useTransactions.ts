@@ -44,7 +44,7 @@ export function processTransactionData(
 			amountOwed: metadata.owedAmounts,
 			paidBy: metadata.paidByShares,
 			owedTo: metadata.owedToAmounts,
-			totalOwed: totalOwed,
+			totalOwed: Number(totalOwed.toFixed(2)),
 			currency: e.currency,
 			linkedBudgetEntryIds: e.linkedBudgetEntryIds,
 		};
@@ -56,11 +56,23 @@ export function useTransactionsList(
 	offset: number = 0,
 	userId?: string,
 	q?: string,
+	filters: Omit<TransactionsListRequest, "offset" | "q"> = {},
+	sessionContext?: string,
+	valid = true,
 ) {
 	return useQuery({
-		queryKey: ["transactions", "list", offset, q ?? ""],
+		queryKey: [
+			"transactions",
+			"list",
+			offset,
+			q ?? "",
+			filters,
+			userId,
+			sessionContext,
+		],
 		queryFn: async () => {
 			const request: TransactionsListRequest = {
+				...filters,
 				offset,
 				...(q ? { q } : {}),
 			};
@@ -70,14 +82,27 @@ export function useTransactionsList(
 			);
 			return processTransactionData(response, userId);
 		},
+		enabled: valid,
 		staleTime: 2 * 60 * 1000,
 	});
 }
 
 // Hook for infinite loading transactions
-export function useInfiniteTransactionsList(userId?: string, q?: string) {
+export function useInfiniteTransactionsList(
+	userId?: string,
+	q?: string,
+	filters: Omit<TransactionsListRequest, "offset" | "q"> = {},
+	sessionContext?: string,
+) {
 	const queryClient = useQueryClient();
-	const cacheKey = ["transactions", "infinite", q ?? ""] as const;
+	const cacheKey = [
+		"transactions",
+		"infinite",
+		q ?? "",
+		filters,
+		userId,
+		sessionContext,
+	] as const;
 
 	return {
 		transactions:
@@ -86,6 +111,7 @@ export function useInfiniteTransactionsList(userId?: string, q?: string) {
 		loadMore: async (currentTransactions: FrontendTransaction[]) => {
 			const offset = currentTransactions.length;
 			const request: TransactionsListRequest = {
+				...filters,
 				offset,
 				...(q ? { q } : {}),
 			};
@@ -103,6 +129,7 @@ export function useInfiniteTransactionsList(userId?: string, q?: string) {
 
 		reset: async () => {
 			const request: TransactionsListRequest = {
+				...filters,
 				offset: 0,
 				...(q ? { q } : {}),
 			};

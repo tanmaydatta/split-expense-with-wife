@@ -692,10 +692,10 @@ test.describe("Budget Management", () => {
 		);
 
 		await page.getByTestId("back-link").click();
-		await expect(page).toHaveURL(/\/budget$/);
+		await expect(page).toHaveURL(/\/budget(?:\?.*)?$/);
 		await budgetHelper.selectBudgetCategory("house");
 		await card.getByRole("button", { name: "Delete budget entry" }).tap();
-		await expect(page).toHaveURL(/\/budget$/);
+		await expect(page).toHaveURL(/\/budget(?:\?.*)?$/);
 		await expect(page.getByTestId("success-container")).toContainText(
 			"Successfully deleted budget entry",
 		);
@@ -859,7 +859,7 @@ test.describe("Budget Management", () => {
 		await expect.poll(async () => page.locator(rowSelector).count(), { timeout: 10000 }).toBe(before);
 	});
 
-	test("changing the selected budget clears the search query", async ({
+	test("changing the selected budget preserves the search query", async ({
 		seed,
 		page,
 	}) => {
@@ -922,8 +922,9 @@ test.describe("Budget Management", () => {
 		await page.locator('[data-test-id="budget-radio-food"]').click();
 		await page.waitForLoadState("networkidle");
 
-		// Switching budgets must clear the ?q param and reset the search input
-		await expect(page).not.toHaveURL(/\?q=/);
-		await expect(page.locator('[data-test-id="search-input"]')).toHaveValue("");
+		// Switching budgets preserves filters and persists the selected budget.
+		await expect(page).toHaveURL(/q=Grocery/);
+		await expect(page).toHaveURL(/budget=/);
+		await expect(page.locator('[data-test-id="search-input"]')).toHaveValue("Grocery");
 	});
 });

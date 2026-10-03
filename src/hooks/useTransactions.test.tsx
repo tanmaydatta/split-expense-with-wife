@@ -2,7 +2,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderHook, act, waitFor } from "@testing-library/react";
 import React from "react";
 import type { BudgetEntry } from "split-expense-shared-types";
-import { useDeleteTransaction } from "./useTransactions";
+import { buildFrontendTransaction } from "../utils/transaction";
+import { useDeleteTransaction, useTransactionsList, processTransactionData } from "./useTransactions";
 
 jest.mock("utils/api", () => ({
   typedApi: {
@@ -151,5 +152,33 @@ describe("useDeleteTransaction — cascading cache invalidation", () => {
       (key) => Array.isArray(key) && key[0] === "budgetEntry",
     );
     expect(budgetEntryInvalidations).toHaveLength(0);
+  });
+});
+
+describe("finance list cache isolation", () => {
+  it("fetches separately when the signed-in perspective or filters change", async () => {
+    typedApi.post.mockResolvedValue({ transactions: [], transactionDetails: {} });
+    const queryClient = freshClient();
+    const { rerender } = renderHook(
+      ({ userId, direction }: {userId: string; direction: "owed" | "owe"}) => useTransactionsList(0, userId, "dinner", { direction, minAmount: 40, currency: "GBP" }, "group-home"),
+      {initialProps:{userId:"alex", direction:"owed"}, wrapper:makeWrapper(queryClient)},
+    );
+    await waitFor(() => expect(typedApi.post).toHaveBeenCalledTimes(1));
+    rerender({userId:"sam", direction:"owed"});
+    await waitFor(() => expect(typedApi.post).toHaveBeenCalledTimes(2));
+    rerender({userId:"sam", direction:"owe"});
+    await waitFor(() => expect(typedApi.post).toHaveBeenCalledTimes(3));
+    expect(typedApi.post).toHaveBeenLastCalledWith("/transactions_list", {offset:0,q:"dinner",direction:"owe",minAmount:40,currency:"GBP"});
+    expect(queryClient.getQueryCache().findAll({queryKey:["transactions","list"]})).toHaveLength(3);
+  });
+  it("normalizes cancelling shares consistently in list and detail views", () => {
+    const transaction = {transaction_id:"precision",group_id:"home",description:"Dinner",amount:1,currency:"GBP",created_at:"2024-02-29 00:00:00",metadata:"{}"};
+    const details = [
+      {transaction_id:"precision",user_id:"sam",owed_to_user_id:"alex",amount:0.1,currency:"GBP",group_id:"home",first_name:"Sam",last_name:""},
+      {transaction_id:"precision",user_id:"other",owed_to_user_id:"alex",amount:0.2,currency:"GBP",group_id:"home",first_name:"Other",last_name:""},
+      {transaction_id:"precision",user_id:"alex",owed_to_user_id:"sam",amount:0.3,currency:"GBP",group_id:"home",first_name:"Alex",last_name:""},
+    ];
+    expect(processTransactionData({transactions:[transaction],transactionDetails:{precision:details}},"alex")[0].totalOwed).toBe(0);
+    expect(buildFrontendTransaction(transaction,details,"alex").totalOwed).toBe(0);
   });
 });

@@ -97,21 +97,33 @@ export function useInfiniteBudgetHistory(
 	budgetId?: string,
 	q?: string,
 	_limit: number = 25,
+	filters: Omit<BudgetListRequest, "budgetId" | "offset" | "q"> = {},
+	sessionContext?: string,
+	valid = true,
 ) {
 	return useQuery({
-		queryKey: ["budget", "history", "infinite", budgetId, q ?? ""],
+		queryKey: [
+			"budget",
+			"history",
+			"infinite",
+			budgetId,
+			q ?? "",
+			filters,
+			sessionContext,
+		],
 		queryFn: async () => {
 			if (!budgetId) {
 				return [];
 			}
 			const request: BudgetListRequest = {
 				budgetId,
+				...filters,
 				offset: 0,
 				...(q ? { q } : {}),
 			};
 			return typedApi.post("/budget_list", request);
 		},
-		enabled: !!budgetId,
+		enabled: !!budgetId && valid,
 		staleTime: 1 * 60 * 1000,
 	});
 }
@@ -120,10 +132,17 @@ export function useInfiniteBudgetHistory(
 export function useLoadMoreBudgetHistory() {
 	const queryClient = useQueryClient();
 
-	return async (budgetId: string, currentHistory: BudgetEntry[], q?: string) => {
+	return async (
+		budgetId: string,
+		currentHistory: BudgetEntry[],
+		q?: string,
+		filters: Omit<BudgetListRequest, "budgetId" | "offset" | "q"> = {},
+		sessionContext?: string,
+	) => {
 		const offset = currentHistory.length;
 		const request: BudgetListRequest = {
 			budgetId,
+			...filters,
 			offset,
 			...(q ? { q } : {}),
 		};
@@ -132,7 +151,15 @@ export function useLoadMoreBudgetHistory() {
 			request,
 		);
 		queryClient.setQueryData<BudgetEntry[]>(
-			["budget", "history", "infinite", budgetId, q ?? ""],
+			[
+				"budget",
+				"history",
+				"accumulated",
+				budgetId,
+				q ?? "",
+				filters,
+				sessionContext,
+			],
 			[...currentHistory, ...newEntries],
 		);
 		return newEntries;

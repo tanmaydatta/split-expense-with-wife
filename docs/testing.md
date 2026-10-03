@@ -746,3 +746,13 @@ describe('Performance Tests', () => {
     });
 });
 ```
+
+Finance filter regression coverage lives in Worker `list-filters.test.ts`,
+`useTransactions.test.tsx` (user/filter cache separation and display precision),
+and `src/e2e/tests/finance-list-filters.spec.ts`. Run the latter against local D1
+with Chromium, Mobile Chrome, and Mobile Safari. It seeds only synthetic data,
+exercises URL history/refresh, combined filters, sorting, pagination reset,
+budget selection, lifetime totals, and detail/delete interactions. It also
+captures the filter screenshots in `docs/images` using Playwright. The seed
+handler uses creation time for entries, so browser date filters use their current
+UTC date; Worker integration cases cover exact calendar boundaries.
