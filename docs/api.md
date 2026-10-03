@@ -920,3 +920,5 @@ outgoing shares, rounded to the existing two-decimal money display. `zero` means
 settlement status. The API ignores client user IDs and always uses its session.
 All filters run before pagination; sorting has a stable transaction/entry ID tie
 breaker. Budget lifetime totals are independent of list filters.
+
+Budget history includes entries saved in the current UTC second and excludes future entries.

@@ -10,6 +10,7 @@ import {
 	transactionUsers,
 } from "../db/schema/schema";
 import worker from "../index";
+import { formatSQLiteTime } from "../utils";
 import {
 	completeCleanupDatabase,
 	createTestRequest,
@@ -49,18 +50,16 @@ describe("Finance list filters", () => {
 	}
 	it("combines UTC dates, signed magnitude, currency, substring and budget direction before stable pagination", async () => {
 		const db = getDb(env);
-		await db
-			.insert(budgetEntries)
-			.values(
-				Array.from({ length: 8 }, (_, i) => ({
-					budgetEntryId: `filter-${i}`,
-					budgetId: users.budgetIds.house,
-					description: "market",
-					amount: -50,
-					currency: "GBP",
-					addedTime: "2024-02-29 23:59:59",
-				})),
-			);
+		await db.insert(budgetEntries).values(
+			Array.from({ length: 8 }, (_, i) => ({
+				budgetEntryId: `filter-${i}`,
+				budgetId: users.budgetIds.house,
+				description: "market",
+				amount: -50,
+				currency: "GBP",
+				addedTime: "2024-02-29 23:59:59",
+			})),
+		);
 		await db.insert(budgetEntries).values([
 			{
 				budgetEntryId: "credit",
@@ -134,28 +133,24 @@ describe("Finance list filters", () => {
 			...Array.from({ length: 12 }, (_, i) => `noise-${i}`),
 		];
 		for (const transactionId of rows)
-			await db
-				.insert(transactions)
-				.values({
-					transactionId,
-					groupId: users.testGroupId,
-					description: "dinner",
-					amount: 120,
-					currency: "GBP",
-					createdAt: "2024-02-29 23:59:59",
-				});
-		await db
-			.insert(transactions)
-			.values(
-				["previous-day", "next-day"].map((transactionId, i) => ({
-					transactionId,
-					groupId: users.testGroupId,
-					description: "dinner",
-					amount: 120,
-					currency: "GBP",
-					createdAt: i ? "2024-03-01 00:00:00" : "2024-02-28 23:59:59",
-				})),
-			);
+			await db.insert(transactions).values({
+				transactionId,
+				groupId: users.testGroupId,
+				description: "dinner",
+				amount: 120,
+				currency: "GBP",
+				createdAt: "2024-02-29 23:59:59",
+			});
+		await db.insert(transactions).values(
+			["previous-day", "next-day"].map((transactionId, i) => ({
+				transactionId,
+				groupId: users.testGroupId,
+				description: "dinner",
+				amount: 120,
+				currency: "GBP",
+				createdAt: i ? "2024-03-01 00:00:00" : "2024-02-28 23:59:59",
+			})),
+		);
 		await db.insert(transactionUsers).values(
 			[
 				{
@@ -269,6 +264,87 @@ describe("Finance list filters", () => {
 		expect(
 			((await noMatch.json()) as TransactionsListResponse).transactions,
 		).toEqual([]);
+	});
+	it("includes entries created this second while excluding future entries", async () => {
+		const db = getDb(env);
+		await db.insert(budgetEntries).values([
+			{
+				budgetEntryId: "now",
+				budgetId: users.budgetIds.house,
+				description: "Current",
+				amount: 20,
+				currency: "GBP",
+				addedTime: formatSQLiteTime(),
+			},
+			{
+				budgetEntryId: "future",
+				budgetId: users.budgetIds.house,
+				description: "Future",
+				amount: 20,
+				currency: "GBP",
+				addedTime: "3000-01-01 00:00:00",
+			},
+		]);
+		const response = await call("budget_list", {
+			budgetId: users.budgetIds.house,
+			offset: 0,
+		});
+		expect(response.status).toBe(200);
+		expect(
+			((await response.json()) as BudgetEntry[]).map((entry) => entry.id),
+		).toEqual(["now"]);
+	});
+	it("orders different dates and total magnitudes consistently on both APIs", async () => {
+		const db = getDb(env);
+		for (const [id, amount, date] of [
+			["a", 50, "2024-02-27 00:00:00"],
+			["b", 20, "2024-02-28 00:00:00"],
+			["c", 70, "2024-02-28 00:00:00"],
+		] as const) {
+			await db
+				.insert(budgetEntries)
+				.values({
+					budgetEntryId: id,
+					budgetId: users.budgetIds.house,
+					description: id,
+					amount: -amount,
+					currency: "GBP",
+					addedTime: date,
+				});
+			await db
+				.insert(transactions)
+				.values({
+					transactionId: id,
+					groupId: users.testGroupId,
+					description: id,
+					amount,
+					currency: "GBP",
+					createdAt: date,
+				});
+		}
+		for (const endpoint of ["budget_list", "transactions_list"]) {
+			for (const [sort, expected] of [
+				["newest", ["c", "b", "a"]],
+				["oldest", ["a", "c", "b"]],
+				["amount-asc", ["b", "a", "c"]],
+				["amount-desc", ["c", "a", "b"]],
+			] as const) {
+				const response = await call(endpoint, {
+					offset: 0,
+					budgetId: users.budgetIds.house,
+					sort,
+				});
+				expect(response.status).toBe(200);
+				const payload = await response.json();
+				const ids =
+					endpoint === "budget_list"
+						? (payload as BudgetEntry[]).map((e) => e.id)
+						: (payload as TransactionsListResponse).transactions.map(
+								(t) => t.transaction_id,
+							);
+				expect(ids).toEqual(expected);
+			}
+		}
 	});
 	it("rejects invalid filters on both APIs", async () => {
 		for (const endpoint of ["budget_list", "transactions_list"]) {

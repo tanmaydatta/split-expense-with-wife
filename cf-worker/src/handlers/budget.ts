@@ -1,4 +1,4 @@
-import { and, eq, gte, inArray, isNull, lt, or, sql } from "drizzle-orm";
+import { and, eq, gte, inArray, isNull, lt, lte, or, sql } from "drizzle-orm";
 import { ulid } from "ulid";
 import type {
 	AverageSpendData,
@@ -659,7 +659,7 @@ export async function handleBudgetList(
 			const currentTime = formatSQLiteTime();
 			const pattern = buildLikePattern(body.q);
 			const baseConditions = [
-				lt(budgetEntries.addedTime, currentTime),
+				lte(budgetEntries.addedTime, currentTime),
 				eq(budgetEntries.budgetId, body.budgetId),
 				isNull(budgetEntries.deleted),
 				...listFilterConditions(
