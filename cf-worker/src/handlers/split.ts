@@ -61,6 +61,18 @@ async function createSplitTransactionHandler(
 	};
 }
 
+function expenseDirectionCondition(
+	direction: TransactionsListRequest["direction"],
+	userId: string,
+	groupIdStr: string,
+) {
+	if (!direction || direction === "all") return undefined;
+	const net = sql`ROUND(COALESCE((SELECT SUM(CASE WHEN tu.owed_to_user_id = ${userId} THEN tu.amount ELSE 0 END - CASE WHEN tu.user_id = ${userId} THEN tu.amount ELSE 0 END) FROM transaction_users tu WHERE tu.transaction_id = ${transactions.transactionId} AND tu.group_id = ${groupIdStr} AND tu.deleted IS NULL), 0), 2)`;
+	if (direction === "owed") return sql`${net} > 0`;
+	if (direction === "owe") return sql`${net} < 0`;
+	return sql`${net} = 0`;
+}
+
 // Helper function to get transactions list
 async function getTransactionsList(
 	body: TransactionsListRequest,
@@ -85,16 +97,12 @@ async function getTransactionsList(
 			transactions.currency,
 		),
 	];
-	if (body.direction && body.direction !== "all") {
-		const net = sql`ROUND(COALESCE((SELECT SUM(CASE WHEN tu.owed_to_user_id = ${userId} THEN tu.amount ELSE 0 END - CASE WHEN tu.user_id = ${userId} THEN tu.amount ELSE 0 END) FROM transaction_users tu WHERE tu.transaction_id = ${transactions.transactionId} AND tu.group_id = ${groupIdStr} AND tu.deleted IS NULL), 0), 2)`;
-		baseConditions.push(
-			body.direction === "owed"
-				? sql`${net} > 0`
-				: body.direction === "owe"
-					? sql`${net} < 0`
-					: sql`${net} = 0`,
-		);
-	}
+	const directionCondition = expenseDirectionCondition(
+		body.direction,
+		userId,
+		groupIdStr,
+	);
+	if (directionCondition) baseConditions.push(directionCondition);
 	if (pattern) {
 		const filterCondition = or(
 			sql`LOWER(${transactions.description}) LIKE LOWER(${pattern}) ESCAPE '\\'`,

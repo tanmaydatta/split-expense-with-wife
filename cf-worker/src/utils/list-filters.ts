@@ -1,61 +1,54 @@
 import { asc, desc, gte, lt, lte, eq, sql, type SQL } from "drizzle-orm";
 import type { AnySQLiteColumn } from "drizzle-orm/sqlite-core";
 import type { FinanceListFilters } from "../../../shared-types";
+import { z } from "zod";
 import { MAX_Q_LENGTH } from "./search";
 
+const calendarDate = z
+	.string()
+	.regex(/^\d{4}-\d{2}-\d{2}$/)
+	.refine(
+		(value) =>
+			Number.isFinite(Date.parse(value)) &&
+			new Date(value).toISOString().slice(0, 10) === value,
+		"Invalid date",
+	);
+const filterSchema = z
+	.object({
+		offset: z.number().int().nonnegative(),
+		q: z.string().trim().max(MAX_Q_LENGTH).optional(),
+		dateFrom: calendarDate.optional(),
+		dateTo: calendarDate.optional(),
+		minAmount: z.number().finite().nonnegative().optional(),
+		maxAmount: z.number().finite().nonnegative().optional(),
+		currency: z
+			.string()
+			.regex(/^[A-Z]{3}$/)
+			.optional(),
+		direction: z.string().optional(),
+		sort: z.enum(["newest", "oldest", "amount-asc", "amount-desc"]).optional(),
+	})
+	.refine(
+		(value) =>
+			!value.dateFrom || !value.dateTo || value.dateFrom <= value.dateTo,
+		"Date from must precede date to",
+	)
+	.refine(
+		(value) =>
+			value.minAmount === undefined ||
+			value.maxAmount === undefined ||
+			value.minAmount <= value.maxAmount,
+		"Minimum amount must not exceed maximum",
+	);
+
 export function validateListFilters(
-	body: FinanceListFilters & { offset: number; direction?: string },
+	body: unknown,
 	directions: string[],
 ): string | undefined {
-	if (!body || typeof body !== "object" || Array.isArray(body))
-		return "Invalid filters";
-	if (!Number.isInteger(body.offset) || body.offset < 0)
-		return "Invalid offset";
-	if (
-		body.q !== undefined &&
-		(typeof body.q !== "string" || body.q.trim().length > MAX_Q_LENGTH)
-	)
-		return "Invalid search";
-	for (const key of ["dateFrom", "dateTo"] as const) {
-		const value = body[key];
-		if (
-			value !== undefined &&
-			(typeof value !== "string" ||
-				!/^\d{4}-\d{2}-\d{2}$/.test(value) ||
-				!Number.isFinite(Date.parse(value)) ||
-				new Date(value).toISOString().slice(0, 10) !== value)
-		)
-			return "Invalid date";
-	}
-	if (body.dateFrom && body.dateTo && body.dateFrom > body.dateTo)
-		return "Date from must precede date to";
-	for (const key of ["minAmount", "maxAmount"] as const) {
-		if (
-			body[key] !== undefined &&
-			(typeof body[key] !== "number" ||
-				!Number.isFinite(body[key]) ||
-				body[key] < 0)
-		)
-			return "Amounts must be finite and nonnegative";
-	}
-	if (
-		body.minAmount !== undefined &&
-		body.maxAmount !== undefined &&
-		body.minAmount > body.maxAmount
-	)
-		return "Minimum amount must not exceed maximum";
-	if (
-		body.currency !== undefined &&
-		(typeof body.currency !== "string" || !/^[A-Z]{3}$/.test(body.currency))
-	)
-		return "Invalid currency";
-	if (body.direction !== undefined && !directions.includes(body.direction))
+	const result = filterSchema.safeParse(body);
+	if (!result.success) return result.error.issues[0].message;
+	if (result.data.direction && !directions.includes(result.data.direction))
 		return "Invalid direction";
-	if (
-		body.sort !== undefined &&
-		!["newest", "oldest", "amount-asc", "amount-desc"].includes(body.sort)
-	)
-		return "Invalid sort";
 }
 
 export function listFilterConditions(

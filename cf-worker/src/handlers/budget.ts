@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, inArray, isNull, lt, or, sql } from "drizzle-orm";
+import { and, eq, gte, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import { ulid } from "ulid";
 import type {
 	AverageSpendData,
