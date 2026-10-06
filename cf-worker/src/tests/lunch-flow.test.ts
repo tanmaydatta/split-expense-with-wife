@@ -91,4 +91,53 @@ describe("Lunch Flow personal imports", () => {
   mock.mockResolvedValue(new Response("", { status: 429, headers: { "Retry-After": "60" } }));
   await expect(lunchFlowAccounts(env, "key")).rejects.toThrow("rate_limited");
  });
+ it("key replacement marks missing accounts unavailable while preserving selection and reviewed history", async () => {
+  const { db, id, call, fetchMock } = await fixture();
+  await call("accounts/select", "POST", { connectionId: id, accountId: `${id}:1`, selected: true, amountMultiplier: -1 });
+  await db.update(bankTransactions).set({ reviewStatus: "ignored" }).where(eq(bankTransactions.id, `${id}:1:same_id`));
+  fetchMock.mockResolvedValue(Response.json({ accounts: [accountRows[1]], total: 1 }));
+  expect((await call("lunch-flow/setup", "POST", { connectionId: id, apiKey: "rotated-owner-key" })).status).toBe(200);
+  const account = (await db.select().from(bankAccounts).where(eq(bankAccounts.id, `${id}:1`)))[0];
+  expect(account).toMatchObject({ status: "UNAVAILABLE", selected: true, amountMultiplier: -1 });
+  expect((await db.select().from(bankTransactions))[0].reviewStatus).toBe("ignored");
+  fetchMock.mockClear(); await syncBankConnection(env, db, { id }); expect(fetchMock).not.toHaveBeenCalled();
+ });
+
+ it("rejects a stale displayed revision and marks merchant-only changes after confirmed review", async () => {
+  const { users, db, id, call, rows } = await fixture();
+  await call("accounts/select", "POST", { connectionId: id, accountId: `${id}:1`, selected: true, amountMultiplier: -1 });
+  const displayed = (await db.select().from(bankTransactions))[0];
+  rows[1][0].merchant = "Updated merchant"; await syncBankConnection(env, db, { id });
+  const changed = (await db.select().from(bankTransactions))[0]; expect(changed.rowVersion).toBeGreaterThan(displayed.rowVersion);
+  expect((await call("create-expense", "POST", { bankTransactionId: displayed.id, sourceVersion: displayed.rowVersion, description: "Charge", splitPctShares: { [users.user1.id]: 50, [users.user2.id]: 50 } })).status).toBe(409);
+  expect(await db.select().from(transactions)).toHaveLength(0);
+  await db.update(bankTransactions).set({ reviewStatus: "ignored" }).where(eq(bankTransactions.id, changed.id));
+  rows[1][0].merchant = "Changed again"; await syncBankConnection(env, db, { id });
+  expect((await db.select().from(bankTransactions))[0].sourceChanged).toBe(true);
+ });
+
+ it("rolls back the claim and ledger when the version CAS loses immediately before the atomic batch", async () => {
+  const { users, db, id, call } = await fixture();
+  await call("accounts/select", "POST", { connectionId: id, accountId: `${id}:1`, selected: true, amountMultiplier: -1 });
+  const bank = (await db.select().from(bankTransactions))[0];
+  const original = env.DB.batch.bind(env.DB);
+  const mock = vi.spyOn(env.DB, "batch").mockImplementationOnce(async (statements: D1PreparedStatement[]) => {
+   await env.DB.prepare("UPDATE bank_transactions SET row_version = row_version + 1, name = 'Concurrent edit' WHERE id = ?").bind(bank.id).run();
+   return original(statements);
+  });
+  const result = await call("create-expense", "POST", { bankTransactionId: bank.id, sourceVersion: bank.rowVersion, description: "Purchase", splitPctShares: { [users.user1.id]: 50, [users.user2.id]: 50 } });
+  expect(result.status).toBe(409); expect(mock).toHaveBeenCalledTimes(1);
+  expect(await db.select().from(transactions)).toHaveLength(0);
+  expect((await db.select().from(bankTransactions))[0]).toMatchObject({ reviewStatus: "unreviewed", linkedTransactionId: null, rowVersion: bank.rowVersion + 1 });
+ });
+ it("rolls back a successful claim if a ledger statement fails, leaving a retryable inbox row", async () => {
+  const { users, db, id, call } = await fixture();
+  await call("accounts/select", "POST", { connectionId: id, accountId: `${id}:1`, selected: true, amountMultiplier: -1 });
+  const bank = (await db.select().from(bankTransactions))[0]; const original = env.DB.batch.bind(env.DB);
+  vi.spyOn(env.DB, "batch").mockImplementationOnce(async (statements: D1PreparedStatement[]) => original([...statements, env.DB.prepare("INSERT INTO absent_failure_fixture VALUES (1)")]));
+  const result = await call("create-expense", "POST", { bankTransactionId: bank.id, sourceVersion: bank.rowVersion, description: "Purchase", splitPctShares: { [users.user1.id]: 50, [users.user2.id]: 50 } });
+  expect(result.status).toBe(409); expect(await db.select().from(transactions)).toHaveLength(0);
+  expect((await db.select().from(bankTransactions))[0]).toMatchObject({ reviewStatus: "unreviewed", linkedTransactionId: null, rowVersion: bank.rowVersion });
+ });
+
 });

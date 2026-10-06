@@ -269,10 +269,10 @@ export async function syncBankConnection(
     ON CONFLICT(id) DO UPDATE SET
      source_changed = CASE WHEN (bank_transactions.review_status <> 'unreviewed' OR bank_transactions.linked_transaction_id IS NOT NULL) AND
       (bank_transactions.amount_minor <> excluded.amount_minor OR bank_transactions.currency <> excluded.currency OR
-       bank_transactions.date <> excluded.date OR bank_transactions.name <> excluded.name OR
+       bank_transactions.date <> excluded.date OR bank_transactions.name <> excluded.name OR bank_transactions.merchant_name IS NOT excluded.merchant_name OR
        bank_transactions.pending <> excluded.pending OR bank_transactions.removed_at IS NOT NULL)
       THEN 1 ELSE bank_transactions.source_changed END,
-     account_id = excluded.account_id, provider_transaction_id = excluded.provider_transaction_id,
+     row_version = bank_transactions.row_version + 1, account_id = excluded.account_id, provider_transaction_id = excluded.provider_transaction_id,
      date = excluded.date, name = excluded.name, merchant_name = excluded.merchant_name,
      amount_minor = excluded.amount_minor, raw_amount_minor = excluded.raw_amount_minor, currency = excluded.currency, pending = excluded.pending,
      pending_transaction_id = excluded.pending_transaction_id, removed_at = NULL, updated_at = excluded.updated_at
@@ -306,7 +306,7 @@ export async function syncBankConnection(
 			if (prior && !prior.removedAt) removedCount++;
 			statements.push(
 				env.DB.prepare(`UPDATE bank_transactions SET removed_at = ?, updated_at = ?,
-    source_changed = CASE WHEN review_status <> 'unreviewed' THEN 1 ELSE source_changed END
+    row_version = row_version + 1, source_changed = CASE WHEN review_status <> 'unreviewed' OR linked_transaction_id IS NOT NULL THEN 1 ELSE source_changed END
     WHERE id = ? AND connection_id = ? AND EXISTS (SELECT 1 FROM bank_connections WHERE id = ? AND sync_lock = ?)`).bind(
 					now,
 					now,

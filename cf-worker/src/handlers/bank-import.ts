@@ -459,8 +459,16 @@ export async function handleBankInbox(
 ): Promise<Response> {
 	if (!bankingEnabled(env)) return unavailable(request, env);
 	return withAuthLite(request, env, async (session, db) => {
-		const reviewed =
-			new URL(request.url).searchParams.get("status") === "reviewed";
+		const params = new URL(request.url).searchParams;
+		const reviewed = params.get("status") === "reviewed";
+		const provider = params.get("provider");
+		if (provider && provider !== "plaid" && provider !== "lunch_flow")
+			return createErrorResponse(
+				"Invalid bank provider filter",
+				400,
+				request,
+				env,
+			);
 		const rows = await db
 			.select({
 				id: bankTransactions.id,
@@ -469,6 +477,7 @@ export async function handleBankInbox(
 				accountName: bankAccounts.name,
 				date: bankTransactions.date,
 				updatedAt: bankTransactions.updatedAt,
+				rowVersion: bankTransactions.rowVersion,
 				name: bankTransactions.name,
 				merchantName: bankTransactions.merchantName,
 				amountMinor: bankTransactions.amountMinor,
@@ -490,6 +499,16 @@ export async function handleBankInbox(
 			.where(
 				and(
 					eq(bankTransactions.userId, session.user.id),
+					eq(bankConnections.groupId, session.currentUser.groupid ?? ""),
+					provider
+						? eq(bankConnections.provider, provider as "plaid" | "lunch_flow")
+						: undefined,
+					params.get("connectionId")
+						? eq(bankConnections.id, params.get("connectionId") ?? "")
+						: undefined,
+					params.get("accountId")
+						? eq(bankAccounts.id, params.get("accountId") ?? "")
+						: undefined,
 					eq(bankAccounts.selected, true),
 					reviewed ? undefined : eq(bankTransactions.pending, false),
 					reviewed ? undefined : isNull(bankTransactions.removedAt),
@@ -690,4 +709,8 @@ export async function handleBankConnections(
 			env,
 		);
 	});
+}
+
+export async function handleBankCapabilities(request: Request, env: Env): Promise<Response> {
+ return withAuthLite(request, env, async () => createJsonResponse({ providers: Object.values(bankProviders).filter(provider => provider.enabled(env)).map(provider => ({ id: provider.id, label: provider.label, capabilities: provider.capabilities })) }, 200, {}, request, env));
 }
