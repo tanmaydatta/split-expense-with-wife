@@ -285,3 +285,8 @@ CREATE INDEX expense_budget_links_group_idx ON expense_budget_links (group_id);
 - Authentication system setup (better-auth)
 - Transaction and user management tables
 - Various index optimizations
+### 0028 — Provider-neutral banking foundation
+
+Adds provider metadata, neutral external identifiers, sync leases and source
+change warnings. Preserves legacy Plaid columns and existing primary keys for
+old-Worker compatibility and rollback; no shared expense data is migrated.

@@ -549,3 +549,22 @@ npx wrangler tail -e dev --debug
 - **D1 Database Docs**: https://developers.cloudflare.com/d1/
 - **Wrangler CLI Docs**: https://developers.cloudflare.com/workers/wrangler/
 - **Community Forum**: https://community.cloudflare.com/
+
+## Provider foundation migration and rollback
+
+Before merging the provider foundation, manually apply 0028_bank_providers.sql
+first to splitexpense-dev, then to production only after explicit release approval.
+It is expand-only: the old Worker keeps every column it needs. Verify existing
+connection/import counts and confirmed links against a backup before and after.
+No command in this implementation applies a remote migration. PR pushes deploy
+staging automatically, so do not push before the staging schema is migrated.
+
+Set BANK_TOKEN_ENCRYPTION_KEY to a new random secret of at least 32 characters
+before storing new provider credentials. Retain PLAID_TOKEN_ENCRYPTION_KEY while
+legacy Plaid credentials exist. Never replace one with the other. Plaid Sandbox
+remains disabled in production unless its separate flag is explicitly enabled.
+
+Rollback the Worker to its preceding version and leave the expanded schema in
+place. Do not drop bank tables or revert the additive migration: that would lose
+private review state and confirmed links. Disabling provider flags stops provider
+API access without mutating confirmed shared records.
