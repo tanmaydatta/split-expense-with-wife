@@ -370,3 +370,14 @@ Every authenticated request enriches the session with group data, budgets, and u
 - **Frontend**: Netlify auto-deploy on main branch push
 - **Backend**: Manual `yarn deploy:dev` or `yarn deploy:prod` (runs build + tests first)
 - **Database**: Manual `yarn db:migrate:dev|prod` before code deploy
+
+### Bank providers
+
+`cf-worker/src/utils/bank-provider.ts` defines the normalized contract and
+`bank-registry.ts` selects Plaid/Lunch Flow adapters per owned connection.
+`bank-token.ts` encrypts owner credentials; `bank-sync.ts` handles leases, snapshots
+and private imports. `lunch-flow-schema.ts` is shared by the adapter and read-only
+local smoke script. `handlers/lunch-flow.ts` owns setup/preview; `bank-review.ts`
+atomically confirms shared records. `bank-background-sync.ts` queues bounded daily
+jobs for `workflows/bank-sync.ts`. `src/pages/BankImport` contains setup, account
+calibration and combined review UI. Release gates live in `docs/banking.md`.

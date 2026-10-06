@@ -765,3 +765,21 @@ account-scoped IDs, complete/incomplete snapshots, retry limits, concurrency and
 review preservation. Run `node scripts/verify-bank-migrations.mjs` for migration
 compatibility. Live Lunch Flow smoke checks remain a separate pending gate; see
 [banking setup](banking.md), and never use a production key in a committed fixture.
+
+Provider UI regression tests are `src/e2e/tests/lunch-flow.spec.ts` (desktop/mobile
+setup, raw sign preview, account selection, provenance filters, explicit matching
+and reviewed-removal warnings) and the existing `bank-import.spec.ts` Plaid review
+flow. Run Chromium and Mobile Chrome locally with synthetic seeded groups. Set
+`CAPTURE_BANK_PREVIEW=1` to capture `docs/previews/bank-providers-*.png` and
+`bank-reviewed-*.png`. Sidebar unit tests cover backend-enabled Lunch Flow and
+all-provider-disabled navigation. `bank-background-sync.test.ts` covers feature
+gating, destination failure isolation, cached-only fetching and existing cron jobs.
+Worker review regressions inject stale CAS and ledger failures to verify atomic
+rollback leaves no linked import or ledger entry. Live verification is separately
+pending and is not implied by any mocked browser or Worker result.
+
+Local implementation verification (2026-10-06): full Worker suite 27 files,
+322 passed and 8 existing skipped; focused atomic-review regressions 14 passed;
+Sidebar capability unit tests 2 passed; Chromium/Mobile Chrome banking flows
+6 passed. Frontend production build and frontend/Worker TypeScript checks pass.
+These are synthetic local checks; the real-bank gate remains pending.
