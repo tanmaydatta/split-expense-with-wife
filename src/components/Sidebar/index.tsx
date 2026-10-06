@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useSelector } from "react-redux";
 import { useLocation, useNavigate } from "react-router-dom";
-import type { FullAuthSession, ReduxState } from "split-expense-shared-types";
+import type { ReduxState } from "split-expense-shared-types";
 import styled from "styled-components";
 import api from "@/utils/api";
 
@@ -52,7 +52,7 @@ interface SidebarProps {
 function Sidebar({ onNavigate }: SidebarProps): JSX.Element {
 	const navigate = useNavigate();
 	const location = useLocation();
-	const data: FullAuthSession = useSelector((state: ReduxState) => state.value);
+	const data = useSelector((state: ReduxState) => state.value);
 
 	const { data: bankCapabilities } = useQuery({
 		queryKey: ["bank-capabilities", data?.extra?.currentUser?.id],
