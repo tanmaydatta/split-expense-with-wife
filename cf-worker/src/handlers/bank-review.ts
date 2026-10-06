@@ -34,7 +34,7 @@ async function belongsToCurrentGroup(db: Db, connectionId: string, groupId: stri
 	return rows.length > 0;
 }
 
-function canReview(row: typeof bankTransactions.$inferSelect | undefined): boolean {
+function canReview(row: typeof bankTransactions.$inferSelect | undefined): row is typeof bankTransactions.$inferSelect {
 	return !!row && !row.pending && !row.removedAt && !row.linkedTransactionId && row.amountMinor > 0 && row.reviewStatus === "unreviewed";
 }
 
