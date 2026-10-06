@@ -10,6 +10,7 @@ export type BankCapabilities = {
 	removals: "explicit" | "window_snapshot";
 };
 export type ImportedAccount = {
+	amountMultiplier?: number | null;
 	id: string;
 	name: string;
 	mask: string | null;
@@ -21,6 +22,7 @@ export type ImportedAccount = {
 };
 /** Positive amountMinor means spending; negative means money received. */
 export type ImportedTransaction = {
+	rawAmountMinor?: number;
 	id: string;
 	accountId: string;
 	date: string;
@@ -32,6 +34,12 @@ export type ImportedTransaction = {
 	pendingTransactionId: string | null;
 };
 export type BankChanges = {
+	snapshots?: Array<{
+		accountId: string;
+		from: string;
+		to: string;
+		transactionIds: string[];
+	}>;
 	added: ImportedTransaction[];
 	modified: ImportedTransaction[];
 	removed: string[];

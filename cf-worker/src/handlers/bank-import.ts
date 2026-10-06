@@ -220,6 +220,7 @@ const ConnectionInput = z.object({ connectionId: z.string().min(1).max(100) });
 const SelectInput = ConnectionInput.extend({
 	accountId: z.string().min(1).max(200),
 	selected: z.boolean(),
+	amountMultiplier: z.union([z.literal(1), z.literal(-1)]).optional(),
 });
 
 export async function handleBankAccounts(
@@ -311,9 +312,47 @@ export async function handleBankSelectAccount(
 				env,
 			);
 		try {
+			const account = (
+				await db
+					.select()
+					.from(bankAccounts)
+					.where(
+						and(
+							eq(bankAccounts.id, parsed.data.accountId),
+							eq(bankAccounts.connectionId, connection.id),
+						),
+					)
+					.limit(1)
+			)[0];
+			if (!account)
+				return createErrorResponse("Bank account not found", 404, request, env);
+			const amountMultiplier =
+				parsed.data.amountMultiplier ?? account.amountMultiplier;
+			if (
+				connection.provider === "lunch_flow" &&
+				parsed.data.selected &&
+				amountMultiplier !== 1 &&
+				amountMultiplier !== -1
+			)
+				return createErrorResponse(
+					"Verify whether a known purchase is positive or negative before selecting this account",
+					400,
+					request,
+					env,
+				);
+			if (parsed.data.selected && account.status !== "ACTIVE")
+				return createErrorResponse(
+					"This account needs attention in the provider dashboard",
+					409,
+					request,
+					env,
+				);
 			const updated = await db
 				.update(bankAccounts)
-				.set({ selected: parsed.data.selected })
+				.set({
+					selected: parsed.data.selected,
+					...(connection.provider === "lunch_flow" ? { amountMultiplier } : {}),
+				})
 				.where(
 					and(
 						eq(bankAccounts.id, parsed.data.accountId),
@@ -429,6 +468,7 @@ export async function handleBankInbox(
 				accountId: bankTransactions.accountId,
 				accountName: bankAccounts.name,
 				date: bankTransactions.date,
+				updatedAt: bankTransactions.updatedAt,
 				name: bankTransactions.name,
 				merchantName: bankTransactions.merchantName,
 				amountMinor: bankTransactions.amountMinor,

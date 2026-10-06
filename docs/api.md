@@ -932,3 +932,19 @@ returns account provenance, provider IDs and availability for that owned
 connection. The API never returns stored credentials. Existing Plaid Link and
 review routes are preserved; shared routes use the banking registry flag while
 Plaid Link itself remains Sandbox-only.
+
+### Lunch Flow Personal API destination
+
+`POST /bank-import/lunch-flow/setup` takes `{apiKey, connectionId?}` for the
+authenticated owner. The optional connection ID replaces that owner's key while
+retaining account choices. There is one personal destination per owner. Setup
+validates the upstream account list before encrypted persistence and imports
+no transactions. `GET /bank-import/lunch-flow/preview?connectionId=...&accountId=...`
+returns up to ten private posted samples with raw minor-unit amounts.
+
+`POST /bank-import/accounts/select` accepts `amountMultiplier: 1 | -1` for LF.
+Selecting requires a verified mapping; values normalize a purchase to positive
+minor units. `POST /bank-import/sync` returns actual added/modified/removed row
+counts, not counts of repeatedly fetched unchanged data. Reviewed inbox includes
+removed source rows and `sourceChanged` warnings. Reviews may send `sourceVersion`
+to reject confirmation of an import that changed after it was displayed.

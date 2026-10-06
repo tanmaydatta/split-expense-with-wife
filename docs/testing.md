@@ -756,3 +756,12 @@ budget selection, lifetime totals, and detail/delete interactions. It also
 captures the filter screenshots in `docs/images` using Playwright. The seed
 handler uses creation time for entries, so browser date filters use their current
 UTC date; Worker integration cases cover exact calendar boundaries.
+
+### Bank providers
+
+Worker suites `bank-foundation.test.ts`, `lunch-flow.test.ts` and the existing
+`plaid-*.test.ts` cover encrypted credentials, per-owner access, explicit signs,
+account-scoped IDs, complete/incomplete snapshots, retry limits, concurrency and
+review preservation. Run `node scripts/verify-bank-migrations.mjs` for migration
+compatibility. Live Lunch Flow smoke checks remain a separate pending gate; see
+[banking setup](banking.md), and never use a production key in a committed fixture.
