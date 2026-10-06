@@ -30,6 +30,15 @@ const ExchangeInput = z.object({
 	institutionName: z.string().min(1).max(120),
 });
 
+function bankSyncIsBusy(connection: {
+	syncLock: string | null;
+	syncLockExpiresAt: number | null;
+}): boolean {
+	return (
+		!!connection.syncLock && (connection.syncLockExpiresAt ?? 0) > Date.now()
+	);
+}
+
 function unavailable(request: Request, env: Env): Response {
 	return createErrorResponse(
 		"Bank imports are not configured",
@@ -380,9 +389,9 @@ export async function handleBankSync(
 				request,
 				env,
 			);
-		if (connection && !bankProvider(connection.provider).enabled(env))
+		if (!bankProvider(connection.provider).enabled(env))
 			return unavailable(request, env);
-		if (connection.syncLock && (connection.syncLockExpiresAt ?? 0) > Date.now())
+		if (bankSyncIsBusy(connection))
 			return createErrorResponse(
 				"Bank sync is in progress; try again shortly",
 				409,
