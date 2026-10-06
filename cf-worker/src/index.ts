@@ -20,6 +20,7 @@ import {
 } from "./handlers/group";
 import { handleHealth } from "./handlers/health";
 import { handleBankAccounts, handleBankConnections, handleBankDisconnect, handleBankExchange, handleBankInbox, handleBankLinkToken, handleBankReconnected, handleBankSelectAccount, handleBankSync } from "./handlers/bank-import";
+import { handleLunchFlowSetup, handleLunchFlowPreview } from "./handlers/lunch-flow";
 import { handlePlaidWebhook } from "./handlers/plaid-webhook";
 import { handleBankCandidates, handleBankCreateExpense, handleBankIgnore, handleBankLinkedIds, handleBankMatch, handleBankRestore } from "./handlers/bank-review";
 import { handleTestSeed } from "./handlers/test-seed";
@@ -240,6 +241,8 @@ async function handleApiRoutes(
 		"bills/reminders/read": { methods: ["POST"], handler: handleBillReminderRead },
 	};
 	const bankRoutes: Record<string, { methods: string[]; handler: (request: Request, env: Env) => Promise<Response> }> = {
+		"bank-import/lunch-flow/setup": { methods: ["POST"], handler: handleLunchFlowSetup },
+		"bank-import/lunch-flow/preview": { methods: ["GET"], handler: handleLunchFlowPreview },
 		"bank-import/link-token": { methods: ["POST"], handler: handleBankLinkToken },
 		"bank-import/exchange": { methods: ["POST"], handler: handleBankExchange },
 		"bank-import/connections": { methods: ["GET"], handler: handleBankConnections },

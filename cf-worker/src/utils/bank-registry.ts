@@ -1,7 +1,9 @@
+import { lunchFlowProvider } from "./lunch-flow";
 import { plaidProvider } from "./plaid-provider";
 import type { BankProvider, BankProviderId } from "./bank-provider";
 export const bankProviders: Partial<Record<BankProviderId, BankProvider>> = {
 	plaid: plaidProvider,
+	lunch_flow: lunchFlowProvider,
 };
 export function bankProvider(provider: BankProviderId): BankProvider {
 	const adapter = bankProviders[provider];

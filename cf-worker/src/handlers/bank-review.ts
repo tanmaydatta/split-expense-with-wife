@@ -9,7 +9,7 @@ import { currencyScale } from "../utils/bank-provider";
 import { bankingEnabled, bankProvider } from "../utils/bank-registry";
 
 type Db = ReturnType<typeof getDb>;
-const BankId = z.object({ bankTransactionId: z.string().min(1).max(200) });
+const BankId = z.object({ bankTransactionId: z.string().min(1).max(500), sourceVersion: z.string().optional() });
 const MatchInput = BankId.extend({ transactionId: z.string().min(1).max(200) });
 const CreateInput = BankId.extend({
 	description: z.string().trim().min(1).max(255),
@@ -67,7 +67,7 @@ export async function handleBankMatch(request: Request, env: Env): Promise<Respo
 		const parsed = MatchInput.safeParse(await request.json());
 		if (!parsed.success || !session.group) return createErrorResponse("Invalid match", 400, request, env);
 		const bank = await ownedBankRow(db, parsed.data.bankTransactionId, session.user.id, env);
-		if (!canReview(bank)) return createErrorResponse("Bank activity was already reviewed", 409, request, env);
+		if (!canReview(bank) || (parsed.data.sourceVersion && parsed.data.sourceVersion !== bank.updatedAt)) return createErrorResponse("Bank activity changed or was already reviewed", 409, request, env);
 		if (!await belongsToCurrentGroup(db, bank.connectionId, session.group.groupid)) return createErrorResponse("Bank activity belongs to another group", 400, request, env);
 		const app = (await db.select().from(transactions).where(and(eq(transactions.transactionId, parsed.data.transactionId), eq(transactions.groupId, session.group.groupid), isNull(transactions.deleted))).limit(1))[0];
 		if (!app || app.currency !== bank.currency || Math.round(app.amount * currencyScale(bank.currency)) !== bank.amountMinor) {
@@ -77,7 +77,7 @@ export async function handleBankMatch(request: Request, env: Env): Promise<Respo
 		if (alreadyLinked) return createErrorResponse("Expense is already matched to bank activity", 409, request, env);
 		try {
 			const updated = await db.update(bankTransactions).set({ linkedTransactionId: app.transactionId, reviewStatus: "matched", updatedAt: new Date().toISOString() })
-				.where(and(eq(bankTransactions.id, bank.id), eq(bankTransactions.reviewStatus, "unreviewed"), isNull(bankTransactions.linkedTransactionId))).returning({ id: bankTransactions.id });
+				.where(and(eq(bankTransactions.id, bank.id), eq(bankTransactions.reviewStatus, "unreviewed"), eq(bankTransactions.amountMinor, bank.amountMinor), eq(bankTransactions.currency, bank.currency), eq(bankTransactions.pending, false), isNull(bankTransactions.removedAt), isNull(bankTransactions.linkedTransactionId))).returning({ id: bankTransactions.id });
 			if (!updated.length) return createErrorResponse("Bank activity was already reviewed", 409, request, env);
 			return createJsonResponse({ transactionId: app.transactionId }, 200, {}, request, env);
 		} catch {
@@ -92,9 +92,9 @@ export async function handleBankIgnore(request: Request, env: Env): Promise<Resp
 		const parsed = BankId.safeParse(await request.json());
 		if (!parsed.success) return createErrorResponse("Invalid bank activity", 400, request, env);
 		const bank = await ownedBankRow(db, parsed.data.bankTransactionId, session.user.id, env);
-		if (!canReview(bank)) return createErrorResponse("Bank activity was already reviewed", 409, request, env);
+		if (!canReview(bank) || (parsed.data.sourceVersion && parsed.data.sourceVersion !== bank.updatedAt)) return createErrorResponse("Bank activity changed or was already reviewed", 409, request, env);
 		const updated = await db.update(bankTransactions).set({ reviewStatus: "ignored", updatedAt: new Date().toISOString() })
-			.where(and(eq(bankTransactions.id, bank.id), eq(bankTransactions.reviewStatus, "unreviewed"), isNull(bankTransactions.linkedTransactionId))).returning({ id: bankTransactions.id });
+			.where(and(eq(bankTransactions.id, bank.id), eq(bankTransactions.reviewStatus, "unreviewed"), eq(bankTransactions.amountMinor, bank.amountMinor), eq(bankTransactions.currency, bank.currency), eq(bankTransactions.pending, false), isNull(bankTransactions.removedAt), isNull(bankTransactions.linkedTransactionId))).returning({ id: bankTransactions.id });
 		if (!updated.length) return createErrorResponse("Bank activity was already reviewed", 409, request, env);
 		return createJsonResponse({ status: "ignored" }, 200, {}, request, env);
 	});
@@ -119,7 +119,7 @@ export async function handleBankCreateExpense(request: Request, env: Env): Promi
 		const parsed = CreateInput.safeParse(await request.json());
 		if (!parsed.success || !session.group) return createErrorResponse("Invalid expense", 400, request, env);
 		const bank = await ownedBankRow(db, parsed.data.bankTransactionId, session.user.id, env);
-		if (!canReview(bank)) return createErrorResponse("Bank activity was already reviewed", 409, request, env);
+		if (!canReview(bank) || (parsed.data.sourceVersion && parsed.data.sourceVersion !== bank.updatedAt)) return createErrorResponse("Bank activity changed or was already reviewed", 409, request, env);
 		if (!await belongsToCurrentGroup(db, bank.connectionId, session.group.groupid)) return createErrorResponse("Bank activity belongs to another group", 400, request, env);
 		const members = new Set(session.group.userids);
 		const shares = parsed.data.splitPctShares;
@@ -144,7 +144,7 @@ export async function handleBankCreateExpense(request: Request, env: Env): Promi
 			if (!result.statements.length) return createErrorResponse("Expense already exists for this bank activity", 409, request, env);
 			// Claim the bank row before writing ledger entries so a concurrent Match cannot win.
 			const claim = await db.update(bankTransactions).set({ linkedTransactionId: transactionId, updatedAt: new Date().toISOString() })
-				.where(and(eq(bankTransactions.id, bank.id), eq(bankTransactions.reviewStatus, "unreviewed"), isNull(bankTransactions.linkedTransactionId)))
+				.where(and(eq(bankTransactions.id, bank.id), eq(bankTransactions.reviewStatus, "unreviewed"), eq(bankTransactions.amountMinor, bank.amountMinor), eq(bankTransactions.currency, bank.currency), eq(bankTransactions.pending, false), isNull(bankTransactions.removedAt), isNull(bankTransactions.linkedTransactionId)))
 				.returning({ id: bankTransactions.id });
 			if (!claim.length) return createErrorResponse("Bank activity was already reviewed", 409, request, env);
 			claimed = true;

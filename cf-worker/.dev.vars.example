@@ -16,3 +16,11 @@ E2E_SEED_SECRET=local-only-do-not-deploy
 PLAID_CLIENT_ID=replace-with-plaid-client-id
 PLAID_SANDBOX_SECRET=replace-with-plaid-sandbox-secret
 PLAID_TOKEN_ENCRYPTION_KEY=replace-with-a-random-secret-of-at-least-32-characters
+
+# Optional Lunch Flow Personal API support. Do not put an owner's API key here
+# for application use: each owner submits their key through authenticated setup.
+# A locally supplied LUNCH_FLOW_API_KEY is only for the read-only live smoke script.
+# Production flags remain off until a separately approved release.
+LUNCH_FLOW_ENABLED=false
+BANK_TOKEN_ENCRYPTION_KEY=replace-with-a-new-random-secret-of-at-least-32-characters
+BANK_BACKGROUND_SYNC_ENABLED=false

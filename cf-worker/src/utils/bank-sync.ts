@@ -1,7 +1,11 @@
 import { and, eq, isNull, lt, or } from "drizzle-orm";
 import { ulid } from "ulid";
 import type { getDb } from "../db";
-import { bankAccounts, bankConnections } from "../db/schema/schema";
+import {
+	bankAccounts,
+	bankConnections,
+	bankTransactions,
+} from "../db/schema/schema";
 import { bankProvider } from "./bank-registry";
 import { BankProviderError } from "./bank-provider";
 import type { BankConnection, ImportedAccount } from "./bank-provider";
@@ -42,6 +46,7 @@ export async function releaseBankLease(
 			),
 		);
 }
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: lease-conditional metadata refresh and availability are one ordered operation.
 export async function refreshBankAccounts(
 	env: Env,
 	db: Db,
@@ -115,6 +120,25 @@ export async function refreshBankAccounts(
 			}
 		for (let index = 0; index < writes.length; index += 100)
 			await env.DB.batch(writes.slice(index, index + 100));
+	} catch (error) {
+		await db
+			.update(bankConnections)
+			.set({
+				status:
+					error instanceof BankProviderError && error.code === "reauthorize"
+						? "needs_attention"
+						: connection.status,
+				lastError:
+					error instanceof BankProviderError ? error.code : "unavailable",
+				updatedAt: new Date().toISOString(),
+			})
+			.where(
+				and(
+					eq(bankConnections.id, connection.id),
+					eq(bankConnections.syncLock, connection.syncLock),
+				),
+			);
+		throw error;
 	} finally {
 		await releaseBankLease(db, connection);
 	}
@@ -172,6 +196,43 @@ export async function syncBankConnection(
 		if (!current) throw new BankProviderError("busy");
 		const selectedIds = new Set(selected.map((row) => row.id));
 		const now = new Date().toISOString();
+		const rowId = (accountId: string, transactionId: string) =>
+			connection.provider === "lunch_flow"
+				? `${connection.id}:${encodeURIComponent(accountId)}:${encodeURIComponent(transactionId)}`
+				: `${connection.id}:${transactionId}`;
+		for (const snapshot of changes.snapshots ?? []) {
+			const prior = await db
+				.select()
+				.from(bankTransactions)
+				.where(
+					and(
+						eq(bankTransactions.connectionId, connection.id),
+						eq(
+							bankTransactions.accountId,
+							`${connection.id}:${snapshot.accountId}`,
+						),
+					),
+				);
+			const present = new Set(
+				snapshot.transactionIds.map((id) => rowId(snapshot.accountId, id)),
+			);
+			for (const row of prior)
+				if (
+					row.date >= snapshot.from &&
+					row.date <= snapshot.to &&
+					!present.has(row.id) &&
+					!row.removedAt
+				)
+					changes.removed.push(row.id.slice(connection.id.length + 1));
+		}
+		const priorRows = await db
+			.select()
+			.from(bankTransactions)
+			.where(eq(bankTransactions.connectionId, connection.id));
+		const existingById = new Map(priorRows.map((row) => [row.id, row]));
+		let addedCount = 0;
+		let modifiedCount = 0;
+		let removedCount = 0;
 		const statements: D1PreparedStatement[] = [];
 		if (
 			changes.added.length + changes.modified.length + changes.removed.length >
@@ -181,23 +242,42 @@ export async function syncBankConnection(
 		for (const row of [...changes.added, ...changes.modified]) {
 			const accountId = `${connection.id}:${row.accountId}`;
 			if (!selectedIds.has(accountId)) continue;
+			const existing = existingById.get(rowId(row.accountId, row.id));
+			const changed =
+				!!existing &&
+				(existing.amountMinor !== row.amountMinor ||
+					existing.currency !== row.currency ||
+					existing.date !== row.date ||
+					existing.name !== row.name ||
+					existing.merchantName !== row.merchantName ||
+					existing.pending !== row.pending ||
+					!!existing.removedAt);
+			if (!existing) addedCount++;
+			else if (changed) modifiedCount++;
+			existingById.set(rowId(row.accountId, row.id), {
+				...existing,
+				...row,
+				amountMinor: row.amountMinor,
+				removedAt: null,
+			} as typeof bankTransactions.$inferSelect);
+
 			statements.push(
 				env.DB.prepare(`INSERT INTO bank_transactions
-    (id, connection_id, user_id, account_id, provider_transaction_id, date, name, merchant_name, amount_minor, currency, pending, pending_transaction_id, removed_at, created_at, updated_at)
-    SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?
+    (id, connection_id, user_id, account_id, provider_transaction_id, date, name, merchant_name, amount_minor, raw_amount_minor, currency, pending, pending_transaction_id, removed_at, created_at, updated_at)
+    SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?
     WHERE EXISTS (SELECT 1 FROM bank_connections WHERE id = ? AND sync_lock = ?)
     ON CONFLICT(id) DO UPDATE SET
-     source_changed = CASE WHEN bank_transactions.review_status <> 'unreviewed' AND
+     source_changed = CASE WHEN (bank_transactions.review_status <> 'unreviewed' OR bank_transactions.linked_transaction_id IS NOT NULL) AND
       (bank_transactions.amount_minor <> excluded.amount_minor OR bank_transactions.currency <> excluded.currency OR
        bank_transactions.date <> excluded.date OR bank_transactions.name <> excluded.name OR
        bank_transactions.pending <> excluded.pending OR bank_transactions.removed_at IS NOT NULL)
       THEN 1 ELSE bank_transactions.source_changed END,
      account_id = excluded.account_id, provider_transaction_id = excluded.provider_transaction_id,
      date = excluded.date, name = excluded.name, merchant_name = excluded.merchant_name,
-     amount_minor = excluded.amount_minor, currency = excluded.currency, pending = excluded.pending,
+     amount_minor = excluded.amount_minor, raw_amount_minor = excluded.raw_amount_minor, currency = excluded.currency, pending = excluded.pending,
      pending_transaction_id = excluded.pending_transaction_id, removed_at = NULL, updated_at = excluded.updated_at
     WHERE EXISTS (SELECT 1 FROM bank_connections WHERE id = ? AND sync_lock = ?)`).bind(
-					`${connection.id}:${row.id}`,
+					rowId(row.accountId, row.id),
 					connection.id,
 					connection.userId,
 					accountId,
@@ -206,6 +286,7 @@ export async function syncBankConnection(
 					row.name,
 					row.merchantName,
 					row.amountMinor,
+					row.rawAmountMinor ?? null,
 					row.currency,
 					Number(row.pending),
 					row.pendingTransactionId,
@@ -220,7 +301,9 @@ export async function syncBankConnection(
 			if (row.pendingTransactionId)
 				changes.removed.push(row.pendingTransactionId);
 		}
-		for (const id of changes.removed) {
+		for (const id of new Set(changes.removed)) {
+			const prior = existingById.get(`${connection.id}:${id}`);
+			if (prior && !prior.removedAt) removedCount++;
 			statements.push(
 				env.DB.prepare(`UPDATE bank_transactions SET removed_at = ?, updated_at = ?,
     source_changed = CASE WHEN review_status <> 'unreviewed' THEN 1 ELSE source_changed END
@@ -241,7 +324,9 @@ export async function syncBankConnection(
 			.update(bankConnections)
 			.set({
 				cursor: changes.cursor,
-				status: "connected",
+				status: selected.some((account) => account.status !== "ACTIVE")
+					? "needs_attention"
+					: "connected",
 				lastSyncedAt: now,
 				lastError: null,
 				updatedAt: now,
@@ -255,9 +340,9 @@ export async function syncBankConnection(
 			.returning({ id: bankConnections.id });
 		if (!updated.length) throw new BankProviderError("busy");
 		return {
-			added: changes.added.length,
-			modified: changes.modified.length,
-			removed: changes.removed.length,
+			added: addedCount,
+			modified: modifiedCount,
+			removed: removedCount,
 		};
 	} catch (error) {
 		const attention =
