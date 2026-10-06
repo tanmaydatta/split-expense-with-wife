@@ -550,21 +550,56 @@ npx wrangler tail -e dev --debug
 - **Wrangler CLI Docs**: https://developers.cloudflare.com/workers/wrangler/
 - **Community Forum**: https://community.cloudflare.com/
 
-## Provider foundation migration and rollback
+## Bank provider release and rollback
 
-Before merging the provider foundation, manually apply 0028_bank_providers.sql
-first to splitexpense-dev, then to production only after explicit release approval.
-It is expand-only: the old Worker keeps every column it needs. Verify existing
-connection/import counts and confirmed links against a backup before and after.
-No command in this implementation applies a remote migration. PR pushes deploy
-staging automatically, so do not push before the staging schema is migrated.
+This stack is locally verified with synthetic data. **Live Lunch Flow validation
+is pending**; follow [the live gate](banking.md#local-live-verification-gate) before
+requesting a concrete release. No remote migration or deployment is part of local
+implementation. PR pushes automatically deploy `splitexpense-dev`.
 
-Set BANK_TOKEN_ENCRYPTION_KEY to a new random secret of at least 32 characters
-before storing new provider credentials. Retain PLAID_TOKEN_ENCRYPTION_KEY while
-legacy Plaid credentials exist. Never replace one with the other. Plaid Sandbox
-remains disabled in production unless its separate flag is explicitly enabled.
+Before the foundation push, record the active staging Worker version and a fresh
+D1 backup/bookmark, compare connection/import/confirmed-link counts, and manually
+apply `0028_bank_providers.sql` to `splitexpense-dev`. Before the API/UI pushes,
+apply `0029_lunch_flow.sql` in order. Both are expand-only and preserve legacy
+columns. 0029 is required for **Plaid review too**: it adds `row_version` (existing
+imports start at zero), account sign mappings and background-attempt timestamps.
+Run `node scripts/verify-bank-migrations.mjs` locally (Node with `node:sqlite`).
+Verify the remote migration list and retained IDs/links before allowing a push.
 
-Rollback the Worker to its preceding version and leave the expanded schema in
-place. Do not drop bank tables or revert the additive migration: that would lose
-private review state and confirmed links. Disabling provider flags stops provider
-API access without mutating confirmed shared records.
+Set `BANK_TOKEN_ENCRYPTION_KEY` to a new random secret of at least 32 characters
+before enabling Lunch Flow. Retain `PLAID_TOKEN_ENCRYPTION_KEY`: all new and old
+Plaid credentials continue using its existing format for rollback compatibility.
+Never substitute the new bank key for the Plaid key. Application Lunch Flow keys
+are encrypted per owner after authenticated setup, never a shared Worker secret.
+`LUNCH_FLOW_API_KEY` in ignored local `.dev.vars` is only for the read-only smoke
+script (Node 22.18+); do not add it to Wrangler configuration or remote secrets.
+
+Enable `LUNCH_FLOW_ENABLED=true` only after the live gate and environment-specific
+release approval. Plaid remains independently controlled by `PLAID_SANDBOX_ENABLED`; production defaults stay disabled. Navigation uses the
+backend's enabled-provider capability response, including on the production host.
+
+Daily fetching additionally requires `BANK_BACKGROUND_SYNC_ENABLED=true` and the
+`BANK_SYNC_WORKFLOW` binding. The configured workflow names are `bank-sync` for the top-level live Worker
+and `env.prod`, and `bank-sync-dev` for staging. Local Wrangler emulates the
+top-level binding without deploying it. Confirm the deployed
+binding points to class `BankSyncWorkflow` before enabling the background flag.
+Reuse the existing midnight UTC trigger that also runs scheduled actions and bill
+reminders; no second trigger is needed. Cron configuration remains dashboard
+managed and no new trigger is enabled by this stack. At most 50 destinations are
+queued daily, oldest background attempt first; failed destinations rotate too.
+Queue failures are isolated and do not update a connection's successful-sync time.
+Inspect safe error categories and workflow status without logging credentials.
+
+Production is `budget.wastd.dev`, Worker `splitexpense`, database `splitexpense`.
+Production migration, flag changes, and merging/deploying require a separate
+concrete approval after staging and live verification. Record its active version
+and fresh D1 bookmark, apply both additive migrations, verify existing links, then
+follow the approved stack order. A green staging build is not production evidence.
+
+For rollback, first disable LF/background flags, then restore the preceding
+Worker version while leaving both migrations and private data in place. Existing
+and newly connected Plaid credentials remain readable by the old Worker when its
+Sandbox flag is enabled. The old Worker cannot display LF imports. Do not drop
+bank tables, remove additive columns, rotate away the Plaid key, or restore an
+old database over confirmed shared expenses. Confirmed expenses survive LF
+sync failure, upstream removal, key replacement, and local disconnect.

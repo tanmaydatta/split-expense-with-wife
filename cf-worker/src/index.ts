@@ -53,6 +53,7 @@ import {
 	createErrorResponse,
 	createOptionsResponse,
 } from "./utils";
+import { BankSyncWorkflow } from "./workflows/bank-sync";
 import { ScheduledActionsOrchestratorWorkflow } from "./workflows/scheduled-actions-orchestrator";
 import { ScheduledActionsProcessorWorkflow } from "./workflows/scheduled-actions-processor";
 
@@ -368,3 +369,5 @@ export {
 	ScheduledActionsOrchestratorWorkflow,
 	ScheduledActionsProcessorWorkflow,
 };
+
+export { BankSyncWorkflow };
