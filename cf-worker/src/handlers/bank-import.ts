@@ -453,6 +453,24 @@ export async function handleBankSync(
 	});
 }
 
+function bankInboxFilters(params: URLSearchParams, reviewed: boolean) {
+	const provider = params.get("provider");
+	const connectionId = params.get("connectionId");
+	const accountId = params.get("accountId");
+	return [
+		provider
+			? eq(bankConnections.provider, provider as "plaid" | "lunch_flow")
+			: undefined,
+		connectionId ? eq(bankConnections.id, connectionId) : undefined,
+		accountId ? eq(bankAccounts.id, accountId) : undefined,
+		reviewed ? undefined : eq(bankTransactions.pending, false),
+		reviewed ? undefined : isNull(bankTransactions.removedAt),
+		reviewed
+			? ne(bankTransactions.reviewStatus, "unreviewed")
+			: eq(bankTransactions.reviewStatus, "unreviewed"),
+	];
+}
+
 export async function handleBankInbox(
 	request: Request,
 	env: Env,
@@ -500,27 +518,14 @@ export async function handleBankInbox(
 				and(
 					eq(bankTransactions.userId, session.user.id),
 					eq(bankConnections.groupId, session.currentUser.groupid ?? ""),
-					provider
-						? eq(bankConnections.provider, provider as "plaid" | "lunch_flow")
-						: undefined,
-					params.get("connectionId")
-						? eq(bankConnections.id, params.get("connectionId") ?? "")
-						: undefined,
-					params.get("accountId")
-						? eq(bankAccounts.id, params.get("accountId") ?? "")
-						: undefined,
+					...bankInboxFilters(params, reviewed),
 					eq(bankAccounts.selected, true),
-					reviewed ? undefined : eq(bankTransactions.pending, false),
-					reviewed ? undefined : isNull(bankTransactions.removedAt),
 					inArray(
 						bankConnections.provider,
 						Object.values(bankProviders)
 							.filter((provider) => provider.enabled(env))
 							.map((provider) => provider.id),
 					),
-					reviewed
-						? ne(bankTransactions.reviewStatus, "unreviewed")
-						: eq(bankTransactions.reviewStatus, "unreviewed"),
 				),
 			)
 			.orderBy(desc(bankTransactions.date))
@@ -711,6 +716,25 @@ export async function handleBankConnections(
 	});
 }
 
-export async function handleBankCapabilities(request: Request, env: Env): Promise<Response> {
- return withAuthLite(request, env, async () => createJsonResponse({ providers: Object.values(bankProviders).filter(provider => provider.enabled(env)).map(provider => ({ id: provider.id, label: provider.label, capabilities: provider.capabilities })) }, 200, {}, request, env));
+export async function handleBankCapabilities(
+	request: Request,
+	env: Env,
+): Promise<Response> {
+	return withAuthLite(request, env, async () =>
+		createJsonResponse(
+			{
+				providers: Object.values(bankProviders)
+					.filter((provider) => provider.enabled(env))
+					.map((provider) => ({
+						id: provider.id,
+						label: provider.label,
+						capabilities: provider.capabilities,
+					})),
+			},
+			200,
+			{},
+			request,
+			env,
+		),
+	);
 }
