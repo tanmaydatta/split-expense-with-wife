@@ -14,6 +14,12 @@ binding = "PROCESSOR_WORKFLOW"
 class_name = "ScheduledActionsProcessorWorkflow"
 name = "scheduled-actions-processor"
 
+# Daily bank sync Workflows are dormant until the separate background flag is enabled.
+[[workflows]]
+binding = "BANK_SYNC_WORKFLOW"
+class_name = "BankSyncWorkflow"
+name = "bank-sync"
+
 # Static assets configuration for Single Page Application
 [assets]
 directory = "../build"
@@ -46,7 +52,7 @@ enabled = true
 
 
 #[triggers]
-#crons = [ "0 0 * * *" ]  # Daily at midnight UTC for scheduled actions
+#crons = [ "0 0 * * *" ]  # Daily at midnight UTC; scheduling is a separate approved release step.
 
 [env.prod]
     [[env.prod.d1_databases]]
@@ -98,3 +104,13 @@ enabled = true
     binding = "PROCESSOR_WORKFLOW"
     class_name = "ScheduledActionsProcessorWorkflow"
     name = "scheduled-actions-processor-dev"
+
+    [[env.dev.workflows]]
+    binding = "BANK_SYNC_WORKFLOW"
+    class_name = "BankSyncWorkflow"
+    name = "bank-sync-dev"
+
+    [[env.prod.workflows]]
+    binding = "BANK_SYNC_WORKFLOW"
+    class_name = "BankSyncWorkflow"
+    name = "bank-sync"

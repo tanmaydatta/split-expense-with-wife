@@ -1,4 +1,5 @@
 import { createJsonResponse, formatSQLiteTime } from "../utils";
+import { enqueueDailyBankSync } from "../utils/bank-background-sync";
 import { generateBillReminders } from "../utils/bill-reminders";
 
 export async function handleCron(env: Env, cron: string) {
@@ -7,7 +8,7 @@ export async function handleCron(env: Env, cron: string) {
 	// Handle scheduled actions workflow trigger
 	if (cron === "0 0 * * *") {
 		// Daily at midnight UTC
-		await Promise.all([triggerScheduledActionsOrchestrator(env), generateBillReminders(env)]);
+		await Promise.all([triggerScheduledActionsOrchestrator(env), generateBillReminders(env), enqueueDailyBankSync(env)]);
 	}
 
 	console.log(`Cron job for ${cron} finished`);
