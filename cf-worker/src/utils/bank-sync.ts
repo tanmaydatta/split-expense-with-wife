@@ -65,26 +65,32 @@ export async function refreshBankAccounts(
 				)
 		)[0];
 		if (!current) throw new BankProviderError("busy");
+		const writes: D1PreparedStatement[] = [];
 		for (const account of accounts) {
-			const fields = {
-				name: account.name,
-				mask: account.mask,
-				type: account.type,
-				subtype: account.subtype,
-				providerAccountId: account.id,
-				status: account.status,
-				currency: account.currency,
-				institutionName: account.institutionName,
-			};
-			await db
-				.insert(bankAccounts)
-				.values({
-					id: `${connection.id}:${account.id}`,
-					connectionId: connection.id,
-					...fields,
-					selected: false,
-				})
-				.onConflictDoUpdate({ target: bankAccounts.id, set: fields });
+			writes.push(
+				env.DB.prepare(`INSERT INTO bank_accounts
+    (id, connection_id, provider_account_id, name, mask, type, subtype, status, currency, institution_name, selected)
+    SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0 WHERE EXISTS (SELECT 1 FROM bank_connections WHERE id = ? AND sync_lock = ?)
+    ON CONFLICT(id) DO UPDATE SET provider_account_id = excluded.provider_account_id,
+    name = excluded.name, mask = excluded.mask, type = excluded.type, subtype = excluded.subtype,
+    status = excluded.status, currency = excluded.currency, institution_name = excluded.institution_name
+    WHERE EXISTS (SELECT 1 FROM bank_connections WHERE id = ? AND sync_lock = ?)`).bind(
+					`${connection.id}:${account.id}`,
+					connection.id,
+					account.id,
+					account.name,
+					account.mask,
+					account.type,
+					account.subtype,
+					account.status,
+					account.currency,
+					account.institutionName,
+					connection.id,
+					connection.syncLock,
+					connection.id,
+					connection.syncLock,
+				),
+			);
 		}
 		const available = new Set(accounts.map((account) => account.id));
 		const stored = await db
@@ -98,11 +104,17 @@ export async function refreshBankAccounts(
 						account.id.slice(connection.id.length + 1),
 				)
 			) {
-				await db
-					.update(bankAccounts)
-					.set({ status: "UNAVAILABLE" })
-					.where(eq(bankAccounts.id, account.id));
+				writes.push(
+					env.DB.prepare(`UPDATE bank_accounts SET status = 'UNAVAILABLE' WHERE id = ? AND EXISTS
+    (SELECT 1 FROM bank_connections WHERE id = ? AND sync_lock = ?)`).bind(
+						account.id,
+						connection.id,
+						connection.syncLock,
+					),
+				);
 			}
+		for (let index = 0; index < writes.length; index += 100)
+			await env.DB.batch(writes.slice(index, index + 100));
 	} finally {
 		await releaseBankLease(db, connection);
 	}

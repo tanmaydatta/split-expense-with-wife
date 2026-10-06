@@ -6,7 +6,7 @@ import { bankConnections, bankTransactions, transactions } from "../db/schema/sc
 import { createErrorResponse, createJsonResponse, withAuth } from "../utils";
 import { createSplitTransactionFromRequest } from "../utils/scheduled-action-execution";
 import { currencyScale } from "../utils/bank-provider";
-import { bankingEnabled } from "../utils/bank-registry";
+import { bankingEnabled, bankProvider } from "../utils/bank-registry";
 
 type Db = ReturnType<typeof getDb>;
 const BankId = z.object({ bankTransactionId: z.string().min(1).max(200) });
@@ -21,8 +21,11 @@ function unavailable(request: Request, env: Env): Response {
 	return createErrorResponse("Bank imports are not configured", 503, request, env);
 }
 
-async function ownedBankRow(db: Db, bankTransactionId: string, userId: string) {
-	return (await db.select().from(bankTransactions).where(and(eq(bankTransactions.id, bankTransactionId), eq(bankTransactions.userId, userId))).limit(1))[0];
+async function ownedBankRow(db: Db, bankTransactionId: string, userId: string, env: Env) {
+	const row = (await db.select().from(bankTransactions).where(and(eq(bankTransactions.id, bankTransactionId), eq(bankTransactions.userId, userId))).limit(1))[0];
+ if (!row) return undefined;
+ const connection = (await db.select().from(bankConnections).where(eq(bankConnections.id, row.connectionId)).limit(1))[0];
+ return connection && bankProvider(connection.provider).enabled(env) ? row : undefined;
 }
 
 async function belongsToCurrentGroup(db: Db, connectionId: string, groupId: string): Promise<boolean> {
@@ -43,7 +46,7 @@ export async function handleBankCandidates(request: Request, env: Env): Promise<
 	if (!bankingEnabled(env)) return unavailable(request, env);
 	return withAuth(request, env, async (session, db) => {
 		const bankTransactionId = new URL(request.url).searchParams.get("bankTransactionId") ?? "";
-		const bank = await ownedBankRow(db, bankTransactionId, session.user.id);
+		const bank = await ownedBankRow(db, bankTransactionId, session.user.id, env);
 		if (!canReview(bank) || !session.group || !await belongsToCurrentGroup(db, bank.connectionId, session.group.groupid)) return createErrorResponse("Bank activity cannot be reviewed in this group", 400, request, env);
 		const rows = await db.select({ id: transactions.transactionId, description: transactions.description,
 			amount: transactions.amount, currency: transactions.currency, date: transactions.createdAt })
@@ -63,7 +66,7 @@ export async function handleBankMatch(request: Request, env: Env): Promise<Respo
 	return withAuth(request, env, async (session, db) => {
 		const parsed = MatchInput.safeParse(await request.json());
 		if (!parsed.success || !session.group) return createErrorResponse("Invalid match", 400, request, env);
-		const bank = await ownedBankRow(db, parsed.data.bankTransactionId, session.user.id);
+		const bank = await ownedBankRow(db, parsed.data.bankTransactionId, session.user.id, env);
 		if (!canReview(bank)) return createErrorResponse("Bank activity was already reviewed", 409, request, env);
 		if (!await belongsToCurrentGroup(db, bank.connectionId, session.group.groupid)) return createErrorResponse("Bank activity belongs to another group", 400, request, env);
 		const app = (await db.select().from(transactions).where(and(eq(transactions.transactionId, parsed.data.transactionId), eq(transactions.groupId, session.group.groupid), isNull(transactions.deleted))).limit(1))[0];
@@ -88,7 +91,7 @@ export async function handleBankIgnore(request: Request, env: Env): Promise<Resp
 	return withAuth(request, env, async (session, db) => {
 		const parsed = BankId.safeParse(await request.json());
 		if (!parsed.success) return createErrorResponse("Invalid bank activity", 400, request, env);
-		const bank = await ownedBankRow(db, parsed.data.bankTransactionId, session.user.id);
+		const bank = await ownedBankRow(db, parsed.data.bankTransactionId, session.user.id, env);
 		if (!canReview(bank)) return createErrorResponse("Bank activity was already reviewed", 409, request, env);
 		const updated = await db.update(bankTransactions).set({ reviewStatus: "ignored", updatedAt: new Date().toISOString() })
 			.where(and(eq(bankTransactions.id, bank.id), eq(bankTransactions.reviewStatus, "unreviewed"), isNull(bankTransactions.linkedTransactionId))).returning({ id: bankTransactions.id });
@@ -102,7 +105,7 @@ export async function handleBankRestore(request: Request, env: Env): Promise<Res
 	return withAuth(request, env, async (session, db) => {
 		const parsed = BankId.safeParse(await request.json());
 		if (!parsed.success) return createErrorResponse("Invalid bank activity", 400, request, env);
-		const bank = await ownedBankRow(db, parsed.data.bankTransactionId, session.user.id);
+		const bank = await ownedBankRow(db, parsed.data.bankTransactionId, session.user.id, env);
 		if (!bank || bank.reviewStatus !== "ignored") return createErrorResponse("Ignored bank activity not found", 404, request, env);
 		await db.update(bankTransactions).set({ reviewStatus: "unreviewed", updatedAt: new Date().toISOString() }).where(eq(bankTransactions.id, bank.id));
 		return createJsonResponse({ status: "unreviewed" }, 200, {}, request, env);
@@ -115,7 +118,7 @@ export async function handleBankCreateExpense(request: Request, env: Env): Promi
 	return withAuth(request, env, async (session, db) => {
 		const parsed = CreateInput.safeParse(await request.json());
 		if (!parsed.success || !session.group) return createErrorResponse("Invalid expense", 400, request, env);
-		const bank = await ownedBankRow(db, parsed.data.bankTransactionId, session.user.id);
+		const bank = await ownedBankRow(db, parsed.data.bankTransactionId, session.user.id, env);
 		if (!canReview(bank)) return createErrorResponse("Bank activity was already reviewed", 409, request, env);
 		if (!await belongsToCurrentGroup(db, bank.connectionId, session.group.groupid)) return createErrorResponse("Bank activity belongs to another group", 400, request, env);
 		const members = new Set(session.group.userids);

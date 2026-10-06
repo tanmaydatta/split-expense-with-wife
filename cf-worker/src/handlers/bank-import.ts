@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull, ne } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, ne } from "drizzle-orm";
 import { ulid } from "ulid";
 import { z } from "zod";
 import {
@@ -240,6 +240,8 @@ export async function handleBankAccounts(
 				request,
 				env,
 			);
+		if (connection && !bankProvider(connection.provider).enabled(env))
+			return unavailable(request, env);
 		const accounts = await db
 			.select()
 			.from(bankAccounts)
@@ -282,6 +284,8 @@ export async function handleBankSelectAccount(
 				request,
 				env,
 			);
+		if (connection && !bankProvider(connection.provider).enabled(env))
+			return unavailable(request, env);
 		if (connection.syncLock && (connection.syncLockExpiresAt ?? 0) > Date.now())
 			return createErrorResponse(
 				"Bank sync is in progress; try again shortly",
@@ -376,6 +380,8 @@ export async function handleBankSync(
 				request,
 				env,
 			);
+		if (connection && !bankProvider(connection.provider).enabled(env))
+			return unavailable(request, env);
 		if (connection.syncLock && (connection.syncLockExpiresAt ?? 0) > Date.now())
 			return createErrorResponse(
 				"Bank sync is in progress; try again shortly",
@@ -420,15 +426,30 @@ export async function handleBankInbox(
 				currency: bankTransactions.currency,
 				linkedTransactionId: bankTransactions.linkedTransactionId,
 				reviewStatus: bankTransactions.reviewStatus,
+				sourceChanged: bankTransactions.sourceChanged,
+				removedAt: bankTransactions.removedAt,
+				pending: bankTransactions.pending,
+				provider: bankConnections.provider,
+				institutionName: bankAccounts.institutionName,
 			})
 			.from(bankTransactions)
 			.innerJoin(bankAccounts, eq(bankTransactions.accountId, bankAccounts.id))
+			.innerJoin(
+				bankConnections,
+				eq(bankTransactions.connectionId, bankConnections.id),
+			)
 			.where(
 				and(
 					eq(bankTransactions.userId, session.user.id),
 					eq(bankAccounts.selected, true),
-					eq(bankTransactions.pending, false),
-					isNull(bankTransactions.removedAt),
+					reviewed ? undefined : eq(bankTransactions.pending, false),
+					reviewed ? undefined : isNull(bankTransactions.removedAt),
+					inArray(
+						bankConnections.provider,
+						Object.values(bankProviders)
+							.filter((provider) => provider.enabled(env))
+							.map((provider) => provider.id),
+					),
 					reviewed
 						? ne(bankTransactions.reviewStatus, "unreviewed")
 						: eq(bankTransactions.reviewStatus, "unreviewed"),
@@ -472,6 +493,8 @@ export async function handleBankReconnected(
 				request,
 				env,
 			);
+		if (connection && !bankProvider(connection.provider).enabled(env))
+			return unavailable(request, env);
 		await db
 			.update(bankConnections)
 			.set({ status: "connected", updatedAt: new Date().toISOString() })
@@ -509,6 +532,8 @@ export async function handleBankDisconnect(
 				request,
 				env,
 			);
+		if (connection && !bankProvider(connection.provider).enabled(env))
+			return unavailable(request, env);
 		if (connection.syncLock && (connection.syncLockExpiresAt ?? 0) > Date.now())
 			return createErrorResponse(
 				"Bank sync is in progress; try again shortly",
@@ -587,6 +612,12 @@ export async function handleBankConnections(
 				and(
 					eq(bankConnections.userId, session.user.id),
 					eq(bankConnections.groupId, groupId),
+					inArray(
+						bankConnections.provider,
+						Object.values(bankProviders)
+							.filter((provider) => provider.enabled(env))
+							.map((provider) => provider.id),
+					),
 				),
 			)
 			.orderBy(desc(bankConnections.createdAt));
