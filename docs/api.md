@@ -922,3 +922,13 @@ All filters run before pagination; sorting has a stable transaction/entry ID tie
 breaker. Budget lifetime totals are independent of list filters.
 
 Budget history includes entries saved in the current UTC second and excludes future entries.
+
+### Bank provider metadata
+
+`GET /bank-import/connections` returns only the owner's connections plus enabled
+providers and their capabilities. Each connection includes `provider`,
+`lastSyncedAt`, and a redacted `lastError` category. `GET /bank-import/accounts`
+returns account provenance, provider IDs and availability for that owned
+connection. The API never returns stored credentials. Existing Plaid Link and
+review routes are preserved; shared routes use the banking registry flag while
+Plaid Link itself remains Sandbox-only.
