@@ -1,4 +1,7 @@
-import { z } from "zod";
+import {
+	parseLunchFlowAccounts,
+	parseLunchFlowTransactions,
+} from "./lunch-flow-schema";
 import { BankProviderError, amountMinor } from "./bank-provider";
 import type {
 	BankProvider,
@@ -8,42 +11,6 @@ import type {
 import { bankEncryptionConfigured, decryptBankToken } from "./bank-token";
 import type { BankEnv } from "./bank-token";
 const BASE = "https://lunchflow.app/api/v1";
-const Account = z.object({
-	id: z.number().int().nonnegative(),
-	connection_id: z.number().int().nonnegative(),
-	name: z.string().min(1).max(255),
-	institution_name: z.string().max(255).nullable().optional(),
-	currency: z.string().regex(/^[A-Z]{3}$/),
-	status: z.string().min(1),
-	provider: z.string(),
-});
-const Accounts = z.object({
-	accounts: z.array(Account).max(100),
-	total: z.number().int().nonnegative(),
-});
-const Transaction = z.object({
-	id: z.string().min(1),
-	accountId: z.number().int().nonnegative(),
-	amount: z.number().finite(),
-	currency: z.string().regex(/^[A-Z]{3}$/),
-	date: z
-		.string()
-		.regex(/^\d{4}-\d{2}-\d{2}$/)
-		.refine((value) => {
-			const parsed = new Date(`${value}T00:00:00Z`);
-			return (
-				!Number.isNaN(parsed.getTime()) &&
-				parsed.toISOString().slice(0, 10) === value
-			);
-		}),
-	merchant: z.string().max(1000).nullable().optional(),
-	description: z.string().max(4000).nullable().optional(),
-	isPending: z.boolean(),
-});
-const Transactions = z.object({
-	transactions: z.array(Transaction).max(10000),
-	total: z.number().int().nonnegative(),
-});
 export function lunchFlowEnabled(env: Env): boolean {
 	return (
 		(env as BankEnv).LUNCH_FLOW_ENABLED === "true" &&
@@ -100,15 +67,11 @@ export async function lunchFlowAccounts(
 	env: Env,
 	apiKey: string,
 ): Promise<ImportedAccount[]> {
-	const result = Accounts.safeParse(
+	const accounts = parseLunchFlowAccounts(
 		await lunchFlowRequest(env, apiKey, "/accounts"),
 	);
-	if (!result.success || result.data.total !== result.data.accounts.length)
-		throw new BankProviderError("invalid_data");
-	const ids = new Set(result.data.accounts.map((row) => row.id));
-	if (ids.size !== result.data.accounts.length)
-		throw new BankProviderError("invalid_data");
-	return result.data.accounts.map((row) => ({
+	if (!accounts) throw new BankProviderError("invalid_data");
+	return accounts.map((row) => ({
 		id: String(row.id),
 		name: row.name,
 		mask: null,
@@ -125,31 +88,22 @@ export async function lunchFlowTransactions(
 	accountId: string,
 	from: string,
 	to: string,
-): Promise<Array<z.infer<typeof Transaction>>> {
+): Promise<NonNullable<ReturnType<typeof parseLunchFlowTransactions>>> {
 	const query = new URLSearchParams({ include_pending: "true", from, to });
-	const result = Transactions.safeParse(
+	const rows = parseLunchFlowTransactions(
 		await lunchFlowRequest(
 			env,
 			apiKey,
 			`/accounts/${encodeURIComponent(accountId)}/transactions?${query}`,
 		),
+		accountId,
+		from,
+		to,
 	);
-	if (!result.success || result.data.total !== result.data.transactions.length)
-		throw new BankProviderError("invalid_data");
-	if (
-		result.data.transactions.some(
-			(row) =>
-				String(row.accountId) !== accountId || row.date < from || row.date > to,
-		)
-	)
-		throw new BankProviderError("invalid_data");
-	if (
-		new Set(result.data.transactions.map((row) => row.id)).size !==
-		result.data.transactions.length
-	)
-		throw new BankProviderError("invalid_data");
-	return result.data.transactions;
+	if (!rows) throw new BankProviderError("invalid_data");
+	return rows;
 }
+
 export function lunchFlowWindow(now = new Date()): {
 	from: string;
 	to: string;

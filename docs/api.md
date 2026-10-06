@@ -925,6 +925,8 @@ Budget history includes entries saved in the current UTC second and excludes fut
 
 ### Bank provider metadata
 
+`GET /bank-import/capabilities` returns authenticated enabled providers (an empty
+list when disabled) for navigation; it never returns credentials.
 `GET /bank-import/connections` returns only the owner's connections plus enabled
 providers and their capabilities. Each connection includes `provider`,
 `lastSyncedAt`, and a redacted `lastError` category. `GET /bank-import/accounts`
@@ -946,5 +948,8 @@ returns up to ten private posted samples with raw minor-unit amounts.
 Selecting requires a verified mapping; values normalize a purchase to positive
 minor units. `POST /bank-import/sync` returns actual added/modified/removed row
 counts, not counts of repeatedly fetched unchanged data. Reviewed inbox includes
-removed source rows and `sourceChanged` warnings. Reviews may send `sourceVersion`
-to reject confirmation of an import that changed after it was displayed.
+removed source rows and `sourceChanged` warnings. Reviews send numeric `sourceVersion`, the inbox row's monotonic `rowVersion`,
+to reject confirmation of an import that changed after it was displayed. Source
+updates increment the version; shared expense creation and its import claim use
+one atomic batch. Key replacement marks accounts absent from the complete
+validated account snapshot unavailable without deleting reviewed history.

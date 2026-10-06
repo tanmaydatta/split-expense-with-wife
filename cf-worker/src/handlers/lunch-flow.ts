@@ -135,21 +135,19 @@ export async function handleLunchFlowSetup(
 								eq(bankConnections.syncLock, leased?.syncLock ?? ""),
 							),
 						)
-				: db
-						.insert(bankConnections)
-						.values({
-							id,
-							userId: session.user.id,
-							groupId: session.currentUser.groupid,
-							provider: "lunch_flow",
-							providerConnectionId: destinationId,
-							plaidItemId: destinationId,
-							institutionName: "Lunch Flow personal destination",
-							accessTokenEncrypted: credential,
-							status: "connected",
-							createdAt: now,
-							updatedAt: now,
-						});
+				: db.insert(bankConnections).values({
+						id,
+						userId: session.user.id,
+						groupId: session.currentUser.groupid,
+						provider: "lunch_flow",
+						providerConnectionId: destinationId,
+						plaidItemId: destinationId,
+						institutionName: "Lunch Flow personal destination",
+						accessTokenEncrypted: credential,
+						status: "connected",
+						createdAt: now,
+						updatedAt: now,
+					});
 			const accountWrites = accounts.map((account) => {
 				const fields = {
 					providerAccountId: account.id,
@@ -171,7 +169,29 @@ export async function handleLunchFlowSetup(
 					})
 					.onConflictDoUpdate({ target: bankAccounts.id, set: fields });
 			});
-			await db.batch([saved, ...accountWrites]);
+			const available = new Set(
+				accounts.map((account) => `${id}:${account.id}`),
+			);
+			const previousAccounts = existing
+				? await db
+						.select()
+						.from(bankAccounts)
+						.where(eq(bankAccounts.connectionId, id))
+				: [];
+			const unavailableWrites = previousAccounts
+				.filter((account) => !available.has(account.id))
+				.map((account) =>
+					db
+						.update(bankAccounts)
+						.set({ status: "UNAVAILABLE" })
+						.where(
+							and(
+								eq(bankAccounts.id, account.id),
+								eq(bankAccounts.connectionId, id),
+							),
+						),
+				);
+			await db.batch([saved, ...accountWrites, ...unavailableWrites]);
 			return createJsonResponse(
 				{ id, accountCount: accounts.length },
 				existing ? 200 : 201,

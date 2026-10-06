@@ -295,4 +295,7 @@ old-Worker compatibility and rollback; no shared expense data is migrated.
 
 Adds explicit per-account amount multiplier and raw imported amount. Limits
 Lunch Flow to one personal destination per owner to prevent duplicate imports.
-No existing Plaid data or confirmed expense links are changed.
+Adds monotonic `row_version` (default zero for existing Plaid imports) for stale
+review protection and `last_background_attempt_at` for bounded scheduling.
+No existing Plaid data or confirmed expense links are changed. Apply 0029 before
+deploying the API layer, including its shared Plaid review changes.
