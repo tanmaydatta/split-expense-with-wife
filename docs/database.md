@@ -611,3 +611,14 @@ Account and transaction primary keys retain `connectionId:externalId`, preservin
 review states and expense links. Imported data remains owned by its connecting
 user, outside balances until explicit review. Old Worker writes after migration
 may leave new external columns empty; adapters derive them from existing IDs.
+
+## Lunch Flow and review versions (0029)
+
+Account sign calibration stores `amount_multiplier` (-1 or 1), with raw feed
+minor units retained on imported transactions. Lunch Flow transaction primary
+keys include connection, account and external transaction ID; Plaid keys remain
+unchanged. One Lunch Flow destination per owner avoids duplicate registrations.
+`row_version` starts at zero for all existing imports and increases on source
+updates and reviews. Conditional confirmation and shared ledger writes commit
+atomically. `last_background_attempt_at` supports fair bounded daily scheduling,
+separately from the last successful sync timestamp. Both fields are additive.

@@ -413,6 +413,7 @@ export const bankConnections = sqliteTable("bank_connections", {
 	syncLock: text("sync_lock"),
 	syncLockExpiresAt: integer("sync_lock_expires_at"),
 	lastSyncedAt: text("last_synced_at"),
+	lastBackgroundAttemptAt: text("last_background_attempt_at"),
 	lastError: text("last_error"),
 	institutionName: text("institution_name").notNull(),
 	accessTokenEncrypted: text("access_token_encrypted").notNull(),
@@ -420,7 +421,8 @@ export const bankConnections = sqliteTable("bank_connections", {
 	status: text("status", { enum: ["connected", "needs_attention", "disconnected"] }).notNull(),
 	createdAt: text("created_at").notNull(),
 	updatedAt: text("updated_at").notNull(),
-}, (table) => [index("bank_connections_user_idx").on(table.userId, table.status), uniqueIndex("bank_connections_provider_external_idx").on(table.provider, table.providerConnectionId)]);
+}, (table) => [index("bank_connections_user_idx").on(table.userId, table.status), uniqueIndex("bank_connections_provider_external_idx").on(table.provider, table.providerConnectionId),
+ uniqueIndex("bank_connections_lunch_flow_owner_idx").on(table.userId).where(sql`${table.provider} = 'lunch_flow'`)]);
 
 export const bankTransactions = sqliteTable("bank_transactions", {
 	id: text("id").primaryKey(),
@@ -429,10 +431,12 @@ export const bankTransactions = sqliteTable("bank_transactions", {
 	accountId: text("account_id").notNull(),
 	providerTransactionId: text("provider_transaction_id").notNull().default(""),
 	sourceChanged: integer("source_changed", { mode: "boolean" }).notNull().default(false),
+	rowVersion: integer("row_version").notNull().default(0),
 	date: text("date").notNull(),
 	name: text("name").notNull(),
 	merchantName: text("merchant_name"),
 	amountMinor: integer("amount_minor").notNull(),
+	rawAmountMinor: integer("raw_amount_minor"),
 	currency: text("currency").notNull(),
 	pending: integer("pending", { mode: "boolean" }).notNull(),
 	pendingTransactionId: text("pending_transaction_id"),
@@ -450,6 +454,7 @@ export const bankAccounts = sqliteTable("bank_accounts", {
 	id: text("id").primaryKey(),
 	connectionId: text("connection_id").notNull().references(() => bankConnections.id),
 	providerAccountId: text("provider_account_id").notNull().default(""),
+	amountMultiplier: integer("amount_multiplier"),
 	status: text("status").notNull().default("ACTIVE"),
 	currency: text("currency"),
 	institutionName: text("institution_name"),

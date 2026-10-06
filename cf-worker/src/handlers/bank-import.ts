@@ -220,6 +220,7 @@ const ConnectionInput = z.object({ connectionId: z.string().min(1).max(100) });
 const SelectInput = ConnectionInput.extend({
 	accountId: z.string().min(1).max(200),
 	selected: z.boolean(),
+	amountMultiplier: z.union([z.literal(1), z.literal(-1)]).optional(),
 });
 
 export async function handleBankAccounts(
@@ -311,9 +312,47 @@ export async function handleBankSelectAccount(
 				env,
 			);
 		try {
+			const account = (
+				await db
+					.select()
+					.from(bankAccounts)
+					.where(
+						and(
+							eq(bankAccounts.id, parsed.data.accountId),
+							eq(bankAccounts.connectionId, connection.id),
+						),
+					)
+					.limit(1)
+			)[0];
+			if (!account)
+				return createErrorResponse("Bank account not found", 404, request, env);
+			const amountMultiplier =
+				parsed.data.amountMultiplier ?? account.amountMultiplier;
+			if (
+				connection.provider === "lunch_flow" &&
+				parsed.data.selected &&
+				amountMultiplier !== 1 &&
+				amountMultiplier !== -1
+			)
+				return createErrorResponse(
+					"Verify whether a known purchase is positive or negative before selecting this account",
+					400,
+					request,
+					env,
+				);
+			if (parsed.data.selected && account.status !== "ACTIVE")
+				return createErrorResponse(
+					"This account needs attention in the provider dashboard",
+					409,
+					request,
+					env,
+				);
 			const updated = await db
 				.update(bankAccounts)
-				.set({ selected: parsed.data.selected })
+				.set({
+					selected: parsed.data.selected,
+					...(connection.provider === "lunch_flow" ? { amountMultiplier } : {}),
+				})
 				.where(
 					and(
 						eq(bankAccounts.id, parsed.data.accountId),
@@ -414,14 +453,40 @@ export async function handleBankSync(
 	});
 }
 
+function bankInboxFilters(params: URLSearchParams, reviewed: boolean) {
+	const provider = params.get("provider");
+	const connectionId = params.get("connectionId");
+	const accountId = params.get("accountId");
+	return [
+		provider
+			? eq(bankConnections.provider, provider as "plaid" | "lunch_flow")
+			: undefined,
+		connectionId ? eq(bankConnections.id, connectionId) : undefined,
+		accountId ? eq(bankAccounts.id, accountId) : undefined,
+		reviewed ? undefined : eq(bankTransactions.pending, false),
+		reviewed ? undefined : isNull(bankTransactions.removedAt),
+		reviewed
+			? ne(bankTransactions.reviewStatus, "unreviewed")
+			: eq(bankTransactions.reviewStatus, "unreviewed"),
+	];
+}
+
 export async function handleBankInbox(
 	request: Request,
 	env: Env,
 ): Promise<Response> {
 	if (!bankingEnabled(env)) return unavailable(request, env);
 	return withAuthLite(request, env, async (session, db) => {
-		const reviewed =
-			new URL(request.url).searchParams.get("status") === "reviewed";
+		const params = new URL(request.url).searchParams;
+		const reviewed = params.get("status") === "reviewed";
+		const provider = params.get("provider");
+		if (provider && provider !== "plaid" && provider !== "lunch_flow")
+			return createErrorResponse(
+				"Invalid bank provider filter",
+				400,
+				request,
+				env,
+			);
 		const rows = await db
 			.select({
 				id: bankTransactions.id,
@@ -429,6 +494,8 @@ export async function handleBankInbox(
 				accountId: bankTransactions.accountId,
 				accountName: bankAccounts.name,
 				date: bankTransactions.date,
+				updatedAt: bankTransactions.updatedAt,
+				rowVersion: bankTransactions.rowVersion,
 				name: bankTransactions.name,
 				merchantName: bankTransactions.merchantName,
 				amountMinor: bankTransactions.amountMinor,
@@ -450,18 +517,15 @@ export async function handleBankInbox(
 			.where(
 				and(
 					eq(bankTransactions.userId, session.user.id),
+					eq(bankConnections.groupId, session.currentUser.groupid ?? ""),
+					...bankInboxFilters(params, reviewed),
 					eq(bankAccounts.selected, true),
-					reviewed ? undefined : eq(bankTransactions.pending, false),
-					reviewed ? undefined : isNull(bankTransactions.removedAt),
 					inArray(
 						bankConnections.provider,
 						Object.values(bankProviders)
 							.filter((provider) => provider.enabled(env))
 							.map((provider) => provider.id),
 					),
-					reviewed
-						? ne(bankTransactions.reviewStatus, "unreviewed")
-						: eq(bankTransactions.reviewStatus, "unreviewed"),
 				),
 			)
 			.orderBy(desc(bankTransactions.date))
@@ -650,4 +714,27 @@ export async function handleBankConnections(
 			env,
 		);
 	});
+}
+
+export async function handleBankCapabilities(
+	request: Request,
+	env: Env,
+): Promise<Response> {
+	return withAuthLite(request, env, async () =>
+		createJsonResponse(
+			{
+				providers: Object.values(bankProviders)
+					.filter((provider) => provider.enabled(env))
+					.map((provider) => ({
+						id: provider.id,
+						label: provider.label,
+						capabilities: provider.capabilities,
+					})),
+			},
+			200,
+			{},
+			request,
+			env,
+		),
+	);
 }
