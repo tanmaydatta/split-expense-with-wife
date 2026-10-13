@@ -1,7 +1,9 @@
+import { useQuery } from "@tanstack/react-query";
 import { useSelector } from "react-redux";
 import { useLocation, useNavigate } from "react-router-dom";
-import type { FullAuthSession } from "split-expense-shared-types";
+import type { ReduxState } from "split-expense-shared-types";
 import styled from "styled-components";
+import api from "@/utils/api";
 
 const SidebarContainer = styled.nav`
   display: flex;
@@ -46,10 +48,24 @@ interface SidebarProps {
 	onNavigate?: () => void;
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: navigation combines authenticated identity and backend capability gates.
 function Sidebar({ onNavigate }: SidebarProps): JSX.Element {
 	const navigate = useNavigate();
 	const location = useLocation();
-	const data: FullAuthSession = useSelector((state: any) => state.value);
+	const data = useSelector((state: ReduxState) => state.value);
+
+	const { data: bankCapabilities } = useQuery({
+		queryKey: ["bank-capabilities", data?.extra?.currentUser?.id],
+		enabled: !!data?.extra?.currentUser?.id,
+		staleTime: 60000,
+		retry: false,
+		queryFn: async () =>
+			(
+				await api.get<{ providers: Array<{ id: string }> }>(
+					"/bank-import/capabilities",
+				)
+			).data,
+	});
 
 	const isActive = (path: string) => {
 		if (path === "/" && location.pathname === "/") return true;
@@ -97,10 +113,14 @@ function Sidebar({ onNavigate }: SidebarProps): JSX.Element {
 			>
 				Shared Bills
 			</SidebarItem>
-			{["localhost", "budget-dev.wastd.dev", "splitexpense-dev.tanmaydatta.workers.dev"].includes(window.location.hostname) && (
-				<SidebarItem type="button" $active={isActive("/bank-import")}
+			{!!bankCapabilities?.providers?.length && (
+				<SidebarItem
+					type="button"
+					$active={isActive("/bank-import")}
 					aria-current={isActive("/bank-import") ? "page" : undefined}
-					onClick={() => handleNavigate("/bank-import")} data-test-id="sidebar-bank-import">
+					onClick={() => handleNavigate("/bank-import")}
+					data-test-id="sidebar-bank-import"
+				>
 					Bank imports
 				</SidebarItem>
 			)}

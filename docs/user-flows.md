@@ -332,15 +332,41 @@ or monthly bills a three-day advance notice. Unpaid occurrences also get one
 overdue notice after their due date. Reminder delivery depends on opening the
 app; email is deferred.
 
-## Bank imports (`/bank-import`, local and development)
+## Bank imports (`/bank-import`)
 
-The **Bank imports** navigation item opens Plaid Sandbox Link. A user can connect a test bank and see their own connection status. A connected bank is stored under the connecting user, even when the user belongs to a shared group. Accounts start unselected. Selecting an account imports its posted history; other accounts are not stored as activity. Deselecting an account deletes its private imported activity. The user can sync on demand, reconnect a connection needing attention, or disconnect it. Pending transactions do not appear in the inbox. Disconnecting revokes the Plaid Item and deletes its private connection, accounts, and imported activity. If Plaid reports that permission was revoked, the same private source data is deleted automatically; already confirmed shared expenses remain. Plaid updates and removals change the bank record only. Connecting or syncing a bank never creates a shared expense, marks a bill paid, or changes balances.
+The navigation item appears when the authenticated backend enables a provider.
+Production defaults keep banking disabled. Plaid Sandbox Link and Lunch Flow
+Personal API setup share the same private inbox. A Lunch Flow destination can
+contain several banks and requires the connecting owner's API key; the key is
+sent to the authenticated backend, encrypted, and never returned to the browser.
+Connections show their provider, sync status and safe attention message. Account
+labels show bank/institution provenance and currency when supplied.
 
-Each unreviewed posted debit offers **Match existing**, **Add shared expense**, and **Ignore**. Incoming payments and refunds can be ignored but cannot create an expense. Match lists same-amount, same-currency expenses in the group, including scheduled expenses; suggestions still require confirmation. Add prefills the bank amount, currency, merchant, payer, and group split. The user can edit the description and split before confirming. If a nearby scheduled expense has the same amount, the app warns and requires an explicit **Add anyway** choice for a separate purchase. Ignore can be restored from the Reviewed tab. A confirmed match links the bank record to an existing expense; Add creates one linked expense and changes balances. Neither action marks a bill paid or changes a budget. The Expenses page shows a small **Bank linked** label only to the connecting user.
+Accounts start unselected. Lunch Flow requires a raw-feed preview and an explicit
+choice of whether a known purchase appears negative or positive. Verify a deposit
+as well, then select the ACTIVE account. Normalized positive amounts are spending.
+Changing Lunch Flow's upstream Reverse Amounts setting requires checking the
+mapping here. Provider/destination/account filters combine private posted activity.
+Manual sync reads cached data; optional daily jobs reuse the same connection lock.
+Neither creates shared expenses, pays bills, or changes budgets or balances.
 
-If the connecting user changes groups, Match and Add are unavailable for activity from the earlier group.
+Each unreviewed posted charge offers **Match existing**, **Add shared expense**, and
+**Ignore**. Match suggests group expenses of the same amount/currency and still
+requires confirmation. Add prefills the amount, description, payer and split; a
+nearby scheduled expense requires the explicit **Add anyway** choice. Incoming
+payments can be ignored but cannot create an expense. Confirmation checks the
+source version and atomically links or creates one shared expense. Only the
+connecting user sees the expense's Bank linked label. Ignore can be restored.
 
-The feature is unavailable on the production Worker. Sandbox institutions and transactions are test data; linking a real UK bank requires a separate production Plaid arrangement.
+Reviewed activity changed or removed upstream remains visible with a warning;
+confirmed shared expenses stay unchanged. Pending or removed rows cannot be
+restored for expense creation. Unavailable accounts retain history. For Lunch
+Flow, renew bank consent on its dashboard or replace a rotated API key here.
+Disconnect deletes this app's encrypted credential and private data; revoke
+upstream access separately in Lunch Flow. Plaid disconnect uses its remote revoke
+capability. All confirmed shared expenses remain after either disconnect.
+
+See [bank setup and the pending live verification gate](banking.md).
 
 ## 9. Scheduled Actions
 

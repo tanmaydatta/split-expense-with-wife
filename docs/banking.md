@@ -56,6 +56,25 @@ Confirmed shared expenses remain. Personal API has no remote revocation endpoint
 revoke the destination key or bank connection in the Lunch Flow dashboard when
 you also want to remove upstream access.
 
+## Private inbox and daily syncing
+
+The page combines enabled providers and lets the owner filter by provider,
+destination and account. Account labels show the institution when supplied.
+A Lunch Flow destination may span several banks; it is one owner's API key.
+Accounts start unselected. Preview and calibrate a known purchase before selecting
+an ACTIVE account. Key replacement marks absent accounts unavailable and preserves
+reviewed history. Pending rows cannot create shared expenses. Reviewed source
+changes and removals remain visible with warnings; linked expenses stay unchanged.
+
+Manual fetching and optional daily jobs share a connection lease. Review confirms
+a numeric source version and creates its linked expense in one atomic database
+batch, so stale confirmations or failed ledger writes leave no partial claim.
+Daily sync is disabled by default. With the flag and workflow binding enabled,
+the existing UTC cron queues at most 50 destinations, rotating by last attempt;
+a failed destination does not block other owners. Jobs fetch cached API data and
+never request Lunch Flow's rate-limited upstream bank refresh. See the
+[release prerequisites](deployment.md#bank-provider-release-and-rollback).
+
 ## Local live verification gate
 
 The implementation has passed a read-only live Personal API contract check,
@@ -69,13 +88,16 @@ ignored `cf-worker/.dev.vars` of the banking worktree, then run
 `node scripts/lunch-flow-smoke.mjs`. This read-only script prints counts and signs
 only, not credentials, IDs, names, balances or transaction amounts. The local
 variable is used only by that verification script; application keys are entered
-per owner through authenticated setup. Confirm a known purchase and deposit in
+per owner through authenticated setup. Confirm a known purchase and money received (card payment or refund) in
 the private preview and validate selected mapping before shared-expense creation.
 
 Set `LUNCH_FLOW_ENABLED=true` locally and a new random
 `BANK_TOKEN_ENCRYPTION_KEY` of at least 32 characters to exercise local setup.
-Production flags remain unset/off until the live gate and separate release
-approval. Keep the existing Plaid encryption key for legacy and new Plaid
+The approved initial production release enables Lunch Flow manual sync in
+`env.prod.vars` and explicitly disables background sync. These flags are stored
+in versioned configuration so a later deployment preserves the intended state.
+The production bank encryption secret and additive migrations must exist before
+that release deploys. Keep the existing Plaid encryption key for legacy and new Plaid
 credentials; do not replace it with the bank key.
 
 ## Manual migration, deployment and rollback
