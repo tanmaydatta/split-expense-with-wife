@@ -186,3 +186,12 @@ Older Workers ignore the new tables/columns and retain normal named-column write
 but do not offer this review flow or its new private-draft cleanup semantics.
 Keep background sync disabled for this manual release. No new upstream refresh is
 triggered by matching, provisional selection, form prefill or reverse lookup.
+
+### Pending selection version compatibility
+
+A pending item with no saved choice returns `draftVersion: null`. First save
+accepts that legacy null or an omitted version; the UI omits it. Updating or
+reactivating a saved choice requires its returned numeric version. Missing/null
+versions never overwrite an existing choice, including a concurrent version-zero
+first save. Stale versions return 409; refresh and select again. This changes no
+ledger records, balances or ownership rules and requires no migration.

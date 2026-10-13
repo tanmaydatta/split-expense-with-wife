@@ -53,7 +53,7 @@ export type BankTransaction = {
  readonlySnapshot?: boolean;
  noLongerPending?: boolean;
  draftId?: string | null;
- draftVersion?: number;
+ draftVersion?: number | null;
  draftStatus?: string;
  provisionalTransactionId?: string | null;
  provisionalBudgetEntryId?: string | null;

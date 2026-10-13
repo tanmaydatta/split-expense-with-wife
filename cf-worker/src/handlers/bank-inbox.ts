@@ -255,7 +255,10 @@ const DraftInput = z
 	.object({
 		bankTransactionId: z.string().min(1).max(500),
 		sourceVersion: z.number().int().nonnegative(),
-		draftVersion: z.number().int().nonnegative().optional(),
+		draftVersion: z.preprocess(
+			(value) => (value === null ? undefined : value),
+			z.number().int().nonnegative().optional(),
+		),
 		transactionId: z.string().min(1).max(200).optional(),
 		budgetEntryId: z.string().min(1).max(200).optional(),
 	})
@@ -297,6 +300,13 @@ export async function handleBankProvisionalSave(
 		)
 			return createErrorResponse(
 				"Pending activity changed. Refresh before saving.",
+				409,
+				request,
+				env,
+			);
+		if (row.draftId && input.draftVersion === undefined)
+			return createErrorResponse(
+				"Provisional selection changed. Refresh before saving.",
 				409,
 				request,
 				env,
@@ -378,7 +388,7 @@ export async function handleBankProvisionalSave(
 					...sourceArgs,
 					row.connectionId,
 					lease.syncLock,
-					input.draftVersion ?? 0,
+					input.draftVersion ?? -1,
 				);
 			await env.DB.batch([
 				write,

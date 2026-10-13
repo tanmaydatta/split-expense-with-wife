@@ -120,7 +120,7 @@ export default function TransactionReview(): JSX.Element {
 						transactionId: transactionId || undefined,
 						budgetEntryId: budgetEntryId || undefined,
 						...(row.pending
-							? { draftVersion: row.draftVersion }
+							? (typeof row.draftVersion === "number" ? { draftVersion: row.draftVersion } : {})
 							: row.draftId &&
 									row.draftStatus === "active" &&
 									!row.provisionalSourceChanged
