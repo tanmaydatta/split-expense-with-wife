@@ -33,8 +33,9 @@ checks `total` equals the returned length and rejects incomplete snapshots.
 Fetches cover the last 90 days, including pending rows. Account currency may be
 absent; each transaction must
 supply its own valid currency. Pending rows without a stable provider ID are
-validated but omitted from imports and previews until the provider assigns an ID.
-The preview and manual sync report how many such rows were skipped. Posted rows
+validated and kept outside identified financial imports. Manual sync displays them
+as private read-only snapshot items that can hold provisional choices; raw sign
+preview still omits them and reports the count. Posted rows
 without IDs, malformed rows and incomplete snapshots still reject the entire sync.
 At most 25 selected accounts and 10,000 transaction changes are processed in a sync. Historical
 imports outside the fetched window are retained and are never inferred removed.
@@ -128,3 +129,60 @@ first to stop LF fetching without touching confirmed expenses.
 - [Transaction response and date filters](https://www.lunchflow.app/docs/api/personal-api/getAccountTransactions)
 - [Amount signs and Reverse Amounts](https://www.lunchflow.app/docs/guides/configuration/transaction-amounts)
 - [UK connection, expiry and refresh limits](https://www.lunchflow.app/docs/guides/connections/regions/uk-eu)
+
+## Bank review and provisional selections
+
+The compact private inbox supports text search and All, Pending, Posted (to review),
+and Reviewed filters with server-side paging. Connections, sign calibration and
+manual cached sync live in a separate settings panel. Open activity for its full
+source details and clickable confirmed expense/budget associations.
+
+Match an existing expense, a budget entry independently, or both. A confirmed row
+can gain its missing association; existing confirmed associations cannot be
+replaced. Currency and minor-unit amount must match. Positive normalized spending
+matches a negative budget debit; negative money received matches a positive budget
+credit. Expense matching/creation requires positive spending. Matching creates no
+charges and changes no ledger amounts or balances. Both records gain a junction
+link atomically if unlinked, or retain their existing compatible pair. A conflicting
+new pairing is rejected; existing historical multiple links are preserved.
+
+Pending activity permits a **private provisional selection** of existing records.
+Saving it creates no financial links, review completion or balance changes. A
+stable provider ID retains the selection when posted, but the owner must confirm
+against current source and record values. Anonymous pending rows have opaque local
+snapshot references, never invented financial provider IDs. Complete snapshots
+stage rows before atomically publishing every account generation and sync metadata;
+failed staging/publication retains the previous visible generation. Identical
+anonymous rows remain distinct. Refresh does not silently infer their identity.
+
+A vanished pending selection retains its original source and chosen IDs as “Needs
+confirmation”. Possible posted items share account, currency, amount and a nearby
+date; these are uncertain suggestions requiring explicit choice and confirmation.
+Nothing is attached automatically. Cancel removes only the provisional selection;
+shared records remain. Account deselection/disconnect purges private imports,
+snapshots and drafts while retaining shared records and their financial links.
+Only the connecting owner sees bank references from expense/budget details,
+including tentative references. Other group members see shared records normally.
+
+For posted activity, Add expense/budget/both reuses the existing Add form. Financial
+source amount, currency and date come from the authenticated bank row; descriptions,
+budget and group splits remain editable. Save batches bank claim, new ledger rows,
+totals and associations atomically. Duplicate/stale saves produce no second charge.
+Creation of an already associated side is rejected. A missing side can be created
+only when the retained existing record remains valid and has no conflicting pair.
+
+### Review-flow migration and rollback
+
+Apply additive **0030_bank_review_links_pending.sql** manually to staging before the
+first PR push (staging auto-deploys), then to production before the approved release.
+It adds the nullable bank budget link, account pending-generation pointer, bounded
+per-row pending snapshot table, and private review drafts. Existing imports,
+credentials, confirmed expense links and historical expense–budget pairs remain.
+No key rotation or credential change is required. `node scripts/verify-bank-migrations.mjs`
+verifies 0028–0030 compatibility using synthetic in-memory SQLite.
+
+Rollback code while retaining 0030; do not drop tables or reverse financial data.
+Older Workers ignore the new tables/columns and retain normal named-column writes,
+but do not offer this review flow or its new private-draft cleanup semantics.
+Keep background sync disabled for this manual release. No new upstream refresh is
+triggered by matching, provisional selection, form prefill or reverse lookup.

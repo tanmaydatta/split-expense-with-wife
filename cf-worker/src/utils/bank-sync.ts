@@ -201,6 +201,58 @@ export async function syncBankConnection(
 		if (!current) throw new BankProviderError("busy");
 		const selectedIds = new Set(selected.map((row) => row.id));
 		const now = new Date().toISOString();
+		const anonymousCount = (changes.snapshots ?? []).reduce(
+			(count, snapshot) => count + (snapshot.anonymousPending?.length ?? 0),
+			0,
+		);
+		if (
+			anonymousCount +
+				changes.added.length +
+				changes.modified.length +
+				changes.removed.length >
+			10000
+		)
+			throw new BankProviderError("invalid_data");
+		// Stage complete anonymous snapshots first. A failed stage leaves both visible
+		// pending generations and posted activity untouched. Publish only after sync writes succeed.
+		await env.DB.prepare(`DELETE FROM bank_pending_snapshots WHERE connection_id = ?
+          AND NOT EXISTS(SELECT 1 FROM bank_accounts a WHERE a.id=account_id AND a.pending_snapshot_id=snapshot_id)
+          AND EXISTS(SELECT 1 FROM bank_connections WHERE id=? AND sync_lock=?)`)
+			.bind(connection.id, connection.id, lock)
+			.run();
+		const pendingGenerations: Array<{ accountId: string; generation: string }> =
+			[];
+		for (const snapshot of changes.snapshots ?? []) {
+			if (snapshot.anonymousPending === undefined) continue;
+			const accountId = `${connection.id}:${snapshot.accountId}`;
+			if (!selectedIds.has(accountId)) continue;
+			const generation = ulid();
+			const pendingStatements = snapshot.anonymousPending.map((row) =>
+				env.DB.prepare(`
+            INSERT INTO bank_pending_snapshots
+            (id, snapshot_id, connection_id, account_id, user_id, date, name, merchant_name, amount_minor, currency, created_at)
+            SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+            WHERE EXISTS (SELECT 1 FROM bank_connections WHERE id = ? AND sync_lock = ?)`).bind(
+					ulid(),
+					generation,
+					connection.id,
+					accountId,
+					connection.userId,
+					row.date,
+					row.name,
+					row.merchantName,
+					row.amountMinor,
+					row.currency,
+					now,
+					connection.id,
+					lock,
+				),
+			);
+			for (let index = 0; index < pendingStatements.length; index += 100)
+				await env.DB.batch(pendingStatements.slice(index, index + 100));
+			pendingGenerations.push({ accountId, generation });
+		}
+
 		const rowId = (accountId: string, transactionId: string) =>
 			connection.provider === "lunch_flow"
 				? `${connection.id}:${encodeURIComponent(accountId)}:${encodeURIComponent(transactionId)}`
@@ -325,25 +377,52 @@ export async function syncBankConnection(
 		// Each batch is atomic and every statement checks the lease. A late retry cannot overwrite a newer owner.
 		for (let index = 0; index < statements.length; index += 100)
 			await env.DB.batch(statements.slice(index, index + 100));
-		const updated = await db
-			.update(bankConnections)
-			.set({
-				cursor: changes.cursor,
-				status: selected.some((account) => account.status !== "ACTIVE")
+
+		// Publish every pending pointer and the sync watermark atomically.
+		const publication: D1PreparedStatement[] = [];
+		for (const { accountId, generation } of pendingGenerations) {
+			publication.push(
+				env.DB.prepare(`UPDATE bank_accounts SET pending_snapshot_id=? WHERE id=? AND selected=1
+            AND EXISTS(SELECT 1 FROM bank_connections WHERE id=? AND sync_lock=?)`).bind(
+					generation,
+					accountId,
+					connection.id,
+					lock,
+				),
+			);
+			publication.push(
+				env.DB.prepare(
+					"SELECT CASE WHEN changes()=1 THEN 1 ELSE json('pending-publication-lost-lease') END",
+				),
+			);
+		}
+		publication.push(
+			env.DB.prepare(
+				`UPDATE bank_connections SET cursor=?,status=?,last_synced_at=?,last_error=NULL,updated_at=? WHERE id=? AND sync_lock=?`,
+			).bind(
+				changes.cursor,
+				selected.some((a) => a.status !== "ACTIVE")
 					? "needs_attention"
 					: "connected",
-				lastSyncedAt: now,
-				lastError: null,
-				updatedAt: now,
-			})
-			.where(
-				and(
-					eq(bankConnections.id, connection.id),
-					eq(bankConnections.syncLock, lock),
-				),
-			)
-			.returning({ id: bankConnections.id });
-		if (!updated.length) throw new BankProviderError("busy");
+				now,
+				now,
+				connection.id,
+				lock,
+			),
+		);
+		publication.push(
+			env.DB.prepare(
+				"SELECT CASE WHEN changes()=1 THEN 1 ELSE json('bank-publication-lost-lease') END",
+			),
+		);
+		await env.DB.batch(publication);
+		// Cleanup is retryable and cannot invalidate the active generation.
+		await env.DB.prepare(`DELETE FROM bank_pending_snapshots WHERE connection_id=?
+          AND NOT EXISTS(SELECT 1 FROM bank_accounts a WHERE a.id=account_id AND a.pending_snapshot_id=snapshot_id)
+          AND EXISTS(SELECT 1 FROM bank_connections WHERE id=? AND sync_lock=?)`)
+			.bind(connection.id, connection.id, lock)
+			.run()
+			.catch(() => undefined);
 		return {
 			added: addedCount,
 			modified: modifiedCount,

@@ -622,3 +622,20 @@ unchanged. One Lunch Flow destination per owner avoids duplicate registrations.
 updates and reviews. Conditional confirmation and shared ledger writes commit
 atomically. `last_background_attempt_at` supports fair bounded daily scheduling,
 separately from the last successful sync timestamp. Both fields are additive.
+
+### Bank review expansion (0030)
+
+`bank_transactions.linked_budget_entry_id` is nullable and unique when present,
+parallel to the confirmed expense link. The shared `expense_budget_links` table
+still has a unique **pair**, not a global one-to-one constraint.
+`bank_accounts.pending_snapshot_id` publishes the active generation of
+`bank_pending_snapshots`; each anonymous pending item has its own opaque local ID,
+owner, account, source fields and generation. Account/connection foreign keys
+cascade private rows on disconnect. Staging generations are invisible until an
+atomic all-account pointer/sync-metadata batch commits. Retry cleanup removes
+abandoned generations while retaining active ones.
+`bank_review_drafts` stores private original-source values and provisional chosen
+record IDs, version CAS and active/cancelled/confirmed state. It reserves no
+financial record and creates no ledger junction. Source disappearance keeps the
+choice until explicit confirmation/cancellation; heuristic suggestions never
+become identity. New account-deselection code explicitly purges snapshots/drafts.

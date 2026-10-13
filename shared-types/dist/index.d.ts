@@ -165,6 +165,7 @@ export interface TransactionsListResponse {
 	transactionDetails: Record<string, TransactionUser[]>;
 }
 export interface DashboardSubmitRequest {
+    bankSource?: { bankTransactionId: string; sourceVersion: number };
 	expense?: {
 		amount: number;
 		description: string;

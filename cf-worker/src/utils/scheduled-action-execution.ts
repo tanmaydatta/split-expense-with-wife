@@ -260,6 +260,7 @@ export async function createSplitTransactionFromRequest(
 	db: DbInstance,
 	env: Env,
 	transactionId: string,
+	sourceTimestamp?: string,
 ): Promise<{
 	resultData: ScheduledActionResultData;
 	statements: QueryStatement[];
@@ -284,7 +285,7 @@ export async function createSplitTransactionFromRequest(
 		};
 	}
 
-	const timestamp = formatSQLiteTime();
+	const timestamp = sourceTimestamp ?? formatSQLiteTime();
 
 	// Get user mappings and transformed data
 	const { paidBySharesWithNames, owedAmounts, owedToAmounts } =
@@ -366,6 +367,7 @@ export async function createBudgetEntryStatements(
 	budgetRequest: BudgetRequest,
 	db: DbInstance,
 	budgetId: string,
+	sourceTimestamp?: string,
 ): Promise<{
 	resultData: ScheduledActionResultData;
 	statements: QueryStatement[];
@@ -402,7 +404,7 @@ export async function createBudgetEntryStatements(
 		};
 	}
 
-	const timestamp = formatSQLiteTime();
+	const timestamp = sourceTimestamp ?? formatSQLiteTime();
 	const statements = [];
 
 	// Create budget entry

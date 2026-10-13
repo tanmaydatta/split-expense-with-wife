@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNull, ne } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { ulid } from "ulid";
 import { z } from "zod";
 import {
@@ -363,6 +363,11 @@ export async function handleBankSelectAccount(
 			if (!updated.length)
 				return createErrorResponse("Bank account not found", 404, request, env);
 			if (!parsed.data.selected) {
+                await env.DB.batch([
+                  env.DB.prepare("DELETE FROM bank_pending_snapshots WHERE account_id = ? AND connection_id = ?").bind(parsed.data.accountId,connection.id),
+                  env.DB.prepare("DELETE FROM bank_review_drafts WHERE account_id = ? AND connection_id = ?").bind(parsed.data.accountId,connection.id),
+                  env.DB.prepare("UPDATE bank_accounts SET pending_snapshot_id = NULL WHERE id = ? AND connection_id = ?").bind(parsed.data.accountId,connection.id),
+                ]);
 				await db
 					.delete(bankTransactions)
 					.where(
@@ -450,87 +455,6 @@ export async function handleBankSync(
 				env,
 			);
 		}
-	});
-}
-
-function bankInboxFilters(params: URLSearchParams, reviewed: boolean) {
-	const provider = params.get("provider");
-	const connectionId = params.get("connectionId");
-	const accountId = params.get("accountId");
-	return [
-		provider
-			? eq(bankConnections.provider, provider as "plaid" | "lunch_flow")
-			: undefined,
-		connectionId ? eq(bankConnections.id, connectionId) : undefined,
-		accountId ? eq(bankAccounts.id, accountId) : undefined,
-		reviewed ? undefined : eq(bankTransactions.pending, false),
-		reviewed ? undefined : isNull(bankTransactions.removedAt),
-		reviewed
-			? ne(bankTransactions.reviewStatus, "unreviewed")
-			: eq(bankTransactions.reviewStatus, "unreviewed"),
-	];
-}
-
-export async function handleBankInbox(
-	request: Request,
-	env: Env,
-): Promise<Response> {
-	if (!bankingEnabled(env)) return unavailable(request, env);
-	return withAuthLite(request, env, async (session, db) => {
-		const params = new URL(request.url).searchParams;
-		const reviewed = params.get("status") === "reviewed";
-		const provider = params.get("provider");
-		if (provider && provider !== "plaid" && provider !== "lunch_flow")
-			return createErrorResponse(
-				"Invalid bank provider filter",
-				400,
-				request,
-				env,
-			);
-		const rows = await db
-			.select({
-				id: bankTransactions.id,
-				connectionId: bankTransactions.connectionId,
-				accountId: bankTransactions.accountId,
-				accountName: bankAccounts.name,
-				date: bankTransactions.date,
-				updatedAt: bankTransactions.updatedAt,
-				rowVersion: bankTransactions.rowVersion,
-				name: bankTransactions.name,
-				merchantName: bankTransactions.merchantName,
-				amountMinor: bankTransactions.amountMinor,
-				currency: bankTransactions.currency,
-				linkedTransactionId: bankTransactions.linkedTransactionId,
-				reviewStatus: bankTransactions.reviewStatus,
-				sourceChanged: bankTransactions.sourceChanged,
-				removedAt: bankTransactions.removedAt,
-				pending: bankTransactions.pending,
-				provider: bankConnections.provider,
-				institutionName: bankAccounts.institutionName,
-			})
-			.from(bankTransactions)
-			.innerJoin(bankAccounts, eq(bankTransactions.accountId, bankAccounts.id))
-			.innerJoin(
-				bankConnections,
-				eq(bankTransactions.connectionId, bankConnections.id),
-			)
-			.where(
-				and(
-					eq(bankTransactions.userId, session.user.id),
-					eq(bankConnections.groupId, session.currentUser.groupid ?? ""),
-					...bankInboxFilters(params, reviewed),
-					eq(bankAccounts.selected, true),
-					inArray(
-						bankConnections.provider,
-						Object.values(bankProviders)
-							.filter((provider) => provider.enabled(env))
-							.map((provider) => provider.id),
-					),
-				),
-			)
-			.orderBy(desc(bankTransactions.date))
-			.limit(100);
-		return createJsonResponse({ transactions: rows }, 200, {}, request, env);
 	});
 }
 

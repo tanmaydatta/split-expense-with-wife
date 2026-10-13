@@ -1,3 +1,4 @@
+import { handleBankDashboardCreate } from "./bank-create";
 import type { BatchItem } from "drizzle-orm/batch";
 import { ulid } from "ulid";
 import type {
@@ -227,6 +228,7 @@ export async function handleDashboardSubmit(
 	request: Request,
 	env: Env,
 ): Promise<Response> {
+	const bankRequest = request.clone();
 	if (request.method !== "POST") {
 		return createErrorResponse("Method not allowed", 405, request, env);
 	}
@@ -237,6 +239,7 @@ export async function handleDashboardSubmit(
 				return createErrorResponse("Unauthorized", 401, request, env);
 			}
 			const body = (await request.json()) as DashboardSubmitRequest;
+			if (body.bankSource) return handleBankDashboardCreate(bankRequest, env);
 			return await runDashboardSubmit(
 				body,
 				session.user.id,

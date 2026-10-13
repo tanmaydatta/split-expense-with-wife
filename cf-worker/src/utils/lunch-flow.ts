@@ -151,6 +151,7 @@ export const lunchFlowProvider: BankProvider = {
 			from: string;
 			to: string;
 			transactionIds: string[];
+			anonymousPending?: Array<Omit<ImportedTransaction, "id">>;
 		}> = [];
 		for (const account of selected) {
 			if (account.status !== "ACTIVE") continue;
@@ -186,6 +187,19 @@ export const lunchFlowProvider: BankProvider = {
 				accountId: account.id,
 				...window,
 				transactionIds: rows.map((row) => row.id),
+				anonymousPending: snapshot.anonymousPending.map((row) => ({
+					accountId: account.id,
+					date: row.date,
+					name: row.description || row.merchant || "Bank activity",
+					merchantName: row.merchant ?? null,
+					amountMinor:
+						amountMinor(row.amount, row.currency) *
+						(account.amountMultiplier as number),
+					rawAmountMinor: amountMinor(row.amount, row.currency),
+					currency: row.currency,
+					pending: true,
+					pendingTransactionId: null,
+				})),
 			});
 		}
 		return {
