@@ -108,4 +108,25 @@ describe("Bank review existing records and provisional selections",()=>{
   await expect(syncBankConnection(env,db,{id:"c"})).rejects.toThrow();expect(await(await call("inbox?status=pending")).json()).toEqual(before);
  });
 
+ it("round-trips SQL null draft versions for first identified pending selection but requires versions for existing choices",async()=>{
+  const {db,call}=await fixture();await db.update(bankTransactions).set({pending:true});
+  const first=await(await call("transaction?id=c:1:charge")).json() as {transaction:{id:string;rowVersion:number;draftVersion:number|null}};
+  expect(first.transaction.draftVersion).toBeNull();
+  const body={bankTransactionId:first.transaction.id,sourceVersion:first.transaction.rowVersion,draftVersion:first.transaction.draftVersion,transactionId:"expense"};
+  expect((await call("provisional","POST",body)).status).toBe(200);
+  expect((await call("provisional","POST",body)).status).toBe(409);
+  expect((await call("provisional","POST",{...body,draftVersion:0,budgetEntryId:"budget"})).status).toBe(200);
+  expect((await call("provisional","POST",{...body,draftVersion:0})).status).toBe(409);
+  expect(await db.select().from(expenseBudgetLinks)).toHaveLength(0);
+ });
+ it("round-trips anonymous pending SQL null draft versions without creating financial links",async()=>{
+  const {db,call}=await fixture();const pending={id:null,accountId:1,amount:10,currency:"GBP",date,isPending:true};
+  vi.spyOn(globalThis,"fetch").mockResolvedValue(Response.json({transactions:[pending],total:1}));await syncBankConnection(env,db,{id:"c"});
+  const inbox=await(await call("inbox?status=pending")).json() as {transactions:Array<{id:string}>};
+  const first=await(await call(`transaction?id=${inbox.transactions[0].id}`)).json() as {transaction:{id:string;rowVersion:number;draftVersion:number|null}};
+  expect(first.transaction.draftVersion).toBeNull();
+  expect((await call("provisional","POST",{bankTransactionId:first.transaction.id,sourceVersion:first.transaction.rowVersion,draftVersion:first.transaction.draftVersion,budgetEntryId:"budget"})).status).toBe(200);
+  expect(await db.select().from(expenseBudgetLinks)).toHaveLength(0);expect((await db.select().from(transactions))[0].amount).toBe(10);
+ });
+
 });
