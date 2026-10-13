@@ -288,13 +288,18 @@ export default function BankImport(): JSX.Element {
 		setBusyConnectionId(connectionId);
 		setError("");
 		try {
-			await api.post(
+			const response = await api.post<{ skippedPendingCount?: number }>(
 				"/bank-import/sync",
 				{ connectionId },
 				{ timeout: 180000 },
 			);
 			await refresh();
-			setMessage("Bank activity is up to date.");
+			const skipped = response.data.skippedPendingCount ?? 0;
+			setMessage(
+				skipped > 0
+					? `Bank activity is up to date. ${skipped} pending transaction(s) skipped until Lunch Flow assigns a stable ID.`
+					: "Bank activity is up to date.",
+			);
 		} catch {
 			setError(
 				"Could not sync this bank. Try reconnecting if it needs attention.",

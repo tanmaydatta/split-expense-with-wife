@@ -28,6 +28,7 @@ export default function AccountChoice({
 		account.amountMultiplier ? String(account.amountMultiplier) : "",
 	);
 	const [samples, setSamples] = useState<Sample[]>([]);
+	const [skippedPendingCount, setSkippedPendingCount] = useState(0);
 	const [previewing, setPreviewing] = useState(false);
 	const [previewLoaded, setPreviewLoaded] = useState(false);
 	const inactive = account.status && account.status !== "ACTIVE";
@@ -35,11 +36,15 @@ export default function AccountChoice({
 		setPreviewing(true);
 		onError("");
 		try {
-			const response = await api.get<{ samples: Sample[] }>(
+			const response = await api.get<{
+				samples: Sample[];
+				skippedPendingCount?: number;
+			}>(
 				`/bank-import/lunch-flow/preview?${new URLSearchParams({ connectionId: account.connectionId, accountId: account.id })}`,
 				{ timeout: 150000 },
 			);
 			setSamples(response.data.samples);
+			setSkippedPendingCount(response.data.skippedPendingCount ?? 0);
 			setPreviewLoaded(true);
 		} catch {
 			onError(
@@ -104,6 +109,12 @@ export default function AccountChoice({
 								in Lunch Flow before selecting.
 							</p>
 						))}
+					{previewLoaded && skippedPendingCount > 0 && (
+						<p>
+							{skippedPendingCount} pending transaction(s) skipped until Lunch
+							Flow assigns a stable ID. They have not been imported.
+						</p>
+					)}
 					<label>
 						Does a known purchase show as negative or positive in this feed?
 						<select
@@ -118,8 +129,8 @@ export default function AccountChoice({
 						</select>
 					</label>
 					<small>
-						Check a known purchase and a deposit. Recheck if you change Reverse
-						Amounts in Lunch Flow.
+						Check a known purchase and money received (a card payment or
+						refund). Recheck if you change Reverse Amounts in Lunch Flow.
 					</small>
 					{account.selected &&
 						mapping &&
