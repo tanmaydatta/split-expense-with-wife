@@ -1,3 +1,8 @@
+import { TransactionCard } from "@/components/TransactionCard";
+import { BudgetCard } from "@/components/BudgetCard";
+import { buildFrontendTransaction } from "@/utils/transaction";
+import { useSelector } from "react-redux";
+import type { ReduxState } from "split-expense-shared-types";
 import { useEffect, useState } from "react";
 import { UiButton } from "@/components/ui";
 import api from "@/utils/api";
@@ -16,6 +21,7 @@ export default function CandidatePicker({
 	onChange: (id: string) => void;
 	disabled?: boolean;
 }): JSX.Element {
+	const userId = useSelector((state: ReduxState) => state.value?.user?.id);
 	const [q, setQ] = useState("");
 	const [from, setFrom] = useState("");
 	const [to, setTo] = useState("");
@@ -125,24 +131,17 @@ export default function CandidatePicker({
 				<ul className="bank-candidates">
 					{rows.map((row) => (
 						<li key={row.id}>
-							<label>
-								<input
-									type="radio"
-									name={`candidate-${kind}`}
-									checked={value === row.id}
-									onChange={() => onChange(row.id)}
-								/>
-								<span>
-									<strong>{row.description}</strong>
-									<small>
-										{row.date.slice(0, 10)} ·{" "}
-										{new Intl.NumberFormat("en-GB", {
-											style: "currency",
-											currency: row.currency,
-										}).format(row.amount)}
-									</small>
-								</span>
-							</label>
+                            <label className={`bank-candidate-choice ${value === row.id ? "is-selected" : ""}`}>
+                                <input type="radio" name={`candidate-${kind}`} checked={value === row.id} onChange={() => onChange(row.id)} aria-label={`Select ${row.description}`} />
+                                <span className="bank-candidate-card">
+                                    {kind === "expense" && row.transaction && row.transactionUsers ? (
+                                        <TransactionCard selectionMode transaction={buildFrontendTransaction(row.transaction, row.transactionUsers, userId)} />
+                                    ) : kind === "budget" && row.budgetEntry ? (
+                                        <BudgetCard selectionMode entry={row.budgetEntry} />
+                                    ) : <span>{row.description} · {row.date.slice(0, 10)}</span>}
+                                    <span className="bank-choice-caption">{row.budgetEntry && `${row.budgetEntry.name} · `}{value === row.id ? "Selected" : "Select record"}</span>
+                                </span>
+                            </label>
 						</li>
 					))}
 				</ul>

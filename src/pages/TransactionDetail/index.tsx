@@ -1,4 +1,3 @@
-import { BankRecordLinks } from "../BankImport/BankRecordLinks";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ErrorContainer } from "@/components/MessageContainer";
 import { TransactionCard } from "@/components/TransactionCard";
@@ -61,7 +60,6 @@ export default function TransactionDetail() {
 			>
 				<TransactionDetails {...frontendTx} />
 			</TransactionCard>
-			<BankRecordLinks transactionId={tx.transaction_id} />
 			<div className="entry-detail-actions">
 				<UiButton type="button" $tone="danger" onClick={() => setConfirmOpen(true)} disabled={del.isPending} data-test-id="delete">
 					Delete expense

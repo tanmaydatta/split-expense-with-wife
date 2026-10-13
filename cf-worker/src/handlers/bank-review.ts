@@ -191,7 +191,8 @@ export async function searchCandidates(
 	const owner = budget
 		? "g.group_id = ? AND g.deleted IS NULL"
 		: "r.group_id = ?";
-	const query = `SELECT ${id} AS id, r.description, r.amount, r.currency, ${date} AS date
+	const query = `SELECT ${id} AS id, r.description, r.amount, r.currency, ${date} AS date,
+ ${budget ? "r.added_time AS addedTime, r.price, g.budget_name AS name, g.group_id AS groupid" : "r.transaction_id, r.created_at, r.metadata, r.group_id"}
  FROM ${table} WHERE ${owner} AND r.deleted IS NULL AND r.currency = ?
  AND round(r.amount * ?) = ? AND instr(lower(r.description),lower(?)) > 0
  AND substr(${date},1,10) >= ? AND substr(${date},1,10) <= ? ORDER BY ${date} DESC, ${id} LIMIT 51 OFFSET ?`;
@@ -207,9 +208,28 @@ export async function searchCandidates(
 			offset,
 		)
 		.all();
+	const page = result.results.slice(0, 50);
+	// One current-group bulk read supplies real balances; never fetch per card.
+	const users =
+		!budget && page.length
+			? (await env.DB.prepare(
+					`SELECT * FROM transaction_users WHERE group_id=? AND deleted IS NULL AND transaction_id IN (${page.map(() => "?").join(",")})`,
+				)
+					.bind(groupId, ...page.map((row) => String(row.id)))
+					.all()).results
+			: [];
+	const candidates = page.map((row) => ({
+		...row,
+		...(budget
+			? { budgetEntry: {
+				...row,
+				price: row.price || `${Number(row.amount) >= 0 ? "+" : ""}${Number(row.amount).toFixed(2)}`,
+			} }
+			: { transaction: row, transactionUsers: users.filter((user) => user.transaction_id === row.id) }),
+	}));
 	return createJsonResponse(
 		{
-			candidates: result.results.slice(0, 50),
+			candidates,
 			hasMore: result.results.length > 50,
 			offset,
 		},

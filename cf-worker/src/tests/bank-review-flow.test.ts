@@ -2,7 +2,7 @@ import { createExecutionContext, env as testEnv } from "cloudflare:test";
 import { eq } from "drizzle-orm";
 import worker from "../index";
 import { getDb } from "../db";
-import { bankAccounts, bankConnections, bankTransactions, budgetEntries, expenseBudgetLinks, transactions } from "../db/schema/schema";
+import { bankAccounts, bankConnections, bankTransactions, budgetEntries, expenseBudgetLinks, transactions, transactionUsers } from "../db/schema/schema";
 import { encryptBankToken } from "../utils/bank-token";
 import { syncBankConnection } from "../utils/bank-sync";
 import { completeCleanupDatabase, createTestUserData, setupAndCleanDatabase, signInAndGetCookies } from "./test-utils";
@@ -20,6 +20,21 @@ describe("Bank review existing records and provisional selections",()=>{
   const call=(route:string,method="GET",body?:unknown,auth=cookie)=>worker.fetch(new Request(`https://localhost:8787/.netlify/functions/${route.startsWith("dashboard")?route:`bank-import/${route}`}`,{method,headers:{"Content-Type":"application/json",Cookie:auth},...(body?{body:JSON.stringify(body)}:{})}),env,createExecutionContext());
   return {users,db,call,other};
  }
+ it("returns full bounded current-group candidate metadata and owner-private source summary", async () => {
+  const {users,db,call,other}=await fixture();
+  const metadata=JSON.stringify({paidByShares:{[users.user1.id]:10},owedAmounts:{[users.user2.id]:5},owedToAmounts:{[users.user1.id]:5}});
+  await db.update(transactions).set({metadata:JSON.parse(metadata)});
+  await db.insert(transactionUsers).values({transactionId:"expense",userId:users.user2.id,owedToUserId:users.user1.id,amount:5,currency:"GBP",groupId:users.testGroupId});
+  const result=await(await call("review-candidates?bankTransactionId=c:1:charge&kind=expense")).json() as {candidates:Array<{transaction:{metadata:string};transactionUsers:Array<{amount:number;owed_to_user_id:string}>}>};
+  expect(result.candidates).toHaveLength(1);expect(result.candidates[0].transaction.metadata).toBe(metadata);expect(result.candidates[0].transactionUsers).toHaveLength(1);expect(result.candidates[0].transactionUsers[0]).toMatchObject({amount:5,owed_to_user_id:users.user1.id});
+  const budgets=await(await call("review-candidates?bankTransactionId=c:1:charge&kind=budget")).json() as {candidates:Array<{budgetEntry:{name:string;price:string;groupid:string}}>};
+  expect(budgets.candidates[0].budgetEntry).toMatchObject({price:"-10.00",groupid:users.testGroupId});expect(budgets.candidates[0].budgetEntry.name).toBeTruthy();
+  await db.update(bankTransactions).set({pending:true});
+  expect((await call("provisional","POST",{bankTransactionId:"c:1:charge",sourceVersion:0,transactionId:"expense"})).status).toBe(200);
+  const links=await(await call("record-link?transactionId=expense")).json() as {links:unknown[]};
+  expect(links.links[0]).toMatchObject({name:"Synthetic purchase",amountMinor:1000,currency:"GBP",accountName:"Synthetic",pending:true,provisional:true});
+  expect(await(await call("record-link?transactionId=expense","GET",undefined,other)).json()).toEqual({links:[]});
+ });
  it("matches budget independently, extends with expense, creates only metadata and rejects replay",async()=>{
   const {db,call}=await fixture();expect((await call("match","POST",{bankTransactionId:"c:1:charge",budgetEntryId:"budget",sourceVersion:0})).status).toBe(200);
   expect(await db.select().from(expenseBudgetLinks)).toHaveLength(0);

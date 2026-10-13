@@ -1,3 +1,4 @@
+import type { BudgetEntry, Transaction, TransactionUser } from "split-expense-shared-types";
 export type ProviderId = "plaid" | "lunch_flow";
 export type BankCapabilities = {
 	setup: "link" | "api_key";
@@ -64,6 +65,9 @@ export type BankTransaction = {
 	pending?: boolean;
 };
 export type Candidate = {
+ transaction?: Transaction;
+ transactionUsers?: TransactionUser[];
+ budgetEntry?: BudgetEntry;
 	id: string;
 	description: string;
 	amount: number;
