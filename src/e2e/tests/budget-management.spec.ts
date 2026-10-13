@@ -434,7 +434,7 @@ test.describe("Budget Management", () => {
 		);
 		await budgetHelper.verifyBudgetTotals();
 		await expect(page).toHaveURL((url) => url.pathname === "/budget" && Boolean(url.searchParams.get("budget")));
-		await expect(page.locator('[data-test-id="budget-radio-food"]')).toHaveAttribute("data-state", "on");
+		await expect(page.locator('[data-test-id="budget-radio-food"]')).toHaveAttribute("aria-checked", "true");
 	});
 
 	test("should display budget totals grouped by currency", async ({
@@ -641,7 +641,7 @@ test.describe("Budget Management", () => {
 
 		// Verify we're still on the budget page
 		await expect(page).toHaveURL((url) => url.pathname === "/budget" && Boolean(url.searchParams.get("budget")));
-		await expect(page.locator('[data-test-id="budget-radio-house"]')).toHaveAttribute("data-state", "on");
+		await expect(page.locator('[data-test-id="budget-radio-house"]')).toHaveAttribute("aria-checked", "true");
 
 		// Wait for the UI to update after deletion and reload the page to ensure fresh data
 		await page.waitForTimeout(1000);
