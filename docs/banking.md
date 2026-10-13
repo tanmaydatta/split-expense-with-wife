@@ -88,13 +88,16 @@ ignored `cf-worker/.dev.vars` of the banking worktree, then run
 `node scripts/lunch-flow-smoke.mjs`. This read-only script prints counts and signs
 only, not credentials, IDs, names, balances or transaction amounts. The local
 variable is used only by that verification script; application keys are entered
-per owner through authenticated setup. Confirm a known purchase and deposit in
+per owner through authenticated setup. Confirm a known purchase and money received (card payment or refund) in
 the private preview and validate selected mapping before shared-expense creation.
 
 Set `LUNCH_FLOW_ENABLED=true` locally and a new random
 `BANK_TOKEN_ENCRYPTION_KEY` of at least 32 characters to exercise local setup.
-Production flags remain unset/off until the live gate and separate release
-approval. Keep the existing Plaid encryption key for legacy and new Plaid
+The approved initial production release enables Lunch Flow manual sync in
+`env.prod.vars` and explicitly disables background sync. These flags are stored
+in versioned configuration so a later deployment preserves the intended state.
+The production bank encryption secret and additive migrations must exist before
+that release deploys. Keep the existing Plaid encryption key for legacy and new Plaid
 credentials; do not replace it with the bank key.
 
 ## Manual migration, deployment and rollback

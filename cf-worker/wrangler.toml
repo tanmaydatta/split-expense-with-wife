@@ -67,6 +67,8 @@ enabled = true
     BASE_URL = "https://budget.wastd.dev/auth"
     AUTH_TRUSTED_ORIGINS = ["https://budget.wastd.dev","https://splitexpense.tanmaydatta.workers.dev"]
     LOCAL = false
+    LUNCH_FLOW_ENABLED = "true"
+    BANK_BACKGROUND_SYNC_ENABLED = "false"
 
     [[env.prod.workflows]]
     binding = "ORCHESTRATOR_WORKFLOW"

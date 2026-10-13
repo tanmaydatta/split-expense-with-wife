@@ -552,10 +552,11 @@ npx wrangler tail -e dev --debug
 
 ## Bank provider release and rollback
 
-This stack is locally verified with synthetic data. **Live Lunch Flow validation
-is pending**; follow [the live gate](banking.md#local-live-verification-gate) before
-requesting a concrete release. No remote migration or deployment is part of local
-implementation. PR pushes automatically deploy `splitexpense-dev`.
+The adapter has passed synthetic provider regressions and a read-only live Lunch
+Flow Personal API contract check. The owner still confirms a known purchase and
+card payment/refund in the private preview before selecting a sign mapping.
+The approved first production release supports manual sync only; background sync
+is disabled. PR pushes automatically deploy `splitexpense-dev`.
 
 Before the foundation push, record the active staging Worker version and a fresh
 D1 backup/bookmark, compare connection/import/confirmed-link counts, and manually
@@ -574,8 +575,12 @@ are encrypted per owner after authenticated setup, never a shared Worker secret.
 `LUNCH_FLOW_API_KEY` in ignored local `.dev.vars` is only for the read-only smoke
 script (Node 22.18+); do not add it to Wrangler configuration or remote secrets.
 
-Enable `LUNCH_FLOW_ENABLED=true` only after the live gate and environment-specific
-release approval. Plaid remains independently controlled by `PLAID_SANDBOX_ENABLED`; production defaults stay disabled. Navigation uses the
+The approved production configuration sets `LUNCH_FLOW_ENABLED=true` and
+`BANK_BACKGROUND_SYNC_ENABLED=false` under `env.prod.vars`. Provision the new
+bank encryption secret and both additive migrations before deploying this layer.
+Versioned flags survive deployments that replace dashboard variables. Plaid
+remains independently controlled by `PLAID_SANDBOX_ENABLED` and stays disabled
+in production. Navigation uses the
 backend's enabled-provider capability response, including on the production host.
 
 Daily fetching additionally requires `BANK_BACKGROUND_SYNC_ENABLED=true` and the
