@@ -52,10 +52,13 @@ function buildBankDefaultValues(data: ReduxState["value"], budgets: Parameters<t
 }
 
 function BankSourceBanner({ source }: { source: BankTransaction }) {
- return <Surface>
-  <h2>Bank source: {source.name}</h2>
-  <p>{source.date} · {source.amountMinor > 0 ? "Money out" : "Money in"} · {bankAmount(Math.abs(source.amountMinor), source.currency)}</p>
-  <p>The amount, currency, bank date and direction are fixed. Saving creates and associates the selected records together.</p>
+ return <Surface className="bank-add-source">
+  <div className="bank-add-source-top">
+   <div><p className="bank-add-eyebrow">Bank activity</p><h2>{source.name}</h2></div>
+   <strong className="bank-add-amount">{bankAmount(Math.abs(source.amountMinor), source.currency)}</strong>
+  </div>
+  <p className="bank-add-meta">{source.date} · {source.accountName || "Bank account"} · {source.currency} · {source.amountMinor > 0 ? "Money out" : "Money in"}</p>
+  <p className="bank-add-hint">Amount, currency and date come from your bank. Edit the description, payer, splits and budget below.</p>
   {source.linkedTransactionId && <p>The expense is already associated.</p>}
   {source.linkedBudgetEntryId && <p>The budget entry is already associated.</p>}
  </Surface>;
@@ -65,12 +68,12 @@ function BankActionFields({ form, source, loading, updateBudget }: { form: any; 
  const expenseAvailable = source.amountMinor > 0 && !source.linkedTransactionId;
  const budgetAvailable = !source.linkedBudgetEntryId;
  return <>
-  {updateBudget && <form.Field name="budgetId">{(field: any) => <SelectBudget budgetId={field.state.value || ""} handleChangeBudget={value => field.handleChange(value)} disabled={loading} />}</form.Field>}
+  {updateBudget && <div className="bank-add-budget"><p className="bank-add-field-label">Budget</p><form.Field name="budgetId">{(field: any) => <SelectBudget budgetId={field.state.value || ""} handleChangeBudget={value => field.handleChange(value)} disabled={loading} />}</form.Field></div>}
   <div className="action-selection">
    <p>Choose records to add:</p>
-   <div style={{ display: "flex", flexWrap: "wrap", gap: "16px" }}>
-   {expenseAvailable && <form.Field name="addExpense">{(field: any) => <label><input type="checkbox" checked={field.state.value} onChange={event => field.handleChange(event.target.checked)} disabled={loading} /> Add expense</label>}</form.Field>}
-   {budgetAvailable && <form.Field name="updateBudget">{(field: any) => <label><input type="checkbox" checked={field.state.value} onChange={event => field.handleChange(event.target.checked)} disabled={loading} /> Add budget {source.amountMinor > 0 ? "debit" : "credit"}</label>}</form.Field>}
+   <div className="bank-add-options">
+   {expenseAvailable && <form.Field name="addExpense">{(field: any) => <label className="bank-add-option"><input type="checkbox" checked={field.state.value} onChange={event => field.handleChange(event.target.checked)} disabled={loading} /> Add expense</label>}</form.Field>}
+   {budgetAvailable && <form.Field name="updateBudget">{(field: any) => <label className="bank-add-option"><input type="checkbox" checked={field.state.value} onChange={event => field.handleChange(event.target.checked)} disabled={loading} /> Add budget {source.amountMinor > 0 ? "debit" : "credit"}</label>}</form.Field>}
    </div>
   </div>
  </>;
@@ -193,14 +196,14 @@ function Dashboard(): JSX.Element {
 	if (bankId && !bankSource) return <Loader />;
 
 	return (
-		<div className="dashboard-container" data-test-id="dashboard-container">
-			<header>
+		<div className={`dashboard-container${bankSource ? " bank-add-dashboard" : ""}`} data-test-id="dashboard-container">
+			<header className={bankSource ? "bank-add-header" : undefined}>
 				<UiPageTitle>{bankSource ? "Add from bank activity" : "Add an expense"}</UiPageTitle>
 				<UiPageDescription>Record a shared expense, update a budget, or do both at once.</UiPageDescription>
 			</header>
 			{bankSource && <BankSourceBanner source={bankSource} />}
 			<Surface className="dashboard-form-surface">
-			<FormContainer data-test-id="expense-form">
+			<FormContainer className={bankSource ? "bank-add-form" : undefined} data-test-id="expense-form">
 				{/* Error Container */}
 				{error && (
 					<ErrorContainer
@@ -222,6 +225,7 @@ function Dashboard(): JSX.Element {
 				<AmountField form={form} loading={loading || Boolean(bankSource)} />
 
 				<SplitPercentageFields
+                    className={bankSource ? "bank-add-splits" : undefined}
 					users={users}
 					updateUserPercentage={updateUserPercentage}
 					loading={loading}

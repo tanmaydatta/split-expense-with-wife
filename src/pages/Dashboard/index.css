@@ -341,3 +341,47 @@
 .form-container select:focus:valid {
 	box-shadow: 0 0 0 2px rgba(40, 167, 69, 0.25);
 }
+
+/* Bank-prefilled Add form only; ordinary Dashboard retains its layout. */
+.bank-add-dashboard {
+ max-width: 680px;
+ gap: 20px;
+}
+.bank-add-dashboard .dashboard-form-surface,
+.bank-add-dashboard .bank-add-form { max-width: none; }
+.bank-add-source { padding: 20px; }
+.bank-add-source-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.bank-add-source-top > div { min-width: 0; }
+.bank-add-source h2 { margin: 4px 0 0; font-size: 20px; line-height: 1.35; overflow-wrap: anywhere; }
+.bank-add-eyebrow { margin: 0; font-size: 12px; font-weight: 600; color: var(--color-secondary); text-transform: uppercase; letter-spacing: .06em; }
+.bank-add-amount { font-size: 22px; line-height: 1.35; white-space: nowrap; }
+.bank-add-meta { margin: 12px 0 0; font-size: 14px; line-height: 1.5; }
+.bank-add-hint { margin: 8px 0 0; font-size: 14px; line-height: 1.5; color: var(--color-secondary); }
+.bank-add-dashboard input:disabled,
+.bank-add-dashboard select:disabled { opacity: 1; background-color: var(--color-light); color: var(--color-dark); cursor: not-allowed; }
+.bank-add-budget { margin-top: 12px; }
+.bank-add-field-label { margin: 0 0 8px; font-weight: 500; }
+.bank-add-dashboard .action-selection { margin-top: 16px; }
+.bank-add-dashboard .action-selection > p { margin: 0 0 8px; font-weight: 500; }
+.bank-add-options { display: flex; flex-wrap: wrap; gap: 8px 16px; }
+.bank-add-dashboard .bank-add-form .bank-add-option { display: flex; align-items: center; gap: 8px; margin: 0; min-height: 44px; cursor: pointer; }
+.bank-add-dashboard .bank-add-form .bank-add-option input { width: 18px; height: 18px; min-height: 18px; padding: 0; margin: 0; accent-color: var(--color-primary); }
+.bank-add-dashboard .BudgetSelectionGroup { display: flex; flex-wrap: wrap; gap: 8px; }
+.bank-add-dashboard .BudgetSelectionGroup label { margin: 0; min-height: 44px; display: inline-flex; align-items: center; }
+@media (max-width: 768px) {
+ .bank-add-dashboard { gap: 16px; }
+ .bank-add-header h1 { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+ .bank-add-source { padding: 16px; }
+ .bank-add-source h2 { font-size: 18px; }
+ .bank-add-amount { font-size: 20px; }
+ .bank-add-dashboard .bank-add-form .bank-add-option { font-size: 14px; }
+ .bank-add-dashboard .bank-add-splits { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.bank-add-dashboard .bank-add-form { width: 100%; max-width: none; }
+.bank-add-dashboard .bank-add-options .bank-add-option { margin-top: 0; margin-bottom: 0; }
+.bank-add-dashboard .bank-add-options .bank-add-option input { margin: 0; padding: 0; min-height: 18px; }
+.bank-add-dashboard .bank-add-splits label { margin-top: 0; }
+@media (max-width: 768px) {
+ .bank-add-dashboard .bank-add-splits { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+}

@@ -1,3 +1,4 @@
+import { BankRecordLinks } from "@/pages/BankImport/BankRecordLinks";
 import { Card } from "@/components/Card";
 import { Calendar, CardText, Trash } from "@/components/Icons";
 import { TransactionDetails } from "@/components/TransactionDetails";
@@ -87,6 +88,8 @@ export const BudgetEntryCard: React.FC<BudgetEntryCardProps> = ({
 					</div>
 				)}
 			</div>
+
+			<BankRecordLinks budgetEntryId={budgetEntry.id} />
 
 			{/* Linked expense section */}
 			{linkedTransaction && (

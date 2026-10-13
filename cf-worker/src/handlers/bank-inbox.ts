@@ -239,6 +239,12 @@ export async function handleBankRecordLink(
 				links: rows.results.map((row) => ({
 					id: row.id,
 					name: row.name,
+					merchantName: row.merchantName,
+					amountMinor: row.amountMinor,
+					currency: row.currency,
+					date: row.date,
+					accountName: row.accountName,
+					needsConfirmation: Boolean(row.sourceChanged || row.provisionalSourceChanged || row.noLongerPending),
 					pending: Boolean(row.pending),
 					provisional: row[column.split(".")[1]] !== (expense ?? budget),
 					noLongerPending: Boolean(row.noLongerPending),

@@ -9,17 +9,19 @@ import "./BudgetCard.css";
 
 interface BudgetCardProps {
 	entry: BudgetEntry;
-	onDelete: (id: string) => void;
+	onDelete?: (id: string) => void;
+ selectionMode?: boolean;
 }
 
-export const BudgetCard: React.FC<BudgetCardProps> = ({ entry, onDelete }) => {
+export const BudgetCard: React.FC<BudgetCardProps> = ({ entry, onDelete, selectionMode = false }) => {
+	const Content: React.ElementType = selectionMode ? "div" : Link;
 	return (
 		<Card className="budget-entry-card" data-test-id="budget-entry-card">
-			<Link
+			<Content
 				className="budget-card-link"
 				data-test-id="budget-entry-link"
-				to={`/budget-entry/${entry.id}`}
-				aria-label={`View budget entry: ${entry.description}`}
+				{...(selectionMode ? {} : { to: `/budget-entry/${entry.id}` })}
+				aria-label={selectionMode ? undefined : `View budget entry: ${entry.description}`}
 			>
 				<div className="budget-card-header">
 					<div className="budget-date">
@@ -51,12 +53,12 @@ export const BudgetCard: React.FC<BudgetCardProps> = ({ entry, onDelete }) => {
 							</span>
 						</div>
 					)}
-					<span className="budget-card-view-details" aria-hidden="true">
+					{!selectionMode && <span className="budget-card-view-details" aria-hidden="true">
 						View details →
-					</span>
+					</span>}
 				</div>
-			</Link>
-			{entry.deleted == null && (
+			</Content>
+			{!selectionMode && onDelete && entry.deleted == null && (
 				<button
 					className="delete-button"
 					data-test-id="delete-button"

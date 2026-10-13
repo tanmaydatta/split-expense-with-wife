@@ -51,3 +51,40 @@ read, captured or committed.
 New persistent browser E2E expansion was deferred at the user's request. Production
 migration, deployment and real-bank interactions require their separate release
 step; these local checks do not claim production validation.
+
+## Shared cards and embedded sources (2026-10-13)
+
+The new focused Worker review suite passes **14/14** and UI card DOM suite passes
+**4/4**. Coverage checks real participant rows and metadata, current-user positive
+and negative balances, unchanged ordinary BudgetCard navigation/delete actions,
+selection without navigation/deletion/expansion fetches, expanded-only source
+mounting, and owner-only pending source summaries. Frontend and Worker types,
+frontend ESLint and changed-handler Biome lint pass. The independent UI build uses
+explicit local auth/API URLs; no shared build symlink is used.
+
+`scripts/capture-bank-review.cjs` runs Playwright against a separately served local
+build. All session, bank, candidate and detail responses are synthetic fixtures;
+external requests are aborted and service workers blocked. It checks horizontal
+overflow and a pending first-save payload that omits a null draft version. No live
+bank access, synchronization or ledger writes occur. This is focused browser smoke,
+not full financial E2E coverage.
+
+New evidence is in `docs/previews/bank-review-polish`. Each desktop (1440×1080) and
+mobile (390×844) view has an untouched top `-viewport.png` and supplemental
+`-full.png` capture. The full capture temporarily exposes the app shell’s internal
+scroll height and restores all styles afterward; it does not change content widths.
+Review and bank Add also have untouched `-lower-viewport.png` captures for selected
+records and actions. The harness verifies actual checkbox center alignment, full
+form width and two mobile split columns before capturing:
+
+- [List](../previews/bank-review-polish/list-mobile-full.png)
+- [Connection settings](../previews/bank-review-polish/settings-mobile-full.png)
+- [Selected expense and budget cards](../previews/bank-review-polish/review-mobile-full.png)
+- [Expanded expense bank source](../previews/bank-review-polish/expanded-expense-mobile-full.png)
+- [Expanded budget bank source](../previews/bank-review-polish/expanded-budget-mobile-full.png)
+- [Bank Add form](../previews/bank-review-polish/form-mobile-full.png)
+- [Ordinary Dashboard comparison](../previews/bank-review-polish/dashboard-mobile-full.png)
+
+Visual approval is performed by the coordinating agent after inspecting these
+screenshots, before the UI PR is pushed. Production release remains a separate
+approval step.

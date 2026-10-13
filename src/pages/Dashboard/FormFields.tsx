@@ -82,18 +82,19 @@ export function AmountField({
 }
 
 export function SplitPercentageFields({
-	users,
+	className,
+ users,
 	updateUserPercentage,
 	loading,
 	addExpense,
 }: Pick<
 	FormFieldsProps,
 	"users" | "updateUserPercentage" | "loading" | "addExpense"
->) {
+> & { className?: string }) {
 	if (!addExpense) return null;
 
 	return (
-		<SplitPercentageContainer>
+		<SplitPercentageContainer className={className}>
 			{users.map((u: DashboardUser) => (
 				<SplitPercentageInputContainer key={u.Id}>
 					<label>{u.FirstName}</label>

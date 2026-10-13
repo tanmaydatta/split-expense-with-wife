@@ -1,3 +1,4 @@
+import { BankRecordLinks } from "@/pages/BankImport/BankRecordLinks";
 import { Card } from "@/components/Card";
 import { ArrowDownUp, Calendar, CardText, Coin, XLg } from "@/components/Icons";
 import { useTransaction } from "@/hooks/useTransaction";
@@ -12,6 +13,7 @@ import type {
 import "./TransactionCard.css";
 
 interface TransactionCardProps {
+ selectionMode?: boolean;
 	transaction: FrontendTransaction;
 	isSelected?: boolean;
 	onSelect?: (transaction: FrontendTransaction) => void;
@@ -25,6 +27,7 @@ interface TransactionCardProps {
 
 export const TransactionCard: React.FC<TransactionCardProps> = ({
 	transaction,
+ selectionMode = false,
 	isSelected = false,
 	onSelect,
 	onDelete,
@@ -32,7 +35,7 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
 	expanded = false,
 	linkedBudgetEntry: linkedBudgetEntryProp,
 }) => {
-	const isExpanded = expanded || isSelected;
+	const isExpanded = !selectionMode && (expanded || isSelected);
 
 	// Fetch full transaction detail when expanded so we can show the linked budget entry.
 	// Skip if a linkedBudgetEntry was already supplied via prop (TransactionDetail page pre-fetches it).
@@ -63,7 +66,7 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
 					<Calendar />
 					<span>{dateToFullStr(new Date(transaction.date))}</span>
 				</div>
-				{onDelete && (
+				{!selectionMode && onDelete && (
 					<button
 						className="delete-button"
 						data-test-id="delete-button"
@@ -119,6 +122,8 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
 			{isExpanded && children && (
 				<div className="transaction-card-details">{children}</div>
 			)}
+
+			{isExpanded && <BankRecordLinks transactionId={transaction.transactionId} />}
 
 			{/* Linked budget entry section */}
 			{isExpanded && linkedBudgetEntry && (

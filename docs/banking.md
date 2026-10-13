@@ -137,8 +137,14 @@ and Reviewed filters with server-side paging. Connections, sign calibration and
 manual cached sync live in a separate settings panel. Open activity for its full
 source details and clickable confirmed expense/budget associations.
 
-Match an existing expense, a budget entry independently, or both. A confirmed row
-can gain its missing association; existing confirmed associations cannot be
+Match an existing expense, a budget entry independently, or both. Search results use
+the same expense and budget cards as the mobile lists, with keyboard-accessible
+radio selection. Expense balances reflect the current user and budget choices
+show their budget name. Selection does not navigate, delete or load expanded
+details. Candidate metadata and participant rows are read in bounded current-group
+pages, without a request for every card.
+
+A confirmed row can gain its missing association; existing confirmed associations cannot be
 replaced. Currency and minor-unit amount must match. Positive normalized spending
 matches a negative budget debit; negative money received matches a positive budget
 credit. Expense matching/creation requires positive spending. Matching creates no
@@ -161,8 +167,11 @@ date; these are uncertain suggestions requiring explicit choice and confirmation
 Nothing is attached automatically. Cancel removes only the provisional selection;
 shared records remain. Account deselection/disconnect purges private imports,
 snapshots and drafts while retaining shared records and their financial links.
-Only the connecting owner sees bank references from expense/budget details,
-including tentative references. Other group members see shared records normally.
+Only the connecting owner sees bank references inside expanded expense cards and
+budget detail cards (including expanded budget table rows). Sources load on
+expansion and show merchant/name, amount, currency, date, account and
+posted/pending/provisional/needs-confirmation status, with a link to bank review.
+Other group members see shared records normally.
 
 For posted activity, Add expense/budget/both reuses the existing Add form. Financial
 source amount, currency and date come from the authenticated bank row; descriptions,
