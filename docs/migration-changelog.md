@@ -290,3 +290,12 @@ CREATE INDEX expense_budget_links_group_idx ON expense_budget_links (group_id);
 Adds provider metadata, neutral external identifiers, sync leases and source
 change warnings. Preserves legacy Plaid columns and existing primary keys for
 old-Worker compatibility and rollback; no shared expense data is migrated.
+
+### 0029 — Lunch Flow sign calibration
+
+Adds explicit per-account amount multiplier and raw imported amount. Limits
+Lunch Flow to one personal destination per owner to prevent duplicate imports.
+Adds monotonic `row_version` (default zero for existing Plaid imports) for stale
+review protection and `last_background_attempt_at` for bounded scheduling.
+No existing Plaid data or confirmed expense links are changed. Apply 0029 before
+deploying the API layer, including its shared Plaid review changes.

@@ -7,7 +7,7 @@ const env = testEnv as unknown as Env;
 describe("Plaid Sandbox isolation", () => {
 	it("keeps bank routes unavailable without server secrets", async () => {
 		const unconfigured = { ...env, PLAID_CLIENT_ID: undefined, PLAID_SANDBOX_SECRET: undefined,
-			PLAID_TOKEN_ENCRYPTION_KEY: undefined } as Env;
+			PLAID_TOKEN_ENCRYPTION_KEY: undefined, LUNCH_FLOW_ENABLED: "false" } as Env;
 		const response = await worker.fetch(
 			new Request("https://localhost:8787/.netlify/functions/bank-import/connections"),
 			unconfigured,
