@@ -16,11 +16,13 @@ type DashboardSubmitMutation = UseMutationResult<
 export function createFormSubmitHandler(
 	dashboardSubmit: DashboardSubmitMutation,
 	data: ReduxState["value"],
+	options: { bankSource?: DashboardFormData["bankSource"]; onSuccess?: () => void } = {},
 ) {
 	return async ({ value }: { value: DashboardFormInput }, form: any) => {
 		const formData: DashboardFormData = {
 			addExpense: value.addExpense,
 			updateBudget: value.updateBudget,
+			...(options.bankSource ? { bankSource: options.bankSource } : {}),
 		};
 
 		if (value.addExpense && value.users) {
@@ -46,6 +48,10 @@ export function createFormSubmitHandler(
 
 		dashboardSubmit.mutate(formData, {
 			onSuccess: () => {
+				if (options.onSuccess) {
+					options.onSuccess();
+					return;
+				}
 				form.setFieldValue("amount", undefined as any);
 				form.setFieldValue("description", "");
 				scrollToTop();

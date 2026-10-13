@@ -7,7 +7,7 @@ import {
 	SuccessContainer,
 } from "@/components/MessageContainer";
 import { useDashboardSubmit } from "@/hooks/useDashboard";
-import { useCallback, useEffect, useState, useMemo } from "react";
+import { useCallback, useEffect, useState, useMemo, useRef } from "react";
 import { useForm, useStore } from "@tanstack/react-form";
 import type { DashboardUser, ReduxState } from "split-expense-shared-types";
 import { DashboardFormSchema } from "split-expense-shared-types";
@@ -29,6 +29,52 @@ import {
 import "./index.css";
 
 import { useSelector } from "react-redux";
+import { useNavigate, useParams, useSearchParams, Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import api from "@/utils/api";
+import { SelectBudget } from "@/SelectBudget";
+import { CURRENCIES } from "split-expense-shared-types";
+import type { Currency } from "split-expense-shared-types";
+import type { BankTransaction } from "../BankImport/types";
+import { bankAmount } from "../BankImport/types";
+
+function buildBankDefaultValues(data: ReduxState["value"], budgets: Parameters<typeof buildDefaultFormValues>[1], row: BankTransaction, mode: string) {
+ const defaults = buildDefaultFormValues(data, budgets);
+ const digits = new Intl.NumberFormat("en", { style: "currency", currency: row.currency }).resolvedOptions().maximumFractionDigits ?? 2;
+ defaults.amount = Math.abs(row.amountMinor) / 10 ** digits;
+ defaults.currency = row.currency as Currency;
+ defaults.description = row.name.slice(0, 100);
+ defaults.paidBy = data?.extra?.currentUser?.id || data?.user?.id || "";
+ defaults.creditDebit = row.amountMinor > 0 ? "Debit" : "Credit";
+ defaults.addExpense = mode !== "budget" && row.amountMinor > 0 && !row.linkedTransactionId;
+ defaults.updateBudget = mode !== "expense" && !row.linkedBudgetEntryId;
+ return defaults;
+}
+
+function BankSourceBanner({ source }: { source: BankTransaction }) {
+ return <Surface>
+  <h2>Bank source: {source.name}</h2>
+  <p>{source.date} · {source.amountMinor > 0 ? "Money out" : "Money in"} · {bankAmount(Math.abs(source.amountMinor), source.currency)}</p>
+  <p>The amount, currency, bank date and direction are fixed. Saving creates and associates the selected records together.</p>
+  {source.linkedTransactionId && <p>The expense is already associated.</p>}
+  {source.linkedBudgetEntryId && <p>The budget entry is already associated.</p>}
+ </Surface>;
+}
+
+function BankActionFields({ form, source, loading, updateBudget }: { form: any; source: BankTransaction; loading: boolean; updateBudget: boolean }) {
+ const expenseAvailable = source.amountMinor > 0 && !source.linkedTransactionId;
+ const budgetAvailable = !source.linkedBudgetEntryId;
+ return <>
+  {updateBudget && <form.Field name="budgetId">{(field: any) => <SelectBudget budgetId={field.state.value || ""} handleChangeBudget={value => field.handleChange(value)} disabled={loading} />}</form.Field>}
+  <div className="action-selection">
+   <p>Choose records to add:</p>
+   <div style={{ display: "flex", flexWrap: "wrap", gap: "16px" }}>
+   {expenseAvailable && <form.Field name="addExpense">{(field: any) => <label><input type="checkbox" checked={field.state.value} onChange={event => field.handleChange(event.target.checked)} disabled={loading} /> Add expense</label>}</form.Field>}
+   {budgetAvailable && <form.Field name="updateBudget">{(field: any) => <label><input type="checkbox" checked={field.state.value} onChange={event => field.handleChange(event.target.checked)} disabled={loading} /> Add budget {source.amountMinor > 0 ? "debit" : "credit"}</label>}</form.Field>}
+   </div>
+  </div>
+ </>;
+}
 
 function Dashboard(): JSX.Element {
 	// React Query hook for form submission
@@ -36,8 +82,13 @@ function Dashboard(): JSX.Element {
 
 	// Keep some state for session-dependent logic
 	const [usersState, setUsersState] = useState<DashboardUser[]>([]);
-	const [defaultsInitialized, setDefaultsInitialized] =
-		useState<boolean>(false);
+	const initializedKey = useRef<string | null>(null);
+	const [bankSnapshot, setBankSnapshot] = useState<{ key: string; row: BankTransaction; defaults: ReturnType<typeof buildDefaultFormValues> } | null>(null);
+	const { id: bankId } = useParams<{ id: string }>();
+	const [searchParams] = useSearchParams();
+	const navigate = useNavigate();
+	const requestedMode = searchParams.get("mode") ?? "both";
+	const mode = ["expense", "budget", "both"].includes(requestedMode) ? requestedMode : "both";
 
 	// Get auth data from the data store (where login puts it)
 	const data = useSelector((state: ReduxState) => state.value);
@@ -46,17 +97,42 @@ function Dashboard(): JSX.Element {
 		[data?.extra?.group?.budgets],
 	);
 
+	const userId = data?.user?.id;
+	const groupId = data?.extra?.group?.groupid;
+	const initializationKey = `${userId ?? ""}:${groupId ?? ""}:${bankId ?? "ordinary"}:${bankId ? mode : ""}`;
+	const bankQuery = useQuery({
+		queryKey: ["bank", "transaction", userId, groupId, bankId],
+		enabled: Boolean(bankId && userId && groupId),
+		queryFn: async () => {
+			const response = await api.get<{ transaction: BankTransaction }>("/bank-import/transaction", { params: { id: bankId } });
+			return response.data.transaction;
+		},
+		retry: false,
+	});
+	// Keep the version the user actually reviewed. Background refetches must not
+	// replace unsaved choices or silently advance the version submitted to the API.
+	const bankSource = bankSnapshot?.key === initializationKey ? bankSnapshot.row : null;
+	const reviewPath = bankId ? `/bank-import/transactions/${encodeURIComponent(bankId)}` : "/bank-import";
+	const sourceUnavailable = Boolean(bankId && bankQuery.data && (
+		bankQuery.data.pending || bankQuery.data.readonlySnapshot || bankQuery.data.removedAt ||
+		bankQuery.data.reviewStatus === "ignored" || bankQuery.data.rowVersion === undefined ||
+		bankQuery.data.amountMinor === 0 || !(CURRENCIES as readonly string[]).includes(bankQuery.data.currency)
+	));
+
 	// Calculate default form values from session data
 	const getDefaultValues = useCallback(() => {
 		return buildDefaultFormValues(data, budgets);
 	}, [data, budgets]);
 
 	// Create submit handler
-	const handleSubmit = createFormSubmitHandler(dashboardSubmit, data);
+	const handleSubmit = createFormSubmitHandler(dashboardSubmit, data, bankSource ? {
+		bankSource: { bankTransactionId: bankSource.id, sourceVersion: bankSource.rowVersion! },
+		onSuccess: () => navigate(reviewPath),
+	} : {});
 
 	// TanStack Form setup
 	const form = useForm({
-		defaultValues: getDefaultValues(),
+		defaultValues: bankSnapshot?.key === initializationKey ? bankSnapshot.defaults : getDefaultValues(),
 		validators: {
 			onChange: DashboardFormSchema,
 		},
@@ -90,14 +166,14 @@ function Dashboard(): JSX.Element {
 		}));
 		setUsersState(usersFromAuth);
 
-		// Only set defaults if they haven't been initialized yet (to avoid overriding user changes)
-		if (!defaultsInitialized) {
-			// Initialize form with session-based defaults
-			const defaults = getDefaultValues();
-			form.reset(defaults);
-			setDefaultsInitialized(true);
-		}
-	}, [data, defaultsInitialized, getDefaultValues, form]);
+		if (initializedKey.current === initializationKey) return;
+		if (bankId && (!bankQuery.data || sourceUnavailable)) return;
+		const defaults = bankId && bankQuery.data ? buildBankDefaultValues(data, budgets, bankQuery.data, mode) : getDefaultValues();
+		if (bankId && bankQuery.data) setBankSnapshot({ key: initializationKey, row: bankQuery.data, defaults });
+		else setBankSnapshot(null);
+		form.reset(defaults);
+		initializedKey.current = initializationKey;
+	}, [data, initializationKey, bankId, bankQuery.data, sourceUnavailable, mode, userId, budgets, getDefaultValues, form]);
 
 	// Helper function to update user percentage in form state
 	const updateUserPercentage = createUserPercentageUpdater(form);
@@ -108,16 +184,21 @@ function Dashboard(): JSX.Element {
 	const success = getSuccessMessage(dashboardSubmit);
 
 	// Show loading while session data is being fetched
-	if (!data?.extra?.usersById) {
+	if (!data?.extra?.usersById || (bankId && bankQuery.isPending)) {
 		return <Loader />;
 	}
+	if (bankId && (bankQuery.isError || sourceUnavailable || !bankQuery.data)) {
+		return <Surface><h1>Bank activity unavailable</h1><p>This activity changed, is pending, or cannot be used to create shared records. Return to review and refresh.</p><Link to={reviewPath}>Return to bank review</Link></Surface>;
+	}
+	if (bankId && !bankSource) return <Loader />;
 
 	return (
 		<div className="dashboard-container" data-test-id="dashboard-container">
 			<header>
-				<UiPageTitle>Add an expense</UiPageTitle>
+				<UiPageTitle>{bankSource ? "Add from bank activity" : "Add an expense"}</UiPageTitle>
 				<UiPageDescription>Record a shared expense, update a budget, or do both at once.</UiPageDescription>
 			</header>
+			{bankSource && <BankSourceBanner source={bankSource} />}
 			<Surface className="dashboard-form-surface">
 			<FormContainer data-test-id="expense-form">
 				{/* Error Container */}
@@ -138,7 +219,7 @@ function Dashboard(): JSX.Element {
 				)}
 
 				<DescriptionField form={form} loading={loading} />
-				<AmountField form={form} loading={loading} />
+				<AmountField form={form} loading={loading || Boolean(bankSource)} />
 
 				<SplitPercentageFields
 					users={users}
@@ -147,7 +228,7 @@ function Dashboard(): JSX.Element {
 					addExpense={addExpense}
 				/>
 
-				<CurrencyField form={form} loading={loading} />
+				<CurrencyField form={form} loading={loading || Boolean(bankSource)} />
 
 				<PaidByField
 					form={form}
@@ -156,13 +237,8 @@ function Dashboard(): JSX.Element {
 					usersState={usersState}
 				/>
 
-				<BudgetFields
-					form={form}
-					loading={loading}
-					updateBudget={updateBudget}
-				/>
-
-				<ActionSelection form={form} loading={loading} />
+				{bankSource ? <BankActionFields form={form} source={bankSource} loading={loading} updateBudget={updateBudget} /> :
+					<><BudgetFields form={form} loading={loading} updateBudget={updateBudget} /><ActionSelection form={form} loading={loading} /></>}
 
 				{/* Single submit button */}
 				<ButtonRow>
@@ -173,11 +249,12 @@ function Dashboard(): JSX.Element {
 							e.preventDefault();
 							form.handleSubmit();
 						}}
-						disabled={loading}
+						disabled={loading || (Boolean(bankSource) && !addExpense && !updateBudget)}
 						className="submit-button"
 					>
-						{loading ? "Processing..." : "Submit"}
+						{loading ? "Processing..." : bankSource ? "Save and associate" : "Submit"}
 					</Button>
+					{bankSource && <Button type="button" disabled={loading} onClick={() => navigate(reviewPath)}>Cancel</Button>}
 				</ButtonRow>
 			</FormContainer>
 			</Surface>

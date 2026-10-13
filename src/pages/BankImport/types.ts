@@ -47,6 +47,17 @@ export type BankTransaction = {
 	amountMinor: number;
 	currency: string;
 	linkedTransactionId: string | null;
+ linkedBudgetEntryId?: string | null;
+ expenseDescription?: string | null;
+ budgetDescription?: string | null;
+ readonlySnapshot?: boolean;
+ noLongerPending?: boolean;
+ draftId?: string | null;
+ draftVersion?: number;
+ draftStatus?: string;
+ provisionalTransactionId?: string | null;
+ provisionalBudgetEntryId?: string | null;
+ provisionalSourceChanged?: boolean;
 	reviewStatus: string;
 	sourceChanged?: boolean;
 	removedAt?: string | null;

@@ -1,3 +1,4 @@
+import { BankRecordLinks } from "../BankImport/BankRecordLinks";
 import { BudgetEntryCard } from "@/components/BudgetEntryCard";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ErrorContainer } from "@/components/MessageContainer";
@@ -44,6 +45,7 @@ export default function BudgetEntryDetail() {
 				linkedTransaction={data.linkedTransaction}
 				linkedTransactionUsers={data.linkedTransactionUsers}
 			/>
+			<BankRecordLinks budgetEntryId={data.budgetEntry.id} />
 			<div className="entry-detail-actions">
 				<UiButton type="button" $tone="danger" onClick={() => setConfirmOpen(true)} disabled={del.isPending} data-test-id="delete">
 					Delete budget entry

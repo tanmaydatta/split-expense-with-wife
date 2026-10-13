@@ -42,3 +42,34 @@
 .bank-source-warning, .bank-account-warning { background: #fff3d6; color: #624719; border-radius: 8px; padding: .6rem; font-size: .9rem; }
 .bank-source-warning { clear: both; }
 @media (max-width: 600px) { .bank-inbox-filters { grid-template-columns: 1fr; } .bank-sign-choice { margin-left: 0; } .bank-setup-panel { padding: .8rem; } .bank-preview-list li { flex-direction: column; gap: .2rem; } }
+.bank-page { max-width: 980px; margin: 0 auto; }
+.bank-toolbar { display:flex; align-items:center; flex-wrap:wrap; gap:12px; margin:12px 0; }
+.bank-list-surface,.bank-source-card,.bank-review-work,.bank-matched { padding:24px; }
+.bank-search { flex:1; min-width:200px; font-size:13px; font-weight:600; }
+.bank-page input:not([type=radio]),.bank-picker input:not([type=radio]) { display:block; width:100%; min-height:42px; padding:10px 12px; border:1px solid #dce1e8; border-radius:8px; margin-top:6px; background:white; }
+.bank-tabs { display:flex; flex-wrap:wrap; gap:8px; margin:20px 0 12px; }
+.bank-tabs button[aria-pressed=true] { background:#e9eef9; border-color:#9eb1d9; color:#224b91; }
+.bank-subtle,.bank-row-main>span { color:#6b7280; font-size:13px; }
+.bank-compact-list,.bank-candidates { list-style:none; padding:0; margin:0; }
+.bank-compact-list li { border-top:1px solid #edf0f4; }
+.bank-row { display:flex; align-items:center; gap:16px; padding:16px 4px; color:inherit; text-decoration:none; }
+.bank-row:hover { background:#f7f9fc; }
+.bank-row-main { display:flex; flex:1; min-width:0; flex-direction:column; gap:6px; }
+.bank-row-main strong { overflow-wrap:anywhere; }
+.bank-row-end { display:flex; flex-direction:column; align-items:flex-end; gap:7px; flex-shrink:0; }
+.bank-badge { font-size:11px; border-radius:16px; padding:3px 8px; background:#eef1f5; color:#546173; text-transform:capitalize; }
+.bank-badge.is-pending { background:#fff3d9; color:#8a6112; }
+.bank-pagination { justify-content:space-between; border-top:1px solid #edf0f4; padding-top:12px; }
+.bank-empty { text-align:center; padding:40px 16px; }
+.bank-dialog-overlay { position:fixed; inset:0; background:rgba(17,24,39,.38); z-index:1200; }
+.bank-dialog { position:fixed; right:0; top:0; bottom:0; width:min(720px,100vw); background:white; overflow:auto; z-index:1201; padding:24px; box-shadow:-12px 0 50px #0002; }
+.bank-dialog-heading { display:flex; gap:16px; align-items:flex-start; justify-content:space-between; border-bottom:1px solid #e5e7eb; }
+.bank-dialog-heading h2 { font-size:22px; }.bank-settings { padding:12px 0; }
+.bank-source-heading { display:flex; justify-content:space-between; align-items:flex-start; gap:20px; }
+.bank-source-heading h2 { margin:14px 0 4px; font-size:22px; }.bank-source-amount { font-size:26px; white-space:nowrap; }
+.bank-source-meta { display:flex; flex-wrap:wrap; gap:36px; margin-top:24px; }.bank-source-meta dt { color:#6b7280; font-size:12px; }.bank-source-meta dd { margin:5px 0; }
+.bank-note { font-size:14px; color:#53657d; background:#f3f6fa; padding:14px; border-radius:8px; }
+.bank-matched a { display:block; padding:10px 0; }.bank-picker { border:1px solid #e3e7ee; border-radius:10px; padding:16px; margin:18px 0; }.bank-picker legend { width:auto; padding:0 8px; font-size:16px; font-weight:600; }
+.bank-date-search { display:flex; gap:12px; margin-top:12px; }.bank-date-search label { flex:1; min-width:0; }
+.bank-candidates li { border-top:1px solid #eef0f4; padding:12px 4px; }.bank-candidates label { display:flex; align-items:flex-start; gap:12px; cursor:pointer; }.bank-candidates input[type=radio] { margin-top:5px; }.bank-candidates small { display:block; margin-top:5px; color:#6b7280; }.bank-add-actions { margin-top:28px; border-top:1px solid #e7eaf0; padding-top:16px; }
+@media(max-width:600px) { .bank-list-surface,.bank-source-card,.bank-review-work,.bank-matched { padding:16px; }.bank-row { gap:10px; }.bank-row-main strong { font-size:14px; }.bank-row-main>span { font-size:11px; }.bank-source-heading { flex-direction:column; gap:12px; }.bank-source-meta { gap:20px; }.bank-dialog { padding:16px; } }
