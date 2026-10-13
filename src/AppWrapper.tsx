@@ -1,3 +1,4 @@
+import TransactionReview from "@/pages/BankImport/TransactionReview";
 import Sidebar from "@/components/Sidebar";
 import * as Dialog from "@radix-ui/react-dialog";
 import { theme } from "@/components/theme";
@@ -145,6 +146,26 @@ const PageContent = styled.div`
   }
 `;
 
+function getPageTitle(path: string): string {
+	if (path === "/") return "Add Expense";
+	if (path === "/expenses") return "Expenses";
+	if (path === "/balances") return "Balances";
+	if (path === "/bills") return "Shared Bills";
+	if (path === "/bank-import") return "Bank activity";
+	if (path.startsWith("/bank-import/transactions/") && path.endsWith("/add"))
+		return "Add from bank activity";
+	if (path.startsWith("/bank-import/transactions/"))
+		return "Review bank activity";
+	if (path === "/budget") return "Budget";
+	if (path.startsWith("/monthly-budget")) return "Monthly Budget";
+	if (path === "/settings") return "Settings";
+	if (path === "/scheduled-actions") return "Scheduled Actions";
+	if (path === "/logout") return "Logout";
+	if (path.startsWith("/transaction/")) return "Transaction";
+	if (path.startsWith("/budget-entry/")) return "Budget Entry";
+	return "Page Not Found"; // For 404 and unknown routes
+}
+
 // Create wrapped components outside of render to prevent recreation
 function AppWrapper() {
 	const location = useLocation();
@@ -186,23 +207,6 @@ function AppWrapper() {
 		return () => window.removeEventListener("resize", checkMobile);
 	}, []);
 
-	// Get current page title based on location
-	const getPageTitle = () => {
-		const path = location.pathname;
-		if (path === "/") return "Add Expense";
-		if (path === "/expenses") return "Expenses";
-		if (path === "/balances") return "Balances";
-		if (path === "/bills") return "Shared Bills";
-		if (path === "/bank-import") return "Bank imports";
-		if (path === "/budget") return "Budget";
-		if (path.startsWith("/monthly-budget")) return "Monthly Budget";
-		if (path === "/settings") return "Settings";
-		if (path === "/scheduled-actions") return "Scheduled Actions";
-		if (path === "/logout") return "Logout";
-		if (path.startsWith("/transaction/")) return "Transaction";
-		if (path.startsWith("/budget-entry/")) return "Budget Entry";
-		return "Page Not Found"; // For 404 and unknown routes
-	};
 	// Show loading while session data is being fetched
 	if (session.isPending) {
 		console.log("loading");
@@ -230,13 +234,16 @@ function AppWrapper() {
 									</Dialog.Trigger>
 									<Dialog.Portal>
 										<MobileOverlay />
-										<MobileMenu id="main-navigation" aria-describedby={undefined}>
+										<MobileMenu
+											id="main-navigation"
+											aria-describedby={undefined}
+										>
 											<MobileMenuTitle>Navigation</MobileMenuTitle>
 											<Sidebar onNavigate={() => setSidebarOpen(false)} />
 										</MobileMenu>
 									</Dialog.Portal>
 								</Dialog.Root>
-								<PageTitle>{getPageTitle()}</PageTitle>
+								<PageTitle>{getPageTitle(location.pathname)}</PageTitle>
 								<div style={{ width: "40px" }} /> {/* Spacer for centering */}
 							</MobileHeader>
 						)}
@@ -246,6 +253,14 @@ function AppWrapper() {
 								<Route path="/balances" element={<Balances />} />
 								<Route path="/bills" element={<BillsPage />} />
 								<Route path="/bank-import" element={<BankImport />} />
+								<Route
+									path="/bank-import/transactions/:id"
+									element={<TransactionReview />}
+								/>
+								<Route
+									path="/bank-import/transactions/:id/add"
+									element={<Dashboard />}
+								/>
 								<Route path="/budget" element={<Budget />} />
 								<Route path="/monthly-budget" element={<MonthlyBudgetPage />} />
 								<Route

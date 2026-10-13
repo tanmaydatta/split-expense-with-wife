@@ -26,6 +26,7 @@ export interface BudgetFormData {
 }
 
 export interface DashboardFormData {
+	bankSource?: DashboardSubmitRequest["bankSource"];
 	expense?: ExpenseFormData;
 	budget?: BudgetFormData;
 	addExpense: boolean;
@@ -96,7 +97,9 @@ export function useDashboardSubmit() {
 
 	return useMutation<DashboardSubmitResponse, Error, DashboardFormData>({
 		mutationFn: async (formData) => {
-			const payload: DashboardSubmitRequest = {};
+			const payload: DashboardSubmitRequest = {
+				...(formData.bankSource ? { bankSource: formData.bankSource } : {}),
+			};
 
 			if (formData.addExpense && formData.expense) {
 				const { users, paidBy, ...rest } = formData.expense;
@@ -127,6 +130,7 @@ export function useDashboardSubmit() {
 			queryClient.invalidateQueries({ queryKey: ["transactions"] });
 			queryClient.invalidateQueries({ queryKey: ["balances"] });
 			queryClient.invalidateQueries({ queryKey: ["budget"] });
+			queryClient.invalidateQueries({ queryKey: ["bank"] });
 		},
 	});
 }

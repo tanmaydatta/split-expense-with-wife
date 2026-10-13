@@ -513,3 +513,21 @@ Full details of a single execution:
 | Success feedback | Green box with message, auto-dismissible |
 | Empty data | Friendly message: "No transactions", "No history yet", etc. |
 | Loading | Full-page spinner or inline "Loading..." text |
+
+## Private bank review
+
+1. Open Bank activity. Search or choose All, Pending, Posted (to review), or Reviewed.
+   Open Connections & settings to calibrate account signs and sync cached activity.
+2. Open an item for source details. Matched to cards open the existing expense and
+   budget entry. Their detail pages show bank references only to the connecting owner.
+3. For posted activity, choose Expense, Budget entry, or Both and search descriptions
+   and dates across paginated eligible records. Confirm association changes no balances.
+   A missing budget link can be added to an already expense-matched item independently.
+4. For pending activity, save a private provisional choice. Final confirmation waits
+   until posted. If the original pending item disappears, its choice stays under Needs
+   confirmation with uncertain posted suggestions; choose a recognised item explicitly
+   or cancel. No shared records are changed by pending save/cancellation.
+5. Add expense/budget/both opens the existing Add form with source amount, currency,
+   date and direction fixed, and your normal group split defaults. Edit descriptions,
+   payer/splits and budget as needed. Save creates the requested missing records and
+   bank association in one atomic operation; Cancel returns to review without writing.
