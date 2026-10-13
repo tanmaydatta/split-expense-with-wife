@@ -157,7 +157,12 @@ export async function syncBankConnection(
 	env: Env,
 	db: Db,
 	input: { id: string },
-): Promise<{ added: number; modified: number; removed: number }> {
+): Promise<{
+	added: number;
+	modified: number;
+	removed: number;
+	skippedPendingCount?: number;
+}> {
 	const started = Date.now();
 	const connection = await acquireBankLease(db, input.id);
 	const lock = connection.syncLock;
@@ -343,6 +348,9 @@ export async function syncBankConnection(
 			added: addedCount,
 			modified: modifiedCount,
 			removed: removedCount,
+			...(changes.skippedPendingCount
+				? { skippedPendingCount: changes.skippedPendingCount }
+				: {}),
 		};
 	} catch (error) {
 		const attention =

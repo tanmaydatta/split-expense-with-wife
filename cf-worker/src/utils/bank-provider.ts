@@ -34,6 +34,7 @@ export type ImportedTransaction = {
 	pendingTransactionId: string | null;
 };
 export type BankChanges = {
+	skippedPendingCount?: number;
 	snapshots?: Array<{
 		accountId: string;
 		from: string;

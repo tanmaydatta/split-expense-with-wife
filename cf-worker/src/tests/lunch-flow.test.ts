@@ -4,6 +4,7 @@ import worker from "../index";
 import { getDb } from "../db";
 import { bankAccounts, bankConnections, bankTransactions, transactions } from "../db/schema/schema";
 import { lunchFlowAccounts, lunchFlowTransactions } from "../utils/lunch-flow";
+import { parseLunchFlowAccounts, parseLunchFlowTransactions } from "../utils/lunch-flow-schema";
 import { decryptBankToken } from "../utils/bank-token";
 import { refreshBankAccounts, syncBankConnection } from "../utils/bank-sync";
 import { completeCleanupDatabase, createTestUserData, setupAndCleanDatabase, signInAndGetCookies } from "./test-utils";
@@ -138,6 +139,36 @@ describe("Lunch Flow personal imports", () => {
   const result = await call("create-expense", "POST", { bankTransactionId: bank.id, sourceVersion: bank.rowVersion, description: "Purchase", splitPctShares: { [users.user1.id]: 50, [users.user2.id]: 50 } });
   expect(result.status).toBe(409); expect(await db.select().from(transactions)).toHaveLength(0);
   expect((await db.select().from(bankTransactions))[0]).toMatchObject({ reviewStatus: "unreviewed", linkedTransactionId: null, rowVersion: bank.rowVersion });
+ });
+
+ it("accepts absent account currency and skips only validated unidentified pending rows", async () => {
+  const { currency: _currency, ...account } = accountRows[0];
+  expect(parseLunchFlowAccounts({ accounts: [account], total: 1 })).toHaveLength(1);
+  expect(parseLunchFlowAccounts({ accounts: [{ ...account, currency: null }], total: 1 })).toHaveLength(1);
+  expect(parseLunchFlowAccounts({ accounts: [{ ...account, currency: "bad" }], total: 1 })).toBeUndefined();
+  const pending = { ...transaction(1, "pending", -10, true), id: null };
+  const parse = (rows: unknown[], total = rows.length) => parseLunchFlowTransactions({ transactions: rows, total }, "1", "2026-01-01", date);
+  expect(parse([transaction(), pending])).toEqual({ transactions: [transaction()], skippedPendingCount: 1 });
+  expect(parse([{ ...pending, isPending: false }])).toBeUndefined();
+  expect(parse([pending], 2)).toBeUndefined();
+  expect(parse([{ ...pending, currency: "bad" }])).toBeUndefined();
+  expect(parse([{ ...pending, date: "2025-12-31" }])).toBeUndefined();
+  expect(parse([{ ...pending, date: "2026-02-30" }])).toBeUndefined();
+  expect(parse([{ ...pending, accountId: 2 }])).toBeUndefined();
+  expect(parse([transaction(), transaction(), pending])).toBeUndefined();
+ });
+ it("reports omitted pending rows, persists no invented identity and stays idempotent", async () => {
+  const { db, id, call, fetchMock } = await fixture();
+  const pending = { ...transaction(1, "pending", -10, true), id: null };
+  fetchMock.mockImplementation(async (input: RequestInfo | URL) => String(input).endsWith("/accounts")
+   ? Response.json({ accounts: accountRows.map(({ currency: _currency, ...account }) => account), total: 2 })
+   : Response.json({ transactions: [transaction(), pending], total: 2 }));
+  const preview = await call(`lunch-flow/preview?connectionId=${id}&accountId=${id}:1`, "GET");
+  expect(await preview.json()).toMatchObject({ skippedPendingCount: 1, samples: [{ rawAmountMinor: -1234 }] });
+  expect((await call("accounts/select", "POST", { connectionId: id, accountId: `${id}:1`, selected: true, amountMultiplier: -1 })).status).toBe(200);
+  expect(await db.select().from(bankTransactions)).toHaveLength(1);
+  expect(await syncBankConnection(env, db, { id })).toEqual({ added: 0, modified: 0, removed: 0, skippedPendingCount: 1 });
+  expect(await db.select().from(transactions)).toHaveLength(0);
  });
 
 });

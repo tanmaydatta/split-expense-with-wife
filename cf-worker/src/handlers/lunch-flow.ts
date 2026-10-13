@@ -265,7 +265,7 @@ export async function handleLunchFlowPreview(
 				"lunch_flow",
 			);
 			const window = lunchFlowWindow();
-			const rows = await lunchFlowTransactions(
+			const snapshot = await lunchFlowTransactions(
 				env,
 				key,
 				account.providerAccountId,
@@ -274,7 +274,8 @@ export async function handleLunchFlowPreview(
 			);
 			return createJsonResponse(
 				{
-					samples: rows
+					skippedPendingCount: snapshot.skippedPendingCount,
+					samples: snapshot.transactions
 						.filter((row) => !row.isPending)
 						.sort((a, b) => b.date.localeCompare(a.date))
 						.slice(0, 10)

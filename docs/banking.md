@@ -30,8 +30,13 @@ The adapter reads Lunch Flow's cached Personal API data using `x-api-key` at
 `https://lunchflow.app/api/v1`. It uses the documented `include_pending`, `from`,
 and `to` parameters. There are no documented page/cursor parameters; the adapter
 checks `total` equals the returned length and rejects incomplete snapshots.
-Fetches cover the last 90 days, including pending rows. At most 25 selected
-accounts and 10,000 transaction changes are processed in a sync. Historical
+Fetches cover the last 90 days, including pending rows. Account currency may be
+absent; each transaction must
+supply its own valid currency. Pending rows without a stable provider ID are
+validated but omitted from imports and previews until the provider assigns an ID.
+The preview and manual sync report how many such rows were skipped. Posted rows
+without IDs, malformed rows and incomplete snapshots still reject the entire sync.
+At most 25 selected accounts and 10,000 transaction changes are processed in a sync. Historical
 imports outside the fetched window are retained and are never inferred removed.
 
 A complete account/window snapshot can mark previously imported missing rows
@@ -53,10 +58,13 @@ you also want to remove upstream access.
 
 ## Local live verification gate
 
-The current implementation is tested with mocked official-contract fixtures.
-**Lunch Flow live validation is pending until the owner creates an account,
-connects a bank, and provides a new Personal API key. Do not call this ready for
-release until that gate passes.** Save that new key as `LUNCH_FLOW_API_KEY` in the
+The implementation has passed a read-only live Personal API contract check,
+including absent account currency and a pending transaction without an ID.
+Synthetic provider tests cover encrypted setup, privacy, explicit sign mapping
+and idempotency. The owner still needs to confirm a known posted purchase and
+money received (including a credit-card payment or refund) in the private preview
+before selecting a sign mapping or creating shared expenses. Save a new key as
+`LUNCH_FLOW_API_KEY` in the
 ignored `cf-worker/.dev.vars` of the banking worktree, then run
 `node scripts/lunch-flow-smoke.mjs`. This read-only script prints counts and signs
 only, not credentials, IDs, names, balances or transaction amounts. The local

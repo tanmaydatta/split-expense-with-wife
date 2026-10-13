@@ -15,15 +15,16 @@ const accounts = parseLunchFlowAccounts(await get("/accounts"));
 if (!accounts) throw new Error("Account contract mismatch; details redacted");
 const to = new Date().toISOString().slice(0, 10);
 const from = new Date(Date.now() - 90 * 86400000).toISOString().slice(0, 10);
-const summary = { accountCount: accounts.length, activeCount: accounts.filter(account => account.status === "ACTIVE").length, verifiedAccounts: 0, transactionCount: 0, pendingCount: 0, negativeCount: 0, positiveCount: 0 };
+const summary = { accountCount: accounts.length, activeCount: accounts.filter(account => account.status === "ACTIVE").length, verifiedAccounts: 0, transactionCount: 0, pendingCount: 0, negativeCount: 0, positiveCount: 0, skippedPendingCount: 0 };
 for (const account of accounts.filter(account => account.status === "ACTIVE").slice(0, 5)) {
- const rows = parseLunchFlowTransactions(await get(`/accounts/${encodeURIComponent(account.id)}/transactions?${new URLSearchParams({ from, to, include_pending: "true" })}`), String(account.id), from, to);
- if (!rows) throw new Error("Transaction contract mismatch; details redacted");
- for (const row of rows) {
+ const snapshot = parseLunchFlowTransactions(await get(`/accounts/${encodeURIComponent(account.id)}/transactions?${new URLSearchParams({ from, to, include_pending: "true" })}`), String(account.id), from, to);
+ if (!snapshot) throw new Error("Transaction contract mismatch; details redacted");
+ summary.skippedPendingCount += snapshot.skippedPendingCount;
+ for (const row of snapshot.transactions) {
   summary.transactionCount++; summary.pendingCount += Number(row.isPending);
   summary.negativeCount += Number(row.amount < 0); summary.positiveCount += Number(row.amount > 0);
  }
  summary.verifiedAccounts++;
 }
 console.log(JSON.stringify(summary));
-console.log("Read-only contract check complete. Verify a known purchase and deposit in the private account preview before choosing the sign mapping. No shared expenses were created.");
+console.log("Read-only contract check complete. Verify a known purchase and money received (card payment or refund) in the private account preview before choosing the sign mapping. No shared expenses were created.");

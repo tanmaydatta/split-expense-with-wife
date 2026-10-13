@@ -78,7 +78,7 @@ export async function lunchFlowAccounts(
 		type: "bank",
 		subtype: row.provider,
 		status: row.status,
-		currency: row.currency,
+		currency: row.currency ?? null,
 		institutionName: row.institution_name ?? null,
 	}));
 }
@@ -145,6 +145,7 @@ export const lunchFlowProvider: BankProvider = {
 		const window = lunchFlowWindow();
 		const started = Date.now();
 		const added: ImportedTransaction[] = [];
+		let skippedPendingCount = 0;
 		const snapshots: Array<{
 			accountId: string;
 			from: string;
@@ -157,13 +158,15 @@ export const lunchFlowProvider: BankProvider = {
 				throw new BankProviderError("invalid_data");
 			if (Date.now() - started > 120000)
 				throw new BankProviderError("unavailable");
-			const rows = await lunchFlowTransactions(
+			const snapshot = await lunchFlowTransactions(
 				env,
 				apiKey,
 				account.id,
 				window.from,
 				window.to,
 			);
+			const rows = snapshot.transactions;
+			skippedPendingCount += snapshot.skippedPendingCount;
 			for (const row of rows) {
 				const rawAmountMinor = amountMinor(row.amount, row.currency);
 				added.push({
@@ -185,7 +188,14 @@ export const lunchFlowProvider: BankProvider = {
 				transactionIds: rows.map((row) => row.id),
 			});
 		}
-		return { added, modified: [], removed: [], cursor: null, snapshots };
+		return {
+			added,
+			modified: [],
+			removed: [],
+			cursor: null,
+			snapshots,
+			skippedPendingCount,
+		};
 	},
 	async disconnect() {
 		/* Personal API has no remote revoke endpoint. Delete credentials locally; dashboard revocation is explicit. */
