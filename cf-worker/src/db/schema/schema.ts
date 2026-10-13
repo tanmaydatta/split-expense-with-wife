@@ -402,25 +402,33 @@ export const billReminders = sqliteTable(
 	],
 );
 
-// Plaid data belongs to the connecting user. Imported rows never participate in balances.
+// Bank data belongs to the connecting user. Imported rows never participate in balances.
 export const bankConnections = sqliteTable("bank_connections", {
 	id: text("id").primaryKey(),
 	userId: text("user_id").notNull().references(() => user.id),
 	groupId: text("group_id").notNull().references(() => groups.groupid),
-	plaidItemId: text("plaid_item_id").notNull().unique(),
+	provider: text("provider", { enum: ["plaid", "lunch_flow"] }).notNull().default("plaid"),
+	plaidItemId: text("plaid_item_id").notNull().unique(), // Retained for old Worker rollback.
+	providerConnectionId: text("provider_connection_id"),
+	syncLock: text("sync_lock"),
+	syncLockExpiresAt: integer("sync_lock_expires_at"),
+	lastSyncedAt: text("last_synced_at"),
+	lastError: text("last_error"),
 	institutionName: text("institution_name").notNull(),
 	accessTokenEncrypted: text("access_token_encrypted").notNull(),
 	cursor: text("cursor"),
 	status: text("status", { enum: ["connected", "needs_attention", "disconnected"] }).notNull(),
 	createdAt: text("created_at").notNull(),
 	updatedAt: text("updated_at").notNull(),
-}, (table) => [index("bank_connections_user_idx").on(table.userId, table.status)]);
+}, (table) => [index("bank_connections_user_idx").on(table.userId, table.status), uniqueIndex("bank_connections_provider_external_idx").on(table.provider, table.providerConnectionId)]);
 
 export const bankTransactions = sqliteTable("bank_transactions", {
 	id: text("id").primaryKey(),
 	connectionId: text("connection_id").notNull().references(() => bankConnections.id),
 	userId: text("user_id").notNull().references(() => user.id),
 	accountId: text("account_id").notNull(),
+	providerTransactionId: text("provider_transaction_id").notNull().default(""),
+	sourceChanged: integer("source_changed", { mode: "boolean" }).notNull().default(false),
 	date: text("date").notNull(),
 	name: text("name").notNull(),
 	merchantName: text("merchant_name"),
@@ -441,6 +449,10 @@ export const bankTransactions = sqliteTable("bank_transactions", {
 export const bankAccounts = sqliteTable("bank_accounts", {
 	id: text("id").primaryKey(),
 	connectionId: text("connection_id").notNull().references(() => bankConnections.id),
+	providerAccountId: text("provider_account_id").notNull().default(""),
+	status: text("status").notNull().default("ACTIVE"),
+	currency: text("currency"),
+	institutionName: text("institution_name"),
 	name: text("name").notNull(),
 	mask: text("mask"),
 	type: text("type").notNull(),

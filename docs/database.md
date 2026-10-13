@@ -597,3 +597,17 @@ Tables use soft deletion with `deleted` timestamp columns:
 - **Caching**: Application-level caching for frequent queries
 - **Archival**: Move old data to separate tables
 - **Sharding**: Group-based natural sharding
+
+## Provider-neutral bank storage (0028)
+
+Migration 0028 expands the bank tables with provider and external identifiers,
+account availability and provenance, sync leases, last sync/error metadata, and
+source-change warnings. It retains `plaid_item_id` for compatibility with the
+deployed old Worker and backfills `provider_connection_id`. Plaid writes both
+columns. Later provider rows use a provider-prefixed opaque value in the legacy
+required column; this is a compatibility placeholder, not a Plaid item.
+
+Account and transaction primary keys retain `connectionId:externalId`, preserving
+review states and expense links. Imported data remains owned by its connecting
+user, outside balances until explicit review. Old Worker writes after migration
+may leave new external columns empty; adapters derive them from existing IDs.

@@ -21,6 +21,7 @@ export async function plaidRequest<T>(env: Env, path: string, body: Record<strin
 		method: "POST",
 		headers: { "Content-Type": "application/json", "PLAID-CLIENT-ID": config.PLAID_CLIENT_ID, "PLAID-SECRET": config.PLAID_SANDBOX_SECRET },
 		body: JSON.stringify(body),
+		signal: AbortSignal.timeout(15000),
 	});
 	if (!response.ok) {
 		const error = await response.json() as { error_code?: string };

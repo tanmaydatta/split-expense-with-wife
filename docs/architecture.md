@@ -259,3 +259,17 @@ src/
 - SQL-like syntax
 - Excellent migration support
 - Modern TypeScript-first design
+## Bank provider foundation
+
+Bank connections select a server-side adapter through the provider registry. The
+normalized private account and transaction tables are separate from the shared
+expense ledger. Plaid remains pinned to Sandbox under its own flag. External
+identifiers are scoped to a connection; existing IDs and confirmed links survive
+migration 0028. A five-minute connection lease serializes sync requests, and
+adapters have bounded fetching. Cursor advancement follows successful row writes;
+replaying after failure is idempotent. Revised or removed reviewed imports are
+flagged `sourceChanged`; a sync never edits the confirmed shared expense.
+
+New Lunch Flow credentials use versioned AES-GCM ciphertext under BANK_TOKEN_ENCRYPTION_KEY.
+Existing and new Plaid ciphertext retain the old format and PLAID_TOKEN_ENCRYPTION_KEY for Worker rollback. The two keys
+are separate, and neither credential nor ciphertext is returned by bank APIs.
