@@ -608,3 +608,14 @@ Sandbox flag is enabled. The old Worker cannot display LF imports. Do not drop
 bank tables, remove additive columns, rotate away the Plaid key, or restore an
 old database over confirmed shared expenses. Confirmed expenses survive LF
 sync failure, upstream removal, key replacement, and local disconnect.
+
+### Bank review manual release
+
+Apply `0030_bank_review_links_pending.sql` manually before deploying this review
+flow: staging before the first PR push, production before the approved release.
+Verify `node scripts/verify-bank-migrations.mjs` and compare existing confirmed
+link/import counts against the backup. This additive migration needs no secret
+rotation or changed credentials. Keep `LUNCH_FLOW_ENABLED=true` and
+`BANK_BACKGROUND_SYNC_ENABLED=false` for the manual release. Rollback only code,
+retaining 0030 and private data; do not undo shared financial records. Older code
+can write old named columns but lacks provisional UI and new draft cleanup.

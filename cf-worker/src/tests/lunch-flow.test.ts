@@ -148,7 +148,7 @@ describe("Lunch Flow personal imports", () => {
   expect(parseLunchFlowAccounts({ accounts: [{ ...account, currency: "bad" }], total: 1 })).toBeUndefined();
   const pending = { ...transaction(1, "pending", -10, true), id: null };
   const parse = (rows: unknown[], total = rows.length) => parseLunchFlowTransactions({ transactions: rows, total }, "1", "2026-01-01", date);
-  expect(parse([transaction(), pending])).toEqual({ transactions: [transaction()], skippedPendingCount: 1 });
+  expect(parse([transaction(), pending])).toEqual({ transactions: [transaction()], anonymousPending: [pending], skippedPendingCount: 1 });
   expect(parse([{ ...pending, isPending: false }])).toBeUndefined();
   expect(parse([pending], 2)).toBeUndefined();
   expect(parse([{ ...pending, currency: "bad" }])).toBeUndefined();

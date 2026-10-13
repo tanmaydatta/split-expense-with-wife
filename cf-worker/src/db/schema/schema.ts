@@ -443,14 +443,17 @@ export const bankTransactions = sqliteTable("bank_transactions", {
 	reviewStatus: text("review_status", { enum: ["unreviewed", "ignored", "matched", "created"] }).notNull().default("unreviewed"),
 	removedAt: text("removed_at"),
 	linkedTransactionId: text("linked_transaction_id"),
+	linkedBudgetEntryId: text("linked_budget_entry_id"),
 	createdAt: text("created_at").notNull(),
 	updatedAt: text("updated_at").notNull(),
 }, (table) => [
 	index("bank_transactions_user_date_idx").on(table.userId, table.date),
+	uniqueIndex("bank_transactions_linked_budget_idx").on(table.linkedBudgetEntryId).where(sql`${table.linkedBudgetEntryId} IS NOT NULL`),
 	uniqueIndex("bank_transactions_linked_expense_idx").on(table.linkedTransactionId).where(sql`${table.linkedTransactionId} IS NOT NULL`),
 ]);
 
 export const bankAccounts = sqliteTable("bank_accounts", {
+	pendingSnapshotId: text("pending_snapshot_id"),
 	id: text("id").primaryKey(),
 	connectionId: text("connection_id").notNull().references(() => bankConnections.id),
 	providerAccountId: text("provider_account_id").notNull().default(""),
@@ -464,6 +467,21 @@ export const bankAccounts = sqliteTable("bank_accounts", {
 	subtype: text("subtype"),
 	selected: integer("selected", { mode: "boolean" }).notNull().default(true),
 }, (table) => [index("bank_accounts_connection_idx").on(table.connectionId)]);
+
+// Anonymous pending rows use local snapshot references, never invented provider IDs.
+export const bankPendingSnapshots = sqliteTable("bank_pending_snapshots", {
+ id: text("id").primaryKey(),
+ snapshotId: text("snapshot_id").notNull(),
+ connectionId: text("connection_id").notNull().references(() => bankConnections.id, { onDelete: "cascade" }),
+ accountId: text("account_id").notNull().references(() => bankAccounts.id, { onDelete: "cascade" }),
+ userId: text("user_id").notNull().references(() => user.id),
+ date: text("date").notNull(),
+ name: text("name").notNull(),
+ merchantName: text("merchant_name"),
+ amountMinor: integer("amount_minor").notNull(),
+ currency: text("currency").notNull(),
+ createdAt: text("created_at").notNull(),
+}, table => [index("bank_pending_account_snapshot_idx").on(table.accountId, table.snapshotId)]);
 
 // Create schema object for Drizzle
 export const schema = {
@@ -487,6 +505,7 @@ export const schema = {
 	bankConnections,
 	bankTransactions,
 	bankAccounts,
+	bankPendingSnapshots,
 };
 
 // Export inferred types

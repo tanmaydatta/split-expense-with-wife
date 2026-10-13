@@ -1,3 +1,4 @@
+import { handleBankInbox, handleBankTransactionGet, handleBankRecordLink, handleBankProvisionalSave, handleBankProvisionalCancel, handleBankDraftCandidates } from "./handlers/bank-inbox";
 import { auth } from "./auth";
 import {
 	handleBalances,
@@ -19,7 +20,7 @@ import {
 	handleUpdateGroupMetadata,
 } from "./handlers/group";
 import { handleHealth } from "./handlers/health";
-import { handleBankAccounts, handleBankCapabilities, handleBankConnections, handleBankDisconnect, handleBankExchange, handleBankInbox, handleBankLinkToken, handleBankReconnected, handleBankSelectAccount, handleBankSync } from "./handlers/bank-import";
+import { handleBankAccounts, handleBankCapabilities, handleBankConnections, handleBankDisconnect, handleBankExchange, handleBankLinkToken, handleBankReconnected, handleBankSelectAccount, handleBankSync } from "./handlers/bank-import";
 import { handleLunchFlowSetup, handleLunchFlowPreview } from "./handlers/lunch-flow";
 import { handlePlaidWebhook } from "./handlers/plaid-webhook";
 import { handleBankCandidates, handleBankCreateExpense, handleBankIgnore, handleBankLinkedIds, handleBankMatch, handleBankRestore } from "./handlers/bank-review";
@@ -251,6 +252,11 @@ async function handleApiRoutes(
 		"bank-import/accounts": { methods: ["GET"], handler: handleBankAccounts },
 		"bank-import/accounts/select": { methods: ["POST"], handler: handleBankSelectAccount },
 		"bank-import/sync": { methods: ["POST"], handler: handleBankSync },
+        "bank-import/transaction": { methods: ["GET"], handler: handleBankTransactionGet },
+        "bank-import/record-link": { methods: ["GET"], handler: handleBankRecordLink },
+        "bank-import/provisional": { methods: ["POST"], handler: handleBankProvisionalSave },
+        "bank-import/provisional-cancel": { methods: ["POST"], handler: handleBankProvisionalCancel },
+        "bank-import/review-candidates": { methods: ["GET"], handler: handleBankDraftCandidates },
 		"bank-import/inbox": { methods: ["GET"], handler: handleBankInbox },
 		"bank-import/reconnected": { methods: ["POST"], handler: handleBankReconnected },
 		"bank-import/disconnect": { methods: ["POST"], handler: handleBankDisconnect },

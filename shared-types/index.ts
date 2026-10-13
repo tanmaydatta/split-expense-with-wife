@@ -202,6 +202,7 @@ export interface TransactionsListResponse {
 }
 
 export interface DashboardSubmitRequest {
+	bankSource?: { bankTransactionId: string; sourceVersion: number };
 	expense?: {
 		amount: number;
 		description: string;

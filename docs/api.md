@@ -953,3 +953,35 @@ to reject confirmation of an import that changed after it was displayed. Source
 updates increment the version; shared expense creation and its import claim use
 one atomic batch. Key replacement marks accounts absent from the complete
 validated account snapshot unavailable without deleting reviewed history.
+
+### Private bank review (migration 0030)
+
+All routes remain authenticated and scoped to the connecting owner/current group.
+`GET /bank-import/inbox` accepts `status=all|pending|posted|reviewed`, `q`, optional
+provider/connection/account filters, and `offset`; returns transactions, total,
+offset and hasMore (50 rows). Posted means unreviewed posted activity.
+`GET /bank-import/transaction?id=...` returns source details, confirmed record IDs,
+private draft metadata, and uncertain settlementCandidates for vanished pending
+choices. Optional `draftId` carries an explicitly selected private draft into a
+posted review; it never confirms the identity or association automatically.
+`GET /bank-import/review-candidates?bankTransactionId=...&kind=expense|budget&q=...&from=...&to=...&offset=...`
+searches eligible same-amount/currency/direction ledger records before pagination.
+`GET /bank-import/record-link?transactionId=...` (or `budgetEntryId`) returns only
+the connecting owner's confirmed or tentative bank references.
+
+`POST /bank-import/match` accepts bankTransactionId, sourceVersion, optional
+transactionId/budgetEntryId (at least one), and optional draftId/draftVersion for
+explicit provisional confirmation. Existing associations are immutable; a missing
+side may be added. Both records' junction link and bank claim commit atomically.
+`POST /bank-import/provisional` accepts the same source version and chosen existing
+record IDs plus draftVersion when updating/reactivating. It stores private choices
+only. `POST /bank-import/provisional-cancel` accepts draftId/draftVersion; stale
+versions return 409. Pending items cannot create ledger records or final links.
+
+`POST /dashboard_submit` additionally accepts
+`bankSource: { bankTransactionId, sourceVersion }` with existing expense/budget
+payloads. The backend validates source values, derives source date and commits
+claim, ledger effects and links atomically. Posted positive spending permits an
+expense; a budget uses the inverse normalized sign. Already-linked sides, stale
+versions, conflicting pairings, invalid group records and tampered values fail
+without partial ledger creation. Generic submissions are unchanged.

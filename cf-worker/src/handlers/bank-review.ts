@@ -1,4 +1,5 @@
 import { and, desc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
+import { ulid } from "ulid";
 import { z } from "zod";
 import type { SplitRequest } from "../../../shared-types";
 import type { getDb } from "../db";
@@ -22,7 +23,12 @@ const BankId = z.object({
 	bankTransactionId: z.string().min(1).max(500),
 	sourceVersion: z.number().int().nonnegative().optional(),
 });
-const MatchInput = BankId.extend({ transactionId: z.string().min(1).max(200) });
+const MatchInput = BankId.extend({
+	transactionId: z.string().min(1).max(200).optional(),
+	budgetEntryId: z.string().min(1).max(200).optional(),
+	draftId: z.string().min(1).max(200).optional(),
+	draftVersion: z.number().int().nonnegative().optional(),
+}).refine((value) => value.transactionId || value.budgetEntryId);
 const CreateInput = BankId.extend({
 	description: z.string().trim().min(1).max(255),
 	splitPctShares: z.record(z.string(), z.number().min(0).max(100)),
@@ -95,6 +101,7 @@ function canReview(
 		!row.pending &&
 		!row.removedAt &&
 		!row.linkedTransactionId &&
+		!row.linkedBudgetEntryId &&
 		row.amountMinor > 0 &&
 		row.reviewStatus === "unreviewed"
 	);
@@ -104,22 +111,30 @@ function bankMajor(amountMinor: number, currency: string): number {
 	return amountMinor / currencyScale(currency);
 }
 
+function canAssociate(
+	row: typeof bankTransactions.$inferSelect | undefined,
+): row is typeof bankTransactions.$inferSelect {
+	return (
+		!!row && !row.pending && !row.removedAt && row.reviewStatus !== "ignored"
+	);
+}
+
 export async function handleBankCandidates(
 	request: Request,
 	env: Env,
 ): Promise<Response> {
 	if (!bankingEnabled(env)) return unavailable(request, env);
 	return withAuth(request, env, async (session, db) => {
-		const bankTransactionId =
-			new URL(request.url).searchParams.get("bankTransactionId") ?? "";
+		const params = new URL(request.url).searchParams;
 		const bank = await ownedBankRow(
 			db,
-			bankTransactionId,
+			params.get("bankTransactionId") ?? "",
 			session.user.id,
 			env,
 		);
 		if (
-			!canReview(bank) ||
+			!bank ||
+			bank.removedAt ||
 			!session.group ||
 			!(await belongsToCurrentGroup(
 				db,
@@ -133,44 +148,76 @@ export async function handleBankCandidates(
 				request,
 				env,
 			);
-		const rows = await db
-			.select({
-				id: transactions.transactionId,
-				description: transactions.description,
-				amount: transactions.amount,
-				currency: transactions.currency,
-				date: transactions.createdAt,
-			})
-			.from(transactions)
-			.where(
-				and(
-					eq(transactions.groupId, session.group.groupid),
-					eq(transactions.currency, bank.currency),
-					isNull(transactions.deleted),
-				),
-			)
-			.orderBy(desc(transactions.createdAt))
-			.limit(200);
-		const candidates = rows
-			.filter(
-				(row) =>
-					Math.round(row.amount * currencyScale(bank.currency)) ===
-					bank.amountMinor,
-			)
-			.map((row) => ({
-				...row,
-				scheduled: /_\d{4}-\d{2}-\d{2}$/.test(row.id),
-				suggested:
-					Math.abs(Date.parse(row.date) - Date.parse(bank.date)) <=
-						7 * 86400000 &&
-					row.description
-						.toLowerCase()
-						.includes(
-							(bank.merchantName ?? bank.name).toLowerCase().slice(0, 5),
-						),
-			}));
-		return createJsonResponse({ candidates }, 200, {}, request, env);
+		return searchCandidates(
+			request,
+			env,
+			session.group.groupid,
+			bank.amountMinor,
+			bank.currency,
+		);
 	});
+}
+
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: bounded candidate filters use explicit kind and financial direction.
+export async function searchCandidates(
+	request: Request,
+	env: Env,
+	groupId: string,
+	amount: number,
+	currency: string,
+): Promise<Response> {
+	const params = new URL(request.url).searchParams;
+	const budget = params.get("kind") === "budget";
+	const offset = Math.max(
+		0,
+		Math.min(100000, Number(params.get("offset")) || 0),
+	);
+	const q = (params.get("q") ?? "").slice(0, 255);
+	const from = params.get("from") ?? "";
+	const to = params.get("to") ?? "9999";
+	if (!budget && amount <= 0)
+		return createJsonResponse(
+			{ candidates: [], hasMore: false },
+			200,
+			{},
+			request,
+			env,
+		);
+	const table = budget
+		? "budget_entries r JOIN group_budgets g ON g.id = r.budget_id"
+		: "transactions r";
+	const id = budget ? "r.budget_entry_id" : "r.transaction_id";
+	const date = budget ? "r.added_time" : "r.created_at";
+	const owner = budget
+		? "g.group_id = ? AND g.deleted IS NULL"
+		: "r.group_id = ?";
+	const query = `SELECT ${id} AS id, r.description, r.amount, r.currency, ${date} AS date
+ FROM ${table} WHERE ${owner} AND r.deleted IS NULL AND r.currency = ?
+ AND round(r.amount * ?) = ? AND instr(lower(r.description),lower(?)) > 0
+ AND substr(${date},1,10) >= ? AND substr(${date},1,10) <= ? ORDER BY ${date} DESC, ${id} LIMIT 51 OFFSET ?`;
+	const result = await env.DB.prepare(query)
+		.bind(
+			groupId,
+			currency,
+			currencyScale(currency),
+			budget ? -amount : amount,
+			q,
+			from,
+			to,
+			offset,
+		)
+		.all();
+	return createJsonResponse(
+		{
+			candidates: result.results.slice(0, 50),
+			hasMore: result.results.length > 50,
+			offset,
+		},
+		200,
+		{},
+		request,
+		env,
+	);
 }
 
 export async function handleBankMatch(
@@ -178,7 +225,7 @@ export async function handleBankMatch(
 	env: Env,
 ): Promise<Response> {
 	if (!bankingEnabled(env)) return unavailable(request, env);
-	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: owner, amount, currency and uniqueness checks protect a confirmed match
+	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: one atomic confirmation validates owner, source, existing ledger records and compatible pairs.
 	return withAuth(request, env, async (session, db) => {
 		const parsed = MatchInput.safeParse(await request.json());
 		if (!parsed.success || !session.group)
@@ -190,26 +237,44 @@ export async function handleBankMatch(
 			env,
 		);
 		if (
-			!canReview(bank) ||
+			!canAssociate(bank) ||
 			(parsed.data.sourceVersion !== undefined &&
 				parsed.data.sourceVersion !== bank.rowVersion)
 		)
 			return createErrorResponse(
-				"Bank activity changed or was already reviewed",
+				"Bank activity changed. Refresh and confirm again.",
+				409,
+				request,
+				env,
+			);
+		const groupId = session.group.groupid;
+		if (!(await belongsToCurrentGroup(db, bank.connectionId, groupId)))
+			return createErrorResponse(
+				"Bank activity belongs to another group",
+				400,
+				request,
+				env,
+			);
+		const transactionId = parsed.data.transactionId ?? bank.linkedTransactionId;
+		const budgetEntryId = parsed.data.budgetEntryId ?? bank.linkedBudgetEntryId;
+		if (
+			(bank.linkedTransactionId &&
+				transactionId !== bank.linkedTransactionId) ||
+			(bank.linkedBudgetEntryId && budgetEntryId !== bank.linkedBudgetEntryId)
+		)
+			return createErrorResponse(
+				"Existing confirmed links cannot be replaced",
 				409,
 				request,
 				env,
 			);
 		if (
-			!(await belongsToCurrentGroup(
-				db,
-				bank.connectionId,
-				session.group.groupid,
-			))
+			transactionId === bank.linkedTransactionId &&
+			budgetEntryId === bank.linkedBudgetEntryId
 		)
 			return createErrorResponse(
-				"Bank activity belongs to another group",
-				400,
+				"These records are already associated",
+				409,
 				request,
 				env,
 			);
@@ -218,100 +283,180 @@ export async function handleBankMatch(
 		);
 		if (!lease)
 			return createErrorResponse(
-				"Bank sync is in progress. Refresh and confirm again shortly.",
+				"Bank sync is in progress. Try again shortly.",
 				409,
 				request,
 				env,
 			);
 		try {
-			const app = (
-				await db
-					.select()
-					.from(transactions)
-					.where(
-						and(
-							eq(transactions.transactionId, parsed.data.transactionId),
-							eq(transactions.groupId, session.group.groupid),
-							isNull(transactions.deleted),
-						),
+			const expense = transactionId
+				? await env.DB.prepare(
+						`SELECT transaction_id FROM transactions WHERE transaction_id = ? AND group_id = ? AND deleted IS NULL AND currency = ? AND round(amount * ?) = ?`,
 					)
-					.limit(1)
-			)[0];
+						.bind(
+							transactionId,
+							groupId,
+							bank.currency,
+							currencyScale(bank.currency),
+							bank.amountMinor,
+						)
+						.first()
+				: null;
+			const budget = budgetEntryId
+				? await env.DB.prepare(
+						`SELECT b.budget_entry_id FROM budget_entries b JOIN group_budgets g ON g.id = b.budget_id WHERE b.budget_entry_id = ? AND g.group_id = ? AND b.deleted IS NULL AND g.deleted IS NULL AND b.currency = ? AND round(b.amount * ?) = ?`,
+					)
+						.bind(
+							budgetEntryId,
+							groupId,
+							bank.currency,
+							currencyScale(bank.currency),
+							-bank.amountMinor,
+						)
+						.first()
+				: null;
 			if (
-				!app ||
-				app.currency !== bank.currency ||
-				Math.round(app.amount * currencyScale(bank.currency)) !==
-					bank.amountMinor
-			) {
+				(transactionId && (!expense || bank.amountMinor <= 0)) ||
+				(budgetEntryId && !budget)
+			)
 				return createErrorResponse(
-					"Expense amount and currency must match the bank charge",
+					"Selected records must match currency, amount and direction",
 					400,
 					request,
 					env,
 				);
-			}
-			const alreadyLinked = (
-				await db
-					.select({ id: bankTransactions.id })
-					.from(bankTransactions)
-					.where(eq(bankTransactions.linkedTransactionId, app.transactionId))
-					.limit(1)
-			)[0];
-			if (alreadyLinked)
-				return createErrorResponse(
-					"Expense is already matched to bank activity",
-					409,
-					request,
-					env,
+			// Existing exact pairs remain compatible even when historical records have other links.
+			const pairGuard =
+				transactionId && budgetEntryId
+					? `AND (EXISTS (SELECT 1 FROM expense_budget_links WHERE transaction_id = ? AND budget_entry_id = ? AND group_id = ?) OR NOT EXISTS (SELECT 1 FROM expense_budget_links WHERE transaction_id = ? OR budget_entry_id = ?))`
+					: "";
+			const args: Array<string | number | null> = [
+				transactionId,
+				budgetEntryId,
+				new Date().toISOString(),
+				bank.id,
+				session.user.id,
+				bank.rowVersion,
+				bank.linkedTransactionId,
+				bank.linkedBudgetEntryId,
+				bank.connectionId,
+				lease.syncLock,
+				session.user.id,
+				groupId,
+			];
+			if (pairGuard)
+				args.push(
+					transactionId,
+					budgetEntryId,
+					groupId,
+					transactionId,
+					budgetEntryId,
 				);
-			try {
-				const updated = await db
-					.update(bankTransactions)
-					.set({
-						rowVersion: sql`${bankTransactions.rowVersion} + 1`,
-						linkedTransactionId: app.transactionId,
-						reviewStatus: "matched",
-						updatedAt: new Date().toISOString(),
-					})
-					.where(
-						and(
-							eq(bankTransactions.id, bank.id),
-							eq(bankTransactions.reviewStatus, "unreviewed"),
-							eq(bankTransactions.rowVersion, bank.rowVersion),
-							eq(bankTransactions.updatedAt, bank.updatedAt),
-							eq(bankTransactions.date, bank.date),
-							eq(bankTransactions.name, bank.name),
-							sql`${bankTransactions.merchantName} IS ${bank.merchantName}`,
-							eq(bankTransactions.amountMinor, bank.amountMinor),
-							eq(bankTransactions.currency, bank.currency),
-							eq(bankTransactions.pending, false),
-							isNull(bankTransactions.removedAt),
-							isNull(bankTransactions.linkedTransactionId),
-						),
+			const ledgerGuard = `${transactionId ? "AND EXISTS (SELECT 1 FROM transactions WHERE transaction_id=? AND group_id=? AND deleted IS NULL AND currency=? AND round(amount * ?)=?)" : ""}
+    ${budgetEntryId ? "AND EXISTS (SELECT 1 FROM budget_entries b JOIN group_budgets g ON g.id=b.budget_id WHERE b.budget_entry_id=? AND g.group_id=? AND b.deleted IS NULL AND g.deleted IS NULL AND b.currency=? AND round(b.amount * ?)=?)" : ""}`;
+			if (transactionId)
+				args.push(
+					transactionId,
+					groupId,
+					bank.currency,
+					currencyScale(bank.currency),
+					bank.amountMinor,
+				);
+			if (budgetEntryId)
+				args.push(
+					budgetEntryId,
+					groupId,
+					bank.currency,
+					currencyScale(bank.currency),
+					-bank.amountMinor,
+				);
+			if (parsed.data.draftId) {
+				const draft = await env.DB.prepare(
+					"SELECT id FROM bank_review_drafts WHERE id=? AND user_id=? AND connection_id=? AND account_id=? AND status='active' AND amount_minor=? AND currency=? AND transaction_id IS ? AND budget_entry_id IS ?",
+				)
+					.bind(
+						parsed.data.draftId,
+						session.user.id,
+						bank.connectionId,
+						bank.accountId,
+						bank.amountMinor,
+						bank.currency,
+						transactionId,
+						budgetEntryId,
 					)
-					.returning({ id: bankTransactions.id });
-				if (!updated.length)
+					.first();
+				if (!draft)
 					return createErrorResponse(
-						"Bank activity was already reviewed",
+						"Provisional choice changed. Choose compatible records again.",
 						409,
 						request,
 						env,
 					);
-				return createJsonResponse(
-					{ transactionId: app.transactionId },
-					200,
-					{},
-					request,
-					env,
+			}
+			const claim =
+				env.DB.prepare(`UPDATE bank_transactions SET linked_transaction_id = ?, linked_budget_entry_id = ?, review_status = CASE WHEN review_status = 'created' THEN 'created' ELSE 'matched' END, row_version = row_version + 1, updated_at = ?
+    WHERE id = ? AND user_id = ? AND row_version = ? AND linked_transaction_id IS ? AND linked_budget_entry_id IS ? AND pending = 0 AND removed_at IS NULL AND review_status <> 'ignored'
+    AND EXISTS (SELECT 1 FROM bank_connections WHERE id = ? AND sync_lock = ? AND user_id = ? AND group_id = ? AND status <> 'disconnected') ${pairGuard} ${ledgerGuard}`).bind(
+					...args,
 				);
-			} catch {
-				return createErrorResponse(
-					"Expense is already matched to bank activity",
-					409,
-					request,
-					env,
+			const statements = [
+				claim,
+				env.DB.prepare(
+					"SELECT CASE WHEN changes() = 1 THEN 1 ELSE json('bank-review-claim-failed') END",
+				),
+			];
+			if (transactionId && budgetEntryId)
+				statements.push(
+					env.DB.prepare(
+						`INSERT INTO expense_budget_links(id,transaction_id,budget_entry_id,group_id,created_at) SELECT ?,?,?,?,? WHERE NOT EXISTS (SELECT 1 FROM expense_budget_links WHERE transaction_id = ? AND budget_entry_id = ?)`,
+					).bind(
+						ulid(),
+						transactionId,
+						budgetEntryId,
+						groupId,
+						new Date().toISOString(),
+						transactionId,
+						budgetEntryId,
+					),
+				);
+			if (parsed.data.draftId) {
+				statements.push(
+					env.DB.prepare(`UPDATE bank_review_drafts SET status='confirmed',version=version+1,updated_at=?
+                WHERE id=? AND user_id=? AND connection_id=? AND account_id=? AND status='active' AND version=?
+                AND transaction_id IS ? AND budget_entry_id IS ? AND amount_minor=? AND currency=?`).bind(
+						new Date().toISOString(),
+						parsed.data.draftId,
+						session.user.id,
+						bank.connectionId,
+						bank.accountId,
+						parsed.data.draftVersion ?? 0,
+						transactionId,
+						budgetEntryId,
+						bank.amountMinor,
+						bank.currency,
+					),
+				);
+				statements.push(
+					env.DB.prepare(
+						"SELECT CASE WHEN changes()=1 THEN 1 ELSE json('stale-provisional-confirmation') END",
+					),
 				);
 			}
+			await env.DB.batch(statements);
+			return createJsonResponse(
+				{ transactionId, budgetEntryId },
+				200,
+				{},
+				request,
+				env,
+			);
+		} catch {
+			return createErrorResponse(
+				"Records already matched, conflicting expense–budget links, or activity changed. Refresh and choose compatible records.",
+				409,
+				request,
+				env,
+			);
 		} finally {
 			await releaseBankLease(db, lease);
 		}
@@ -339,6 +484,7 @@ export async function handleBankIgnore(
 			bank.pending ||
 			bank.removedAt ||
 			bank.linkedTransactionId ||
+			bank.linkedBudgetEntryId ||
 			bank.reviewStatus !== "unreviewed" ||
 			(parsed.data.sourceVersion !== undefined &&
 				parsed.data.sourceVersion !== bank.rowVersion)

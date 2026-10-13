@@ -40,6 +40,7 @@ export type BankChanges = {
 		from: string;
 		to: string;
 		transactionIds: string[];
+		anonymousPending?: Array<Omit<ImportedTransaction, "id">>;
 	}>;
 	added: ImportedTransaction[];
 	modified: ImportedTransaction[];

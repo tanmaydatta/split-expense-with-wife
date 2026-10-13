@@ -77,12 +77,13 @@ export function parseLunchFlowTransactions(
 		).size !== result.data.transactions.filter((row) => row.id !== null).length
 	)
 		return undefined;
-	// Validate the complete snapshot before omitting pending rows without identity.
+	// Validate the complete snapshot before separating anonymous read-only pending rows.
 	const transactions = result.data.transactions.filter(
 		(row): row is typeof row & { id: string } => row.id !== null,
 	);
 	return {
 		transactions,
+		anonymousPending: result.data.transactions.filter((row) => row.id === null),
 		skippedPendingCount: result.data.transactions.length - transactions.length,
 	};
 }
