@@ -87,6 +87,7 @@ export const transactions = sqliteTable(
 		),
 		index("transactions_created_at_idx").on(table.createdAt),
 		index("transactions_group_id_idx").on(table.groupId),
+        index("transactions_group_live_id_idx").on(table.groupId,table.deleted,table.transactionId),
 	],
 );
 
@@ -156,7 +157,8 @@ export const budgetEntries = sqliteTable(
 		currency: text("currency", { length: 10 }).notNull().default("GBP"),
 	},
 	(table) => [
-		index("budget_entries_monthly_query_idx").on(
+		index("budget_entries_budget_live_id_idx").on(table.budgetId,table.deleted,table.budgetEntryId),
+        index("budget_entries_monthly_query_idx").on(
 			table.budgetId,
 			table.deleted,
 			table.addedTime,
