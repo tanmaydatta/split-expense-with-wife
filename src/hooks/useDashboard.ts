@@ -26,6 +26,8 @@ export interface BudgetFormData {
 }
 
 export interface DashboardFormData {
+ categoryId?:string|null;
+ categoryVersions?:Record<string,number>;
 	bankSource?: DashboardSubmitRequest["bankSource"];
 	expense?: ExpenseFormData;
 	budget?: BudgetFormData;
@@ -98,6 +100,8 @@ export function useDashboardSubmit() {
 	return useMutation<DashboardSubmitResponse, Error, DashboardFormData>({
 		mutationFn: async (formData) => {
 			const payload: DashboardSubmitRequest = {
+ categoryId:formData.categoryId,
+ categoryVersions:formData.categoryVersions,
 				...(formData.bankSource ? { bankSource: formData.bankSource } : {}),
 			};
 

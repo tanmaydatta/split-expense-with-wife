@@ -37,6 +37,7 @@ export default defineWorkersConfig({
 				wrangler: { configPath: "./wrangler.toml" },
 				isolatedStorage: false,
 				singleWorker: true,
+ miniflare: {bindings:{CATEGORIES_ENABLED:"false",CATEGORY_AI_ENABLED:"false"}},
 			},
 		},
 	},

@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
+import { CategorySelect } from "@/components/Categories";
+import { useLinkedCategories } from "@/hooks/useLinkedCategories";
+import { useCallback, useEffect, useState, useRef } from "react";
 import {
 	Link,
 	useNavigate,
@@ -26,16 +28,23 @@ export default function TransactionReview(): JSX.Element {
 	const navigate = useNavigate();
 	const [params] = useSearchParams();
 	const requestedDraft = params.get("draftId") ?? "";
+	const activeSource=useRef(`${id}:${requestedDraft}`);
+ activeSource.current=`${id}:${requestedDraft}`;
 	const [row, setRow] = useState<BankTransaction | null>(null);
 	const [settlements, setSettlements] = useState<BankTransaction[]>([]);
 	const [mode, setMode] = useState<Mode>("expense");
 	const [expense, setExpense] = useState("");
 	const [budget, setBudget] = useState("");
 	const [error, setError] = useState("");
+ const [categoryId,setCategoryId]=useState<string|null|undefined>(undefined);
+ const [categoryConflict,setCategoryConflict]=useState(false);
+ const [categoryVersions,setCategoryVersions]=useState<Record<string,number>>({});
+ const retainedCategories=useLinkedCategories(row?.linkedTransactionId,row?.linkedBudgetEntryId);
 	const [message, setMessage] = useState("");
 	const [busy, setBusy] = useState(false);
 	const [confirm, setConfirm] = useState(false);
 	const refresh = useCallback(async () => {
+ const sourceKey=`${id}:${requestedDraft}`;
 		const query = new URLSearchParams({
 			id,
 			...(requestedDraft ? { draftId: requestedDraft } : {}),
@@ -44,6 +53,7 @@ export default function TransactionReview(): JSX.Element {
 			transaction: BankTransaction;
 			settlementCandidates: BankTransaction[];
 		}>(`/bank-import/transaction?${query}`);
+		if(activeSource.current!==sourceKey)return;
 		const bank = data.transaction;
 		setRow(bank);
 		setSettlements(data.settlementCandidates ?? []);
@@ -63,6 +73,7 @@ export default function TransactionReview(): JSX.Element {
 	}, [id, requestedDraft]);
 	useEffect(() => {
 		setRow(null);
+ setCategoryId(undefined);setCategoryVersions({});setCategoryConflict(false);
 		setError("");
 		void refresh().catch(() =>
 			setError("Activity unavailable. Return to the inbox and refresh."),
@@ -76,7 +87,8 @@ export default function TransactionReview(): JSX.Element {
 			setMessage(success);
 			await refresh();
 		} catch (caught) {
-			const detail = caught as { response?: { data?: { error?: string } } };
+			const detail = caught as { response?: { data?: { error?: string; categoryConflict?:unknown[] } } };
+			setCategoryConflict(Boolean(detail.response?.data?.categoryConflict));
 			setError(
 				detail.response?.data?.error ??
 					"Could not save. Refresh and try again.",
@@ -115,6 +127,7 @@ export default function TransactionReview(): JSX.Element {
 				await api.post(
 					row.pending ? "/bank-import/provisional" : "/bank-import/match",
 					{
+						...(!row.pending && categoryId!==undefined ? {categoryId,categoryVersions:{...Object.fromEntries(Object.entries(retainedCategories.data??{}).map(([key,value])=>[key,value.categoryVersion??0])),...categoryVersions}} : {}),
 						bankTransactionId: row.id,
 						sourceVersion: row.rowVersion,
 						transactionId: transactionId || undefined,
@@ -336,7 +349,7 @@ export default function TransactionReview(): JSX.Element {
 									bankId={row.id}
 									kind="expense"
 									value={expense}
-									onChange={setExpense}
+									onChange={(id,record)=>{setExpense(id);setCategoryVersions(v=>({...Object.fromEntries(Object.entries(v).filter(([key])=>!key.startsWith("expense:"))),...(record?{[`expense:${id}`]:record.transaction?.categoryVersion??0}:{})}));setCategoryId(undefined);setCategoryConflict(false);}}
 									disabled={!!row.linkedTransactionId}
 								/>
 							)}
@@ -345,12 +358,13 @@ export default function TransactionReview(): JSX.Element {
 									bankId={row.id}
 									kind="budget"
 									value={budget}
-									onChange={setBudget}
+									onChange={(id,record)=>{setBudget(id);setCategoryVersions(v=>({...Object.fromEntries(Object.entries(v).filter(([key])=>!key.startsWith("budget:"))),...(record?{[`budget:${id}`]:record.budgetEntry?.categoryVersion??0}:{})}));setCategoryId(undefined);setCategoryConflict(false);}}
 									disabled={!!row.linkedBudgetEntryId}
 								/>
 							)}
+							{!row.pending && <><CategorySelect automaticLabel="Keep existing categories" automaticHelp="Matching keeps saved categories. Choose a shared category only to change them." label={categoryConflict?"Choose a shared category to confirm":"Category (optional)"} value={categoryId} onChange={setCategoryId} disabled={busy}/>{categoryConflict&&categoryId===undefined&&<p role="status">Choose a category or Uncategorised, then confirm again. This aligns the linked records.</p>}</>}
 							<UiButton
-								disabled={busy || !selectionComplete}
+								disabled={busy || !selectionComplete || (categoryConflict&&categoryId===undefined)}
 								onClick={() => setConfirm(true)}
 							>
 								{row.pending

@@ -216,6 +216,7 @@ export interface TransactionsListResponse {
 }
 
 export interface DashboardSubmitRequest {
+ categoryVersions?:Record<string,number>;
  categoryId?: string | null;
 	bankSource?: { bankTransactionId: string; sourceVersion: number };
 	expense?: {

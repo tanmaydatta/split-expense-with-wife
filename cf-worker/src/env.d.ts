@@ -6,6 +6,8 @@ declare namespace Cloudflare {
 	interface Env {
 		E2E_SEED_SECRET: string;
         CATEGORIES_ENABLED?: string;
+ CATEGORY_AI_ENABLED?: string;
+ CATEGORY_AI?: {run(model:string,input:unknown):Promise<unknown>};
 	}
 }
 

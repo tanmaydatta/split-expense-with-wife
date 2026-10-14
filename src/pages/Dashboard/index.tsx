@@ -1,3 +1,5 @@
+import { useLinkedCategories } from "@/hooks/useLinkedCategories";
+import { CategorySelect } from "@/components/Categories";
 import { Button } from "@/components/Button";
 import { ButtonRow, FormContainer } from "@/components/Form/Layout";
 import { Loader } from "@/components/Loader";
@@ -79,9 +81,11 @@ function BankActionFields({ form, source, loading, updateBudget }: { form: any; 
  </>;
 }
 
+// eslint-disable-next-line max-lines-per-function -- Unified financial form preserves reviewed bank snapshot and category submission together.
 function Dashboard(): JSX.Element {
 	// React Query hook for form submission
 	const dashboardSubmit = useDashboardSubmit();
+ const [categoryId,setCategoryId]=useState<string|null|undefined>(undefined);
 
 	// Keep some state for session-dependent logic
 	const [usersState, setUsersState] = useState<DashboardUser[]>([]);
@@ -103,6 +107,7 @@ function Dashboard(): JSX.Element {
 	const userId = data?.user?.id;
 	const groupId = data?.extra?.group?.groupid;
 	const initializationKey = `${userId ?? ""}:${groupId ?? ""}:${bankId ?? "ordinary"}:${bankId ? mode : ""}`;
+ useEffect(()=>setCategoryId(undefined),[initializationKey]);
 	const bankQuery = useQuery({
 		queryKey: ["bank", "transaction", userId, groupId, bankId],
 		enabled: Boolean(bankId && userId && groupId),
@@ -115,6 +120,7 @@ function Dashboard(): JSX.Element {
 	// Keep the version the user actually reviewed. Background refetches must not
 	// replace unsaved choices or silently advance the version submitted to the API.
 	const bankSource = bankSnapshot?.key === initializationKey ? bankSnapshot.row : null;
+	const retainedCategories=useLinkedCategories(bankSource?.linkedTransactionId,bankSource?.linkedBudgetEntryId);
 	const reviewPath = bankId ? `/bank-import/transactions/${encodeURIComponent(bankId)}` : "/bank-import";
 	const sourceUnavailable = Boolean(bankId && bankQuery.data && (
 		bankQuery.data.pending || bankQuery.data.readonlySnapshot || bankQuery.data.removedAt ||
@@ -128,10 +134,10 @@ function Dashboard(): JSX.Element {
 	}, [data, budgets]);
 
 	// Create submit handler
-	const handleSubmit = createFormSubmitHandler(dashboardSubmit, data, bankSource ? {
+	const handleSubmit = createFormSubmitHandler(dashboardSubmit, data, { categoryId, onSaved:()=>setCategoryId(undefined), categoryVersions:Object.fromEntries(Object.entries(retainedCategories.data??{}).map(([key,value])=>[key,value.categoryVersion??0])), ...(bankSource ? {
 		bankSource: { bankTransactionId: bankSource.id, sourceVersion: bankSource.rowVersion! },
 		onSuccess: () => navigate(reviewPath),
-	} : {});
+	} : {}) });
 
 	// TanStack Form setup
 	const form = useForm({
@@ -222,6 +228,7 @@ function Dashboard(): JSX.Element {
 				)}
 
 				<DescriptionField form={form} loading={loading} />
+ <CategorySelect automaticLabel={bankSource?.linkedTransactionId||bankSource?.linkedBudgetEntryId?"Keep existing category":"Automatic"} automaticHelp={bankSource?.linkedTransactionId||bankSource?.linkedBudgetEntryId?"Uses the linked record’s category unless you choose a shared category.":undefined} value={categoryId} onChange={setCategoryId} disabled={loading||retainedCategories.isFetching}/>
 				<AmountField form={form} loading={loading || Boolean(bankSource)} />
 
 				<SplitPercentageFields

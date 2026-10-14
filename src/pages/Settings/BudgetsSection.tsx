@@ -25,7 +25,7 @@ export const BudgetsSection: React.FC<BudgetsSectionProps> = ({
 }) => {
 	return (
 		<Card className="settings-card" data-test-id="budgets-section">
-			<h3>Budget Categories</h3>
+			<h3>Budgets</h3>
 			<div className="budget-manager">
 				<div className="budget-list">
 					{budgets.map((budget, index) => (

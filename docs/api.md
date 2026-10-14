@@ -985,3 +985,11 @@ claim, ledger effects and links atomically. Posted positive spending permits an
 expense; a budget uses the inverse normalized sign. Already-linked sides, stale
 versions, conflicting pairings, invalid group records and tampered values fail
 without partial ledger creation. Generic submissions are unchanged.
+
+## Transaction categories
+
+All category endpoints require authentication and the current group. `GET categories` returns `{enabled,categories,rules}`; disabled or missing-schema installations return `enabled:false`. `POST categories` accepts create (`name`), archive (`id,archived`), rule (`pattern,kind,categoryId,sharedGroupConsent:true`) or delete-rule (`id`) actions. Group rules share only explicitly submitted text, not imported bank payloads.
+
+`POST record-category` accepts `{kind:"expense"|"budget",id,categoryId:string|null,version}` and atomically updates the live linked component. Stale edits return 409. Category fields in record responses are additive and optional. List APIs accept optional `categoryId`, with `uncategorised` including old records without sidecars.
+
+New save requests accept optional `categoryId`; omission means Automatic, null means an explicit manual clear. Source provenance is resolved server-side. Bank match/create requests also accept reviewed `categoryVersions` keyed by `expense:<id>`/`budget:<id>` when changing existing choices. Conflicts return 409 with usable `categoryConflict` choices; pending provisional APIs never write categories. AI receives only bounded merchant/description and fixed allowed choices, with nonblocking fallback on timeout/error.

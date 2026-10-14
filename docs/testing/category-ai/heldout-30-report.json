@@ -1,0 +1,298 @@
+{
+  "model": "@cf/cloudflare/clef-flash",
+  "evaluatedAt": "2026-10-14T13:01:33.332Z",
+  "syntheticOnly": true,
+  "taxonomy": [
+    "groceries",
+    "eating_out",
+    "transport",
+    "housing",
+    "utilities",
+    "shopping",
+    "health",
+    "entertainment",
+    "income",
+    "other",
+    "uncategorised"
+  ],
+  "policy": {
+    "probability": 0.75,
+    "margin": 0.2,
+    "genericAbstention": true,
+    "lockedBeforeTest": true
+  },
+  "total": 30,
+  "inferenceCalls": 24,
+  "accepted": 21,
+  "correct": 21,
+  "precision": 1,
+  "coverage": 0.7,
+  "automaticApproved": true,
+  "inputTokens": 8558,
+  "results": [
+    {
+      "id": "n01",
+      "label": "groceries",
+      "choice": "groceries",
+      "probability": 0.9193,
+      "margin": 0.9045,
+      "accepted": true,
+      "inputTokens": 357
+    },
+    {
+      "id": "n02",
+      "label": "groceries",
+      "choice": "groceries",
+      "probability": 0.7892,
+      "margin": 0.7233,
+      "accepted": true,
+      "inputTokens": 357
+    },
+    {
+      "id": "n03",
+      "label": "groceries",
+      "choice": "groceries",
+      "probability": 0.9174,
+      "margin": 0.9036,
+      "accepted": true,
+      "inputTokens": 356
+    },
+    {
+      "id": "n04",
+      "label": "eating_out",
+      "choice": "eating_out",
+      "probability": 0.8383,
+      "margin": 0.8162,
+      "accepted": true,
+      "inputTokens": 357
+    },
+    {
+      "id": "n05",
+      "label": "eating_out",
+      "choice": "eating_out",
+      "probability": 0.876,
+      "margin": 0.8566,
+      "accepted": true,
+      "inputTokens": 356
+    },
+    {
+      "id": "n06",
+      "label": "eating_out",
+      "choice": "eating_out",
+      "probability": 0.8468,
+      "margin": 0.8225,
+      "accepted": true,
+      "inputTokens": 356
+    },
+    {
+      "id": "n07",
+      "label": "transport",
+      "choice": "transport",
+      "probability": 0.965,
+      "margin": 0.9595,
+      "accepted": true,
+      "inputTokens": 355
+    },
+    {
+      "id": "n08",
+      "label": "transport",
+      "choice": "transport",
+      "probability": 0.9589,
+      "margin": 0.9518,
+      "accepted": true,
+      "inputTokens": 355
+    },
+    {
+      "id": "n09",
+      "label": "transport",
+      "choice": "transport",
+      "probability": 0.9597,
+      "margin": 0.9531,
+      "accepted": true,
+      "inputTokens": 356
+    },
+    {
+      "id": "n10",
+      "label": "housing",
+      "choice": "housing",
+      "probability": 0.976,
+      "margin": 0.9728,
+      "accepted": true,
+      "inputTokens": 356
+    },
+    {
+      "id": "n11",
+      "label": "housing",
+      "choice": "housing",
+      "probability": 0.9676,
+      "margin": 0.9638,
+      "accepted": true,
+      "inputTokens": 355
+    },
+    {
+      "id": "n12",
+      "label": "utilities",
+      "choice": "utilities",
+      "probability": 0.9572,
+      "margin": 0.9501000000000001,
+      "accepted": true,
+      "inputTokens": 356
+    },
+    {
+      "id": "n13",
+      "label": "utilities",
+      "choice": "utilities",
+      "probability": 0.9605,
+      "margin": 0.9535,
+      "accepted": true,
+      "inputTokens": 356
+    },
+    {
+      "id": "n14",
+      "label": "utilities",
+      "choice": "utilities",
+      "probability": 0.8168,
+      "margin": 0.7826,
+      "accepted": true,
+      "inputTokens": 356
+    },
+    {
+      "id": "n15",
+      "label": "shopping",
+      "choice": "shopping",
+      "probability": 0.8279,
+      "margin": 0.7677999999999999,
+      "accepted": true,
+      "inputTokens": 356
+    },
+    {
+      "id": "n16",
+      "label": "shopping",
+      "choice": "shopping",
+      "probability": 0.5839,
+      "margin": 0.40959999999999996,
+      "accepted": false,
+      "inputTokens": 355
+    },
+    {
+      "id": "n17",
+      "label": "health",
+      "choice": "health",
+      "probability": 0.9322,
+      "margin": 0.9197000000000001,
+      "accepted": true,
+      "inputTokens": 354
+    },
+    {
+      "id": "n18",
+      "label": "health",
+      "choice": "health",
+      "probability": 0.9324,
+      "margin": 0.9207,
+      "accepted": true,
+      "inputTokens": 356
+    },
+    {
+      "id": "n19",
+      "label": "entertainment",
+      "choice": "entertainment",
+      "probability": 0.81,
+      "margin": 0.7687,
+      "accepted": true,
+      "inputTokens": 356
+    },
+    {
+      "id": "n20",
+      "label": "income",
+      "choice": "income",
+      "probability": 0.984,
+      "margin": 0.9821,
+      "accepted": true,
+      "inputTokens": 355
+    },
+    {
+      "id": "n21",
+      "label": "other",
+      "choice": "other",
+      "probability": 0.6685,
+      "margin": 0.4129,
+      "accepted": false,
+      "inputTokens": 355
+    },
+    {
+      "id": "n22",
+      "label": "uncategorised",
+      "choice": "uncategorised",
+      "policyAbstention": true,
+      "accepted": false,
+      "inputTokens": 0
+    },
+    {
+      "id": "n23",
+      "label": "uncategorised",
+      "choice": "uncategorised",
+      "policyAbstention": true,
+      "accepted": false,
+      "inputTokens": 0
+    },
+    {
+      "id": "n24",
+      "label": "uncategorised",
+      "choice": "uncategorised",
+      "policyAbstention": true,
+      "accepted": false,
+      "inputTokens": 0
+    },
+    {
+      "id": "n25",
+      "label": "uncategorised",
+      "choice": "uncategorised",
+      "policyAbstention": true,
+      "accepted": false,
+      "inputTokens": 0
+    },
+    {
+      "id": "n26",
+      "label": "uncategorised",
+      "choice": "uncategorised",
+      "policyAbstention": true,
+      "accepted": false,
+      "inputTokens": 0
+    },
+    {
+      "id": "n27",
+      "label": "uncategorised",
+      "choice": "uncategorised",
+      "policyAbstention": true,
+      "accepted": false,
+      "inputTokens": 0
+    },
+    {
+      "id": "n28",
+      "label": "groceries",
+      "choice": "groceries",
+      "probability": 0.8558,
+      "margin": 0.824,
+      "accepted": true,
+      "inputTokens": 365
+    },
+    {
+      "id": "n29",
+      "label": "eating_out",
+      "choice": "eating_out",
+      "probability": 0.7432,
+      "margin": 0.6645,
+      "accepted": false,
+      "inputTokens": 362
+    },
+    {
+      "id": "n30",
+      "label": "transport",
+      "choice": "transport",
+      "probability": 0.7814,
+      "margin": 0.7196,
+      "accepted": true,
+      "inputTokens": 360
+    }
+  ]
+}

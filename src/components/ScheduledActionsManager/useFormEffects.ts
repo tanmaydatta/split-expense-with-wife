@@ -91,24 +91,24 @@ export function useFormEffects({
 					| undefined) ?? groupDefaultShare;
 			form.setFieldValue(
 				"actionData",
-				computeExpenseActionData(
+				{ categoryId: form.getFieldValue("actionData.categoryId"), ...computeExpenseActionData(
 					currentAmount,
 					currentDescription,
 					currentCurrency,
 					currentPaid,
 					splitsNow,
-				),
+				)},
 			);
 		} else if (actionType === "add_budget") {
 			form.setFieldValue(
 				"actionData",
-				computeBudgetActionData(
+				{ categoryId: form.getFieldValue("actionData.categoryId"), ...computeBudgetActionData(
 					currentAmount,
 					currentDescription,
 					currentCurrency,
 					(existingBudget as string) ?? (budgets[0] || ""),
 					(existingType as any) ?? "Credit",
-				),
+				)},
 			);
 		}
 	}, [

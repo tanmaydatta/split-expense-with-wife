@@ -159,7 +159,7 @@ function getPageTitle(path: string): string {
 	if (path === "/budget") return "Budget";
 	if (path.startsWith("/monthly-budget")) return "Monthly Budget";
 	if (path === "/settings") return "Settings";
-	if (path === "/scheduled-actions") return "Scheduled Actions";
+	if (path === "/scheduled-actions" || path.startsWith("/scheduled-actions/")) return "Scheduled Actions";
 	if (path === "/logout") return "Logout";
 	if (path.startsWith("/transaction/")) return "Transaction";
 	if (path.startsWith("/budget-entry/")) return "Budget Entry";

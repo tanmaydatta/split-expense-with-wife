@@ -210,4 +210,4 @@ provisional choices. See
 
 ### Transaction category rollout
 
-Optional group categories are feature-gated. See [behavior and manual migration/rollback](docs/transaction-categories.md). Historical records remain unchanged; selectors, filters and evaluated AI follow in the dependent UI layer.
+Optional group categories support manual choices, automatic categorization, expense/budget filters and recurring defaults. Linked records share explicit edits; historical records remain unchanged. See [behavior and migration/rollback](docs/transaction-categories.md) and [synthetic AI evaluation](docs/testing/category-ai.md).

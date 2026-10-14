@@ -1,3 +1,4 @@
+import { classifyCategory } from "./category-ai";
 import { sql, type SQL } from "drizzle-orm";
 import type { AnySQLiteColumn } from "drizzle-orm/sqlite-core";
 import { ulid } from "ulid";
@@ -135,6 +136,9 @@ export async function resolveCategory(
 		);
 		if (category) return { categoryId: category.id, source: "provider" };
 	}
+	const slug = await classifyCategory(env,input.merchant ?? "",input.description);
+ const predicted=taxonomy.categories.find(c=>!c.archivedAt && c.slug===slug);
+ if(predicted)return {categoryId:predicted.id,source:"ai"};
 	return { categoryId: null, source: "uncategorised" };
 }
 
