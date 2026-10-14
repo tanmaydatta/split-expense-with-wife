@@ -1,3 +1,4 @@
+import { readRecordCategories } from "../utils/categories";
 import { and, eq, isNull } from "drizzle-orm";
 import type {
 	BudgetEntry as BudgetEntryDto,
@@ -209,6 +210,8 @@ export async function handleTransactionGet(
 			const transaction = toTransactionDto(txRows[0]);
 			const tu = await fetchTransactionUsers(db, body.id, groupId);
 			const linkedBudgetEntry = await fetchLinkedBudgetEntry(db, body.id);
+ Object.assign(transaction,(await readRecordCategories(env,groupId,"expense",[body.id])).get(body.id));
+ if(linkedBudgetEntry)Object.assign(linkedBudgetEntry,(await readRecordCategories(env,groupId,"budget",[linkedBudgetEntry.id])).get(linkedBudgetEntry.id));
 
 			const responseBody: TransactionGetResponse = {
 				transaction,
@@ -269,6 +272,8 @@ export async function handleBudgetEntryGet(
 			const budgetEntry = toBudgetEntryDto(row, beGroupId, budgetName);
 
 			const linked = await fetchLinkedTransaction(db, body.id);
+ Object.assign(budgetEntry,(await readRecordCategories(env,groupId,"budget",[body.id])).get(body.id));
+ if(linked)Object.assign(linked.transaction,(await readRecordCategories(env,groupId,"expense",[linked.transaction.transaction_id])).get(linked.transaction.transaction_id));
 
 			const responseBody: BudgetEntryGetResponse = {
 				budgetEntry,

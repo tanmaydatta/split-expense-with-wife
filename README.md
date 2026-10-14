@@ -207,3 +207,7 @@ record matching uses the shared mobile cards; expanded expense and budget cards
 show linked bank sources only to their connecting owner, including pending
 provisional choices. See
 [banking setup and release gates](docs/banking.md).
+
+### Transaction category rollout
+
+Optional group categories are feature-gated. See [behavior and manual migration/rollback](docs/transaction-categories.md). Historical records remain unchanged; selectors, filters and evaluated AI follow in the dependent UI layer.

@@ -1,3 +1,5 @@
+import { CategoryConflictError, planCategoryLink, readRecordCategories } from "../utils/categories";
+import { SQLiteSyncDialect } from "drizzle-orm/sqlite-core";
 import { and, desc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import { ulid } from "ulid";
 import { z } from "zod";
@@ -24,6 +26,8 @@ const BankId = z.object({
 	sourceVersion: z.number().int().nonnegative().optional(),
 });
 const MatchInput = BankId.extend({
+ categoryId:z.string().min(1).max(200).nullable().optional(),
+ categoryVersions:z.record(z.string(),z.number().int().nonnegative()).refine(v=>Object.keys(v).length<=2).optional(),
 	transactionId: z.string().min(1).max(200).optional(),
 	budgetEntryId: z.string().min(1).max(200).optional(),
 	draftId: z.string().min(1).max(200).optional(),
@@ -218,14 +222,16 @@ export async function searchCandidates(
 					.bind(groupId, ...page.map((row) => String(row.id)))
 					.all()).results
 			: [];
+ const categoryMap = await readRecordCategories(env,groupId,budget?"budget":"expense",page.map(row=>String(row.id)));
 	const candidates = page.map((row) => ({
 		...row,
 		...(budget
 			? { budgetEntry: {
 				...row,
+ ...categoryMap.get(String(row.id)),
 				price: row.price || `${Number(row.amount) >= 0 ? "+" : ""}${Number(row.amount).toFixed(2)}`,
 			} }
-			: { transaction: row, transactionUsers: users.filter((user) => user.transaction_id === row.id) }),
+			: { transaction: {...row,...categoryMap.get(String(row.id))}, transactionUsers: users.filter((user) => user.transaction_id === row.id) }),
 	}));
 	return createJsonResponse(
 		{
@@ -345,6 +351,7 @@ export async function handleBankMatch(
 					request,
 					env,
 				);
+ const categoryPlan=await planCategoryLink(env,groupId,[...(transactionId?[{kind:"expense" as const,id:transactionId}]:[]),...(budgetEntryId?[{kind:"budget" as const,id:budgetEntryId}]:[])],parsed.data.categoryId,parsed.data.categoryVersions);
 			// Existing exact pairs remain compatible even when historical records have other links.
 			const pairGuard =
 				transactionId && budgetEntryId
@@ -425,6 +432,7 @@ export async function handleBankMatch(
 					"SELECT CASE WHEN changes() = 1 THEN 1 ELSE json('bank-review-claim-failed') END",
 				),
 			];
+ for(const query of categoryPlan.guards){const compiled=new SQLiteSyncDialect().sqlToQuery(query);statements.push(env.DB.prepare(compiled.sql).bind(...compiled.params));}
 			if (transactionId && budgetEntryId)
 				statements.push(
 					env.DB.prepare(
@@ -462,6 +470,7 @@ export async function handleBankMatch(
 					),
 				);
 			}
+ for(const query of categoryPlan.updates){const compiled=new SQLiteSyncDialect().sqlToQuery(query);statements.push(env.DB.prepare(compiled.sql).bind(...compiled.params));}
 			await env.DB.batch(statements);
 			return createJsonResponse(
 				{ transactionId, budgetEntryId },
@@ -470,7 +479,8 @@ export async function handleBankMatch(
 				request,
 				env,
 			);
-		} catch {
+		} catch (error) {
+ if(error instanceof CategoryConflictError)return createJsonResponse({error:error.message,categoryConflict:error.choices},409,{},request,env);
 			return createErrorResponse(
 				"Records already matched, conflicting expense–budget links, or activity changed. Refresh and choose compatible records.",
 				409,

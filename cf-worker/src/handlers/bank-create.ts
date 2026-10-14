@@ -1,5 +1,12 @@
+import {
+	CategoryConflictError,
+	planCategoryLink,
+	resolveCategory,
+} from "../utils/categories";
 import { user } from "../db/schema/auth-schema";
 import { and, eq, isNull, sql } from "drizzle-orm";
+import { SQLiteSyncDialect } from "drizzle-orm/sqlite-core";
+import type { SQLWrapper } from "drizzle-orm";
 import type { BatchItem } from "drizzle-orm/batch";
 import { ulid } from "ulid";
 import { z } from "zod";
@@ -19,6 +26,11 @@ import {
 } from "../utils/scheduled-action-execution";
 const Input = z
 	.object({
+		categoryId: z.string().min(1).max(200).nullable().optional(),
+		categoryVersions: z
+			.record(z.string(), z.number().int().nonnegative())
+			.refine((v) => Object.keys(v).length <= 2)
+			.optional(),
 		bankSource: z.object({
 			bankTransactionId: z.string().min(1).max(500),
 			sourceVersion: z.number().int().nonnegative(),
@@ -192,6 +204,40 @@ export async function handleBankDashboardCreate(
 						env,
 					);
 			}
+			const categoryPlan = await planCategoryLink(
+				env,
+				groupId,
+				[
+					...(transactionId
+						? [
+								{
+									kind: "expense" as const,
+									id: transactionId,
+									existing: !body.expense,
+								},
+							]
+						: []),
+					...(budgetEntryId
+						? [
+								{
+									kind: "budget" as const,
+									id: budgetEntryId,
+									existing: !body.budget,
+								},
+							]
+						: []),
+				],
+				body.categoryId,
+				body.categoryVersions,
+			);
+			const category =
+				categoryPlan.decision ??
+				(await resolveCategory(env, groupId, {
+					categoryId: body.categoryId,
+					description:
+						body.expense?.description ?? body.budget?.description ?? bank.name,
+					merchant: bank.merchantName ?? bank.name,
+				}));
 			const financial: BatchItem<"sqlite">[] = [];
 			const timestamp = `${bank.date} 00:00:00`;
 			if (body.expense) {
@@ -202,6 +248,7 @@ export async function handleBankDashboardCreate(
 					env,
 					transactionId as string,
 					timestamp,
+					category,
 				);
 				financial.push(...result.statements.map((s) => s.query));
 			}
@@ -216,6 +263,8 @@ export async function handleBankDashboardCreate(
 					db,
 					budgetEntryId as string,
 					timestamp,
+					env,
+					category,
 				);
 				financial.push(...result.statements.map((s) => s.query));
 			}
@@ -261,13 +310,14 @@ export async function handleBankDashboardCreate(
 						sql`EXISTS(SELECT 1 FROM bank_connections WHERE id=${connection.id} AND sync_lock=${lease.syncLock})`,
 					),
 				);
-			const batch: BatchItem<"sqlite">[] = [
+			const batch: (BatchItem<"sqlite"> | SQLWrapper)[] = [
 				claim,
 				db.run(
 					sql.raw(
 						"SELECT CASE WHEN changes()=1 THEN 1 ELSE json('bank-create-claim-failed') END",
 					),
 				),
+				...categoryPlan.guards.map((query) => db.run(query)),
 				...financial,
 			];
 			if (transactionId && budgetEntryId)
@@ -280,7 +330,15 @@ export async function handleBankDashboardCreate(
 						createdAt: new Date().toISOString(),
 					}),
 				);
-			await db.batch(batch as [BatchItem<"sqlite">, ...BatchItem<"sqlite">[]]);
+			batch.push(...categoryPlan.updates.map((query) => db.run(query)));
+			// Raw category guards and financial builders share one atomic D1 batch.
+			const dialect = new SQLiteSyncDialect();
+			await env.DB.batch(
+				batch.map((item) => {
+					const query = dialect.sqlToQuery((item as SQLWrapper).getSQL());
+					return env.DB.prepare(query.sql).bind(...query.params);
+				}),
+			);
 			return createJsonResponse(
 				{
 					message: "Saved and associated with bank activity",
@@ -292,7 +350,15 @@ export async function handleBankDashboardCreate(
 				request,
 				env,
 			);
-		} catch {
+		} catch (error) {
+			if (error instanceof CategoryConflictError)
+				return createJsonResponse(
+					{ error: error.message, categoryConflict: error.choices },
+					409,
+					{},
+					request,
+					env,
+				);
 			return createErrorResponse(
 				"Could not save. Refresh review; no partial record was created.",
 				409,

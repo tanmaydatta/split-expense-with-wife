@@ -1,3 +1,4 @@
+import categoryMigration from "../db/migrations/0031_record_categories.sql?raw";
 import { sql } from "drizzle-orm";
 import { ulid } from "ulid";
 import { auth } from "../auth";
@@ -253,12 +254,17 @@ export async function setupDatabase(env: Env): Promise<void> {
 	await env.DB.exec(
 		"CREATE INDEX IF NOT EXISTS expense_budget_links_group_idx ON expense_budget_links (group_id)",
 	);
+ const ddl = categoryMigration.replace(/--[^\n]*/g, "").split(";").map(q => q.trim()).filter(Boolean);
+ for (const query of ddl) await env.DB.prepare(query.replace("CREATE TABLE ", "CREATE TABLE IF NOT EXISTS ").replace("CREATE INDEX ", "CREATE INDEX IF NOT EXISTS ")).run();
 }
 
 // Complete database cleanup - ensures total isolation between tests
 export async function completeCleanupDatabase(env: Env): Promise<void> {
 	const db = getDb(env);
 	// Delete data from all tables in reverse order of creation/dependency
+ await env.DB.exec("DELETE FROM record_categories");
+ await env.DB.exec("DELETE FROM category_rules");
+ await env.DB.exec("DELETE FROM group_categories");
 	await env.DB.exec("DELETE FROM bank_pending_snapshots");
 	await env.DB.exec("DELETE FROM bank_review_drafts");
 	await db.delete(bankTransactions);

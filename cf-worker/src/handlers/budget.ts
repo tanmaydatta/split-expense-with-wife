@@ -1,3 +1,4 @@
+import { categoryFilterCondition, readRecordCategories } from "../utils/categories";
 import { and, eq, gte, inArray, isNull, lt, lte, or, sql } from "drizzle-orm";
 import { ulid } from "ulid";
 import type {
@@ -299,6 +300,7 @@ async function createBudgetEntry(
 			budgetRequest,
 			db,
 			budgetId,
+ undefined, env,
 		);
 
 		// Execute all statements in a single batch
@@ -641,6 +643,7 @@ export async function handleBudgetList(
 	}
 
 	try {
+		// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: authorised bounded budget paging shares existing direction/search/category predicates.
 		return withAuthLite(request, env, async (session, db) => {
 			const body = (await request.json()) as BudgetListRequest;
 			const filterError = validateListFilters(body, ["all", "credit", "debit"]);
@@ -669,6 +672,8 @@ export async function handleBudgetList(
 					budgetEntries.currency,
 				),
 			];
+ const categoryFilter = await categoryFilterCondition(env,String(session.currentUser.groupid),"budget",budgetEntries.budgetEntryId,body.categoryId);
+ if(categoryFilter)baseConditions.push(categoryFilter);
 			if (body.direction === "credit")
 				baseConditions.push(sql`${budgetEntries.amount} > 0`);
 			if (body.direction === "debit")
@@ -705,6 +710,7 @@ export async function handleBudgetList(
 				String(session.currentUser.groupid),
 			);
 
+			const categoryMap = await readRecordCategories(env,String(session.currentUser.groupid),"budget",beIds);
 			// Ensure price field is properly formatted as string and map budgetEntryId to id
 			const formattedEntries = budgetEntriesResult.map((entry) => ({
 				...entry,
@@ -715,6 +721,7 @@ export async function handleBudgetList(
 						? `+${entry.amount.toFixed(2)}`
 						: `${entry.amount.toFixed(2)}`),
 				linkedTransactionIds: linkMap[entry.budgetEntryId] ?? [],
+ ...categoryMap.get(entry.budgetEntryId),
 			}));
 
 			return createJsonResponse(formattedEntries, 200, {}, request, env);

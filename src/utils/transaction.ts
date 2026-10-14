@@ -28,6 +28,10 @@ export function buildFrontendTransaction(
 
 	return {
 		transactionId: tx.transaction_id,
+ categoryId: tx.categoryId,
+ categoryName: tx.categoryName,
+ categorySource: tx.categorySource,
+ categoryVersion: tx.categoryVersion,
 		description: tx.description,
 		totalAmount: tx.amount,
 		date: tx.created_at,

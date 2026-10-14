@@ -1,3 +1,4 @@
+import { resolveCategory, type CategoryDecision } from "./categories";
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { BatchItem } from "drizzle-orm/batch";
 import type {
@@ -10,6 +11,7 @@ import type { getDb } from "../db";
 import { user } from "../db/schema/auth-schema";
 import {
 	budgetEntries,
+	recordCategories,
 	budgetTotals,
 	transactions,
 	transactionUsers,
@@ -261,6 +263,7 @@ export async function createSplitTransactionFromRequest(
 	env: Env,
 	transactionId: string,
 	sourceTimestamp?: string,
+	categoryDecision?: CategoryDecision,
 ): Promise<{
 	resultData: ScheduledActionResultData;
 	statements: QueryStatement[];
@@ -313,6 +316,26 @@ export async function createSplitTransactionFromRequest(
 		env,
 	);
 
+	const category =
+		categoryDecision ??
+		(await resolveCategory(env, groupId, {
+			categoryId: splitRequest.categoryId,
+			description: splitRequest.description,
+		}));
+	if (category)
+		statements.push({
+			query: db
+				.insert(recordCategories)
+				.values({
+					groupId,
+					recordKind: "expense",
+					recordId: transactionId,
+					categoryId: category.linkedFrom
+						? sql`(SELECT category_id FROM record_categories WHERE group_id=${groupId} AND record_kind=${category.linkedFrom.kind} AND record_id=${category.linkedFrom.id})`
+						: category.categoryId,
+					source: category.source,
+				}),
+		});
 	const resultData: ScheduledActionResultData = {
 		message: `Transaction created: ${splitRequest.description}`,
 		transactionId,
@@ -331,6 +354,7 @@ export async function createSplitTransactionStatements(
 	db: DbInstance,
 	env: Env,
 	transactionId: string,
+	categoryDecision?: CategoryDecision,
 ): Promise<{
 	resultData: ScheduledActionResultData;
 	statements: QueryStatement[];
@@ -345,12 +369,21 @@ export async function createSplitTransactionStatements(
 	};
 
 	// Use the generic function with the provided transaction ID
+	const category = (await checkTransactionExists(db, transactionId))
+		? undefined
+		: (categoryDecision ??
+			(await resolveCategory(env, groupId, {
+				scheduledCategoryId: expenseData.categoryId,
+				description: expenseData.description,
+			})));
 	const result = await createSplitTransactionFromRequest(
 		splitRequest,
 		groupId,
 		db,
 		env,
 		transactionId,
+		undefined,
+		category,
 	);
 
 	return {
@@ -368,6 +401,8 @@ export async function createBudgetEntryStatements(
 	db: DbInstance,
 	budgetId: string,
 	sourceTimestamp?: string,
+	env?: Env,
+	categoryDecision?: CategoryDecision,
 ): Promise<{
 	resultData: ScheduledActionResultData;
 	statements: QueryStatement[];
@@ -419,6 +454,29 @@ export async function createBudgetEntryStatements(
 		}),
 	});
 
+	const category =
+		categoryDecision ??
+		(env
+			? await resolveCategory(env, budgetRequest.groupid, {
+					categoryId: budgetRequest.categoryId,
+					description: budgetRequest.description,
+				})
+			: undefined);
+	if (category)
+		statements.push({
+			query: db
+				.insert(recordCategories)
+				.values({
+					groupId: budgetRequest.groupid,
+					recordKind: "budget",
+					recordId: budgetId,
+					categoryId: category.linkedFrom
+						? sql`(SELECT category_id FROM record_categories WHERE group_id=${budgetRequest.groupid} AND record_kind=${category.linkedFrom.kind} AND record_id=${category.linkedFrom.id})`
+						: category.categoryId,
+					source: category.source,
+				}),
+		});
+
 	// Update budget totals
 	statements.push({
 		query: db
@@ -452,10 +510,32 @@ export async function createBudgetEntryStatementsForScheduledAction(
 	budgetRequest: BudgetRequest,
 	db: DbInstance,
 	budgetId: string,
+	env?: Env,
+	categoryDecision?: CategoryDecision,
 ): Promise<{
 	resultData: ScheduledActionResultData;
 	statements: QueryStatement[];
 }> {
 	// Use the generic function with the provided budget ID
-	return await createBudgetEntryStatements(budgetRequest, db, budgetId);
+	const existing = await db
+		.select({ id: budgetEntries.budgetEntryId })
+		.from(budgetEntries)
+		.where(eq(budgetEntries.budgetEntryId, budgetId))
+		.limit(1);
+	const category =
+		env && !existing.length
+			? (categoryDecision ??
+				(await resolveCategory(env, budgetRequest.groupid, {
+					scheduledCategoryId: budgetRequest.categoryId,
+					description: budgetRequest.description,
+				})))
+			: undefined;
+	return await createBudgetEntryStatements(
+		budgetRequest,
+		db,
+		budgetId,
+		undefined,
+		env,
+		category,
+	);
 }

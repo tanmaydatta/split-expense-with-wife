@@ -1,3 +1,4 @@
+import { handleCategories, handleRecordCategory } from "./handlers/categories";
 import { handleBankInbox, handleBankTransactionGet, handleBankRecordLink, handleBankProvisionalSave, handleBankProvisionalCancel, handleBankDraftCandidates } from "./handlers/bank-inbox";
 import { auth } from "./auth";
 import {
@@ -253,6 +254,8 @@ async function handleApiRoutes(
 		"bank-import/accounts/select": { methods: ["POST"], handler: handleBankSelectAccount },
 		"bank-import/sync": { methods: ["POST"], handler: handleBankSync },
         "bank-import/transaction": { methods: ["GET"], handler: handleBankTransactionGet },
+        "categories": { methods: ["GET", "POST"], handler: handleCategories },
+        "record-category": { methods: ["POST"], handler: handleRecordCategory },
         "bank-import/record-link": { methods: ["GET"], handler: handleBankRecordLink },
         "bank-import/provisional": { methods: ["POST"], handler: handleBankProvisionalSave },
         "bank-import/provisional-cancel": { methods: ["POST"], handler: handleBankProvisionalCancel },

@@ -38,6 +38,7 @@ export function processTransactionData(
 
 		return {
 			transactionId: e.transaction_id,
+ categoryId:e.categoryId,categoryName:e.categoryName,categorySource:e.categorySource,categoryVersion:e.categoryVersion,
 			description: e.description as string,
 			totalAmount: e.amount,
 			date: e.created_at,

@@ -15,7 +15,8 @@ const calendarDate = z
 	);
 const filterSchema = z
 	.object({
-		offset: z.number().int().nonnegative(),
+		categoryId: z.string().min(1).max(200).optional(),
+        offset: z.number().int().nonnegative(),
 		q: z.string().trim().max(MAX_Q_LENGTH).optional(),
 		dateFrom: calendarDate.optional(),
 		dateTo: calendarDate.optional(),

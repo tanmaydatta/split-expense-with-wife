@@ -1,3 +1,4 @@
+import { resolveCategory, type CategoryDecision } from "../utils/categories";
 import { handleBankDashboardCreate } from "./bank-create";
 import type { BatchItem } from "drizzle-orm/batch";
 import { ulid } from "ulid";
@@ -71,6 +72,7 @@ async function buildExpenseStatements(
 	groupId: string,
 	db: DbInstance,
 	env: Env,
+ category?: CategoryDecision,
 ): Promise<{ transactionId: string; queries: SqliteBatchItem[] }> {
 	const transactionId = `tx_${ulid()}`;
 	const splitRequest: SplitRequest = {
@@ -86,6 +88,7 @@ async function buildExpenseStatements(
 		db,
 		env,
 		transactionId,
+ undefined, category,
 	);
 	return {
 		transactionId,
@@ -98,6 +101,8 @@ async function buildBudgetStatements(
 	budget: NonNullable<DashboardSubmitRequest["budget"]>,
 	groupId: string,
 	db: DbInstance,
+ env: Env,
+ category?: CategoryDecision,
 ): Promise<{ budgetEntryId: string; queries: SqliteBatchItem[] }> {
 	const budgetEntryId = `bge_${ulid()}`;
 	const budgetRequest: BudgetRequest = {
@@ -111,6 +116,7 @@ async function buildBudgetStatements(
 		budgetRequest,
 		db,
 		budgetEntryId,
+ undefined, env, category,
 	);
 	return {
 		budgetEntryId,
@@ -145,19 +151,20 @@ async function processDashboardSubmit(
 	db: DbInstance,
 	env: Env,
 ): Promise<DashboardSubmitResponse> {
+ const category = await resolveCategory(env,groupId,{categoryId:body.categoryId,description:body.expense?.description ?? body.budget?.description ?? ""});
 	const queries: SqliteBatchItem[] = [];
 	let transactionId: string | undefined;
 	let budgetEntryId: string | undefined;
 	let linkId: string | undefined;
 
 	if (body.expense) {
-		const out = await buildExpenseStatements(body.expense, groupId, db, env);
+		const out = await buildExpenseStatements(body.expense, groupId, db, env, category);
 		transactionId = out.transactionId;
 		queries.push(...out.queries);
 	}
 
 	if (body.budget) {
-		const out = await buildBudgetStatements(body.budget, groupId, db);
+		const out = await buildBudgetStatements(body.budget, groupId, db, env, category);
 		budgetEntryId = out.budgetEntryId;
 		queries.push(...out.queries);
 	}

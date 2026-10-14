@@ -48,6 +48,7 @@ export const BillMonthQuerySchema = z.object({
     month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/),
 });
 export const BillPaymentSchema = z.object({
+    categoryId: z.string().min(1).max(200).nullable().optional(),
     occurrenceId: z.string().min(1),
     paid: z.boolean(),
     linkedTransactionId: z.string().min(1).optional(),
@@ -260,6 +261,7 @@ export const DashboardFormSchema = z
     }
 });
 export const AddExpenseActionSchema = z.object({
+    categoryId: z.string().min(1).max(200).nullable().optional(),
     amount: z.number().positive(),
     description: z.string().min(2).max(100),
     currency: z.string(),
@@ -269,6 +271,7 @@ export const AddExpenseActionSchema = z.object({
         .refine((shares) => Math.abs(Object.values(shares).reduce((a, b) => a + b, 0) - 100) < 0.01, { message: "Split percentages must total 100%" }),
 });
 export const AddBudgetActionSchema = z.object({
+    categoryId: z.string().min(1).max(200).nullable().optional(),
     amount: z.number().positive(),
     description: z.string().min(2).max(100),
     budgetId: z.string().min(1),

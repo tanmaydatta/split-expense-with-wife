@@ -21,7 +21,28 @@ export interface GroupBudgetData {
 	budgetName: string;
 	description: string | null;
 }
-export interface BudgetEntry {
+export type RecordKind = "expense" | "budget";
+export type CategorySource =
+	| "manual"
+	| "linked"
+	| "scheduled"
+	| "rule"
+	| "provider"
+	| "ai"
+	| "uncategorised";
+export interface RecordCategory {
+	categoryId?: string | null;
+	categoryName?: string | null;
+	categorySource?: CategorySource;
+	categoryVersion?: number;
+}
+export interface GroupCategory {
+	id: string;
+	name: string;
+	slug?: string | null;
+	archivedAt?: string | null;
+}
+export interface BudgetEntry extends RecordCategory {
 	id: string;
 	description: string;
 	addedTime: string;
@@ -33,7 +54,7 @@ export interface BudgetEntry {
 	currency: string;
 	linkedTransactionIds?: string[];
 }
-export interface Transaction {
+export interface Transaction extends RecordCategory {
 	description: string;
 	amount: number;
 	created_at: string;
@@ -68,6 +89,7 @@ export interface LoginRequest {
 	password: string;
 }
 export interface BudgetRequest {
+	categoryId?: string | null;
 	amount: number;
 	description: string;
 	budgetId: string;
@@ -75,16 +97,17 @@ export interface BudgetRequest {
 	currency: string;
 }
 export interface FinanceListFilters {
-    q?: string;
-    dateFrom?: string;
-    dateTo?: string;
-    minAmount?: number;
-    maxAmount?: number;
-    currency?: string;
-    sort?: "newest" | "oldest" | "amount-asc" | "amount-desc";
+	categoryId?: string;
+	q?: string;
+	dateFrom?: string;
+	dateTo?: string;
+	minAmount?: number;
+	maxAmount?: number;
+	currency?: string;
+	sort?: "newest" | "oldest" | "amount-asc" | "amount-desc";
 }
 export interface BudgetListRequest extends FinanceListFilters {
-    direction?: "all" | "credit" | "debit";
+	direction?: "all" | "credit" | "debit";
 	offset: number;
 	budgetId: string;
 	q?: string;
@@ -101,6 +124,7 @@ export interface BudgetMonthlyRequest {
 	currency?: string;
 }
 export interface SplitRequest {
+	categoryId?: string | null;
 	amount: number;
 	description: string;
 	paidByShares: Record<string, number>;
@@ -108,6 +132,7 @@ export interface SplitRequest {
 	currency: string;
 }
 export interface SplitNewRequest {
+	categoryId?: string | null;
 	amount: number;
 	description: string;
 	paidByShares: Record<string, number>;
@@ -118,7 +143,7 @@ export interface SplitDeleteRequest {
 	id: string;
 }
 export interface TransactionsListRequest extends FinanceListFilters {
-    direction?: "all" | "owed" | "owe" | "zero";
+	direction?: "all" | "owed" | "owe" | "zero";
 	offset: number;
 	q?: string;
 }
@@ -165,7 +190,11 @@ export interface TransactionsListResponse {
 	transactionDetails: Record<string, TransactionUser[]>;
 }
 export interface DashboardSubmitRequest {
-    bankSource?: { bankTransactionId: string; sourceVersion: number };
+	categoryId?: string | null;
+	bankSource?: {
+		bankTransactionId: string;
+		sourceVersion: number;
+	};
 	expense?: {
 		amount: number;
 		description: string;
@@ -217,7 +246,7 @@ export interface ErrorResponse {
 	error: string;
 	statusCode: number;
 }
-export interface FrontendTransaction {
+export interface FrontendTransaction extends RecordCategory {
 	transactionId: string;
 	description: string;
 	totalAmount: number;
@@ -573,6 +602,7 @@ export declare const BillMonthQuerySchema: z.ZodObject<
 >;
 export declare const BillPaymentSchema: z.ZodObject<
 	{
+		categoryId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
 		occurrenceId: z.ZodString;
 		paid: z.ZodBoolean;
 		linkedTransactionId: z.ZodOptional<z.ZodString>;
@@ -716,6 +746,7 @@ export type ScheduledActionResultData = {
 	budgetEntryId?: string;
 } | null;
 export interface AddExpenseActionData {
+	categoryId?: string | null;
 	amount: number;
 	description: string;
 	currency: string;
@@ -723,6 +754,7 @@ export interface AddExpenseActionData {
 	splitPctShares: Record<string, number>;
 }
 export interface AddBudgetActionData {
+	categoryId?: string | null;
 	amount: number;
 	description: string;
 	budgetId: string;
@@ -914,6 +946,7 @@ export declare const DashboardFormSchema: z.ZodObject<
 >;
 export declare const AddExpenseActionSchema: z.ZodObject<
 	{
+		categoryId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
 		amount: z.ZodNumber;
 		description: z.ZodString;
 		currency: z.ZodString;
@@ -924,6 +957,7 @@ export declare const AddExpenseActionSchema: z.ZodObject<
 >;
 export declare const AddBudgetActionSchema: z.ZodObject<
 	{
+		categoryId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
 		amount: z.ZodNumber;
 		description: z.ZodString;
 		budgetId: z.ZodString;
@@ -949,6 +983,7 @@ export declare const CreateScheduledActionSchema: z.ZodObject<
 			readonly [
 				z.ZodObject<
 					{
+						categoryId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
 						amount: z.ZodNumber;
 						description: z.ZodString;
 						currency: z.ZodString;
@@ -959,6 +994,7 @@ export declare const CreateScheduledActionSchema: z.ZodObject<
 				>,
 				z.ZodObject<
 					{
+						categoryId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
 						amount: z.ZodNumber;
 						description: z.ZodString;
 						budgetId: z.ZodString;
@@ -992,6 +1028,7 @@ export declare const UpdateScheduledActionSchema: z.ZodObject<
 				readonly [
 					z.ZodObject<
 						{
+							categoryId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
 							amount: z.ZodNumber;
 							description: z.ZodString;
 							currency: z.ZodString;
@@ -1002,6 +1039,7 @@ export declare const UpdateScheduledActionSchema: z.ZodObject<
 					>,
 					z.ZodObject<
 						{
+							categoryId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
 							amount: z.ZodNumber;
 							description: z.ZodString;
 							budgetId: z.ZodString;
@@ -1039,24 +1077,24 @@ export declare const ScheduledActionListQuerySchema: z.ZodObject<
 		>;
 		actionType: z.ZodDefault<
 			z.ZodEnum<{
+				all: "all";
 				add_expense: "add_expense";
 				add_budget: "add_budget";
-				all: "all";
 			}>
 		>;
 		frequency: z.ZodDefault<
 			z.ZodEnum<{
+				all: "all";
 				daily: "daily";
 				weekly: "weekly";
 				monthly: "monthly";
-				all: "all";
 			}>
 		>;
 		sort: z.ZodDefault<
 			z.ZodEnum<{
+				name: "name";
 				recent: "recent";
 				next_run: "next_run";
-				name: "name";
 			}>
 		>;
 	},

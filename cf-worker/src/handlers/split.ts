@@ -1,3 +1,4 @@
+import { categoryFilterCondition, readRecordCategories } from "../utils/categories";
 import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { ulid } from "ulid";
 import type {
@@ -79,6 +80,7 @@ async function getTransactionsList(
 	userId: string,
 	groupId: string,
 	db: ReturnType<typeof getDb>,
+ env: Env,
 ): Promise<{
 	transactions: Transaction[];
 	transactionDetails: Record<string, TransactionUser[]>;
@@ -97,6 +99,8 @@ async function getTransactionsList(
 			transactions.currency,
 		),
 	];
+ const categoryFilter = await categoryFilterCondition(env,groupIdStr,"expense",transactions.transactionId,body.categoryId);
+ if(categoryFilter)baseConditions.push(categoryFilter);
 	const directionCondition = expenseDirectionCondition(
 		body.direction,
 		userId,
@@ -155,11 +159,13 @@ async function getTransactionsList(
 		}
 	}
 
+ const categoryMap = await readRecordCategories(env,groupIdStr,"expense",txIds);
 	// Transform to match production format, embedding linkedBudgetEntryIds
 	const transactionsList = transformTransactionsList(rawTransactionsList).map(
 		(t) => ({
 			...t,
 			linkedBudgetEntryIds: linkMap[t.transaction_id] ?? [],
+ ...categoryMap.get(t.transaction_id),
 		}),
 	);
 
@@ -478,6 +484,7 @@ export async function handleTransactionsList(
 				session.user.id,
 				session.group.groupid,
 				db,
+ env,
 			);
 
 			return createJsonResponse(response, 200, {}, request, env);
