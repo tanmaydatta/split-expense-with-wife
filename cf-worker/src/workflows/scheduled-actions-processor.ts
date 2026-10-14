@@ -13,19 +13,103 @@ import type {
 } from "../../../shared-types";
 import { getDb } from "../db";
 import { user } from "../db/schema/auth-schema";
-import { bills, budgetEntries, expenseBudgetLinks, groupBudgets, scheduledActionHistory, scheduledActions, transactions } from "../db/schema/schema";
-import { calculateNextExecutionDate } from "../handlers/scheduled-actions";
 import {
-	createHistoryId,
-	formatSQLiteTime,
-	parseSQLiteTime,
-} from "../utils";
+	bills,
+	budgetEntries,
+	expenseBudgetLinks,
+	groupBudgets,
+	scheduledActionHistory,
+	scheduledActions,
+	transactions,
+} from "../db/schema/schema";
+import { calculateNextExecutionDate } from "../handlers/scheduled-actions";
+import { createHistoryId, formatSQLiteTime, parseSQLiteTime } from "../utils";
 import {
 	createBudgetEntryStatementsForScheduledAction,
 	createSplitTransactionStatements,
 	generateDeterministicBudgetId,
 	generateDeterministicTransactionId,
 } from "../utils/scheduled-action-execution";
+
+import {
+	listCategories,
+	readRecordCategories,
+	resolveCategory,
+	type CategoryDecision,
+} from "../utils/categories";
+
+/** A bill pair uses an existing saved choice, then the expense default, then budget default. */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: bounded live-record and action ownership checks protect shared recurring precedence
+export async function resolveScheduledPairCategory(
+	env: Env,
+	action: ScheduledActionSelect,
+	groupId: string,
+	date: string,
+): Promise<CategoryDecision | undefined> {
+	if (!(await listCategories(env, groupId)).enabled) return undefined;
+	const db = getDb(env);
+ const ownId = action.actionType === "add_expense" ? generateDeterministicTransactionId(action.id,date) : generateDeterministicBudgetId(action.id,date);
+ const own = action.actionType === "add_expense" ? await db.select({id:transactions.transactionId}).from(transactions).where(eq(transactions.transactionId,ownId)).limit(1) : await db.select({id:budgetEntries.budgetEntryId}).from(budgetEntries).where(eq(budgetEntries.budgetEntryId,ownId)).limit(1);
+ if(own.length) return undefined;
+	const bill = (
+		await db
+			.select()
+			.from(bills)
+			.where(
+				and(
+					eq(bills.groupId, groupId),
+					or(
+						eq(bills.scheduledActionId, action.id),
+						eq(bills.scheduledBudgetActionId, action.id),
+					),
+				),
+			)
+			.limit(1)
+	)[0];
+	if (!bill?.scheduledActionId || !bill.scheduledBudgetActionId)
+		return undefined;
+	const tx = generateDeterministicTransactionId(bill.scheduledActionId, date);
+	const budget = generateDeterministicBudgetId(
+		bill.scheduledBudgetActionId,
+		date,
+	);
+	for (const [kind, id] of [
+		["expense", tx],
+		["budget", budget],
+	] as const) {
+  const active = kind === "expense" ? await db.select({id:transactions.transactionId}).from(transactions).where(and(eq(transactions.transactionId,id),eq(transactions.groupId,groupId),isNull(transactions.deleted))).limit(1) : await db.select({id:budgetEntries.budgetEntryId}).from(budgetEntries).innerJoin(groupBudgets,eq(groupBudgets.id,budgetEntries.budgetId)).where(and(eq(budgetEntries.budgetEntryId,id),eq(groupBudgets.groupId,groupId),isNull(budgetEntries.deleted),isNull(groupBudgets.deleted))).limit(1);
+  if(!active.length) continue;
+		const saved = (await readRecordCategories(env, groupId, kind, [id])).get(
+			id,
+		);
+		if (
+			saved &&
+			(saved.categoryId ||
+				["manual", "scheduled", "linked"].includes(saved.categorySource ?? ""))
+		)
+			return {
+				categoryId: saved.categoryId ?? null,
+				source: "linked",
+				linkedFrom: { kind, id },
+			};
+	}
+	const actions = await db
+		.select({action:scheduledActions})
+		.from(scheduledActions).innerJoin(user,eq(user.id,scheduledActions.userId))
+		.where(and(eq(user.groupid,groupId),inArray(scheduledActions.id,[bill.scheduledActionId,bill.scheduledBudgetActionId])));
+ if(actions.length!==2) return undefined;
+	const expense = actions.find((a) => a.action.id === bill.scheduledActionId)
+		?.action.actionData as AddExpenseActionData | undefined;
+	const budgetData = actions.find((a) => a.action.id === bill.scheduledBudgetActionId)
+		?.action.actionData as AddBudgetActionData | undefined;
+	return resolveCategory(env, groupId, {
+		scheduledCategoryId:
+			expense?.categoryId !== undefined
+				? expense.categoryId
+				: budgetData?.categoryId,
+		description: expense?.description ?? budgetData?.description ?? "",
+	});
+}
 
 // Helper function to check if action was already executed
 async function checkActionAlreadyExecuted(
@@ -266,6 +350,12 @@ export async function processExpenseAction(
 		db,
 		env,
 		transactionId,
+		await resolveScheduledPairCategory(
+			env,
+			action,
+			userData.groupid || "",
+			currentDate,
+		),
 	);
 
 	return {
@@ -292,6 +382,7 @@ export async function processBudgetAction(
 		amount:
 			budgetData.type === "Credit" ? budgetData.amount : -budgetData.amount,
 		description: budgetData.description,
+		categoryId: budgetData.categoryId,
 		budgetId: budgetData.budgetId,
 		groupid: userData.groupid || "",
 		currency: budgetData.currency,
@@ -302,6 +393,13 @@ export async function processBudgetAction(
 		budgetRequest,
 		db,
 		budgetId,
+		env,
+		await resolveScheduledPairCategory(
+			env,
+			action,
+			userData.groupid,
+			currentDate,
+		),
 	);
 
 	return {
@@ -320,20 +418,61 @@ export async function executeActionStatements(
 	now: Date = new Date(),
 ): Promise<void> {
 	const db = getDb(env);
-	const linkedBills = await db.select().from(bills).where(or(eq(bills.scheduledActionId, action.id), eq(bills.scheduledBudgetActionId, action.id)));
+	const linkedBills = await db
+		.select()
+		.from(bills)
+		.where(
+			or(
+				eq(bills.scheduledActionId, action.id),
+				eq(bills.scheduledBudgetActionId, action.id),
+			),
+		);
 	const pairStatements = linkedBills.flatMap((bill) => {
 		if (!bill.scheduledActionId || !bill.scheduledBudgetActionId) return [];
-		const transactionId = generateDeterministicTransactionId(bill.scheduledActionId, now.toISOString().slice(0, 10));
-		const budgetEntryId = generateDeterministicBudgetId(bill.scheduledBudgetActionId, now.toISOString().slice(0, 10));
+		const transactionId = generateDeterministicTransactionId(
+			bill.scheduledActionId,
+			now.toISOString().slice(0, 10),
+		);
+		const budgetEntryId = generateDeterministicBudgetId(
+			bill.scheduledBudgetActionId,
+			now.toISOString().slice(0, 10),
+		);
 		const linkId = `ebl_bill_${bill.id}_${now.toISOString().slice(0, 10)}`;
-		return [{ query: db.insert(expenseBudgetLinks).select(db.select({
-			id: sql<string>`${linkId}`.as("id"), transactionId: transactions.transactionId,
-			budgetEntryId: budgetEntries.budgetEntryId, groupId: sql<string>`${bill.groupId}`.as("group_id"),
-			createdAt: sql<string>`${formatSQLiteTime()}`.as("created_at"),
-		}).from(transactions).innerJoin(budgetEntries, eq(budgetEntries.budgetEntryId, budgetEntryId))
-			.innerJoin(groupBudgets, eq(groupBudgets.id, budgetEntries.budgetId))
-			.where(and(eq(transactions.transactionId, transactionId), eq(transactions.groupId, bill.groupId), eq(groupBudgets.groupId, bill.groupId), isNull(transactions.deleted), isNull(budgetEntries.deleted))))
-			.onConflictDoNothing() }];
+		return [
+			{
+				query: db
+					.insert(expenseBudgetLinks)
+					.select(
+						db
+							.select({
+								id: sql<string>`${linkId}`.as("id"),
+								transactionId: transactions.transactionId,
+								budgetEntryId: budgetEntries.budgetEntryId,
+								groupId: sql<string>`${bill.groupId}`.as("group_id"),
+								createdAt: sql<string>`${formatSQLiteTime()}`.as("created_at"),
+							})
+							.from(transactions)
+							.innerJoin(
+								budgetEntries,
+								eq(budgetEntries.budgetEntryId, budgetEntryId),
+							)
+							.innerJoin(
+								groupBudgets,
+								eq(groupBudgets.id, budgetEntries.budgetId),
+							)
+							.where(
+								and(
+									eq(transactions.transactionId, transactionId),
+									eq(transactions.groupId, bill.groupId),
+									eq(groupBudgets.groupId, bill.groupId),
+									isNull(transactions.deleted),
+									isNull(budgetEntries.deleted),
+								),
+							),
+					)
+					.onConflictDoNothing(),
+			},
+		];
 	});
 
 	// Calculate next execution date

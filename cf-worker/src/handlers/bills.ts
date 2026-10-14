@@ -10,6 +10,7 @@ import { bills, billOccurrences, billReminders, budgetEntries, expenseBudgetLink
 import type { CurrentSession } from "../types";
 import { createErrorResponse, createJsonResponse, formatZodError, generateRandomId, withAuth } from "../utils";
 import { allocatedShares, dueDatesInMonth } from "../utils/bill-dates";
+import { resolveCategory } from "../utils/categories";
 import { createBudgetEntryStatements, createSplitTransactionFromRequest, generateDeterministicBudgetId, generateDeterministicTransactionId } from "../utils/scheduled-action-execution";
 
 type Db = ReturnType<typeof getDb>;
@@ -283,18 +284,19 @@ export async function handleBillPayment(request: Request, env: Env): Promise<Res
 		let budgetEntryId: string | undefined;
 		if (input.createExpense && transactionId) {
 			const amount = majorAmount(occurrence.amountMinor, occurrence.currency);
+			const category = await resolveCategory(env, group, { categoryId: input.categoryId, description: occurrence.title });
 			const result = await createSplitTransactionFromRequest({
 				amount, description: occurrence.title, currency: occurrence.currency,
 				paidByShares: { [occurrence.payerUserId]: amount },
 				splitPctShares: Object.fromEntries(Object.entries(occurrence.splitBasisPoints).map(([id, basisPoints]) => [id, basisPoints / 100])),
-			}, group, db, env, transactionId);
+			}, group, db, env, transactionId, undefined, category);
 			if (!result.statements.length) return createErrorResponse("This expense already exists. Link it instead", 409, request, env);
 			queries.push(...result.statements.map((statement) => statement.query));
 			if (input.budgetId) {
 				const budget = (await db.select().from(groupBudgets).where(and(eq(groupBudgets.id, input.budgetId), eq(groupBudgets.groupId, group), isNull(groupBudgets.deleted))).limit(1))[0];
 				if (!budget) return createErrorResponse("Budget category not found in this group", 400, request, env);
 				budgetEntryId = `bge_bill_${occurrence.id}`;
-				const debit = await createBudgetEntryStatements({ amount: -amount, description: occurrence.title, budgetId: budget.id, currency: occurrence.currency, groupid: group }, db, budgetEntryId);
+				const debit = await createBudgetEntryStatements({ amount: -amount, description: occurrence.title, budgetId: budget.id, currency: occurrence.currency, groupid: group }, db, budgetEntryId, undefined, env, category);
 				if (!debit.statements.length) return createErrorResponse("Budget debit already exists", 409, request, env);
 				queries.push(...debit.statements.map((statement) => statement.query));
 				queries.push(db.insert(expenseBudgetLinks).values({ id: ulid(), transactionId, budgetEntryId, groupId: group, createdAt: new Date().toISOString() }));

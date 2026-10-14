@@ -1,3 +1,4 @@
+import { listCategories, validateCategory } from "../utils/categories";
 import { and, asc, count, desc, eq, inArray, sql } from "drizzle-orm";
 import { ulid } from "ulid";
 import { z } from "zod";
@@ -236,6 +237,9 @@ export async function handleScheduledActionCreate(
 			);
 		}
 		const body: CreateScheduledActionRequest = parsed.data;
+		if ((await listCategories(env,String(group.groupid))).enabled && body.actionData.categoryId !== undefined) {
+ try { await validateCategory(env,String(group.groupid),body.actionData.categoryId); } catch { return createErrorResponse("Choose an active category in this group",400,request,env); }
+ }
 		// group and actionData already validated by schema
 
 		// Calculate next execution date
@@ -514,6 +518,7 @@ async function processScheduledActionUpdate(
 	body: UpdateScheduledActionRequest,
 	group: ParsedGroup,
 	db: ReturnType<typeof getDb>,
+ env:Env,
 ): Promise<void> {
 	// Get existing action
 	const existingAction = await getExistingAction(db, body.id, group.userids);
@@ -523,6 +528,10 @@ async function processScheduledActionUpdate(
 
 	// Validate and set action data if provided
 	validateAndSetActionData(body, existingAction, group, updateData);
+ if(updateData.actionData && (await listCategories(env,String(group.groupid))).enabled) {
+ const id=updateData.actionData.categoryId;
+ if(id !== undefined && id !== existingAction.actionData.categoryId) await validateCategory(env,String(group.groupid),id);
+ }
 
 	// Calculate next execution date
 	calculateAndSetNextExecutionDate(body, existingAction, updateData);
@@ -579,7 +588,7 @@ export async function handleScheduledActionUpdate(
 				return createErrorResponse(parseResult.error, 400, request, env);
 			}
 
-			await processScheduledActionUpdate(parseResult.data, group, db);
+			await processScheduledActionUpdate(parseResult.data, group, db, env);
 
 			return createJsonResponse(
 				{ message: "Scheduled action updated successfully" },

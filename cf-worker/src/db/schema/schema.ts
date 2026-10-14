@@ -1,5 +1,6 @@
 import {
 	index,
+ foreignKey,
 	integer,
 	primaryKey,
 	real,
@@ -48,6 +49,23 @@ export const groupBudgets = sqliteTable(
 		),
 	],
 );
+
+export const groupCategories = sqliteTable("group_categories", {
+ id: text("id").primaryKey(), groupId: text("group_id").notNull().references(() => groups.groupid),
+ name: text("name").notNull(), slug: text("slug"), archivedAt: text("archived_at"),
+ createdAt: text("created_at").notNull().default("CURRENT_TIMESTAMP"),
+}, table => [uniqueIndex("group_categories_identity").on(table.groupId,table.id),uniqueIndex("group_categories_slug").on(table.groupId,table.slug)]);
+export const recordCategories = sqliteTable("record_categories", {
+ groupId: text("group_id").notNull().references(() => groups.groupid), recordKind: text("record_kind").notNull(),
+ recordId: text("record_id").notNull(), categoryId: text("category_id"),
+ source: text("source").notNull(), version: integer("version").notNull().default(1), mutationId: text("mutation_id"),
+}, table => [primaryKey({columns:[table.groupId,table.recordKind,table.recordId]}),foreignKey({columns:[table.groupId,table.categoryId],foreignColumns:[groupCategories.groupId,groupCategories.id]})]);
+export const categoryRules = sqliteTable("category_rules", {
+ id: text("id").primaryKey(), groupId: text("group_id").notNull().references(() => groups.groupid),
+ pattern: text("pattern").notNull(), matchKind: text("match_kind").notNull(),
+ categoryId: text("category_id").notNull(),
+ createdBy: text("created_by").notNull(), createdAt: text("created_at").notNull().default("CURRENT_TIMESTAMP"),
+}, table => [foreignKey({columns:[table.groupId,table.categoryId],foreignColumns:[groupCategories.groupId,groupCategories.id]})]);
 
 export const transactions = sqliteTable(
 	"transactions",

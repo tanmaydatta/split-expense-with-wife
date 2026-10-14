@@ -1,8 +1,9 @@
+import { editRecordCategory, listCategories } from "../utils/categories";
 import { createExecutionContext, env as testEnv } from "cloudflare:test";
 import { eq } from "drizzle-orm";
 import worker from "../index";
 import { getDb } from "../db";
-import { bankAccounts, bankConnections, bankTransactions, budgetEntries, expenseBudgetLinks, transactions, transactionUsers } from "../db/schema/schema";
+import { bankAccounts, bankConnections, bankTransactions, budgetTotals, budgetEntries, expenseBudgetLinks, transactions, transactionUsers } from "../db/schema/schema";
 import { encryptBankToken } from "../utils/bank-token";
 import { syncBankConnection } from "../utils/bank-sync";
 import { completeCleanupDatabase, createTestUserData, setupAndCleanDatabase, signInAndGetCookies } from "./test-utils";
@@ -10,16 +11,39 @@ const env={...(testEnv as unknown as Env),LUNCH_FLOW_ENABLED:"true",BANK_TOKEN_E
 const date=new Date().toISOString().slice(0,10);
 describe("Bank review existing records and provisional selections",()=>{
  beforeAll(async()=>setupAndCleanDatabase(env));beforeEach(async()=>completeCleanupDatabase(env));afterEach(()=>vi.restoreAllMocks());
- async function fixture(){
+ async function fixture(categories=false){
   const users=await createTestUserData(env);const db=getDb(env);const cookie=await signInAndGetCookies(env,users.user1.email,users.user1.password);const other=await signInAndGetCookies(env,users.user2.email,users.user2.password);const now=new Date().toISOString();
   await db.insert(bankConnections).values({id:"c",userId:users.user1.id,groupId:users.testGroupId,provider:"lunch_flow",plaidItemId:"c",providerConnectionId:"c",institutionName:"Synthetic",status:"connected",accessTokenEncrypted:await encryptBankToken(env,"synthetic-key","lunch_flow"),createdAt:now,updatedAt:now});
   await db.insert(bankAccounts).values({id:"c:1",connectionId:"c",providerAccountId:"1",name:"Synthetic",type:"bank",selected:true,amountMultiplier:1});
   await db.insert(bankTransactions).values({id:"c:1:charge",connectionId:"c",userId:users.user1.id,accountId:"c:1",date,name:"Synthetic purchase",amountMinor:1000,currency:"GBP",pending:false,createdAt:now,updatedAt:now});
   await db.insert(transactions).values({transactionId:"expense",description:"Existing expense",amount:10,currency:"GBP",groupId:users.testGroupId,createdAt:date});
   await db.insert(budgetEntries).values({budgetEntryId:"budget",description:"Existing debit",amount:-10,currency:"GBP",budgetId:users.budgetIds.food,addedTime:date});
-  const call=(route:string,method="GET",body?:unknown,auth=cookie)=>worker.fetch(new Request(`https://localhost:8787/.netlify/functions/${route.startsWith("dashboard")?route:`bank-import/${route}`}`,{method,headers:{"Content-Type":"application/json",Cookie:auth},...(body?{body:JSON.stringify(body)}:{})}),env,createExecutionContext());
+  const call=(route:string,method="GET",body?:unknown,auth=cookie)=>worker.fetch(new Request(`https://localhost:8787/.netlify/functions/${route.startsWith("dashboard")?route:`bank-import/${route}`}`,{method,headers:{"Content-Type":"application/json",Cookie:auth},...(body?{body:JSON.stringify(body)}:{})}),categories?{...env,CATEGORIES_ENABLED:"true"}:env,createExecutionContext());
   return {users,db,call,other};
  }
+ it("category conflicts include manual Uncategorised and explicit confirmation aligns the pair",async()=>{
+  const {users,db,call}=await fixture(true);const categoryEnv={...env,CATEGORIES_ENABLED:"true"};const grocery=(await listCategories(categoryEnv,users.testGroupId)).categories.find(c=>c.slug==="groceries")!.id;
+  await editRecordCategory(categoryEnv,users.testGroupId,"expense","expense",null,0);await editRecordCategory(categoryEnv,users.testGroupId,"budget","budget",grocery,0);
+  const conflict=await call("match","POST",{bankTransactionId:"c:1:charge",sourceVersion:0,transactionId:"expense",budgetEntryId:"budget"});expect(conflict.status).toBe(409);expect((await conflict.json() as {categoryConflict:unknown[]}).categoryConflict).toHaveLength(2);expect(await db.select().from(expenseBudgetLinks)).toHaveLength(0);
+  expect((await call("match","POST",{bankTransactionId:"c:1:charge",sourceVersion:0,transactionId:"expense",budgetEntryId:"budget",categoryId:grocery,categoryVersions:{"expense:expense":1,"budget:budget":1}})).status).toBe(200);
+  const rows=await env.DB.prepare("SELECT category_id,source FROM record_categories WHERE group_id=?").bind(users.testGroupId).all();expect(rows.results).toHaveLength(2);expect(rows.results.every(r=>r.category_id===grocery&&r.source==="manual")).toBe(true);
+ });
+ it("pending provisional selections never alter shared categories",async()=>{
+  const {users,db,call}=await fixture(true);const categoryEnv={...env,CATEGORIES_ENABLED:"true"};const cats=(await listCategories(categoryEnv,users.testGroupId)).categories;await editRecordCategory(categoryEnv,users.testGroupId,"expense","expense",cats[0].id,0);await db.update(bankTransactions).set({pending:true});
+  const before=await env.DB.prepare("SELECT * FROM record_categories").all();expect((await call("provisional","POST",{bankTransactionId:"c:1:charge",sourceVersion:0,transactionId:"expense",categoryId:cats[1].id})).status).toBe(200);expect((await env.DB.prepare("SELECT * FROM record_categories").all()).results).toEqual(before.results);expect(await db.select().from(expenseBudgetLinks)).toHaveLength(0);
+ });
+ it("stale category versions roll back bank claim and financial associations",async()=>{
+  const {users,db,call}=await fixture(true);const categoryEnv={...env,CATEGORIES_ENABLED:"true"};const grocery=(await listCategories(categoryEnv,users.testGroupId)).categories.find(c=>c.slug==="groceries")!.id;await editRecordCategory(categoryEnv,users.testGroupId,"expense","expense",grocery,0);
+  const batch=env.DB.batch.bind(env.DB);vi.spyOn(env.DB,"batch").mockImplementationOnce(async (statements:D1PreparedStatement[])=>{await env.DB.prepare("UPDATE record_categories SET version=version+1 WHERE group_id=? AND record_kind='expense' AND record_id='expense'").bind(users.testGroupId).run();return batch(statements);});
+  expect((await call("match","POST",{bankTransactionId:"c:1:charge",sourceVersion:0,transactionId:"expense",budgetEntryId:"budget"})).status).toBe(409);expect((await db.select().from(bankTransactions))[0]).toMatchObject({rowVersion:0,reviewStatus:"unreviewed",linkedTransactionId:null});expect(await db.select().from(expenseBudgetLinks)).toHaveLength(0);
+ });
+ it("bank-prefilled new pairs use one validated manual category",async()=>{
+  const {users,db,call}=await fixture(true);const categoryEnv={...env,CATEGORIES_ENABLED:"true"};const grocery=(await listCategories(categoryEnv,users.testGroupId)).categories.find(c=>c.slug==="groceries")!.id;
+  const saved = await call("dashboard_submit","POST",{categoryId:grocery,bankSource:{bankTransactionId:"c:1:charge",sourceVersion:0},expense:{description:"New synthetic",amount:10,currency:"GBP",paidByShares:{[users.user1.id]:10},splitPctShares:{[users.user1.id]:50,[users.user2.id]:50}},budget:{description:"New synthetic",amount:-10,currency:"GBP",budgetId:users.budgetIds.food}}); expect(saved.status).toBe(200);
+  const ids=await saved.json() as {transactionId:string;budgetEntryId:string};
+  const financial=(await db.select().from(transactions).where(eq(transactions.transactionId,ids.transactionId)))[0];expect(financial).toMatchObject({amount:10,currency:"GBP",description:"New synthetic"});expect(financial.metadata).toBeTruthy();expect((await db.select().from(transactionUsers).where(eq(transactionUsers.transactionId,ids.transactionId))).length).toBeGreaterThan(0);expect((await db.select().from(budgetTotals).where(eq(budgetTotals.budgetId,users.budgetIds.food)))[0].totalAmount).toBe(-10);
+  const rows=await env.DB.prepare("SELECT category_id,source FROM record_categories WHERE group_id=?").bind(users.testGroupId).all();expect(rows.results).toHaveLength(2);expect(rows.results.every(r=>r.category_id===grocery&&r.source==="manual")).toBe(true);
+ });
  it("initial inbox includes exactly today and previous four UTC dates, excluding older and future activity", async () => {
   const {db,call}=await fixture();
   const day=(offset:number)=>{const d=new Date(`${date}T00:00:00Z`);d.setUTCDate(d.getUTCDate()+offset);return d.toISOString().slice(0,10)};

@@ -30,8 +30,18 @@ export interface GroupBudgetData {
 	description: string | null;
 }
 
+export type RecordKind = "expense" | "budget";
+export type CategorySource = "manual" | "linked" | "scheduled" | "rule" | "provider" | "ai" | "uncategorised";
+export interface RecordCategory {
+ categoryId?: string | null;
+ categoryName?: string | null;
+ categorySource?: CategorySource;
+ categoryVersion?: number;
+}
+export interface GroupCategory { id: string; name: string; slug?: string | null; archivedAt?: string | null; }
+
 // Budget types
-export interface BudgetEntry {
+export interface BudgetEntry extends RecordCategory {
 	id: string;
 	description: string;
 	addedTime: string; // ISO string format
@@ -45,7 +55,7 @@ export interface BudgetEntry {
 }
 
 // Transaction types
-export interface Transaction {
+export interface Transaction extends RecordCategory {
 	description: string;
 	amount: number;
 	created_at: string; // ISO string format
@@ -87,6 +97,7 @@ export interface LoginRequest {
 }
 
 export interface BudgetRequest {
+ categoryId?: string | null;
 	amount: number;
 	description: string;
 	budgetId: string;
@@ -95,6 +106,7 @@ export interface BudgetRequest {
 }
 
 export interface FinanceListFilters {
+ categoryId?: string;
 	q?: string;
 	dateFrom?: string; // inclusive UTC calendar date
 	dateTo?: string; // inclusive UTC calendar date
@@ -126,6 +138,7 @@ export interface BudgetMonthlyRequest {
 }
 
 export interface SplitRequest {
+ categoryId?: string | null;
 	amount: number;
 	description: string;
 	paidByShares: Record<string, number>;
@@ -134,6 +147,7 @@ export interface SplitRequest {
 }
 
 export interface SplitNewRequest {
+ categoryId?: string | null;
 	amount: number;
 	description: string;
 	paidByShares: Record<string, number>;
@@ -202,6 +216,7 @@ export interface TransactionsListResponse {
 }
 
 export interface DashboardSubmitRequest {
+ categoryId?: string | null;
 	bankSource?: { bankTransactionId: string; sourceVersion: number };
 	expense?: {
 		amount: number;
@@ -265,7 +280,7 @@ export interface ErrorResponse {
 }
 
 // Frontend-specific types (extending the backend types)
-export interface FrontendTransaction {
+export interface FrontendTransaction extends RecordCategory {
 	transactionId: string;
 	description: string;
 	totalAmount: number;
@@ -542,6 +557,7 @@ export const BillMonthQuerySchema = z.object({
 	month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/),
 });
 export const BillPaymentSchema = z.object({
+ categoryId: z.string().min(1).max(200).nullable().optional(),
 	occurrenceId: z.string().min(1),
 	paid: z.boolean(),
 	linkedTransactionId: z.string().min(1).optional(),
@@ -718,6 +734,7 @@ export type ScheduledActionResultData = {
 
 // Action-specific data types
 export interface AddExpenseActionData {
+ categoryId?: string | null;
 	amount: number;
 	description: string;
 	currency: string; // Will be validated against supported currencies
@@ -726,6 +743,7 @@ export interface AddExpenseActionData {
 }
 
 export interface AddBudgetActionData {
+ categoryId?: string | null;
 	amount: number;
 	description: string;
 	budgetId: string; // Budget ID from group_budgets table
@@ -984,6 +1002,7 @@ export const DashboardFormSchema = z
 	});
 
 export const AddExpenseActionSchema = z.object({
+ categoryId: z.string().min(1).max(200).nullable().optional(),
 	amount: z.number().positive(),
 	description: z.string().min(2).max(100),
 	currency: z.string(),
@@ -998,6 +1017,7 @@ export const AddExpenseActionSchema = z.object({
 });
 
 export const AddBudgetActionSchema = z.object({
+ categoryId: z.string().min(1).max(200).nullable().optional(),
 	amount: z.number().positive(),
 	description: z.string().min(2).max(100),
 	budgetId: z.string().min(1),

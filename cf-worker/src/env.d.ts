@@ -5,6 +5,7 @@
 declare namespace Cloudflare {
 	interface Env {
 		E2E_SEED_SECRET: string;
+        CATEGORIES_ENABLED?: string;
 	}
 }
 
@@ -36,3 +37,5 @@ declare module "cloudflare:test" {
 		): Promise<void>;
 	};
 }
+
+declare module "*.sql?raw" { const source: string; export default source; }
