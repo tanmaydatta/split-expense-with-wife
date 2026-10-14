@@ -1,0 +1,57 @@
+{
+  "model": "@cf/cloudflare/clef-flash",
+  "syntheticOnly": true,
+  "criteria": {
+    "groceries": "Supermarkets, grocery retailers, groceries and food ingredients bought to prepare at home",
+    "eating_out": "Restaurants, cafes, takeaway and prepared meals or drinks",
+    "transport": "Travel and transportation",
+    "housing": "Rent and housing",
+    "utilities": "Energy, water, internet and telephone",
+    "shopping": "Non-food retail purchases, clothing, electronics and household goods",
+    "health": "Healthcare and medicine",
+    "entertainment": "Leisure and entertainment",
+    "income": "Salary and income",
+    "other": "Other identifiable purchases",
+    "uncategorised": "Unknown, ambiguous or insufficient detail"
+  },
+  "policy": {
+    "probability": 0.75,
+    "margin": 0.2,
+    "genericAbstention": true
+  },
+  "input": {
+    "merchant": "",
+    "description": "m&s bakery items"
+  },
+  "expected": "groceries",
+  "accepted": "groceries",
+  "latencyMs": 484,
+  "margin": 0.7904,
+  "response": {
+    "model": "clef-flash",
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "groceries",
+        "probabilities": {
+          "groceries": 0.8442,
+          "eating_out": 0.0538,
+          "transport": 0.0024,
+          "housing": 0.002,
+          "utilities": 0.0028,
+          "shopping": 0.0395,
+          "health": 0.0026,
+          "entertainment": 0.0033,
+          "income": 0.0022,
+          "other": 0.0222,
+          "uncategorised": 0.025
+        },
+        "confidence": 0.6902
+      }
+    },
+    "usage": {
+      "input_tokens": 368,
+      "output_tokens": 0
+    }
+  }
+}
