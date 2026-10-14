@@ -80,3 +80,6 @@ plan.md
 *drizzle.md
 migrate-passwords.sh
 .playwright-mcp
+
+# Private household category preview manifests (IDs and description hashes)
+.category-backfill/
