@@ -8,7 +8,7 @@ import {createHash} from 'node:crypto';
 test('CLI requires exact scope, emits private resumable readonly preview and rejects changed digest',async()=>{
  const dir=await mkdtemp(join(tmpdir(),'backfill-cli-test-'));try{
  const preload=join(dir,'mock.mjs'),file=join(dir,'preview.json');
- await writeFile(preload,`globalThis.fetch=async(url,options)=>{let result;if(url.endsWith('/deployments'))result={deployments:[{versions:[{version_id:'version',percentage:100}]}]};else{const {sql,params}=JSON.parse(options.body);if(/INSERT|UPDATE|DELETE/.test(sql))throw Error('Preview attempted write');let rows=[];if(sql.includes('d1_migrations'))rows=[{name:'0031_record_categories.sql'}];else if(sql.includes('FROM group_categories'))rows=[{id:'grocery',name:'Groceries',slug:'groceries',archivedAt:null}];else if(sql.includes('SELECT kind,id FROM live')&&!params[2])rows=[{kind:'expense',id:'record'}];else if(sql.includes('l.description,r.category_id'))rows=[{kind:'expense',id:'record',description:'payment',categoryId:null,source:null,version:0}];result=[{success:true,results:rows,meta:{changes:0}}];}return {ok:true,json:async()=>({success:true,result})};};`);
+ await writeFile(preload,`globalThis.fetch=async(url,options)=>{let result;if(url.endsWith('/deployments'))result={deployments:[{versions:[{version_id:'version',percentage:100}]}]};else{const {sql,params}=JSON.parse(options.body);if(/INSERT|UPDATE|DELETE/.test(sql))throw Error('Preview attempted write');let rows=[];if(sql.includes('d1_migrations'))rows=[{name:'0032_category_maintenance_paging.sql'}];else if(sql.includes('FROM group_categories'))rows=[{id:'grocery',name:'Groceries',slug:'groceries',archivedAt:null}];else if(sql.includes("SELECT 'expense' AS kind,transaction_id")&&!params[0])rows=[{kind:'expense',id:'record'}];else if(sql.includes('l.description,r.category_id'))rows=[{kind:'expense',id:'record',description:'payment',categoryId:null,source:null,version:0}];result=[{success:true,results:rows,meta:{changes:0,rows_read:1}}];}return {ok:true,json:async()=>({success:true,result})};};`);
  const run=(...options)=>spawnSync(process.execPath,['--import',preload,'scripts/backfill-household-categories.mjs',...options],{encoding:'utf8',env:{...process.env,CF_ACCOUNT_ID:'synthetic',CF_API_TOKEN:'synthetic'}});
  assert.notEqual(run('preview').status,0);
  const common=['--group','household','--environment','prod','--deployment','version','--file',file];
@@ -30,11 +30,13 @@ globalThis.fetch=async(url,options)=>{const isAI=url.includes('/ai/run/');if(isA
 if(url.endsWith('/deployments'))result={deployments:[{versions:[{version_id:'version',percentage:100}]}]};
 else if(url.includes('/ai/run/')){const input=JSON.parse(options.body);aiCalls++;delay=aiCalls===1?3000:1000;result={answers:{category:{choice:'groceries',probabilities:Object.fromEntries(Object.keys(input.questions.category.criteria).map(key=>[key,key==='groceries'?.9:.01]))}}};}
 else{const {sql,params}=JSON.parse(options.body);if(/INSERT|UPDATE|DELETE/.test(sql))throw Error('Readonly cohort attempted write');let rows=[];
-if(sql.includes('d1_migrations'))rows=[{name:'0031_record_categories.sql'}];
+if(sql.includes('d1_migrations'))rows=[{name:'0032_category_maintenance_paging.sql'}];
 else if(sql.includes('FROM group_categories'))rows=[{id:'grocery',name:'Groceries',slug:'groceries',archivedAt:null}];
-else if(sql.includes('SELECT kind,id FROM live'))rows=candidates.filter(r=>!params[2]||r.kind>params[2]||(r.kind===params[2]&&r.id>params[5]));
+else if(sql.includes('SELECT id FROM group_budgets'))rows=[{id:'pot'}];
+else if(sql.includes("SELECT 'budget' AS kind,budget_entry_id"))rows=candidates.filter(r=>r.kind==='budget'&&r.id>params[1]);
+else if(sql.includes("SELECT 'expense' AS kind,transaction_id"))rows=candidates.filter(r=>r.kind==='expense'&&r.id>params[0]);
 else if(sql.includes('l.description,r.category_id')){const suffix=params[1].slice(1);rows=['budget','expense'].map(kind=>({kind,id:(kind==='budget'?'b':'e')+suffix,description:'Milk and bread grocery purchase',categoryId:null,source:null,version:0}));}
-result=[{success:true,results:rows,meta:{changes:0}}];}
+result=[{success:true,results:rows,meta:{changes:0,rows_read:1}}];}
 await new Promise(resolve=>setTimeout(resolve,delay));active--;if(isAI)activeAI--;else activeMetadata--;return {ok:true,json:async()=>({success:true,result})};};`);
  const run=(...options)=>spawnSync(process.execPath,['--import',preload,'scripts/backfill-household-categories.mjs',...options],{encoding:'utf8',env:{...process.env,CF_ACCOUNT_ID:'synthetic',CF_API_TOKEN:'synthetic'}});
  const common=['--group','household','--environment','prod','--deployment','version','--file',file];

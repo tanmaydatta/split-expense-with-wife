@@ -1,3 +1,4 @@
+import categoryPagingMigration from "../db/migrations/0032_category_maintenance_paging.sql?raw";
 import categoryMigration from "../db/migrations/0031_record_categories.sql?raw";
 import { sql } from "drizzle-orm";
 import { ulid } from "ulid";
@@ -254,8 +255,8 @@ export async function setupDatabase(env: Env): Promise<void> {
 	await env.DB.exec(
 		"CREATE INDEX IF NOT EXISTS expense_budget_links_group_idx ON expense_budget_links (group_id)",
 	);
- const ddl = categoryMigration.replace(/--[^\n]*/g, "").split(";").map(q => q.trim()).filter(Boolean);
- for (const query of ddl) await env.DB.prepare(query.replace("CREATE TABLE ", "CREATE TABLE IF NOT EXISTS ").replace("CREATE INDEX ", "CREATE INDEX IF NOT EXISTS ")).run();
+ const ddl = (categoryMigration+"\n"+categoryPagingMigration).replace(/--[^\n]*/g, "").split(";").map(q => q.trim()).filter(Boolean);
+ for (const query of ddl) await env.DB.prepare(query.replace("CREATE TABLE ", "CREATE TABLE IF NOT EXISTS ").replace(/CREATE INDEX (?!IF NOT EXISTS )/, "CREATE INDEX IF NOT EXISTS ")).run();
 }
 
 // Complete database cleanup - ensures total isolation between tests

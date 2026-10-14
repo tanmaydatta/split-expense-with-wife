@@ -136,9 +136,15 @@ export async function resolveCategory(
 		);
 		if (category) return { categoryId: category.id, source: "provider" };
 	}
-	const slug = await classifyCategory(env,input.merchant ?? "",input.description);
- const predicted=taxonomy.categories.find(c=>!c.archivedAt && c.slug===slug);
- if(predicted)return {categoryId:predicted.id,source:"ai"};
+	const slug = await classifyCategory(
+		env,
+		input.merchant ?? "",
+		input.description,
+	);
+	const predicted = taxonomy.categories.find(
+		(c) => !c.archivedAt && c.slug === slug,
+	);
+	if (predicted) return { categoryId: predicted.id, source: "ai" };
 	return { categoryId: null, source: "uncategorised" };
 }
 
@@ -179,15 +185,23 @@ export function assignmentStatement(
 }
 
 // A bipartite connected component, not just the first sibling. UNION terminates cycles.
-export const CATEGORY_COMPONENT_SQL = `WITH RECURSIVE component(kind,id) AS (
- SELECT ?,? UNION
- SELECT CASE component.kind WHEN 'expense' THEN 'budget' ELSE 'expense' END,
- CASE component.kind WHEN 'expense' THEN l.budget_entry_id ELSE l.transaction_id END
- FROM component JOIN expense_budget_links l ON l.group_id=? AND
- ((component.kind='expense' AND l.transaction_id=component.id) OR (component.kind='budget' AND l.budget_entry_id=component.id))
- JOIN transactions t ON t.transaction_id=l.transaction_id AND t.group_id=l.group_id AND t.deleted IS NULL
- JOIN budget_entries b ON b.budget_entry_id=l.budget_entry_id AND b.deleted IS NULL
- JOIN group_budgets g ON g.id=b.budget_id AND g.group_id=l.group_id AND g.deleted IS NULL
+export const CATEGORY_COMPONENT_SQL = `WITH RECURSIVE component(kind,id,group_id) AS (
+ SELECT ?,?,? UNION
+ SELECT 'budget',l.budget_entry_id,c.group_id
+ FROM component c CROSS JOIN expense_budget_links l INDEXED BY expense_budget_links_transaction_idx
+ ON l.transaction_id=c.id AND l.group_id=c.group_id
+ CROSS JOIN transactions t ON t.transaction_id=l.transaction_id AND t.group_id=c.group_id AND t.deleted IS NULL
+ CROSS JOIN budget_entries b ON b.budget_entry_id=l.budget_entry_id AND b.deleted IS NULL
+ CROSS JOIN group_budgets g ON g.id=b.budget_id AND g.group_id=c.group_id AND g.deleted IS NULL
+ WHERE c.kind='expense'
+ UNION
+ SELECT 'expense',l.transaction_id,c.group_id
+ FROM component c CROSS JOIN expense_budget_links l INDEXED BY expense_budget_links_budget_entry_idx
+ ON l.budget_entry_id=c.id AND l.group_id=c.group_id
+ CROSS JOIN transactions t ON t.transaction_id=l.transaction_id AND t.group_id=c.group_id AND t.deleted IS NULL
+ CROSS JOIN budget_entries b ON b.budget_entry_id=l.budget_entry_id AND b.deleted IS NULL
+ CROSS JOIN group_budgets g ON g.id=b.budget_id AND g.group_id=c.group_id AND g.deleted IS NULL
+ WHERE c.kind='budget'
  LIMIT 1001
 )`;
 const VALID_RECORD = `EXISTS(SELECT 1 FROM transactions WHERE ?='expense' AND transaction_id=? AND group_id=? AND deleted IS NULL)
@@ -301,15 +315,8 @@ function categoryComponentQuery(
 	id: string,
 	groupId: string,
 ): SQL {
-	return sql`WITH RECURSIVE component(kind,id) AS (
- SELECT ${kind},${id} UNION
- SELECT CASE component.kind WHEN 'expense' THEN 'budget' ELSE 'expense' END,
- CASE component.kind WHEN 'expense' THEN l.budget_entry_id ELSE l.transaction_id END
- FROM component JOIN expense_budget_links l ON l.group_id=${groupId} AND
- ((component.kind='expense' AND l.transaction_id=component.id) OR (component.kind='budget' AND l.budget_entry_id=component.id))
- JOIN transactions t ON t.transaction_id=l.transaction_id AND t.group_id=l.group_id AND t.deleted IS NULL
- JOIN budget_entries b ON b.budget_entry_id=l.budget_entry_id AND b.deleted IS NULL
- JOIN group_budgets g ON g.id=b.budget_id AND g.group_id=l.group_id AND g.deleted IS NULL LIMIT 1001)`;
+	const [start, afterKind, afterId, end] = CATEGORY_COMPONENT_SQL.split("?");
+	return sql`${sql.raw(start)}${kind}${sql.raw(afterKind)}${id}${sql.raw(afterId)}${groupId}${sql.raw(end)}`;
 }
 export type CategoryLinkPlan = {
 	decision?: CategoryDecision;

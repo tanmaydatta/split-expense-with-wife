@@ -152,60 +152,113 @@ export async function planBackfillComponent(
 		? { ...plan, status: "proposed", decision, categoryName: category.name }
 		: plan;
 }
-const LIVE_RECORDS_SQL = `SELECT 'expense' AS kind,transaction_id AS id,description FROM transactions WHERE group_id=? AND deleted IS NULL
- UNION ALL SELECT 'budget',b.budget_entry_id,b.description FROM budget_entries b JOIN group_budgets g ON g.id=b.budget_id WHERE g.group_id=? AND b.deleted IS NULL AND g.deleted IS NULL`;
+// Drive every financial lookup from the bounded component, never the household.
+const LIVE_COMPONENT_SQL = `SELECT c.kind,c.id,t.description FROM component c
+ CROSS JOIN transactions t ON t.transaction_id=c.id AND t.group_id=c.group_id AND t.deleted IS NULL WHERE c.kind='expense'
+ UNION ALL SELECT c.kind,c.id,b.description FROM component c
+ CROSS JOIN budget_entries b ON b.budget_entry_id=c.id AND b.deleted IS NULL
+ CROSS JOIN group_budgets g ON g.id=b.budget_id AND g.group_id=c.group_id AND g.deleted IS NULL WHERE c.kind='budget'`;
 export async function readBackfillComponent(
 	env: Env,
 	groupId: string,
 	root: { kind: RecordKind; id: string },
 ): Promise<BackfillRecord[]> {
 	const result =
-		await env.DB.prepare(`${CATEGORY_COMPONENT_SQL},live AS (${LIVE_RECORDS_SQL})
+		await env.DB.prepare(`${CATEGORY_COMPONENT_SQL},live AS (${LIVE_COMPONENT_SQL})
  SELECT c.kind,c.id,l.description,r.category_id AS categoryId,r.source,COALESCE(r.version,0) AS version FROM component c JOIN live l ON l.kind=c.kind AND l.id=c.id LEFT JOIN record_categories r ON r.group_id=? AND r.record_kind=c.kind AND r.record_id=c.id ORDER BY c.kind,c.id`)
-			.bind(root.kind, root.id, groupId, groupId, groupId, groupId)
+			.bind(root.kind, root.id, groupId, groupId)
 			.all<BackfillRecord>();
 	return result.results;
 }
-/** Reliable history identity only: explicit result ID or the processor's history/date ID contract. */
+export type BackfillRecurringIndex = Record<
+	string,
+	{ choices: Array<string | null> }
+>;
+/** Read each current-group owner's history once per job. No descriptions or raw action JSON. */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Keep reliable identity and saved-default precedence together in the bounded one-time loader.
+export async function loadBackfillRecurringIndex(
+	env: Env,
+	groupId: string,
+): Promise<BackfillRecurringIndex> {
+	const index: BackfillRecurringIndex = {};
+	const owners = await env.DB.prepare("SELECT id FROM user WHERE groupid=?")
+		.bind(groupId)
+		.all<{ id: string }>();
+	for (const owner of owners.results) {
+		{
+			const rows =
+				await env.DB.prepare(`SELECT h.id,h.scheduled_action_id AS actionId,h.action_type AS kind,h.executed_at AS executed,
+    json_extract(CASE WHEN json_valid(h.result_data) THEN h.result_data ELSE '{}' END,'$.transactionId') AS transactionId,
+    CASE WHEN json_type(CASE WHEN json_valid(h.action_data) THEN h.action_data ELSE '{}' END,'$.categoryId') IS NOT NULL THEN json_extract(h.action_data,'$.categoryId') ELSE json_extract(CASE WHEN json_valid(a.action_data) THEN a.action_data ELSE '{}' END,'$.categoryId') END AS categoryId,
+    CASE WHEN json_type(CASE WHEN json_valid(h.action_data) THEN h.action_data ELSE '{}' END,'$.categoryId') IS NOT NULL OR json_type(CASE WHEN json_valid(a.action_data) THEN a.action_data ELSE '{}' END,'$.categoryId') IS NOT NULL THEN 1 ELSE 0 END AS hasDefault
+    FROM scheduled_action_history h INDEXED BY scheduled_action_history_user_executed_idx
+    CROSS JOIN scheduled_actions a ON a.id=h.scheduled_action_id
+    CROSS JOIN user action_owner ON action_owner.id=a.user_id AND action_owner.groupid=?
+    WHERE h.user_id=? AND h.execution_status='success'
+    LIMIT 5001`)
+					.bind(groupId, owner.id)
+					.all<{
+						id: string;
+						actionId: string;
+						kind: string;
+						executed: string;
+						transactionId: string | null;
+						categoryId: string | null;
+						hasDefault: number;
+					}>();
+			if (rows.results.length > 5000)
+				throw Error(
+					"Recurring history exceeds the per-owner 5000-row maintenance limit",
+				);
+			for (const row of rows.results) {
+				const kind =
+					row.kind === "add_expense"
+						? "expense"
+						: row.kind === "add_budget"
+							? "budget"
+							: null;
+				if (!kind) continue;
+				const ids = new Set<string>();
+				if (kind === "expense" && row.transactionId) ids.add(row.transactionId);
+				const date = row.id.slice(-10);
+				if (
+					/^\d{4}-\d{2}-\d{2}$/.test(date) &&
+					row.id === `hist_${row.actionId}-${date}`
+				)
+					ids.add(
+						`${kind === "expense" ? "tx" : "bge"}_${row.actionId}_${date}`,
+					);
+				for (const recordId of ids) {
+					const recordKey = `${kind}:${recordId}`;
+					index[recordKey] ??= { choices: [] };
+					const entry = index[recordKey];
+					if (row.hasDefault) entry.choices.push(row.categoryId);
+				}
+			}
+		}
+	}
+	return index;
+}
+/** Matching is in memory against the once-loaded scoped history index. */
 export async function recurringBackfillChoices(
 	env: Env,
 	groupId: string,
 	records: BackfillRecord[],
+	providedIndex?: BackfillRecurringIndex,
 ): Promise<{
 	mapped: Set<string>;
 	choices: Map<string, Array<string | null>>;
 }> {
-	const rows =
-		await env.DB.prepare(`WITH wanted AS (SELECT json_extract(value,'$.kind') AS kind,json_extract(value,'$.id') AS id FROM json_each(?))
- SELECT w.kind,w.id,
- CASE WHEN json_type(CASE WHEN json_valid(h.action_data) THEN h.action_data ELSE '{}' END,'$.categoryId') IS NOT NULL THEN json_extract(h.action_data,'$.categoryId') ELSE json_extract(CASE WHEN json_valid(a.action_data) THEN a.action_data ELSE '{}' END,'$.categoryId') END AS categoryId,
- CASE WHEN json_type(CASE WHEN json_valid(h.action_data) THEN h.action_data ELSE '{}' END,'$.categoryId') IS NOT NULL OR json_type(CASE WHEN json_valid(a.action_data) THEN a.action_data ELSE '{}' END,'$.categoryId') IS NOT NULL THEN 1 ELSE 0 END AS hasDefault
- FROM wanted w JOIN scheduled_action_history h ON h.execution_status='success' AND h.action_type=CASE w.kind WHEN 'expense' THEN 'add_expense' ELSE 'add_budget' END AND (
- (w.kind='expense' AND json_extract(CASE WHEN json_valid(h.result_data) THEN h.result_data ELSE '{}' END,'$.transactionId')=w.id)
- OR (h.id='hist_'||h.scheduled_action_id||'-'||substr(h.id,-10) AND substr(h.id,-10) GLOB '????-??-??' AND w.id=CASE w.kind WHEN 'expense' THEN 'tx_' ELSE 'bge_' END||h.scheduled_action_id||'_'||substr(h.id,-10)))
- JOIN user history_owner ON history_owner.id=h.user_id AND history_owner.groupid=?
- JOIN scheduled_actions a ON a.id=h.scheduled_action_id JOIN user action_owner ON action_owner.id=a.user_id AND action_owner.groupid=?`)
-			.bind(
-				JSON.stringify(records.map(({ kind, id }) => ({ kind, id }))),
-				groupId,
-				groupId,
-			)
-			.all<{
-				kind: RecordKind;
-				id: string;
-				categoryId: string | null;
-				hasDefault: number;
-			}>();
+	const index =
+		providedIndex ?? (await loadBackfillRecurringIndex(env, groupId));
 	const mapped = new Set<string>(),
 		choices = new Map<string, Array<string | null>>();
-	for (const row of rows.results) {
-		const id = key(row);
+	for (const record of records) {
+		const id = key(record),
+			entry = index[id];
+		if (!entry) continue;
 		mapped.add(id);
-		if (row.hasDefault) {
-			const list = choices.get(id) ?? [];
-			list.push(row.categoryId);
-			choices.set(id, list);
-		}
+		if (entry.choices.length) choices.set(id, entry.choices);
 	}
 	return { mapped, choices };
 }
@@ -252,7 +305,7 @@ export async function applyBackfillComponent(
 	// binding exact text below also catches edits after this reread, without a D1 hash function.
 	const snapshot = JSON.stringify(current);
 	const result =
-		await env.DB.prepare(`${CATEGORY_COMPONENT_SQL},live AS (${LIVE_RECORDS_SQL}),expected AS (
+		await env.DB.prepare(`${CATEGORY_COMPONENT_SQL},live AS (${LIVE_COMPONENT_SQL}),expected AS (
  SELECT json_extract(value,'$.kind') AS kind,json_extract(value,'$.id') AS id,json_extract(value,'$.description') AS description,json_extract(value,'$.version') AS version,json_extract(value,'$.source') AS source,json_extract(value,'$.categoryId') AS category_id FROM json_each(?))
  INSERT INTO record_categories(group_id,record_kind,record_id,category_id,source,version)
  SELECT ?,c.kind,c.id,?,?,1 FROM component c JOIN live l ON l.kind=c.kind AND l.id=c.id LEFT JOIN record_categories r ON r.group_id=? AND r.record_kind=c.kind AND r.record_id=c.id
@@ -265,8 +318,6 @@ export async function applyBackfillComponent(
 			.bind(
 				plan.records[0].kind,
 				plan.records[0].id,
-				groupId,
-				groupId,
 				groupId,
 				snapshot,
 				groupId,
@@ -288,17 +339,34 @@ export async function readBackfillCandidates(
 	groupId: string,
 	cursor: { kind: RecordKind; id: string } | null,
 ): Promise<Array<{ kind: RecordKind; id: string }>> {
-	const result = await env.DB.prepare(
-		`WITH live AS (${LIVE_RECORDS_SQL}) SELECT kind,id FROM live WHERE (? IS NULL OR kind>? OR (kind=? AND id>?)) ORDER BY kind,id LIMIT 100`,
-	)
-		.bind(
-			groupId,
-			groupId,
-			cursor?.kind ?? null,
-			cursor?.kind ?? null,
-			cursor?.kind ?? null,
-			cursor?.id ?? null,
+	const rows: Array<{ kind: RecordKind; id: string }> = [];
+	if (cursor?.kind !== "expense") {
+		const budgets = await env.DB.prepare(
+			"SELECT id FROM group_budgets WHERE group_id=? AND deleted IS NULL LIMIT 101",
 		)
-		.all<{ kind: RecordKind; id: string }>();
-	return result.results;
+			.bind(groupId)
+			.all<{ id: string }>();
+		if (budgets.results.length > 100)
+			throw Error("Household exceeds the 100-budget maintenance limit");
+		for (const budget of budgets.results) {
+			const result =
+				await env.DB.prepare(`SELECT 'budget' AS kind,budget_entry_id AS id FROM budget_entries
+    WHERE budget_id=? AND deleted IS NULL AND budget_entry_id>? ORDER BY budget_entry_id LIMIT 100`)
+					.bind(budget.id, cursor?.id ?? "")
+					.all<{ kind: RecordKind; id: string }>();
+			rows.push(...result.results);
+		}
+		rows.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+		if (rows.length >= 100) return rows.slice(0, 100);
+	}
+	const result =
+		await env.DB.prepare(`SELECT 'expense' AS kind,transaction_id AS id FROM transactions
+  WHERE transaction_id>? AND group_id=? AND deleted IS NULL ORDER BY transaction_id LIMIT ?`)
+			.bind(
+				cursor?.kind === "expense" ? cursor.id : "",
+				groupId,
+				100 - rows.length,
+			)
+			.all<{ kind: RecordKind; id: string }>();
+	return [...rows, ...result.results];
 }
