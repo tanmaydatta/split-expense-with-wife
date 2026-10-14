@@ -19,30 +19,32 @@ const statuses = ["all", "pending", "posted", "reviewed"] as const;
 export default function BankImport(): JSX.Element {
 	const [status, setStatus] = useState<(typeof statuses)[number]>("posted");
 	const [q, setQ] = useState("");
-	const [offset, setOffset] = useState(0);
+	const [cursor, setCursor] = useState("");
+ const [nextCursor, setNextCursor] = useState<string | null>(null);
 	const [reload, setReload] = useState(0);
 	const [rows, setRows] = useState<BankTransaction[]>([]);
 	const [more, setMore] = useState(false);
-	const [total, setTotal] = useState(0);
-	const [loading, setLoading] = useState(true);
+		const [loading, setLoading] = useState(true);
 	const [error, setError] = useState("");
 	const [settings, setSettings] = useState(false);
 	useEffect(() => {
 		let active = true;
 		setLoading(true);
 		const timer = setTimeout(() => {
-			const params = new URLSearchParams({ status, q, offset: String(offset) });
+			const params = new URLSearchParams({ status, q, ...(cursor ? { cursor } : {}) });
 			void api
 				.get<{
 					transactions: BankTransaction[];
 					hasMore: boolean;
-					total: number;
+					nextCursor?: string | null;
 				}>(`/bank-import/inbox?${params}`)
 				.then(({ data }) => {
 					if (active) {
-						setRows(data.transactions);
+						setRows(previous => cursor
+ ? Array.from(new Map([...previous, ...data.transactions].map(row => [row.id, row])).values())
+ : data.transactions);
 						setMore(data.hasMore);
-						setTotal(data.total);
+						setNextCursor(data.nextCursor ?? null);
 						setError("");
 					}
 				})
@@ -57,7 +59,7 @@ export default function BankImport(): JSX.Element {
 			active = false;
 			clearTimeout(timer);
 		};
-	}, [status, q, offset, reload]);
+	}, [status, q, cursor, reload]);
 	return (
 		<UiPage className="bank-page">
 			<UiPageHeader>
@@ -81,11 +83,13 @@ export default function BankImport(): JSX.Element {
 							value={q}
 							onChange={(e) => {
 								setQ(e.target.value);
-								setOffset(0);
+								setCursor("");
+ setRows([]);
+ setNextCursor(null);
 							}}
 						/>
 					</label>
-					<UiButton onClick={() => setReload((v) => v + 1)} disabled={loading}>
+					<UiButton onClick={() => { setCursor(""); setRows([]); setNextCursor(null); setReload((v) => v + 1); }} disabled={loading}>
 						Refresh
 					</UiButton>
 				</div>
@@ -96,7 +100,10 @@ export default function BankImport(): JSX.Element {
 							aria-pressed={status === value}
 							onClick={() => {
 								setStatus(value);
-								setOffset(0);
+ setReload(v => v + 1);
+								setCursor("");
+ setRows([]);
+ setNextCursor(null);
 							}}
 						>
 							{value === "posted"
@@ -106,18 +113,18 @@ export default function BankImport(): JSX.Element {
 					))}
 				</div>
 				<p className="bank-subtle">
-					{total} {status === "posted" ? "posted items to review" : "items"}
+					{cursor ? `${rows.length} items loaded` : "Showing recent activity (last 5 UTC calendar days)"}
 					{status === "pending"
 						? " · Provisional choices do not change balances"
 						: ""}
 				</p>
 				{error && <p role="alert">{error}</p>}
-				{loading ? (
+				{loading && !rows.length ? (
 					<p>Loading activity…</p>
 				) : !rows.length ? (
 					<div className="bank-empty">
-						<h2>Nothing here yet</h2>
-						<p>Choose another filter or sync a connection.</p>
+						<h2>{more ? "No recent activity" : "Nothing here yet"}</h2>
+						<p>{more ? "Choose Load more to see older activity, or adjust filters." : "Choose another filter or sync a connection."}</p>
 					</div>
 				) : (
 					<ul className="bank-compact-list">
@@ -156,22 +163,11 @@ export default function BankImport(): JSX.Element {
 					</ul>
 				)}
 				<div className="bank-toolbar bank-pagination">
-					<UiButton
-						disabled={offset === 0 || loading}
-						onClick={() => setOffset((v) => Math.max(0, v - 50))}
-					>
-						Previous
-					</UiButton>
-					<span>
-						{rows.length ? `${offset + 1}–${offset + rows.length}` : "0"}
-					</span>
-					<UiButton
-						disabled={!more || loading}
-						onClick={() => setOffset((v) => v + 50)}
-					>
-						Next
-					</UiButton>
-				</div>
+                    {more && <UiButton disabled={loading || !nextCursor} onClick={() => { if (nextCursor) { setCursor(nextCursor); setReload(v => v + 1); } }}>
+                        {loading ? "Loading…" : "Load more"}
+                    </UiButton>}
+                    <span className="bank-subtle">Older activity loads only when you choose Load more.</span>
+                </div>
 			</Surface>
 			<Dialog.Root open={settings} onOpenChange={setSettings}>
 				<Dialog.Portal>
@@ -188,7 +184,7 @@ export default function BankImport(): JSX.Element {
 								<UiButton>Close</UiButton>
 							</Dialog.Close>
 						</div>
-						<ConnectionSettings onChanged={() => setReload((v) => v + 1)} />
+						<ConnectionSettings onChanged={() => { setCursor(""); setRows([]); setNextCursor(null); setReload(v => v + 1); }} />
 					</Dialog.Content>
 				</Dialog.Portal>
 			</Dialog.Root>

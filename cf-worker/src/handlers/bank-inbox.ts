@@ -51,6 +51,11 @@ async function ownedActivity(
 		.bind(...guard.args, id)
 		.first<Record<string, unknown>>();
 }
+function validInboxDate(value: unknown): value is string {
+ if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+ const parsed = new Date(`${value}T00:00:00Z`);
+ return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+}
 export async function handleBankInbox(
 	request: Request,
 	env: Env,
@@ -98,29 +103,60 @@ export async function handleBankInbox(
 			);
 			args.push(q);
 		}
-		const offset = Math.max(
-			0,
-			Math.min(100000, Number(params.get("offset")) || 0),
-		);
-		const where = filters.join(" AND ");
-		const [rows, count] = await Promise.all([
-			env.DB.prepare(
-				`${select} WHERE ${where} ORDER BY x.date DESC,x.id LIMIT 51 OFFSET ?`,
-			)
-				.bind(...args, offset)
-				.all(),
-			env.DB.prepare(
-				`SELECT count(*) AS total FROM (${activity}) x JOIN bank_accounts a ON a.id=x.accountId JOIN bank_connections c ON c.id=x.connectionId WHERE ${where}`,
-			)
-				.bind(...args)
-				.first<{ total: number }>(),
-		]);
+		const today = new Date().toISOString().slice(0, 10);
+		const startDate = new Date(`${today}T00:00:00Z`);
+		startDate.setUTCDate(startDate.getUTCDate() - 4);
+		const windowStart = startDate.toISOString().slice(0, 10);
+		const rawCursor = params.get("cursor");
+		let cursor: { date: string; id: string; until: string; olderOnly?: boolean } | undefined;
+		if (rawCursor) {
+			try {
+				if (rawCursor.length > 2048) throw new Error("Oversized cursor");
+				cursor = JSON.parse(rawCursor);
+                if (!cursor || !validInboxDate(cursor.date) || !validInboxDate(cursor.until) || typeof cursor.id !== "string" || cursor.id.length > 500 || cursor.until > today || cursor.date > cursor.until || (cursor.olderOnly !== undefined && cursor.olderOnly !== true)) throw new Error("Invalid cursor");
+			} catch {
+				return createErrorResponse("Invalid activity cursor", 400, request, env);
+			}
+		}
+		const until = cursor?.until ?? today;
+		filters.push("x.date<=?");
+		args.push(until);
+		const baseWhere = filters.join(" AND ");
+		const pageFilters = [...filters];
+		const pageArgs = [...args];
+		if (cursor) {
+			pageFilters.push(cursor.olderOnly ? "x.date<?" : "(x.date<? OR (x.date=? AND x.id>?))");
+			pageArgs.push(cursor.date);
+			if (!cursor.olderOnly) pageArgs.push(cursor.date, cursor.id);
+		} else {
+			pageFilters.push("x.date>=?");
+			pageArgs.push(windowStart);
+		}
+		const result = await env.DB.prepare(
+			`${select} WHERE ${pageFilters.join(" AND ")} ORDER BY x.date DESC,x.id ASC LIMIT 51`,
+		).bind(...pageArgs).all();
+		const rows = result.results.slice(0, 50);
+		let hasMore = result.results.length > 50;
+		// Initial requests never load older rows; this bounded existence probe only
+		// offers the explicit Load more action, even when the recent window is empty.
+		if (!cursor && !hasMore) {
+			hasMore = Boolean(await env.DB.prepare(
+				`SELECT 1 FROM (${activity}) x JOIN bank_accounts a ON a.id=x.accountId JOIN bank_connections c ON c.id=x.connectionId WHERE ${baseWhere} AND x.date<? LIMIT 1`,
+			).bind(...args, windowStart).first());
+		}
+		const last = rows[rows.length - 1];
+		const nextCursor = hasMore ? JSON.stringify(last
+			? { date: last.date, id: last.id, until }
+			: { date: windowStart, id: "", until, olderOnly: true }) : null;
 		return createJsonResponse(
 			{
-				transactions: rows.results.slice(0, 50),
-				hasMore: rows.results.length > 50,
-				total: count?.total ?? 0,
-				offset,
+				transactions: rows,
+				hasMore,
+				nextCursor,
+				windowStart,
+				windowEnd: until,
+				total: rows.length,
+				offset: 0,
 			},
 			200,
 			{},
