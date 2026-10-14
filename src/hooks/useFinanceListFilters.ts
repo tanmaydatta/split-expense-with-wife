@@ -9,6 +9,7 @@ export const filterKeys = [
 	"minAmount",
 	"maxAmount",
 	"currency",
+ "categoryId",
 	"direction",
 	"sort",
 ] as const;

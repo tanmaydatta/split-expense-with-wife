@@ -1,3 +1,4 @@
+import { CategoriesSection } from "./CategoriesSection";
 import { Loader } from "@/components/Loader";
 import { UiPageDescription, UiPageTitle } from "@/components/ui";
 import {
@@ -65,7 +66,7 @@ const Settings: React.FC = () => {
 			<div className="settings-container">
 				<header>
 					<UiPageTitle>Settings</UiPageTitle>
-					<UiPageDescription>Manage your group, default shares, and budget categories.</UiPageDescription>
+					<UiPageDescription>Manage your group, default shares, and budgets and transaction categories.</UiPageDescription>
 				</header>
 				<div
 					style={{ display: "flex", justifyContent: "center", padding: "2rem" }}
@@ -80,7 +81,7 @@ const Settings: React.FC = () => {
 		<div className="settings-container" data-test-id="settings-container">
 			<header>
 				<UiPageTitle>Settings</UiPageTitle>
-				<UiPageDescription>Manage your group, default shares, and budget categories.</UiPageDescription>
+				<UiPageDescription>Manage your group, default shares, and budgets and transaction categories.</UiPageDescription>
 			</header>
 			{groupDetailsQuery.error && (
 				<ErrorContainer
@@ -123,6 +124,7 @@ const Settings: React.FC = () => {
 				totalPercentage={totalPercentage}
 			/>
 
+			<CategoriesSection/>
 			<BudgetsSection
 				budgets={state.budgets}
 				newBudgetName={state.newBudgetName}

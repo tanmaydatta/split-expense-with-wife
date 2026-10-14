@@ -1,3 +1,4 @@
+import { CategorySelect } from "@/components/Categories";
 import React from "react";
 import { UiButton } from "@/components/ui";
 import { ButtonRow, FormContainer } from "@/components/Form/Layout";
@@ -79,6 +80,7 @@ export const ScheduledActionForm: React.FC<ScheduledActionFormProps> = ({
 			)}
 			<ActionTypeField form={form} mode={mode} />
 			<FrequencyField form={form} />
+ <form.Field name="actionData.categoryId">{(field:any)=><CategorySelect label="Default category (optional)" value={field.state.value} onChange={value=>field.handleChange(value)} disabled={isSubmitting}/>}</form.Field>
 			<StartDateField
 				form={form}
 				mode={mode}

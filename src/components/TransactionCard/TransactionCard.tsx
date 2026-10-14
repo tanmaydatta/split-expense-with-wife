@@ -1,3 +1,4 @@
+import { CategoryBadge, CategoryEditor } from "@/components/Categories";
 import { BankRecordLinks } from "@/pages/BankImport/BankRecordLinks";
 import { Card } from "@/components/Card";
 import { ArrowDownUp, Calendar, CardText, Coin, XLg } from "@/components/Icons";
@@ -61,6 +62,7 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
 			data-transaction-id={transaction.transactionId}
 			onClick={handleClick}
 		>
+			<CategoryBadge record={transaction}/>
 			<div className="transaction-card-header">
 				<div className="transaction-date">
 					<Calendar />
@@ -123,7 +125,8 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({
 				<div className="transaction-card-details">{children}</div>
 			)}
 
-			{isExpanded && <BankRecordLinks transactionId={transaction.transactionId} />}
+			{isExpanded && <CategoryEditor kind="expense" id={transaction.transactionId} record={txDetail?.transaction ?? transaction} linked={linkedBudgetEntry}/>}
+ {isExpanded && <BankRecordLinks transactionId={transaction.transactionId} />}
 
 			{/* Linked budget entry section */}
 			{isExpanded && linkedBudgetEntry && (

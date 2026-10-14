@@ -18,7 +18,7 @@ export default function CandidatePicker({
 	bankId: string;
 	kind: "expense" | "budget";
 	value: string;
-	onChange: (id: string) => void;
+	onChange: (id: string, record?: Candidate) => void;
 	disabled?: boolean;
 }): JSX.Element {
 	const userId = useSelector((state: ReduxState) => state.value?.user?.id);
@@ -132,7 +132,7 @@ export default function CandidatePicker({
 					{rows.map((row) => (
 						<li key={row.id}>
                             <label className={`bank-candidate-choice ${value === row.id ? "is-selected" : ""}`}>
-                                <input type="radio" name={`candidate-${kind}`} checked={value === row.id} onChange={() => onChange(row.id)} aria-label={`Select ${row.description}`} />
+                                <input type="radio" name={`candidate-${kind}`} checked={value === row.id} onChange={() => onChange(row.id,row)} aria-label={`Select ${row.description}`} />
                                 <span className="bank-candidate-card">
                                     {kind === "expense" && row.transaction && row.transactionUsers ? (
                                         <TransactionCard selectionMode transaction={buildFrontendTransaction(row.transaction, row.transactionUsers, userId)} />

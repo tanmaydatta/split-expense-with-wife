@@ -1,3 +1,4 @@
+import { useCategories } from "@/hooks/useCategories";
 import { useState } from "react";
 import { FieldLabel, UiButton } from "@/components/ui";
 import { SearchInput } from "@/components/SearchInput";
@@ -11,6 +12,7 @@ type Props = {
 };
 
 export function FinanceListFilters({ state, currencies, kind }: Props) {
+	const categories=useCategories();
 	const [expanded, setExpanded] = useState(
 		() => window.matchMedia("(min-width: 761px)").matches,
 	);
@@ -65,6 +67,7 @@ export function FinanceListFilters({ state, currencies, kind }: Props) {
 					Filters{state.activeCount > 0 ? ` · ${state.activeCount} active` : ""}
 				</summary>
 				<div className="finance-filter-grid">
+ {categories.data?.enabled&&<FieldLabel>Category<select aria-label="Category" value={state.filters.categoryId??""} onChange={e=>state.update("categoryId",e.target.value)}><option value="">All categories</option><option value="uncategorised">Uncategorised</option>{categories.data.categories.map(c=><option key={c.id} value={c.id}>{c.name}{c.archivedAt?" (archived)":""}</option>)}</select></FieldLabel>}
 					<FilterInput
 						state={state}
 						field="dateFrom"

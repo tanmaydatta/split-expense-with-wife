@@ -4,9 +4,9 @@ Categories describe purchases; budgets track money set aside. Categories have st
 
 ## Foundation behavior
 
-This layer ships disabled (`CATEGORIES_ENABLED=false`). The dependent UI/AI layer provides availability-gated activation. Disabled or unmigrated installations preserve financial flows. Historical records are never backfilled or silently recategorised.
+The foundation shipped disabled.0031 was explicitly approved and applied to dev and production on 2026-10-14; categorization remains disabled in the deployed foundation. The dependent UI/AI configuration enables both flags only with schema-availability gating. Disabled or unmigrated installations preserve financial flows. Historical records are never backfilled or silently recategorised.
 
-New records resolve manual choice (including clear), recurring default, explicit group merchant/description rule, normalized provider hint when available, then Uncategorised. AI follows in the dependent layer. Linked components share explicit category edits atomically, bounded to 1,000 live records with optimistic versions. Conflicting saved choices require an explicit choice when confirming a bank link; stale requests roll back the bank claim and financial association. Pending provisional choices never edit shared categories. Disconnect retains categories on confirmed records.
+New records resolve manual choice (including clear), recurring default, explicit group merchant/description rule, normalized provider hint when available, then Uncategorised. The dependent runtime uses evaluated Workers AI after stronger sources, with error/timeout fallback. Current adapters have no persisted normalized provider hints. Linked components share explicit category edits atomically, bounded to 1, 000 live records with optimistic versions. Conflicting saved choices require an explicit choice when confirming a bank link; stale requests roll back the bank claim and financial association. Pending provisional choices never edit shared categories. Disconnect retains categories on confirmed records.
 
 New recurring bill pairs reuse a live counterpart category; otherwise the expense default wins before the budget default. Publication rereads the saved category, preserving a concurrent manual clear. Historical cron pairing preserves independently saved manual values even when they differ, without failing financial execution; the dependent expanded editor exposes explicit alignment. Current group ownership is checked for peer scheduled actions and live financial records.
 
@@ -42,3 +42,7 @@ The empty environment deliberately targets the canonical `splitexpense` Worker r
 ## Verification
 
 Focused synthetic backend tests cover disabled/missing schema, stable defaults, group ownership, archive labels, rule consent, many-to-many manual clear, concurrent/stale edits, bank conflict resolution/pending isolation, atomic bank pairs with metadata/splits/budget-total readback, and both recurring execution orders with manual clear between planning/publication. Browser category evidence belongs to the dependent UI layer. No private bank access or production migration occurred.
+
+## UI/runtime layer
+
+Add/review forms offer Automatic or an explicit category/Uncategorised. Automatic resolves on the server when saved; matching existing records retains their choices unless the member explicitly changes them. Expanded record editors align linked categories and expose historical conflicts. Expense/Budget filters include archived categories for saved records. Settings manages category names/archive and explicit shared rules; recurring forms preserve saved defaults. See [synthetic AI evaluation](testing/category-ai.md).

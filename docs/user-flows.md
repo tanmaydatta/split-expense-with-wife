@@ -531,3 +531,9 @@ Full details of a single execution:
    date and direction fixed, and your normal group split defaults. Edit descriptions,
    payer/splits and budget as needed. Save creates the requested missing records and
    bank association in one atomic operation; Cancel returns to review without writing.
+
+### Transaction categories
+
+Add forms offer Automatic or a manual category, including Uncategorised. Automatic resolves when saved; manual choices take priority. Matching saved records keeps existing categories unless the member explicitly changes them. A conflicting bank match asks for a shared category and reviewed versions before confirmation. Pending provisional choices remain private and never edit categories.
+
+Expanded expense/budget cards allow an explicit category edit for the linked component. Historical automated pairs with differing saved categories show an alignment message. Expense/Budget filters include archived categories for historical records. Settings separates transaction categories from budgets, supports archive/restore/custom names and explicitly consented group rules. Recurring forms store optional defaults and retain unchanged archived choices. Nested scheduled-action pages retain the Scheduled Actions app-bar title. Category choices reset after saving a new record or changing the bank source.

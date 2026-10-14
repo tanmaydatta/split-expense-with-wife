@@ -190,6 +190,7 @@ export interface TransactionsListResponse {
 	transactionDetails: Record<string, TransactionUser[]>;
 }
 export interface DashboardSubmitRequest {
+	categoryVersions?: Record<string, number>;
 	categoryId?: string | null;
 	bankSource?: {
 		bankTransactionId: string;

@@ -27,7 +27,10 @@ export async function handleCategories(request: Request, env: Env): Promise<Resp
  return withAuth(request,env,async session=>{
   const group=session.group?.groupid ?? "";if(!group)return createErrorResponse("Join a group first",400,request,env);
   const taxonomy=await listCategories(env,group);
-  if(request.method==="GET")return createJsonResponse(taxonomy,200,{},request,env);
+  if(request.method==="GET") {
+ const rules=taxonomy.enabled ? (await env.DB.prepare("SELECT id,pattern,match_kind AS kind,category_id AS categoryId FROM category_rules WHERE group_id=? ORDER BY pattern,id LIMIT 100").bind(group).all()).results : [];
+ return createJsonResponse({...taxonomy,rules},200,{},request,env);
+ }
   if(!taxonomy.enabled)return createErrorResponse("Categories are not enabled",503,request,env);
   const parsed=CategoryWrite.safeParse(await request.json().catch(() => null));if(!parsed.success)return createErrorResponse("Invalid category change",400,request,env);
   const result=await applyCategoryChange(env,group,session.user.id,parsed.data);

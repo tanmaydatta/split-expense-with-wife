@@ -1,0 +1,20 @@
+.category-field {display:flex;flex-direction:column;gap:6px;min-width:0;margin:12px 0;}
+.category-field label {font-size:14px;font-weight:600;color:var(--ui-text);margin:0;}
+.category-field select {min-height:44px;width:100%;max-width:100%;box-sizing:border-box;border:1px solid var(--ui-border-strong);border-radius:var(--ui-radius-sm);padding:8px 12px;background:var(--ui-surface);color:var(--ui-text);margin:0;}
+.category-field select:focus-visible {outline:3px solid var(--ui-focus);outline-offset:2px;}
+.category-field small,.category-editor small {font-size:12px;color:var(--ui-text-muted);}
+.category-badge {display:inline-flex;max-width:100%;font-size:12px;line-height:1.4;padding:3px 8px;border-radius:var(--ui-radius-sm);background:var(--ui-surface-soft);color:var(--ui-text-muted);overflow-wrap:anywhere;}
+.category-editor {margin-top:16px;padding-top:12px;border-top:1px solid var(--ui-border);display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;}
+.category-editor .category-field {flex:1;min-width:150px;margin:0;}
+.category-editor>small,.category-editor>p {flex-basis:100%;margin:0;}
+.category-settings-list {list-style:none;padding:0;margin:12px 0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 20px;}
+.category-settings-list li,.category-rule-row {display:flex;justify-content:space-between;gap:8px;align-items:center;min-width:0;}
+.category-settings-list span,.category-rule-row span {overflow-wrap:anywhere;font-size:14px;}
+.category-settings-create {display:flex;align-items:flex-end;gap:12px;margin:16px 0;}
+.category-settings label {display:flex;flex-direction:column;gap:6px;flex:1;font-size:14px;}
+.category-settings input:not([type="checkbox"]),.category-settings select {min-height:44px;max-width:100%;width:100%;padding:8px 12px;box-sizing:border-box;border:1px solid var(--ui-border-strong);border-radius:var(--ui-radius-sm);background:var(--ui-surface);color:var(--ui-text);}
+.category-settings details summary {min-height:44px;display:flex;align-items:center;cursor:pointer;font-weight:600;}
+.category-settings .category-rule-consent {flex-direction:row;align-items:center;min-height:44px;margin:12px 0;}
+.category-rule-consent input {flex-shrink:0;width:20px;height:20px;}
+.category-rule-row {margin-top:12px;}
+@media(max-width:600px){.category-settings-list{grid-template-columns:1fr}.category-settings-create{flex-wrap:wrap}.category-settings-create label{flex-basis:100%}}

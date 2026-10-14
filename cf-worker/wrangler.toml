@@ -28,7 +28,8 @@ not_found_handling = "single-page-application"
 run_worker_first = ["/.netlify/functions/*", "/hello", "/auth/*", "/health", "/test/seed", "/plaid/webhook"]
 
 [vars]
-CATEGORIES_ENABLED = "false"
+CATEGORIES_ENABLED = "true"
+CATEGORY_AI_ENABLED = "true"
 ALLOWED_ORIGINS = "https://staging--splitexpense.netlify.app,https://splitexpense.netlify.app,https://deploy-preview-5--splitexpense.netlify.app,http://localhost:3000,http://localhost:3001"
 GROUP_IDS = ""
 BASE_URL = "http://localhost:8787/auth"
@@ -63,7 +64,8 @@ enabled = true
     migrations_dir = "src/db/migrations"
     
     [env.prod.vars]
-    CATEGORIES_ENABLED = "false"
+    CATEGORIES_ENABLED = "true"
+CATEGORY_AI_ENABLED = "true"
     ALLOWED_ORIGINS = "https://budget.wastd.dev,https://splitexpense.netlify.app,https://deploy-preview-5--splitexpense.netlify.app,http://localhost:3000,http://localhost:3001"
     GROUP_IDS = ""
     BASE_URL = "https://budget.wastd.dev/auth"
@@ -92,7 +94,10 @@ enabled = true
     migrations_dir = "src/db/migrations"
 
     [env.dev.vars]
-    CATEGORIES_ENABLED = "false"
+    LUNCH_FLOW_ENABLED = "true"
+    BANK_BACKGROUND_SYNC_ENABLED = "false"
+    CATEGORIES_ENABLED = "true"
+CATEGORY_AI_ENABLED = "true"
     ALLOWED_ORIGINS = "https://budget-dev.wastd.dev,https://splitexpense-dev.tanmaydatta.workers.dev,https://splitexpense.netlify.app,https://deploy-preview-5--splitexpense.netlify.app,http://localhost:3000,http://localhost:3001"
     GROUP_IDS = ""
     BASE_URL = "https://budget-dev.wastd.dev/auth"
@@ -119,3 +124,12 @@ enabled = true
     binding = "BANK_SYNC_WORKFLOW"
     class_name = "BankSyncWorkflow"
     name = "bank-sync"
+
+[ai]
+binding = "CATEGORY_AI"
+
+[env.dev.ai]
+binding = "CATEGORY_AI"
+
+[env.prod.ai]
+binding = "CATEGORY_AI"

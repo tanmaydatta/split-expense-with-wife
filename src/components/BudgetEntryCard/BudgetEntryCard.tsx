@@ -1,3 +1,4 @@
+import { CategoryBadge, CategoryEditor } from "@/components/Categories";
 import { BankRecordLinks } from "@/pages/BankImport/BankRecordLinks";
 import { Card } from "@/components/Card";
 import { Calendar, CardText, Trash } from "@/components/Icons";
@@ -44,6 +45,7 @@ export const BudgetEntryCard: React.FC<BudgetEntryCardProps> = ({
 
 	return (
 		<Card className="budget-entry-detail-card" data-test-id="budget-entry-card">
+			<CategoryBadge record={budgetEntry}/>
 			<div className="budget-entry-card-header">
 				<div className="budget-entry-date">
 					<Calendar />
@@ -89,6 +91,7 @@ export const BudgetEntryCard: React.FC<BudgetEntryCardProps> = ({
 				)}
 			</div>
 
+			<CategoryEditor kind="budget" id={budgetEntry.id} record={budgetEntry} linked={linkedTransaction}/>
 			<BankRecordLinks budgetEntryId={budgetEntry.id} />
 
 			{/* Linked expense section */}
