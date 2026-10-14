@@ -8,8 +8,8 @@ const root=new URL('../',import.meta.url);
 const source=await readFile(new URL('cf-worker/src/utils/category-ai.ts',root),'utf8');
 const javascript=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;
 const {CATEGORY_AI_CRITERIA,genericCategoryInput,acceptedCategoryAnswer}=await import(`data:text/javascript;base64,${Buffer.from(javascript).toString('base64')}`);
-const fixtures=JSON.parse(await readFile(new URL('docs/testing/category-ai/heldout-30-fixtures.json',root),'utf8'));
-if(fixtures.length>100)throw Error('Synthetic evaluation is limited to100 cases.');
+const fixtures=JSON.parse(await readFile(new URL(process.argv[3]??'docs/testing/category-ai/supermarket-24-fixtures.json',root),'utf8'));
+if(fixtures.length>100)throw Error('Synthetic evaluation is limited to 100 cases.');
 let calls=0;
 async function evaluate([id,merchant,description,label]){
  if(genericCategoryInput(merchant,description))return {id,label,choice:'uncategorised',policyAbstention:true,accepted:false};

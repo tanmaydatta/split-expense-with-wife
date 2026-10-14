@@ -1,9 +1,9 @@
 /** Fixed taxonomy and acceptance policy locked before the fresh synthetic evaluation. */
 export const CATEGORY_AI_CRITERIA = {
- groceries: "Groceries and food ingredients bought to prepare at home",
+ groceries: "Supermarkets, grocery retailers, groceries and food ingredients bought to prepare at home",
  eating_out: "Restaurants, cafes, takeaway and prepared meals or drinks",
  transport: "Travel and transportation", housing: "Rent and housing",
- utilities: "Energy, water, internet and telephone", shopping: "Retail purchases",
+ utilities: "Energy, water, internet and telephone", shopping: "Non-food retail purchases, clothing, electronics and household goods",
  health: "Healthcare and medicine", entertainment: "Leisure and entertainment",
  income: "Salary and income", other: "Other identifiable purchases",
  uncategorised: "Unknown, ambiguous or insufficient detail",

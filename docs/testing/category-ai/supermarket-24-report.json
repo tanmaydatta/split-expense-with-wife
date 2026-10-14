@@ -1,0 +1,238 @@
+{
+  "model": "@cf/cloudflare/clef-flash",
+  "evaluatedAt": "2026-10-14T15:38:52.195Z",
+  "syntheticOnly": true,
+  "criteria": {
+    "groceries": "Supermarkets, grocery retailers, groceries and food ingredients bought to prepare at home",
+    "eating_out": "Restaurants, cafes, takeaway and prepared meals or drinks",
+    "transport": "Travel and transportation",
+    "housing": "Rent and housing",
+    "utilities": "Energy, water, internet and telephone",
+    "shopping": "Non-food retail purchases, clothing, electronics and household goods",
+    "health": "Healthcare and medicine",
+    "entertainment": "Leisure and entertainment",
+    "income": "Salary and income",
+    "other": "Other identifiable purchases",
+    "uncategorised": "Unknown, ambiguous or insufficient detail"
+  },
+  "policy": {
+    "probability": 0.75,
+    "margin": 0.2,
+    "genericAbstention": true
+  },
+  "total": 24,
+  "inferenceCalls": 21,
+  "accepted": 20,
+  "correct": 20,
+  "precision": 1,
+  "coverage": 0.8333333333333334,
+  "results": [
+    {
+      "id": "lidl",
+      "label": "groceries",
+      "choice": "groceries",
+      "probability": 0.8136,
+      "margin": 0.748,
+      "accepted": true,
+      "latencyMs": 521
+    },
+    {
+      "id": "aldi",
+      "label": "groceries",
+      "choice": "groceries",
+      "probability": 0.9234,
+      "margin": 0.8991,
+      "accepted": true,
+      "latencyMs": 531
+    },
+    {
+      "id": "tesco",
+      "label": "groceries",
+      "choice": "groceries",
+      "probability": 0.9455,
+      "margin": 0.9269000000000001,
+      "accepted": true,
+      "latencyMs": 1027
+    },
+    {
+      "id": "sainsburys",
+      "label": "groceries",
+      "choice": "groceries",
+      "probability": 0.9193,
+      "margin": 0.8929,
+      "accepted": true,
+      "latencyMs": 339
+    },
+    {
+      "id": "asda",
+      "label": "groceries",
+      "choice": "groceries",
+      "probability": 0.9589,
+      "margin": 0.9507,
+      "accepted": true,
+      "latencyMs": 313
+    },
+    {
+      "id": "restaurant",
+      "label": "eating_out",
+      "choice": "eating_out",
+      "probability": 0.751,
+      "margin": 0.6889,
+      "accepted": true,
+      "latencyMs": 355
+    },
+    {
+      "id": "cafe",
+      "label": "eating_out",
+      "choice": "eating_out",
+      "probability": 0.8859,
+      "margin": 0.8647,
+      "accepted": true,
+      "latencyMs": 363
+    },
+    {
+      "id": "train",
+      "label": "transport",
+      "choice": "transport",
+      "probability": 0.9682,
+      "margin": 0.9632999999999999,
+      "accepted": true,
+      "latencyMs": 1108
+    },
+    {
+      "id": "rent",
+      "label": "housing",
+      "choice": "housing",
+      "probability": 0.9734,
+      "margin": 0.9696,
+      "accepted": true,
+      "latencyMs": 555
+    },
+    {
+      "id": "electric",
+      "label": "utilities",
+      "choice": "utilities",
+      "probability": 0.9481,
+      "margin": 0.9391,
+      "accepted": true,
+      "latencyMs": 368
+    },
+    {
+      "id": "phone",
+      "label": "utilities",
+      "choice": "utilities",
+      "probability": 0.8791,
+      "margin": 0.8596,
+      "accepted": true,
+      "latencyMs": 366
+    },
+    {
+      "id": "clothing",
+      "label": "shopping",
+      "choice": "shopping",
+      "probability": 0.9016,
+      "margin": 0.8825,
+      "accepted": true,
+      "latencyMs": 462
+    },
+    {
+      "id": "electronics",
+      "label": "shopping",
+      "choice": "shopping",
+      "probability": 0.8906,
+      "margin": 0.862,
+      "accepted": true,
+      "latencyMs": 435
+    },
+    {
+      "id": "doctor",
+      "label": "health",
+      "choice": "health",
+      "probability": 0.9124,
+      "margin": 0.8926,
+      "accepted": true,
+      "latencyMs": 466
+    },
+    {
+      "id": "cinema",
+      "label": "entertainment",
+      "choice": "entertainment",
+      "probability": 0.9225,
+      "margin": 0.9101,
+      "accepted": true,
+      "latencyMs": 299
+    },
+    {
+      "id": "salary",
+      "label": "income",
+      "choice": "income",
+      "probability": 0.9803,
+      "margin": 0.9778,
+      "accepted": true,
+      "latencyMs": 299
+    },
+    {
+      "id": "charity",
+      "label": "other",
+      "choice": "other",
+      "probability": 0.5744,
+      "margin": 0.24430000000000002,
+      "accepted": false,
+      "latencyMs": 488
+    },
+    {
+      "id": "mixed-supermarket",
+      "label": "shopping",
+      "choice": "shopping",
+      "probability": 0.8783,
+      "margin": 0.8461,
+      "accepted": true,
+      "latencyMs": 488
+    },
+    {
+      "id": "mixed-marketplace",
+      "label": "groceries",
+      "choice": "groceries",
+      "probability": 0.9242,
+      "margin": 0.911,
+      "accepted": true,
+      "latencyMs": 398
+    },
+    {
+      "id": "ambiguous",
+      "label": "uncategorised",
+      "accepted": false,
+      "policyAbstention": true
+    },
+    {
+      "id": "generic",
+      "label": "uncategorised",
+      "accepted": false,
+      "policyAbstention": true
+    },
+    {
+      "id": "injection",
+      "label": "uncategorised",
+      "accepted": false,
+      "policyAbstention": true
+    },
+    {
+      "id": "aldi-drill",
+      "label": "shopping",
+      "choice": "shopping",
+      "probability": 0.8495,
+      "margin": 0.8039000000000001,
+      "accepted": true,
+      "latencyMs": 633
+    },
+    {
+      "id": "tesco-uniform",
+      "label": "shopping",
+      "choice": "shopping",
+      "probability": 0.8708,
+      "margin": 0.8379,
+      "accepted": true,
+      "latencyMs": 618
+    }
+  ]
+}

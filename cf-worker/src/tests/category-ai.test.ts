@@ -38,4 +38,9 @@ describe("Evaluated category AI acceptance and nonblocking server resolver",()=>
   run.mockRejectedValue(Error("Synthetic unavailable"));expect((await save()).status).toBe(200);expect(run).toHaveBeenCalledTimes(2);const all=await env.DB.prepare("SELECT record_id,category_id,source FROM record_categories ORDER BY record_id").all();expect(all.results).toHaveLength(4);expect(all.results.filter(r=>r.source==="ai")).toEqual(original.results);expect(all.results.filter(r=>r.source==="uncategorised")).toHaveLength(2);
  });
 
+ it("uses clarified supermarket versus non-food criteria with the recorded Lidl acceptance",async()=>{
+  const response={answers:{category:{choice:"groceries",probabilities:{groceries:.8136,eating_out:.011,transport:.0066,housing:.0065,utilities:.0092,shopping:.0656,health:.0073,entertainment:.0093,income:.007,other:.0164,uncategorised:.0475}}}};
+  const run=vi.fn().mockResolvedValue(response);expect(await classifyCategory({...baseline,CATEGORY_AI:{run}} as Env,"","lidl")).toBe("groceries");const input=run.mock.calls[0][1];expect(input.state).toEqual({merchant:"",description:"lidl"});expect(input.questions.category.criteria.groceries).toBe("Supermarkets, grocery retailers, groceries and food ingredients bought to prepare at home");expect(input.questions.category.criteria.shopping).toBe("Non-food retail purchases, clothing, electronics and household goods");expect(acceptedCategoryAnswer(answer("shopping",.8495))).toBe("shopping");
+ });
+
 });
