@@ -20,6 +20,35 @@ describe("Bank review existing records and provisional selections",()=>{
   const call=(route:string,method="GET",body?:unknown,auth=cookie)=>worker.fetch(new Request(`https://localhost:8787/.netlify/functions/${route.startsWith("dashboard")?route:`bank-import/${route}`}`,{method,headers:{"Content-Type":"application/json",Cookie:auth},...(body?{body:JSON.stringify(body)}:{})}),env,createExecutionContext());
   return {users,db,call,other};
  }
+ it("initial inbox includes exactly today and previous four UTC dates, excluding older and future activity", async () => {
+  const {db,call}=await fixture();
+  const day=(offset:number)=>{const d=new Date(`${date}T00:00:00Z`);d.setUTCDate(d.getUTCDate()+offset);return d.toISOString().slice(0,10)};
+  const template=(await db.select().from(bankTransactions))[0];
+  await db.insert(bankTransactions).values([
+   {...template,id:"boundary",date:day(-4)}, {...template,id:"older",date:day(-5)}, {...template,id:"future",date:day(1)},
+  ]);
+  const first=await(await call("inbox?status=all")).json() as {transactions:Array<{id:string}>;hasMore:boolean;nextCursor:string;windowStart:string;windowEnd:string};
+  expect(first.transactions.map(r=>r.id)).toEqual(["c:1:charge","boundary"]);expect(first.windowStart).toBe(day(-4));expect(first.windowEnd).toBe(date);expect(first.hasMore).toBe(true);
+  const more=await(await call(`inbox?status=all&cursor=${encodeURIComponent(first.nextCursor)}`)).json() as {transactions:Array<{id:string}>;hasMore:boolean};
+  expect(more.transactions.map(r=>r.id)).toEqual(["older"]);expect(more.hasMore).toBe(false);
+ });
+ it("offers explicit older loading when no recent activity exists and respects owner scope", async () => {
+  const {db,call,other}=await fixture();await db.update(bankTransactions).set({date:"2020-01-01"});
+  const first=await(await call("inbox?status=all")).json() as {transactions:unknown[];hasMore:boolean;nextCursor:string};
+  expect(first.transactions).toEqual([]);expect(first.hasMore).toBe(true);
+  const more=await(await call(`inbox?status=all&cursor=${encodeURIComponent(first.nextCursor)}`)).json() as {transactions:Array<{id:string}>};expect(more.transactions[0].id).toBe("c:1:charge");
+  const hidden=await(await call("inbox?status=all","GET",undefined,other)).json() as {transactions:unknown[];hasMore:boolean};expect(hidden.transactions).toEqual([]);expect(hidden.hasMore).toBe(false);
+ });
+ it("keyset pages tied dates without losing records and rejects malformed/future cursors", async () => {
+  const {db,call}=await fixture();const template=(await db.select().from(bankTransactions))[0];
+  const tied=Array.from({length:50},(_,i)=>({...template,id:`tied-${String(i).padStart(2,"0")}`}));
+  for(let i=0;i<tied.length;i+=4) await db.insert(bankTransactions).values(tied.slice(i,i+4));
+  const first=await(await call("inbox?status=all")).json() as {transactions:Array<{id:string}>;nextCursor:string};expect(first.transactions).toHaveLength(50);
+  const second=await(await call(`inbox?status=all&cursor=${encodeURIComponent(first.nextCursor)}`)).json() as {transactions:Array<{id:string}>;hasMore:boolean};expect(second.transactions).toHaveLength(1);expect(new Set([...first.transactions,...second.transactions].map(r=>r.id)).size).toBe(51);expect(second.hasMore).toBe(false);
+  expect((await call("inbox?cursor=invalid")).status).toBe(400);
+  expect((await call(`inbox?cursor=${encodeURIComponent(JSON.stringify({date:"2026-02-30",until:date,id:"x"}))}`)).status).toBe(400);
+  expect((await call(`inbox?cursor=${encodeURIComponent(JSON.stringify({date:"9999-01-01",until:"9999-01-01",id:"x"}))}`)).status).toBe(400);
+ });
  it("returns full bounded current-group candidate metadata and owner-private source summary", async () => {
   const {users,db,call,other}=await fixture();
   const metadata=JSON.stringify({paidByShares:{[users.user1.id]:10},owedAmounts:{[users.user2.id]:5},owedToAmounts:{[users.user1.id]:5}});

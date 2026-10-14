@@ -201,7 +201,8 @@ Built with ❤️ for managing shared expenses efficiently.
 Bank imports stay private to the connecting owner until they explicitly match or
 create a shared expense. Plaid Sandbox remains available for testing. Lunch Flow
 uses your own Personal API destination; its API key is encrypted by the backend
-and accounts must be selected with a verified purchase-sign mapping. Existing
+and accounts must be selected with a verified purchase-sign mapping. The bank inbox initially shows five UTC calendar days; choose **Load more** for
+older activity. Existing
 record matching uses the shared mobile cards; expanded expense and budget cards
 show linked bank sources only to their connecting owner, including pending
 provisional choices. See

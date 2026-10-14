@@ -133,7 +133,12 @@ first to stop LF fetching without touching confirmed expenses.
 ## Bank review and provisional selections
 
 The compact private inbox supports text search and All, Pending, Posted (to review),
-and Reviewed filters with server-side paging. Connections, sign calibration and
+and Reviewed filters with server-side paging. The initial feed covers today and
+the previous four UTC calendar days, excluding future dates. **Load more** is the
+only action that fetches older rows; it remains available when the recent window
+is empty but older activity exists. Pages accumulate using a date/ID cursor, and
+search/filter changes or Refresh reset to the recent window. Existing detail links
+remain accessible regardless of the inbox window. Connections, sign calibration and
 manual cached sync live in a separate settings panel. Open activity for its full
 source details and clickable confirmed expense/budget associations.
 
