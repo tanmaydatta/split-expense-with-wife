@@ -1,15 +1,20 @@
+import React, { useState } from "react";
+import type { BudgetEntry } from "split-expense-shared-types";
 import { BudgetCard } from "@/components/BudgetCard";
 import { BudgetEntryCard } from "@/components/BudgetEntryCard";
+import {
+	type BulkCategories,
+	BulkCategoryCheckbox,
+} from "@/components/BulkCategories";
 import { Trash } from "@/components/Icons";
 import { Table, TableWrapper } from "@/components/Table";
 import { useBudgetEntry } from "@/hooks/useBudgetEntry";
 import { getCurrencySymbol } from "@/utils/currency";
 import { dateToFullStr } from "@/utils/date";
-import React, { useState } from "react";
-import type { BudgetEntry } from "split-expense-shared-types";
 
 interface Props {
 	entries: BudgetEntry[];
+	bulk: BulkCategories;
 	onDelete(id: string): void;
 }
 
@@ -68,7 +73,16 @@ export default function BudgetTable(props: Props): JSX.Element {
 											data-test-id="budget-entry-item"
 											data-budget-entry-id={e.id}
 										>
-											<td>{dateToFullStr(new Date(e.addedTime))}</td>
+											<td>
+												{e.deleted == null && (
+													<BulkCategoryCheckbox
+														bulk={props.bulk}
+														id={e.id}
+														label={e.description}
+													/>
+												)}{" "}
+												{dateToFullStr(new Date(e.addedTime))}
+											</td>
 											<td className="description-cell">
 												{e.description}
 												{(e.linkedTransactionIds?.length ?? 0) > 0 && (
@@ -140,7 +154,19 @@ export default function BudgetTable(props: Props): JSX.Element {
 			{/* Mobile Card View */}
 			<div className="mobile-cards" data-test-id="mobile-cards">
 				{props.entries.map((e) => (
-					<BudgetCard key={e.id} entry={e} onDelete={props.onDelete} />
+					<div key={e.id}>
+						<div className="bulk-entry-selection">
+							{e.deleted == null && (
+								<BulkCategoryCheckbox
+									bulk={props.bulk}
+									id={e.id}
+									label={e.description}
+								/>
+							)}{" "}
+							{props.bulk.enabled && e.deleted == null && "Select budget entry"}
+						</div>
+						<BudgetCard entry={e} onDelete={props.onDelete} />
+					</div>
 				))}
 			</div>
 		</>

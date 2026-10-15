@@ -1,5 +1,6 @@
 import {
 	index,
+ check,
  foreignKey,
 	integer,
 	primaryKey,
@@ -503,8 +504,30 @@ export const bankPendingSnapshots = sqliteTable("bank_pending_snapshots", {
  createdAt: text("created_at").notNull(),
 }, table => [index("bank_pending_account_snapshot_idx").on(table.accountId, table.snapshotId)]);
 
+// Durable category jobs contain metadata only; actor/group IDs are retained after revocation for audit.
+export const categoryJobs=sqliteTable("category_jobs",{
+ id:text("id").primaryKey(),groupId:text("group_id").notNull(),userId:text("user_id").notNull(),
+ requestId:text("request_id").notNull(),selection:text("selection").notNull(),
+ status:text("status",{enum:["queued","running","completed","failed"]}).notNull(),
+ createdAt:integer("created_at").notNull(),updatedAt:integer("updated_at").notNull(),
+ rowsRead:integer("rows_read").notNull().default(0),recordsRead:integer("records_read").notNull().default(0),error:text("error"),
+},table=>[
+ uniqueIndex("category_jobs_request_unique").on(table.userId,table.groupId,table.requestId),
+ uniqueIndex("category_jobs_active_group").on(table.groupId).where(sql`${table.status} IN ('queued','running')`),
+ uniqueIndex("category_jobs_active_user").on(table.userId).where(sql`${table.status} IN ('queued','running')`),
+ index("category_jobs_owner_recent").on(table.userId,table.groupId,sql`${table.createdAt} DESC`),
+ index("category_jobs_group_recent").on(table.groupId,sql`${table.createdAt} DESC`),
+ check("category_jobs_status_check",sql`${table.status} IN ('queued','running','completed','failed')`),
+]);
+export const categoryJobItems=sqliteTable("category_job_items",{
+ jobId:text("job_id").notNull().references(()=>categoryJobs.id,{onDelete:"cascade"}),
+ position:integer("position").notNull(),status:text("status").notNull().default("pending"),
+ plan:text("plan"),recordCount:integer("record_count").notNull().default(0),changedCount:integer("changed_count").notNull().default(0),
+},table=>[primaryKey({columns:[table.jobId,table.position]})]);
+
 // Create schema object for Drizzle
 export const schema = {
+ categoryJobs,categoryJobItems,
 	user,
 	groups,
 	groupBudgets,

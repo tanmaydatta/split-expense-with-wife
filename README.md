@@ -210,6 +210,6 @@ provisional choices. See
 
 ### Transaction category rollout
 
-Optional group categories support manual choices, automatic categorization, expense/budget filters and recurring defaults. Linked records share explicit edits; historical records remain unchanged. See [behavior and migration/rollback](docs/transaction-categories.md) and [synthetic AI evaluation](docs/testing/category-ai.md).
+Optional group categories support manual choices, automatic categorization, expense/budget filters and recurring defaults. Linked records share explicit edits. Budget and Expenses support selected bulk auto-categorisation in background jobs, preserving saved categories and manual clears. See [behavior and migration/rollback](docs/transaction-categories.md) and [synthetic AI evaluation](docs/testing/category-ai.md).
 
 Household historical categorisation: [private preview and category-only apply runbook](docs/household-category-backfill.md).

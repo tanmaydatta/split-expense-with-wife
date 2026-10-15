@@ -133,3 +133,16 @@ binding = "CATEGORY_AI"
 
 [env.prod.ai]
 binding = "CATEGORY_AI"
+
+[[workflows]]
+binding = "CATEGORY_JOBS_WORKFLOW"
+class_name = "CategoryJobsWorkflow"
+name = "category-jobs"
+[[env.dev.workflows]]
+binding = "CATEGORY_JOBS_WORKFLOW"
+class_name = "CategoryJobsWorkflow"
+name = "category-jobs-dev"
+[[env.prod.workflows]]
+binding = "CATEGORY_JOBS_WORKFLOW"
+class_name = "CategoryJobsWorkflow"
+name = "category-jobs"

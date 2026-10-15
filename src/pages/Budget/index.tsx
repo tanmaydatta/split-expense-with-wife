@@ -1,29 +1,33 @@
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useSelector } from "react-redux";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import type {
+	BudgetEntry,
+	BudgetListRequest,
+	ReduxState,
+} from "split-expense-shared-types";
 import { AmountGrid } from "@/components/AmountGrid";
+import {
+	 BulkCategoryToolbar,
+	useBulkCategoryRows,
+} from "@/components/BulkCategories";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
+import { FinanceListFilters } from "@/components/FinanceListFilters";
 import { Loader } from "@/components/Loader";
-import { UiPageDescription, UiPageTitle } from "@/components/ui";
 import {
 	ErrorContainer,
 	SuccessContainer,
 } from "@/components/MessageContainer";
-import { FinanceListFilters } from "@/components/FinanceListFilters";
-import { useFinanceListFilters } from "@/hooks/useFinanceListFilters";
-import { SelectBudget } from "@/SelectBudget";
+import { UiPageDescription, UiPageTitle } from "@/components/ui";
 import {
 	useBudgetTotal,
 	useDeleteBudgetEntry,
 	useInfiniteBudgetHistory,
 	useLoadMoreBudgetHistory,
 } from "@/hooks/useBudget";
-import { useEffect, useRef, useState, useMemo } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
-import { useSelector } from "react-redux";
-import {
-	BudgetEntry,
-	BudgetListRequest,
-	ReduxState,
-} from "split-expense-shared-types";
+import { useFinanceListFilters } from "@/hooks/useFinanceListFilters";
+import { SelectBudget } from "@/SelectBudget";
 import BudgetTable from "./BudgetTable";
 import "./index.css";
 
@@ -161,7 +165,9 @@ function useBudgetPage() {
 		}
 	};
 
+ const bulk=useBulkCategoryRows("budget",budgetHistory.filter(e=>e.deleted==null),row=>row.id,listKey,setBudgetHistory);
 	return {
+		bulk,
 		budget,
 		budgetHistory,
 		filterState,
@@ -182,6 +188,7 @@ function useBudgetPage() {
 
 export const Budget: React.FC = () => {
 	const {
+		bulk,
 		budget,
 		budgetHistory,
 		filterState,
@@ -271,10 +278,12 @@ export const Budget: React.FC = () => {
 						currencies={data?.extra?.currencies ?? ["GBP", "USD", "EUR"]}
 						kind="budget"
 					/>
+					<BulkCategoryToolbar bulk={bulk} />
 					{!showEmptyState && !isLoading && !filterState.error && (
 						<>
 							<BudgetTable
 								entries={budgetHistory}
+								bulk={bulk}
 								onDelete={handleDeleteBudgetEntry}
 							/>
 							{hasMore && (

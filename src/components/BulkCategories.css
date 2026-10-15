@@ -1,0 +1,6 @@
+.bulk-categories { margin: 16px 0; padding: 14px; border: 1px solid var(--ui-border); border-radius: var(--ui-radius-md); background: var(--ui-surface-muted); color: var(--ui-text); }
+.bulk-category-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.bulk-categories p { margin: 10px 0; color: var(--ui-text-muted); font-size: .85rem; line-height: 1.45; }
+.bulk-categories output { display: block; margin: 10px 0; }
+.bulk-entry-selection { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.bulk-entry-selection input, td input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--ui-accent); }

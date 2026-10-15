@@ -1,5 +1,19 @@
+import getSymbolFromCurrency from "currency-symbol-map";
+import React, { useEffect, useRef, useState } from "react";
+import { useSelector } from "react-redux";
+import type {
+	FrontendTransaction,
+	ReduxState,
+	TransactionsListRequest,
+} from "split-expense-shared-types";
+import {
+	type BulkCategories,
+	BulkCategoryCheckbox,
+	 BulkCategoryToolbar,
+	useBulkCategoryRows,
+} from "@/components/BulkCategories";
 import { Button } from "@/components/Button";
-import { UiPageDescription, UiPageTitle } from "@/components/ui";
+import { FinanceListFilters } from "@/components/FinanceListFilters";
 import {
 	ArrowDownUp,
 	Calendar,
@@ -13,34 +27,26 @@ import {
 	ErrorContainer,
 	SuccessContainer,
 } from "@/components/MessageContainer";
-import { FinanceListFilters } from "@/components/FinanceListFilters";
-import { useFinanceListFilters } from "@/hooks/useFinanceListFilters";
 import { Table, TableWrapper } from "@/components/Table";
 import { TransactionCard } from "@/components/TransactionCard";
 import { TransactionDetails } from "@/components/TransactionDetails";
+import { UiPageDescription, UiPageTitle } from "@/components/ui";
+import { useFinanceListFilters } from "@/hooks/useFinanceListFilters";
 import {
-	useInfiniteTransactionsList,
 	useDeleteTransaction,
+	useInfiniteTransactionsList,
 	useTransactionsList,
 } from "@/hooks/useTransactions";
-import { dateToFullStr } from "@/utils/date";
 import api from "@/utils/api";
-import getSymbolFromCurrency from "currency-symbol-map";
-import React, { useEffect, useRef, useState } from "react";
-import { useSelector } from "react-redux";
-
-import type {
-	FrontendTransaction,
-	ReduxState,
-	TransactionsListRequest,
-} from "split-expense-shared-types";
+import { dateToFullStr } from "@/utils/date";
 import "./index.css";
 
 const TransactionList: React.FC<{
 	transactions: FrontendTransaction[];
 	deleteTransaction(id: string): void;
 	bankLinkedIds: Set<string>;
-}> = ({ transactions, deleteTransaction, bankLinkedIds }) => {
+	bulk: BulkCategories;
+}> = ({ transactions, deleteTransaction, bankLinkedIds, bulk }) => {
 	const [selectedTransaction, setSelectedTransaction] =
 		useState<FrontendTransaction | null>(null);
 
@@ -86,7 +92,14 @@ const TransactionList: React.FC<{
 										data-transaction-id={transaction.transactionId}
 										onClick={() => handleSelect(transaction)}
 									>
-										<td>{dateToFullStr(new Date(transaction.date))}</td>
+										<td>
+											<BulkCategoryCheckbox
+												bulk={bulk}
+												id={transaction.transactionId}
+												label={transaction.description}
+											/>{" "}
+											{dateToFullStr(new Date(transaction.date))}
+										</td>
 										<td className="description-cell">
 											{transaction.description}
 											{bankLinkedIds.has(transaction.transactionId) && (
@@ -169,28 +182,42 @@ const TransactionList: React.FC<{
 				</TableWrapper>
 			</div>
 
-			{/* Mobile Card View */}
-			<div className="mobile-cards">
-				{transactions.map((transaction) => (
-					<TransactionCard
-						key={transaction.transactionId}
-						transaction={transaction}
-						isSelected={
-							selectedTransaction?.transactionId === transaction.transactionId
-						}
-						onSelect={handleSelect}
-						onDelete={deleteTransaction}
-					>
-						{bankLinkedIds.has(transaction.transactionId) && (
-							<small>Bank linked</small>
-						)}
-						<TransactionDetails {...transaction} />
-					</TransactionCard>
-				))}
-			</div>
+ <MobileTransactionList transactions={transactions} selectedTransaction={selectedTransaction} handleSelect={handleSelect} deleteTransaction={deleteTransaction} bankLinkedIds={bankLinkedIds} bulk={bulk}/>
+
 		</>
 	);
 };
+
+function MobileTransactionList({transactions,selectedTransaction,handleSelect,deleteTransaction,bankLinkedIds,bulk}:{transactions:FrontendTransaction[];selectedTransaction:FrontendTransaction|null;handleSelect:(t:FrontendTransaction)=>void;deleteTransaction:(id:string)=>void;bankLinkedIds:Set<string>;bulk:BulkCategories}){
+ return (<div className="mobile-cards">
+				{transactions.map((transaction) => (
+					<div key={transaction.transactionId}>
+						<div className="bulk-entry-selection">
+							<BulkCategoryCheckbox
+								bulk={bulk}
+								id={transaction.transactionId}
+								label={transaction.description}
+							/>
+							{bulk.enabled && "Select expense"}
+						</div>
+						<TransactionCard
+							key={transaction.transactionId}
+							transaction={transaction}
+							isSelected={
+								selectedTransaction?.transactionId === transaction.transactionId
+							}
+							onSelect={handleSelect}
+							onDelete={deleteTransaction}
+						>
+							{bankLinkedIds.has(transaction.transactionId) && (
+								<small>Bank linked</small>
+							)}
+							<TransactionDetails {...transaction} />
+						</TransactionCard>
+					</div>
+				))}
+			</div>);
+}
 
 function useBankLinkedIds() {
 	const [bankLinkedIds, setBankLinkedIds] = useState<Set<string>>(new Set());
@@ -342,7 +369,9 @@ function useTransactionsPage() {
 		});
 	};
 
+ const bulk=useBulkCategoryRows("expense",transactions,row=>row.transactionId,listKey,setTransactions);
 	return {
+		bulk,
 		transactions,
 		bankLinkedIds,
 		filterState,
@@ -360,6 +389,7 @@ function useTransactionsPage() {
 
 const Transactions: React.FC = () => {
 	const {
+		bulk,
 		transactions,
 		bankLinkedIds,
 		filterState,
@@ -419,6 +449,7 @@ const Transactions: React.FC = () => {
 				kind="expenses"
 			/>
 
+			<BulkCategoryToolbar bulk={bulk} />
 			{loadMoreError && (
 				<ErrorContainer
 					message={loadMoreError}
@@ -432,6 +463,7 @@ const Transactions: React.FC = () => {
 						transactions={transactions}
 						deleteTransaction={handleDeleteTransaction}
 						bankLinkedIds={bankLinkedIds}
+						bulk={bulk}
 					/>
 					{hasMore && (
 						<Button
