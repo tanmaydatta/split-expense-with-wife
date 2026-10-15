@@ -24,12 +24,18 @@ export async function handleCategoryInsights(
 		const group = session.currentUser.groupid;
 		if (!group)
 			return createErrorResponse("Join a group first", 403, request, env);
-		const input = validateInsightsRequest(
-			await request.json().catch(() => null),
-		);
+		const body = await request.json().catch(() => null);
+		if (isLegacyInsightsRequest(body))
+			return createErrorResponse(
+				"Insights changed. Refresh the page.",
+				409,
+				request,
+				env,
+			);
+		const input = validateInsightsRequest(body);
 		if (!input)
 			return createErrorResponse(
-				"Choose valid UTC dates within 366 days and a three-letter currency.",
+				"Choose valid dates within 366 days, currency, budget and up to 100 temporary exclusions.",
 				400,
 				request,
 				env,
@@ -55,5 +61,14 @@ function insightsFailure(error: unknown, request: Request, env: Env) {
 		500,
 		request,
 		env,
+	);
+}
+
+function isLegacyInsightsRequest(value: unknown): boolean {
+	return Boolean(
+		value &&
+			typeof value === "object" &&
+			!Array.isArray(value) &&
+			!("source" in value),
 	);
 }

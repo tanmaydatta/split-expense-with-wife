@@ -38,6 +38,12 @@ test("insights production migrations bound reads independently of unrelated hist
 				"INSERT INTO groups(groupid,group_name) VALUES('home','Synthetic'),('foreign','Synthetic foreign')",
 			)
 			.run();
+
+		await db
+			.prepare(
+				"INSERT INTO group_budgets(id,group_id,budget_name) VALUES('food','home','Food'),('house','home','Household'),('foreign-budget','foreign','Other')",
+			)
+			.run();
 		await db
 			.prepare(
 				"INSERT INTO group_categories(id,group_id,name) VALUES('groceries','home','Groceries')",
@@ -45,65 +51,98 @@ test("insights production migrations bound reads independently of unrelated hist
 			.run();
 		await db
 			.prepare(
-				"WITH RECURSIVE n(x) AS(SELECT 1 UNION ALL SELECT x+1 FROM n WHERE x<5000) INSERT INTO transactions(transaction_id,group_id,description,amount,currency,created_at) SELECT 'target-'||x,'home','Synthetic',1,'GBP','2026-01-01' FROM n",
+				"WITH RECURSIVE n(x) AS(SELECT 1 UNION ALL SELECT x+1 FROM n WHERE x<5000) INSERT INTO budget_entries(budget_entry_id,budget_id,description,amount,currency,added_time) SELECT 'target-'||x,CASE WHEN x%2=0 THEN 'food' ELSE 'house' END,'Synthetic',-1,'GBP','2026-01-01' FROM n",
 			)
 			.run();
 		await db
 			.prepare(
-				"INSERT INTO record_categories(group_id,record_kind,record_id,category_id,source) SELECT 'home','expense',transaction_id,'groceries','manual' FROM transactions WHERE group_id='home'",
+				"INSERT INTO record_categories(group_id,record_kind,record_id,category_id,source) SELECT 'home','budget',budget_entry_id,'groceries','manual' FROM budget_entries WHERE budget_id IN ('food','house')",
 			)
 			.run();
-		const bind = ["home", "2026-01-01", "2026-02-01", "home"];
-		async function measure(label) {
-			const result = await db
-				.prepare(utility.CATEGORY_INSIGHTS_SQL)
-				.bind(...bind)
-				.all();
-			const plan = (
-				await db
-					.prepare("EXPLAIN QUERY PLAN " + utility.CATEGORY_INSIGHTS_SQL)
-					.bind(...bind)
-					.all()
-			).results.map((r) => r.detail);
-			console.log(JSON.stringify({ label, reads: result.meta.rows_read, plan }));
-			assert.equal(result.results.length, 5000);
-			assert(result.meta.rows_read < utility.INSIGHTS_READ_LIMIT);
-			assert(plan.some((p) => p.includes("transactions_group_id_deleted_created_at_idx")));
-			assert(!plan.some((p) => /SCAN (transactions|record_categories|group_categories)/.test(p)));
-			return result.meta.rows_read;
+		let reads = 0,
+			plans = [];
+		const wrapped = {
+			prepare(sql) {
+				const statement = (values) => ({
+					bind(...next) {
+						return statement(next);
+					},
+					async all() {
+						const result = await db
+							.prepare(sql)
+							.bind(...values)
+							.all();
+						reads += result.meta.rows_read;
+						plans.push(
+							...(
+								await db
+									.prepare("EXPLAIN QUERY PLAN " + sql)
+									.bind(...values)
+									.all()
+							).results.map((row) => row.detail),
+						);
+						return result;
+					},
+				});
+				return statement([]);
+			},
+		};
+		async function measure(label, expectedCount = 5000) {
+			reads = 0;
+			plans = [];
+			let result, error;
+			try {
+				result = await utility.readCategoryInsights({ DB: wrapped }, "home", {
+					source:"budget",dateFrom: "2026-01-01",
+					dateTo: "2026-01-31",
+					currency: "GBP",
+				});
+			} catch (e) {
+				error = e;
+			}
+			console.log(JSON.stringify({ label, reads, plans }));
+			assert(reads < 25000);
+			assert(plans.some((p) => p.includes("budget_entries_monthly_aggregation_idx")));
+			assert(
+				!plans.some((p) =>
+					/SCAN (budget_entries|group_budgets|record_categories|group_categories)/.test(p),
+				),
+			);
+			assert(!plans.some((p) => p.includes("ORDER BY")));
+			if (expectedCount === null) {
+				assert.match(error?.message ?? "", /5,000/);
+			} else {
+				assert.ifError(error);
+				assert.equal(result.count, expectedCount);
+			}
+			return { reads, result };
 		}
-		const before = await measure("5000 categorised expenses");
-		for (const [group, date, prefix] of [
-			["foreign", "2026-01-01", "foreign"],
-			["home", "2020-01-01", "old"],
+		const before = await measure("5000 categorised budget entries across two budgets");
+		assert.equal(before.result.spending, 5000);
+		for (const [budget, date, prefix] of [
+			["foreign-budget", "2026-01-01", "foreign-"],
+			["food", "2020-01-01", "old-"],
 		])
 			await db
 				.prepare(
-					"WITH RECURSIVE n(x) AS(SELECT 1 UNION ALL SELECT x+1 FROM n WHERE x<50000) INSERT INTO transactions(transaction_id,group_id,description,amount,currency,created_at) SELECT ?||x,?,'Synthetic unrelated',1,'GBP',? FROM n",
+					"WITH RECURSIVE n(x) AS(SELECT 1 UNION ALL SELECT x+1 FROM n WHERE x<50000) INSERT INTO budget_entries(budget_entry_id,budget_id,description,amount,currency,added_time) SELECT ?||x,?,'Synthetic unrelated',-1,'GBP',? FROM n",
 				)
-				.bind(prefix, group, date)
+				.bind(prefix, budget, date)
 				.run();
-		assert.equal(await measure("plus 100000 unrelated expenses"), before);
-		const result = await utility.readCategoryInsights({ DB: db }, "home", {
-			dateFrom: "2026-01-01",
-			dateTo: "2026-01-31",
-			currency: "GBP",
-		});
-		assert.equal(result.spending, 5000);
-		assert.equal(result.count, 5000);
+		assert.equal((await measure("plus100000 unrelated budget entries")).reads, before.reads);
 		await db
 			.prepare("UPDATE group_categories SET exclude_from_insights=1 WHERE id='groceries'")
 			.run();
-		const excluded = await utility.readCategoryInsights({ DB: db }, "home", {
-			dateFrom: "2026-01-01",
-			dateTo: "2026-01-31",
-			currency: "GBP",
-		});
-		assert.equal(excluded.count, 0);
-		assert.equal(excluded.spending, 0);
-		assert.equal(excluded.excluded.count, 5000);
-		assert.equal(excluded.excluded.spending, 5000);
-		assert.equal(await measure("all 5000 explicitly excluded"), before);
+		const excluded = await measure("all5000 budget entries excluded", 0);
+		assert.equal(excluded.result.excluded.count, 5000);
+		assert.equal(excluded.result.excluded.spending, 5000);
+		assert.equal(excluded.reads, before.reads);
+		await db
+			.prepare(
+				"WITH RECURSIVE n(x) AS(SELECT 1 UNION ALL SELECT x+1 FROM n WHERE x<50000) INSERT INTO budget_entries(budget_entry_id,budget_id,description,amount,currency,added_time) SELECT 'in-range-'||x,CASE WHEN x%2=0 THEN 'food' ELSE 'house' END,'Synthetic in range',-1,'GBP','2026-01-02' FROM n",
+			)
+			.run();
+		await measure("55000 in-range across multiple budgets fails at bounded5001", null);
 	} finally {
 		await mf.dispose();
 		await rm(temp, { recursive: true, force: true });

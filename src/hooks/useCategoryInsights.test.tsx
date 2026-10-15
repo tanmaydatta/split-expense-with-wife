@@ -24,6 +24,7 @@ it("caches applied queries while isolating household and authentication sessions
 	expect(typedApi.post).not.toHaveBeenCalled();
 	rerender({ valid: true });
 	await waitFor(() => expect(typedApi.post).toHaveBeenCalledTimes(1));
+ expect(typedApi.post).toHaveBeenLastCalledWith("/category-insights",expect.objectContaining({source:"budget"}));
 	rerender({ valid: true });
 	expect(typedApi.post).toHaveBeenCalledTimes(1);
 	mockState = {
@@ -41,6 +42,31 @@ it("caches applied queries while isolating household and authentication sessions
 		},
 	};
 	rerender({ valid: true });
+	await waitFor(() => expect(typedApi.post).toHaveBeenCalledTimes(3));
+	client.clear();
+});
+
+it("caches each budget and temporary exclusion view separately", async () => {
+	(typedApi.post as jest.Mock).mockClear();
+	(typedApi.post as jest.Mock).mockResolvedValue({ count: 0 });
+	const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+	const wrapper = ({ children }: { children: React.ReactNode }) => (
+		<QueryClientProvider client={client}>{children}</QueryClientProvider>
+	);
+	const { rerender } = renderHook(
+		({ budgetId, excludedCategoryIds }: { budgetId: string; excludedCategoryIds: string[] }) =>
+			useCategoryInsights(
+				{ dateFrom: "2026-01-01", dateTo: "2026-01-31", budgetId, excludedCategoryIds },
+				true,
+			),
+		{ initialProps: { budgetId: "food", excludedCategoryIds: [] as string[] }, wrapper },
+	);
+	await waitFor(() => expect(typedApi.post).toHaveBeenCalledTimes(1));
+	rerender({ budgetId: "food", excludedCategoryIds: ["grocery"] });
+	await waitFor(() => expect(typedApi.post).toHaveBeenCalledTimes(2));
+	rerender({ budgetId: "house", excludedCategoryIds: ["grocery"] });
+	await waitFor(() => expect(typedApi.post).toHaveBeenCalledTimes(3));
+	rerender({ budgetId: "food", excludedCategoryIds: [] });
 	await waitFor(() => expect(typedApi.post).toHaveBeenCalledTimes(3));
 	client.clear();
 });

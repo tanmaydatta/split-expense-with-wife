@@ -21,7 +21,10 @@ const session = {
 		group: {
 			groupid: "home",
 			groupName: "Home",
-			budgets: [{ id: "household", name: "Household", budgetName: "Household" }],
+			budgets: [
+				{ id: "food", budgetName: "Food" },
+				{ id: "house", budgetName: "Household" },
+			],
 			metadata: { defaultCurrency: "GBP", defaultShare: { owner: 100 } },
 		},
 	},
@@ -30,92 +33,94 @@ const categories = [
 	{ id: "groceries", name: "Groceries", slug: "groceries" },
 	{ id: "health", name: "Health", slug: "health" },
 	{ id: "eating", name: "Eating out", slug: "eating_out" },
+	{ id: "transfer", name: "Household movements", excludeFromInsights: true },
+	{ id: "empty", name: "Archived travel", archivedAt: "2020-01-01" },
 ];
-function fixture(currency = "GBP") {
-	const euro = currency === "EUR",
-		factor = euro ? 0.1 : 1;
+const ledger = [
+	["2026-01", "food", "groceries", -140],
+	["2026-02", "food", "groceries", -130],
+	["2026-03", "house", "groceries", -150],
+	["2026-01", "house", "eating", -50],
+	["2026-02", "house", "eating", -50],
+	["2026-03", "house", "eating", -50],
+	["2026-01", "food", "health", -30],
+	["2026-02", "food", "health", -30],
+	["2026-03", "food", "health", -30],
+	["2026-01", "house", null, -20],
+	["2026-03", "house", null, -20],
+	["2026-01", "food", null, 500],
+	["2026-02", "house", null, 200],
+	["2026-01", "food", "transfer", -500],
+	["2026-01", "food", "transfer", 500],
+] as const;
+function fixture(input: any) {
+	const currency = input.currency ?? "GBP",
+		factor = currency === "EUR" ? 0.1 : 1;
+	const selected = ledger.filter(
+		(row) =>
+			(!input.budgetId || row[1] === input.budgetId) &&
+			`${row[0]}-10` >= input.dateFrom &&
+			`${row[0]}-10` <= input.dateTo,
+	);
+	const excluded = selected.filter(
+		(row) =>
+			row[2] === "transfer" ||
+			(input.excludedCategoryIds ?? []).includes(row[2] ?? "uncategorised"),
+	);
+	const included = selected.filter((row) => !excluded.includes(row));
+	const sum = (rows: readonly (typeof ledger)[number][]) => {
+		const spending = rows.reduce((sum, row) => sum + (row[3] < 0 ? -row[3] * factor : 0), 0),
+			credits = rows.reduce((sum, row) => sum + (row[3] > 0 ? row[3] * factor : 0), 0);
+		return { count: rows.length, spending, credits, net: credits - spending };
+	};
+	const totals = sum(included),
+		buckets = Array.from(new Set(included.map((row) => row[2])))
+			.map((id) => {
+				const rows = included.filter((row) => row[2] === id),
+					summary = sum(rows);
+				return {
+					id,
+					name: categories.find((c) => c.id === id)?.name ?? "Uncategorised",
+					...summary,
+					percentage: totals.spending ? (summary.spending / totals.spending) * 100 : 0,
+					budgets: Array.from(new Set(rows.map((row) => row[1]))).map((budget) => ({
+						id: budget,
+						name: budget === "food" ? "Food" : "Household",
+						...sum(rows.filter((row) => row[1] === budget)),
+					})),
+				};
+			})
+			.sort((a, b) => b.spending - a.spending);
 	return {
-		excluded: {
-			count: 2,
-			spending: 500 * factor,
-			negativeAdjustments: -25 * factor,
-			net: 475 * factor,
-			categories: ["Household movements"],
-		},
-		dateFrom: "2026-01-01",
-		dateTo: "2026-03-31",
+		dateFrom: input.dateFrom,
+		dateTo: input.dateTo,
+		budgetId: input.budgetId ?? null,
 		currency,
 		currencies: ["EUR", "GBP"],
-		count: 12,
-		spending: 700 * factor,
-		negativeAdjustments: -30 * factor,
-		net: 670 * factor,
-		categories: [
-			{
-				id: "groceries",
-				name: "Groceries",
-				spending: 420 * factor,
-				negativeAdjustments: -30 * factor,
-				percentage: 60,
-				count: 6,
-			},
-			{
-				id: "eating",
-				name: "Eating out",
-				spending: 150 * factor,
-				negativeAdjustments: 0,
-				percentage: 150 / 7,
-				count: 3,
-			},
-			{
-				id: "health",
-				name: "Health",
-				spending: 90 * factor,
-				negativeAdjustments: 0,
-				percentage: 90 / 7,
-				count: 2,
-			},
-			{
-				id: null,
-				name: "Uncategorised",
-				spending: 40 * factor,
-				negativeAdjustments: 0,
-				percentage: 40 / 7,
-				count: 1,
-			},
-		],
-		months: [
-			{
-				month: "2026-01",
-				spending: 240 * factor,
-				categories: {
-					groceries: 140 * factor,
-					eating: 50 * factor,
-					health: 30 * factor,
-					uncategorised: 20 * factor,
-				},
-			},
-			{
-				month: "2026-02",
-				spending: 210 * factor,
-				categories: { groceries: 130 * factor, eating: 50 * factor, health: 30 * factor },
-			},
-			{
-				month: "2026-03",
-				spending: 250 * factor,
-				categories: {
-					groceries: 150 * factor,
-					eating: 50 * factor,
-					health: 30 * factor,
-					uncategorised: 20 * factor,
-				},
-			},
-		],
+		...totals,
+		excluded: {
+			...sum(excluded),
+			categories: Array.from(
+				new Set(
+					excluded.map((row) => categories.find((c) => c.id === row[2])?.name ?? "Uncategorised"),
+				),
+			),
+		},
+		categories: buckets,
+		months: ["2026-01", "2026-02", "2026-03"].map((month) => ({
+			month,
+			spending: sum(included.filter((row) => row[0] === month)).spending,
+			categories: Object.fromEntries(
+				buckets.map((bucket) => [
+					bucket.id ?? "uncategorised",
+					sum(included.filter((row) => row[0] === month && row[2] === bucket.id)).spending,
+				]),
+			),
+		})),
 	};
 }
 async function setup(page: import("@playwright/test").Page, error = false) {
-	let excluded = false;
-	const requests: { path: string; body: any }[] = [];
+	const requests: { path: string; body: any; method: string }[] = [];
 	await page.route("**/*", async (route) => {
 		const url = new URL(route.request().url()),
 			p = url.pathname;
@@ -124,39 +129,20 @@ async function setup(page: import("@playwright/test").Page, error = false) {
 		if (p.includes("/auth/get-session")) data = session;
 		else if (p.includes("/.netlify/functions/")) {
 			const body = route.request().postDataJSON();
-			requests.push({ path: p, body });
+			requests.push({ path: p, body, method: route.request().method() });
 			if (p.endsWith("/category-insights")) {
+ expect(body.source).toBe("budget");
 				data = error
 					? {
-							error: "More than 5,000 shared expenses in this range. Choose a shorter date range.",
+							error:
+								"More than 5,000 budget entries in this range. Choose a shorter date range or one budget.",
 							statusCode: 422,
 						}
-					: { ...fixture(body.currency ?? "GBP"), dateFrom: body.dateFrom, dateTo: body.dateTo };
+					: fixture(body);
 				status = error ? 422 : 200;
-			} else if (p.endsWith("/categories")) {
-				if (body?.action === "insight-exclusion") excluded = body.excluded;
-				data = {
-					enabled: true,
-					categories: [
-						...categories,
-						{
-							id: "household",
-							name: "Household movements",
-							archivedAt: "2026-01-01",
-							excludeFromInsights: excluded,
-						},
-					],
-					rules: [],
-				};
-			} else if (p.endsWith("/group/details"))
-				data = {
-					groupName: "Home",
-					users: [{ Id: "owner", FirstName: "Alex", LastName: "Example" }],
-					budgets: [],
-					metadata: { defaultCurrency: "GBP", defaultShare: { owner: 100 } },
-				};
-			else if (p.endsWith("/transactions_list"))
-				data = { transactions: [], transactionDetails: {} };
+			} else if (p.endsWith("/categories")) data = { enabled: true, categories, rules: [] };
+			else if (p.endsWith("/budget_list")) data = [];
+			else if (p.endsWith("/budget_total")) data = [{ currency: "GBP", amount: 0 }];
 			else if (p.endsWith("/category-jobs")) data = { job: null };
 			else data = {};
 		}
@@ -167,157 +153,132 @@ async function setup(page: import("@playwright/test").Page, error = false) {
 	});
 	return requests;
 }
-test("shared expense charts, currency controls and scoped category drilldown", async ({
-	page,
-}, info) => {
+async function frame(
+	page: import("@playwright/test").Page,
+	locator: import("@playwright/test").Locator,
+) {
+	await locator.evaluate((el) => {
+		el.scrollIntoView({ block: "start" });
+		for (let p = el.parentElement; p; p = p.parentElement) {
+			if (p.scrollHeight > p.clientHeight && getComputedStyle(p).overflowY === "auto") {
+				p.scrollTop -= 96;
+				break;
+			}
+		}
+	});
+}
+const rangeUrl = "/category-insights?dateFrom=2026-01-01&dateTo=2026-03-31&currency=GBP";
+test("budget-only charts and truthful All/per-budget drilldown", async ({ page }, info) => {
 	const requests = await setup(page);
-	await page.goto("/category-insights?dateFrom=2026-01-01&dateTo=2026-03-31&currency=GBP");
+	await page.goto(rangeUrl);
 	await expect(page.getByRole("heading", { name: "Spending by category" })).toBeVisible();
 	await expect(page.getByText("60.0%", { exact: true })).toBeVisible();
-	await expect(page.getByText("2 expenses excluded: Household movements")).toBeVisible();
 	await expect(page.locator(".insights-totals")).toContainText("£700.00");
-	await expect(page.locator(".insights-totals")).toContainText("-£30.00");
+	await expect(page.getByRole("heading", { name: "Net budget movement" })).toBeVisible();
+	await expect(page.getByText("2 budget entries excluded: Household movements")).toBeVisible();
 	expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
-	const device = info.project.name;
-	if (device === "mobile")
-		await page
-			.getByRole("main")
-			.getByRole("heading", { name: "Category insights", exact: true })
-			.evaluate((el) => {
-				for (let parent = el.parentElement; parent; parent = parent.parentElement) {
-					if (
-						parent.scrollHeight > parent.clientHeight &&
-						getComputedStyle(parent).overflowY === "auto"
-					) {
-						parent.scrollTop = 32;
-						break;
-					}
-				}
-			});
-	await page.screenshot({ path: `docs/previews/category-insights/${device}-overview.png` });
-	if (device === "mobile") {
-		await page.getByRole("heading", { name: "Spending by category" }).evaluate((el) => {
-			el.scrollIntoView({ block: "start" });
-			for (let parent = el.parentElement; parent; parent = parent.parentElement) {
-				if (
-					parent.scrollHeight > parent.clientHeight &&
-					getComputedStyle(parent).overflowY === "auto"
-				) {
-					parent.scrollTop -= 96;
-					break;
-				}
-			}
-		});
-		await page.screenshot({ path: `docs/previews/category-insights/mobile-breakdown.png` });
+	await page.screenshot({
+		path: `docs/previews/category-insights/${info.project.name}-overview.png`,
+	});
+	if (info.project.name === "mobile") {
+		await frame(page, page.getByRole("heading", { name: "Spending by category" }));
+		await page.screenshot({ path: "docs/previews/category-insights/mobile-breakdown.png" });
 	}
 	await page.getByText("Monthly spending totals", { exact: true }).scrollIntoViewIfNeeded();
 	await expect(page.locator(".recharts-bar-rectangle").first()).toBeVisible();
-	const legendGeometry = await page
+	const offset = await page
 		.locator(".insights-legend li")
 		.first()
 		.evaluate((el) => {
-			const swatch = el.querySelector(".insights-legend-swatch")!,
-				label = el.querySelector(".insights-legend-text")!;
-			const range = document.createRange();
-			range.selectNodeContents(label);
-			const text = range.getBoundingClientRect(),
-				box = swatch.getBoundingClientRect();
-			return {
-				offset: Math.abs((text.top + text.bottom - box.top - box.bottom) / 2),
-				anchorHeight: getComputedStyle(el.querySelector("a")!).height,
-				anchorDisplay: getComputedStyle(el.querySelector("a")!).display,
-				swatchTop: box.top,
-				textTop: text.top,
-			};
+			const swatch = el.querySelector(".insights-legend-swatch")!.getBoundingClientRect(),
+				text = el.querySelector(".insights-legend-text")!.getBoundingClientRect();
+			return Math.abs((swatch.top + swatch.bottom - text.top - text.bottom) / 2);
 		});
-	console.log("legend computed geometry", JSON.stringify(legendGeometry));
-	expect(legendGeometry.offset).toBeLessThan(2);
-
-	await page.screenshot({ path: `docs/previews/category-insights/${device}-monthly.png` });
-	await page.getByText("Monthly spending totals", { exact: true }).click();
-	await expect(page.locator(".insights-month-detail").first()).toContainText("Groceries");
-	await expect(page.locator(".insights-month-detail").first()).toContainText("£140.00");
-	await page
-		.locator(".insights-breakdown")
-		.getByRole("link", { name: /^Groceries/ })
-		.click();
+	expect(offset).toBeLessThan(2);
+	await page.screenshot({
+		path: `docs/previews/category-insights/${info.project.name}-monthly.png`,
+	});
+	const grocery = page.locator(".insights-category").filter({ hasText: "Groceries" });
+	await grocery.getByText("View budget entries", { exact: true }).click();
+	await grocery.getByRole("link", { name: /^Food/ }).click();
 	await expect(page).toHaveURL(
-		/\/expenses\?categoryId=groceries&dateFrom=2026-01-01&dateTo=2026-03-31&currency=GBP/,
+		/\/budget\?budget=food&categoryId=groceries&dateFrom=2026-01-01&dateTo=2026-03-31&currency=GBP/,
 	);
 	await expect
-		.poll(() => requests.find((r) => r.path.endsWith("/transactions_list"))?.body)
+		.poll(() => requests.find((r) => r.path.endsWith("/budget_list"))?.body)
 		.toMatchObject({
+			budgetId: "food",
 			categoryId: "groceries",
 			dateFrom: "2026-01-01",
 			dateTo: "2026-03-31",
 			currency: "GBP",
 		});
+	expect(requests.some((r) => r.path.endsWith("/transactions_list"))).toBe(false);
 	await page.goBack();
-	await page.getByLabel("Currency", { exact: true }).selectOption("EUR");
-	await expect(page.locator(".insights-totals")).toContainText("€70.00");
-	await expect(page.locator(".insights-totals")).not.toContainText("£700.00");
-	const beforeDates = requests.filter((r) => r.path.endsWith("/category-insights")).length;
-	await page.getByLabel("Date from (UTC)").fill("2026-02-01");
-	expect(requests.filter((r) => r.path.endsWith("/category-insights"))).toHaveLength(beforeDates);
-	await page.getByRole("button", { name: "Apply dates" }).click();
-	await expect
-		.poll(() => requests.filter((r) => r.path.endsWith("/category-insights")).at(-1)?.body)
-		.toMatchObject({ dateFrom: "2026-02-01", dateTo: "2026-03-31", currency: "EUR" });
+	await page.getByLabel("Budget scope").selectOption("food");
+	await expect(page.locator(".insights-scope")).toHaveText("Scope: Food");
+	await expect(page.locator(".insights-totals")).toContainText("£360.00");
+	await expect(
+		page.locator(".insights-breakdown").getByRole("link", { name: "Groceries", exact: true }),
+	).toHaveAttribute("href", /budget=food&categoryId=groceries/);
 });
-test("quick presets apply rolling UTC dates while Custom keeps editable dates", async ({
+test("temporary exclusions Apply/Reset stay in the URL and never write Settings", async ({
 	page,
-}) => {
+}, info) => {
 	const requests = await setup(page);
-	await page.goto("/category-insights");
-	const today = new Date(),
-		end = today.toISOString().slice(0, 10);
-	const start = new Date(`${end}T00:00:00Z`);
+	await page.goto(rangeUrl);
+	await page.getByText("Temporary category exclusions (0 applied)", { exact: true }).click();
+	const check = page.getByRole("checkbox", { name: "Groceries", exact: true });
+	await check.check();
+	const before = requests.filter((r) => r.path.endsWith("/category-insights")).length;
+	await expect(page.locator(".insights-totals")).toContainText("£700.00");
+	expect(requests.filter((r) => r.path.endsWith("/category-insights"))).toHaveLength(before);
+	await page.getByRole("button", { name: "Apply exclusions" }).click();
+	await expect(page).toHaveURL(/exclude=groceries/);
+	await expect(page.locator(".insights-totals")).toContainText("£280.00");
+	await expect(check).toBeChecked();
+	await expect(page.getByRole("checkbox", { name: /Archived travel/ })).toBeVisible();
+	await expect(page.getByRole("checkbox", { name: /Household movements/ })).toBeChecked();
+	await expect(page.getByRole("checkbox", { name: /Household movements/ })).toBeDisabled();
+	await frame(page, page.getByText("Temporary category exclusions (1 applied)", { exact: true }));
+	await page.screenshot({
+		path: `docs/previews/category-insights/${info.project.name}-filters.png`,
+	});
+	await page.reload();
+	await page.getByText("Temporary category exclusions (1 applied)", { exact: true }).click();
+	await expect(check).toBeChecked();
+	await page.getByRole("button", { name: "Reset temporary exclusions" }).click();
+	await expect(page).not.toHaveURL(/exclude=/);
+	await expect(page.locator(".insights-totals")).toContainText("£700.00");
+	await expect(page.getByRole("checkbox", { name: /Household movements/ })).toBeChecked();
+	expect(requests.some((r) => r.path.endsWith("/categories") && r.method === "POST")).toBe(false);
+});
+test("rolling presets retain scope/filters and date editing waits for Apply", async ({ page }) => {
+	const requests = await setup(page);
+	await page.goto(rangeUrl + "&budget=food&exclude=empty");
+	const today = new Date().toISOString().slice(0, 10),
+		start = new Date(`${today}T00:00:00Z`);
 	start.setUTCDate(start.getUTCDate() - 6);
 	await page.getByLabel("Period", { exact: true }).selectOption("last7");
 	await expect
 		.poll(() => requests.filter((r) => r.path.endsWith("/category-insights")).at(-1)?.body)
-		.toMatchObject({ dateFrom: start.toISOString().slice(0, 10), dateTo: end });
-	await expect(page.getByLabel("Date from (UTC)")).toHaveValue(start.toISOString().slice(0, 10));
-	await page.getByLabel("Period", { exact: true }).selectOption("custom");
-	await expect(page.getByLabel("Date to (UTC)")).toHaveValue(end);
+		.toMatchObject({
+			dateFrom: start.toISOString().slice(0, 10),
+			dateTo: today,
+			budgetId: "food",
+			excludedCategoryIds: ["empty"],
+		});
+	const before = requests.filter((r) => r.path.endsWith("/category-insights")).length;
+	await page.getByLabel("Date from (UTC)").fill("2026-01-01");
+	expect(requests.filter((r) => r.path.endsWith("/category-insights"))).toHaveLength(before);
+	await page.getByRole("button", { name: "Apply dates" }).click();
+	await expect(page.getByLabel("Period", { exact: true })).toHaveValue("custom");
+	await expect(page).toHaveURL(/budget=food/);
+	await expect(page).toHaveURL(/exclude=empty/);
 });
-test("range limits show an error instead of partial financial charts", async ({ page }) => {
+test("budget cap errors show no partial totals", async ({ page }) => {
 	await setup(page, true);
-	await page.goto("/category-insights?dateFrom=2026-01-01&dateTo=2026-03-31");
-	await expect(page.getByRole("alert")).toContainText("More than 5,000");
+	await page.goto(rangeUrl);
+	await expect(page.getByRole("alert")).toContainText("More than 5,000 budget entries");
 	await expect(page.getByRole("heading", { name: "Spending by category" })).toHaveCount(0);
-});
-
-test("category exclusion setting is explicit and retains archived names", async ({
-	page,
-}, info) => {
-	const requests = await setup(page);
-	await page.goto("/settings");
-	const checkbox = page.getByRole("checkbox", {
-		name: "Exclude Household movements from spending insights",
-	});
-	await expect(checkbox).not.toBeChecked();
-	await checkbox.click();
-	await expect(checkbox).toBeChecked();
-	expect(requests.find((r) => r.body?.action === "insight-exclusion")?.body).toEqual({
-		action: "insight-exclusion",
-		id: "household",
-		excluded: true,
-	});
-	await expect(page.getByText("Household movements · archived", { exact: true })).toBeVisible();
-	await page.getByRole("heading", { name: "Transaction categories" }).evaluate((el) => {
-		el.scrollIntoView({ block: "start" });
-		for (let parent = el.parentElement; parent; parent = parent.parentElement) {
-			if (
-				parent.scrollHeight > parent.clientHeight &&
-				getComputedStyle(parent).overflowY === "auto"
-			) {
-				parent.scrollTop -= 96;
-				break;
-			}
-		}
-	});
-	await page.screenshot({
-		path: `docs/previews/category-insights/${info.project.name}-settings.png`,
-	});
 });

@@ -90,6 +90,7 @@ export function useUpdateBudget() {
 		onSuccess: () => {
 			// Invalidate budget related queries
 			queryClient.invalidateQueries({ queryKey: ["budget"] });
+			queryClient.invalidateQueries({ queryKey: ["category-insights"] });
 		},
 	});
 }

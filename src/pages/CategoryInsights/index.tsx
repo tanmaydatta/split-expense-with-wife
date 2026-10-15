@@ -1,3 +1,14 @@
+import { useSelector } from "react-redux";
+import { useCategories } from "@/hooks/useCategories";
+import type {
+	ReduxState,
+	CategoryInsightBucket,
+} from "split-expense-shared-types";
+import {
+	TemporaryExclusions,
+	temporaryCategoryIds,
+	applyTemporaryExclusions,
+} from "./TemporaryExclusions";
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
@@ -40,17 +51,19 @@ const money = (amount: number, currency: string | null) =>
 		minimumFractionDigits: 2,
 		maximumFractionDigits: 2,
 	}).format(amount);
-export function expenseCategoryUrl(
+export function budgetCategoryUrl(
+	budgetId: string,
 	id: string | null,
 	data: CategoryInsightsResponse,
 ) {
 	const params = new URLSearchParams({
+		budget: budgetId,
 		categoryId: id ?? "uncategorised",
 		dateFrom: data.dateFrom,
 		dateTo: data.dateTo,
 		...(data.currency ? { currency: data.currency } : {}),
 	});
-	return `/expenses?${params}`;
+	return `/budget?${params}`;
 }
 function MonthlySpending({ data }: { data: CategoryInsightsResponse }) {
 	const top = data.categories.filter((c) => c.spending > 0).slice(0, 7);
@@ -90,7 +103,7 @@ function MonthlySpending({ data }: { data: CategoryInsightsResponse }) {
 		<Surface>
 			<h2>Monthly spending</h2>
 			<p className="insights-help">
-				Positive shared expense amounts in {data.currency}.{" "}
+				Budget debit spending in {data.currency}.{" "}
 				{extra
 					? "The seven largest categories are shown individually; the rest form Other categories."
 					: ""}
@@ -129,10 +142,10 @@ function MonthlySpending({ data }: { data: CategoryInsightsResponse }) {
 					<ul className="insights-legend">
 						{series.map((s) => (
 							<li className="insights-legend-item" key={s.key}>
-								{s.id !== undefined ? (
+								{s.id !== undefined && data.budgetId ? (
 									<Link
 										className="insights-legend-link"
-										to={expenseCategoryUrl(s.id, data)}
+										to={budgetCategoryUrl(data.budgetId, s.id, data)}
 									>
 										<span
 											className="insights-legend-swatch"
@@ -156,7 +169,7 @@ function MonthlySpending({ data }: { data: CategoryInsightsResponse }) {
 					</ul>
 				</>
 			) : (
-				<p>No positive spending to chart. Adjustments are listed above.</p>
+				<p>No budget debits to chart. Credits are listed above.</p>
 			)}
 			<details>
 				<summary>Monthly spending totals</summary>
@@ -195,98 +208,125 @@ function ExcludedActivity({ data }: { data: CategoryInsightsResponse }) {
 		<Surface className="insights-excluded">
 			<p>
 				{data.excluded.count}{" "}
-				{data.excluded.count === 1 ? "expense excluded" : "expenses excluded"}:{" "}
-				{data.excluded.categories.join(", ")}
+				{data.excluded.count === 1
+					? "budget entry excluded"
+					: "budget entries excluded"}
+				: {data.excluded.categories.join(", ")}
 			</p>
 			<p className="insights-help">
-				These categories are excluded explicitly in Settings. Their activity is
-				absent from spending, adjustments, net expenses, counts and charts.
+				Saved category exclusions and this view’s temporary exclusions apply
+				together. Excluded entries are absent from all included totals, counts
+				and charts.
 			</p>
 			<details>
 				<summary>Excluded amounts ({data.currency})</summary>
 				<dl>
-					<dt>Positive amounts</dt>
+					<dt>Debit spending</dt>
 					<dd>{money(data.excluded.spending, data.currency)}</dd>
-					<dt>Negative adjustments</dt>
-					<dd>{money(data.excluded.negativeAdjustments, data.currency)}</dd>
-					<dt>Net amount</dt>
+					<dt>Credits</dt>
+					<dd>{money(data.excluded.credits, data.currency)}</dd>
+					<dt>Net budget movement</dt>
 					<dd>{money(data.excluded.net, data.currency)}</dd>
 				</dl>
 			</details>
 		</Surface>
 	);
 }
+function CategoryBreakdown({
+	category,
+	data,
+	color,
+}: {
+	category: CategoryInsightBucket;
+	data: CategoryInsightsResponse;
+	color: string;
+}) {
+	return (
+		<section className="insights-category">
+			<div className="insights-category-heading">
+				{data.budgetId ? (
+					<Link to={budgetCategoryUrl(data.budgetId, category.id, data)}>
+						{category.name}
+					</Link>
+				) : (
+					<span>{category.name}</span>
+				)}
+				<strong>{money(category.spending, data.currency)}</strong>
+				<span>{category.percentage.toFixed(1)}%</span>
+			</div>
+			<div className="insights-track" aria-hidden="true">
+				<div style={{ width: `${category.percentage}%`, background: color }} />
+			</div>
+			<small>
+				{category.count}{" "}
+				{category.count === 1 ? "budget entry" : "budget entries"} · Credits{" "}
+				{money(category.credits, data.currency)}
+			</small>
+			{!data.budgetId && (
+				<details className="insights-entry-links">
+					<summary>View budget entries</summary>
+					<ul>
+						{category.budgets.map((budget) => (
+							<li key={budget.id}>
+								<Link to={budgetCategoryUrl(budget.id, category.id, data)}>
+									{budget.name} · Spending{" "}
+									{money(budget.spending, data.currency)} · Credits{" "}
+									{money(budget.credits, data.currency)}
+								</Link>
+							</li>
+						))}
+					</ul>
+				</details>
+			)}
+		</section>
+	);
+}
 export function InsightsContent({ data }: { data: CategoryInsightsResponse }) {
 	if (!data.count)
 		return (
 			<>
-				{" "}
 				<ExcludedActivity data={data} />
 				<Surface>
 					<p>
-						No included shared expenses in this date range
-						{data.currency ? ` for ${data.currency}` : ""}. Try another range or
-						currency.
+						No included budget entries in this date range
+						{data.currency ? ` for ${data.currency}` : ""}. Try another range,
+						budget, currency or temporary filter.
 					</p>
 				</Surface>
 			</>
 		);
 	return (
 		<>
-			{" "}
 			<ExcludedActivity data={data} />
-			<div className="insights-totals" aria-label="Shared expense totals">
+			<div className="insights-totals" aria-label="Budget entry totals">
 				<Surface>
 					<h2>Spending</h2>
 					<strong>{money(data.spending, data.currency)}</strong>
 				</Surface>
 				<Surface>
-					<h2>Adjustments</h2>
-					<strong>{money(data.negativeAdjustments, data.currency)}</strong>
+					<h2>Credits</h2>
+					<strong>{money(data.credits, data.currency)}</strong>
 				</Surface>
 				<Surface>
-					<h2>Net expenses</h2>
+					<h2>Net budget movement</h2>
 					<strong>{money(data.net, data.currency)}</strong>
 				</Surface>
 			</div>
 			<Surface>
 				<h2>Spending by category</h2>
 				<p className="insights-help">
-					Percentages use positive spending only. Adjustments are shown
-					separately and do not reduce the bars.
+					Spending and percentages use budget debit magnitudes only. Credits are
+					separate, not assumed income. Net budget movement is credits minus
+					spending.
 				</p>
 				<div className="insights-breakdown">
-					{data.categories.map((category) => (
-						<Link
-							className="insights-category"
+					{data.categories.map((category, i) => (
+						<CategoryBreakdown
 							key={category.id ?? "uncategorised"}
-							to={expenseCategoryUrl(category.id, data)}
-						>
-							<div className="insights-category-heading">
-								<span>{category.name}</span>
-								<strong>{money(category.spending, data.currency)}</strong>
-								<span>{category.percentage.toFixed(1)}%</span>
-							</div>
-							<div className="insights-track" aria-hidden="true">
-								<div
-									style={{
-										width: `${category.percentage}%`,
-										background:
-											colors[
-												data.categories
-													.filter((c) => c.spending > 0)
-													.findIndex((c) => c.id === category.id)
-											] ?? colors[7],
-									}}
-								/>
-							</div>
-							<small>
-								{category.count} {category.count === 1 ? "expense" : "expenses"}
-								{category.negativeAdjustments !== 0
-									? ` · Adjustments ${money(category.negativeAdjustments, data.currency)}`
-									: ""}
-							</small>
-						</Link>
+							category={category}
+							data={data}
+							color={colors[i] ?? colors[7]}
+						/>
 					))}
 				</div>
 			</Surface>
@@ -339,8 +379,21 @@ function useInsightDates(params: URLSearchParams) {
 		today,
 	};
 }
-export default function CategoryInsights() {
-	const [params, setParams] = useSearchParams();
+function BudgetInsightControls({
+	dates,
+	budgets,
+	budgetId,
+	currencies,
+	selectedCurrency,
+	update,
+}: {
+	dates: ReturnType<typeof useInsightDates>;
+	budgets: import("split-expense-shared-types").GroupBudgetData[];
+	budgetId: string;
+	currencies: string[];
+	selectedCurrency?: string | null;
+	update: (values: Record<string, string | undefined>) => void;
+}) {
 	const {
 		dateFrom,
 		dateTo,
@@ -350,135 +403,182 @@ export default function CategoryInsights() {
 		to,
 		setFrom,
 		setTo,
-		valid,
 		today,
-	} = useInsightDates(params);
+	} = dates;
+	return (
+		<Surface>
+			<form
+				className="insights-controls"
+				onSubmit={(event) => {
+					event.preventDefault();
+					update({ dateFrom: from, dateTo: to, preset: "custom" });
+				}}
+			>
+				<label>
+					Budget
+					<select
+						aria-label="Budget scope"
+						value={budgetId}
+						onChange={(event) =>
+							update({ budget: event.target.value || undefined })
+						}
+					>
+						<option value="">All active budgets</option>
+						{budgets.map((budget) => (
+							<option value={budget.id} key={budget.id}>
+								{budget.budgetName}
+							</option>
+						))}
+					</select>
+				</label>
+				<label>
+					Period
+					<select
+						aria-label="Period"
+						value={preset}
+						onChange={(event) => {
+							const next = event.target.value as InsightPreset;
+							const range = insightPresetRange(next, today);
+							update({ ...(range ?? { dateFrom, dateTo }), preset: next });
+						}}
+					>
+						{insightPresets.map(([value, label]) => (
+							<option key={value} value={value}>
+								{label}
+							</option>
+						))}
+					</select>
+				</label>
+				<label>
+					Date from (UTC)
+					<input
+						type="date"
+						required
+						value={from}
+						onChange={(event) => setFrom(event.target.value)}
+					/>
+				</label>
+				<label>
+					Date to (UTC)
+					<input
+						type="date"
+						required
+						value={to}
+						onChange={(event) => setTo(event.target.value)}
+					/>
+				</label>
+				<label>
+					Currency
+					<select
+						aria-label="Currency"
+						value={currency || selectedCurrency || ""}
+						onChange={(event) => update({ currency: event.target.value })}
+					>
+						<option value="" disabled>
+							Choose currency
+						</option>
+						{Array.from(
+							new Set([...(currencies ?? []), ...(currency ? [currency] : [])]),
+						).map((code) => (
+							<option value={code} key={code}>
+								{code}
+							</option>
+						))}
+					</select>
+				</label>
+				<UiButton type="submit" $tone="primary">
+					Apply dates
+				</UiButton>
+			</form>
+			<p className="insights-help">
+				Debits are spending; credits are budget funding or other positive
+				movements, not assumed income. No currency conversion. Up to 366
+				inclusive UTC days, 5,000 entries across currencies and exclusions, and
+				100 active budgets for All. Future-dated entries are excluded, matching
+				the Budget page.
+			</p>
+		</Surface>
+	);
+}
+export default function CategoryInsights() {
+	const [params, setParams] = useSearchParams();
+	const dates = useInsightDates(params);
+	const { dateFrom, dateTo, currency, valid } = dates;
+	const budgets = useSelector(
+			(state: ReduxState) => state.value?.extra?.group?.budgets ?? [],
+		),
+		taxonomy = useCategories();
+	const budgetId = params.get("budget") ?? "",
+		excludedCategoryIds = temporaryCategoryIds(params);
 	const query = useCategoryInsights(
-		{ dateFrom, dateTo, ...(currency ? { currency } : {}) },
+		{
+			dateFrom,
+			dateTo,
+			...(currency ? { currency } : {}),
+			...(budgetId ? { budgetId } : {}),
+			...(excludedCategoryIds.length ? { excludedCategoryIds } : {}),
+		},
 		valid,
 	);
+	const update = (values: Record<string, string | undefined>) =>
+		setParams((previous) => {
+			const next = new URLSearchParams(previous);
+			Object.entries(values).forEach(([key, value]) =>
+				value ? next.set(key, value) : next.delete(key),
+			);
+			return next;
+		});
 	return (
 		<main className="category-insights">
 			<header>
-				<UiPageTitle>Category insights</UiPageTitle>
+				<UiPageTitle>Budget category insights</UiPageTitle>
 				<UiPageDescription>
-					Explore your household’s shared expenses. Each expense counts once,
-					including those linked to a budget.
+					Budget entries only, across all active household budgets or one
+					selected budget. Shared expenses and private bank activity are
+					excluded.
 				</UiPageDescription>
 			</header>
-			<Surface>
-				<form
-					className="insights-controls"
-					onSubmit={(event) => {
-						event.preventDefault();
-						setParams({
-							dateFrom: from,
-							dateTo: to,
-							...(currency ? { currency } : {}),
-							preset: "custom",
-						});
-					}}
-				>
-					<label>
-						Period
-						<select
-							aria-label="Period"
-							value={preset}
-							onChange={(event) => {
-								const next = event.target.value as InsightPreset;
-								const range = insightPresetRange(next, today);
-								setParams({
-									...(range ?? { dateFrom, dateTo }),
-									...(currency ? { currency } : {}),
-									preset: next,
-								});
-							}}
-						>
-							{insightPresets.map(([value, label]) => (
-								<option key={value} value={value}>
-									{label}
-								</option>
-							))}
-						</select>
-					</label>
-					<label>
-						Date from (UTC)
-						<input
-							type="date"
-							value={from}
-							required
-							onChange={(event) => {
-								setFrom(event.target.value);
-							}}
-						/>
-					</label>
-					<label>
-						Date to (UTC)
-						<input
-							type="date"
-							value={to}
-							required
-							onChange={(event) => setTo(event.target.value)}
-						/>
-					</label>
-					<label>
-						Currency
-						<select
-							aria-label="Currency"
-							value={currency || query.data?.currency || ""}
-							onChange={(event) =>
-								setParams({
-									dateFrom,
-									dateTo,
-									currency: event.target.value,
-									preset,
-								})
-							}
-						>
-							<option value="" disabled>
-								Choose currency
-							</option>
-							{Array.from(
-								new Set([
-									...(query.data?.currencies ?? []),
-									...(currency ? [currency] : []),
-								]),
-							).map((code) => (
-								<option key={code} value={code}>
-									{code}
-								</option>
-							))}
-						</select>
-					</label>
-					<UiButton type="submit" $tone="primary">
-						Apply dates
-					</UiButton>
-				</form>
-				<p className="insights-help">
-					Shared expenses only; private bank activity and budget copies are
-					excluded. Currencies stay separate with no conversion. Up to 366 days
-					and 5,000 expenses across currencies per range. Negative amounts are
-					adjustments, not assumed income. Net expenses combine spending and
-					those negative adjustments.
-				</p>
-			</Surface>
+			<BudgetInsightControls
+				dates={dates}
+				budgets={budgets}
+				budgetId={budgetId}
+				currencies={query.data?.currencies ?? []}
+				selectedCurrency={query.data?.currency}
+				update={update}
+			/>
+			<TemporaryExclusions
+				categories={taxonomy.data?.categories ?? []}
+				applied={excludedCategoryIds}
+				onApply={(ids) =>
+					setParams((previous) => applyTemporaryExclusions(previous, ids))
+				}
+			/>
 			{!valid ? (
 				<p role="alert">
 					Choose valid dates within 366 days and a valid currency.
 				</p>
 			) : query.isLoading ? (
-				<p role="status">Loading category insights…</p>
+				<p role="status">Loading budget category insights…</p>
 			) : query.isError ? (
 				<Surface>
 					<p role="alert">
 						{query.error instanceof Error
 							? query.error.message
-							: "Could not load category insights"}
+							: "Could not load budget insights"}
 					</p>
 					<UiButton onClick={() => query.refetch()}>Try again</UiButton>
 				</Surface>
 			) : query.data ? (
-				<InsightsContent data={query.data} />
+				<>
+					<p className="insights-scope">
+						Scope:{" "}
+						{budgetId
+							? (budgets.find((b) => b.id === budgetId)?.budgetName ??
+								"Selected budget")
+							: "All active household budgets"}
+					</p>
+					<InsightsContent data={query.data} />
+				</>
 			) : null}
 		</main>
 	);
