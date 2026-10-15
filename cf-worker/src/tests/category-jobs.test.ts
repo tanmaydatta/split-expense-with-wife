@@ -129,7 +129,7 @@ describe("Bulk category job authorization",()=>{
  it("does not query job sidecars while categories are disabled",async()=>{
  const f=await fixture(),spy=vi.spyOn(env.DB,'prepare');
  const response=await request('category-jobs',undefined,f.cookie,{...env,CATEGORIES_ENABLED:'false'} as Env);
- expect(response.status).toBe(503);expect(spy.mock.calls.filter(([sql])=>sql.includes('category_jobs'))).toHaveLength(0);
+ expect(response.status).toBe(503);expect(spy.mock.calls.filter((call:unknown[])=>String(call[0]).includes('category_jobs'))).toHaveLength(0);
  });
 
 });
