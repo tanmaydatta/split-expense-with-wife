@@ -1,3 +1,4 @@
+import { CategoryBadge } from "@/components/Categories";
 import React, { useState } from "react";
 import type { BudgetEntry } from "split-expense-shared-types";
 import { BudgetCard } from "@/components/BudgetCard";
@@ -84,7 +85,7 @@ export default function BudgetTable(props: Props): JSX.Element {
 												{dateToFullStr(new Date(e.addedTime))}
 											</td>
 											<td className="description-cell">
-												{e.description}
+												<span className="budget-table-entry-description">{e.description}</span>
 												{(e.linkedTransactionIds?.length ?? 0) > 0 && (
 													<span
 														data-test-id="budget-entry-linked-icon"
@@ -98,6 +99,9 @@ export default function BudgetTable(props: Props): JSX.Element {
 														🔗
 													</span>
 												)}
+												<div className="budget-entry-category">
+													<CategoryBadge record={e} />
+												</div>
 											</td>
 											<td
 												style={{
