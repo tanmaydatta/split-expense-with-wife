@@ -284,6 +284,11 @@ export async function prepareCategoryJobItem(
 			throw Error("Linked component exceeds job limit");
 		if (records.some((r) => r.description.length > 2000))
 			throw Error("Description exceeds job limit");
+ // Persist membership before inference. Even if publishing the completed decision fails,
+ // another selected sibling must observe this reservation and never call AI again.
+ const reserved=await env.DB.prepare("UPDATE category_job_items SET plan=? WHERE job_id=? AND position=? AND status='resolving' AND EXISTS(SELECT 1 FROM category_jobs WHERE id=? AND status IN ('queued','running'))")
+ .bind(JSON.stringify({records:records.map(({kind,id})=>({kind,id}))}),id,position,id).run();
+ if(!reserved.meta.changes)throw Error("Job is no longer active");
 		await attachRecurringChoices(meter.env, job.group_id, records);
 		const taxonomy = await listCategories(meter.env, job.group_id);
 		if (!taxonomy.enabled) throw Error("Categories unavailable");

@@ -1,3 +1,4 @@
+import {CATEGORY_AI_CRITERIA} from "../utils/category-ai";
 import { createExecutionContext, env as testEnv } from "cloudflare:test";
 import worker from "../index";
 import { setupAndCleanDatabase, completeCleanupDatabase, createTestUserData, signInAndGetCookies } from "./test-utils";
@@ -130,6 +131,21 @@ describe("Bulk category job authorization",()=>{
  const f=await fixture(),spy=vi.spyOn(env.DB,'prepare');
  const response=await request('category-jobs',undefined,f.cookie,{...env,CATEGORIES_ENABLED:'false'} as Env);
  expect(response.status).toBe(503);expect(spy.mock.calls.filter((call:unknown[])=>String(call[0]).includes('category_jobs'))).toHaveLength(0);
+ });
+
+ it("does not infer a selected linked sibling again after AI plan publication fails",async()=>{
+ const f=await fixture();await env.DB.prepare("DELETE FROM category_rules").run();
+ await env.DB.prepare("INSERT INTO budget_entries(budget_entry_id,description,amount,currency,budget_id) VALUES('ai-sibling','Synthetic linked groceries',-10,'GBP',?)").bind(f.users.budgetIds.food).run();
+ await env.DB.prepare("INSERT INTO expense_budget_links(id,transaction_id,budget_entry_id,group_id,created_at) VALUES('ai-link','bulk-e','ai-sibling',?,?)").bind(f.users.testGroupId,new Date().toISOString()).run();
+ await env.DB.prepare("UPDATE category_jobs SET selection=? WHERE id=?").bind(JSON.stringify([{kind:'expense',id:'bulk-e'},{kind:'budget',id:'ai-sibling'}]),f.id).run();await env.DB.prepare("INSERT INTO category_job_items(job_id,position) VALUES(?,1)").bind(f.id).run();
+ const run=vi.fn().mockResolvedValue({answers:{category:{choice:'groceries',probabilities:Object.fromEntries(Object.keys(CATEGORY_AI_CRITERIA).map(key=>[key,key==='groceries'?.9:.01]))}}});
+ const config={...env,CATEGORY_AI_ENABLED:'true',CATEGORY_AI:{run}} as unknown as Env;
+ const original=env.DB.prepare.bind(env.DB);let publicationFailed=false;
+ const prepareSpy=vi.spyOn(env.DB,'prepare').mockImplementation((sql:string)=>{
+ const stmt=original(sql);if(sql.includes('SET status=?,plan=?')&&!publicationFailed){publicationFailed=true;const bind=stmt.bind.bind(stmt);stmt.bind=(...values)=>{const bound=bind(...values);bound.run=async()=>{throw Error('Synthetic plan publication failure');};return bound;};}return stmt;
+ });
+ await prepareCategoryJobItem(config,f.id,0);prepareSpy.mockRestore();await prepareCategoryJobItem(config,f.id,1);await applyCategoryJobItem(config,f.id,0);await applyCategoryJobItem(config,f.id,1);
+ expect(publicationFailed).toBe(true);expect(run).toHaveBeenCalledTimes(1);expect(await env.DB.prepare("SELECT status FROM category_job_items WHERE job_id=? AND position=1").bind(f.id).first('status')).toBe('skipped');expect(await env.DB.prepare("SELECT count(*) AS n FROM record_categories").first('n')).toBe(0);
  });
 
 });
