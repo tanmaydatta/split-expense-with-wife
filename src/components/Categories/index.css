@@ -20,3 +20,7 @@
 .category-rule-consent input {flex-shrink:0;width:20px;height:20px;}
 .category-rule-row {margin-top:12px;}
 @media(max-width:600px){.category-settings-list{grid-template-columns:1fr}.category-settings-create{flex-wrap:wrap}.category-settings-create label{flex-basis:100%}}
+
+.category-settings-identity { min-width:0; flex:1; display:grid; gap:8px; }
+.category-settings .category-insight-exclusion { display:flex; flex-direction:row; align-items:center; gap:8px; font-size:12px; }
+.category-insight-exclusion input[type="checkbox"] { width:18px; height:18px; flex:0 0 18px; margin:0; }

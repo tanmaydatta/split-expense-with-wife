@@ -90,3 +90,5 @@ See [loaded budget display verification](testing/budget-category-badges.md) for 
 ## Shared expense insights
 
 [Category insights](category-insights.md) shows positive shared spending by category and month, with adjustments separate, one currency at a time. Category links open the existing filtered Expenses page. Budget copies and private bank activity are excluded; bounded range/record limits prevent partial or unbounded reports.
+
+Categories also have an explicit **Exclude from spending insights** preference in Settings, off by default. It changes category insight totals only and never infers transfers from names or edits financial records. Insights disclose excluded activity separately and support rolling UTC date presets; see the [insights guide](category-insights.md) for exact boundaries and migration 0034 rollout order.

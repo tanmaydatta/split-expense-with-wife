@@ -13,6 +13,7 @@ jest.mock("recharts", () => ({
 	Tooltip: () => null,
 }));
 const data: CategoryInsightsResponse = {
+ excluded:{count:0,spending:0,negativeAdjustments:0,net:0,categories:[]},
 	dateFrom: "2026-01-01",
 	dateTo: "2026-02-28",
 	currency: "GBP",
@@ -71,7 +72,7 @@ it("shows an honest empty state without percentages or a chart", () => {
 			/>
 		</MemoryRouter>,
 	);
-	expect(screen.getByText(/No shared expenses/)).toBeInTheDocument();
+	expect(screen.getByText(/No included shared expenses/)).toBeInTheDocument();
 	expect(screen.queryByRole("heading", { name: "Monthly spending" })).not.toBeInTheDocument();
 });
 it("escapes category IDs while preserving range and currency", () =>
@@ -105,4 +106,9 @@ it("explains negative-only activity without creating a misleading percentage or 
 	expect(screen.getByText("0.0%")).toBeInTheDocument();
 	expect(screen.getByText(/No positive spending to chart/)).toBeInTheDocument();
 	expect(screen.queryByRole("img")).not.toBeInTheDocument();
+});
+
+it("discloses all excluded activity even when there are no included expenses",()=>{
+ render(<MemoryRouter><InsightsContent data={{...data,count:0,categories:[],excluded:{count:2,spending:100,negativeAdjustments:-20,net:80,categories:["Household movements"]}}}/></MemoryRouter>);
+ expect(screen.getByText("2 expenses excluded: Household movements")).toBeInTheDocument();expect(screen.getByText(/No included shared expenses/)).toBeInTheDocument();expect(screen.getByText("£80.00")).toBeInTheDocument();
 });

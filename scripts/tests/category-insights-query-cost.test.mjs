@@ -91,6 +91,19 @@ test("insights production migrations bound reads independently of unrelated hist
 		});
 		assert.equal(result.spending, 5000);
 		assert.equal(result.count, 5000);
+		await db
+			.prepare("UPDATE group_categories SET exclude_from_insights=1 WHERE id='groceries'")
+			.run();
+		const excluded = await utility.readCategoryInsights({ DB: db }, "home", {
+			dateFrom: "2026-01-01",
+			dateTo: "2026-01-31",
+			currency: "GBP",
+		});
+		assert.equal(excluded.count, 0);
+		assert.equal(excluded.spending, 0);
+		assert.equal(excluded.excluded.count, 5000);
+		assert.equal(excluded.excluded.spending, 5000);
+		assert.equal(await measure("all 5000 explicitly excluded"), before);
 	} finally {
 		await mf.dispose();
 		await rm(temp, { recursive: true, force: true });

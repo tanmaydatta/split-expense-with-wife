@@ -41,6 +41,7 @@ export interface GroupCategory {
 	name: string;
 	slug?: string | null;
 	archivedAt?: string | null;
+    excludeFromInsights?: boolean;
 }
 export interface BudgetEntry extends RecordCategory {
 	id: string;
@@ -1275,7 +1276,15 @@ export interface CategoryInsightBucket {
     percentage: number;
     count: number;
 }
+export interface ExcludedInsightSummary {
+    count: number;
+    spending: number;
+    negativeAdjustments: number;
+    net: number;
+    categories: string[];
+}
 export interface CategoryInsightsResponse {
+    excluded: ExcludedInsightSummary;
     dateFrom: string;
     dateTo: string;
     currency: string | null;

@@ -38,7 +38,7 @@ export interface RecordCategory {
  categorySource?: CategorySource;
  categoryVersion?: number;
 }
-export interface GroupCategory { id: string; name: string; slug?: string | null; archivedAt?: string | null; }
+export interface GroupCategory { id: string; name: string; slug?: string | null; archivedAt?: string | null; excludeFromInsights?: boolean; }
 
 // Budget types
 export interface BudgetEntry extends RecordCategory {
@@ -1227,7 +1227,11 @@ export interface CategoryInsightBucket {
  percentage: number;
  count: number;
 }
+export interface ExcludedInsightSummary {
+ count: number; spending: number; negativeAdjustments: number; net: number; categories: string[];
+}
 export interface CategoryInsightsResponse {
+ excluded: ExcludedInsightSummary;
  dateFrom: string;
  dateTo: string;
  currency: string | null;

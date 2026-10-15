@@ -159,6 +159,91 @@ describe("Shared expense category insights", () => {
 		expect(result.spending).toBe(50);
 		expect(result.categories.find((c) => c.id === "insight-old")?.name).toBe("Archived hobbies");
 	});
+	it("explicitly excludes selected categories consistently and reports excluded amounts", async () => {
+		const f = await fixture();
+		await env.DB.prepare(
+			"UPDATE group_categories SET exclude_from_insights=1 WHERE id='insight-grocery'",
+		).run();
+		const result = await readCategoryInsights(env, f.users.testGroupId, {
+			...range,
+			currency: "GBP",
+		});
+		expect(result).toMatchObject({
+			count: 1,
+			spending: 50,
+			negativeAdjustments: 0,
+			net: 50,
+			excluded: {
+				count: 2,
+				spending: 100,
+				negativeAdjustments: -100,
+				net: 0,
+				categories: ["Groceries"],
+			},
+		});
+		expect(result.categories.map((c) => c.name)).toEqual(["Uncategorised"]);
+		expect(result.months.map((m) => m.spending)).toEqual([0, 50]);
+		const euros = await readCategoryInsights(env, f.users.testGroupId, {
+			...range,
+			currency: "EUR",
+		});
+		expect(euros.spending).toBe(900);
+		expect(euros.excluded.count).toBe(0);
+	});
+	it("changes only the current household category's explicit exclusion preference", async () => {
+		const f = await fixture();
+		await env.DB.prepare(
+			"UPDATE group_categories SET archived_at='2026-01-01' WHERE id='insight-grocery'",
+		).run();
+		const write = (id: string, excluded: unknown) =>
+			worker.fetch(
+				new Request("https://localhost:8787/.netlify/functions/categories", {
+					method: "POST",
+					headers: { Cookie: f.cookie, "Content-Type": "application/json" },
+					body: JSON.stringify({ action: "insight-exclusion", id, excluded }),
+				}),
+				env,
+				createExecutionContext(),
+			);
+		expect((await write("insight-grocery", true)).status).toBe(200);
+		expect(
+			await env.DB.prepare(
+				"SELECT name,archived_at,exclude_from_insights FROM group_categories WHERE id='insight-grocery'",
+			).first(),
+		).toEqual({ name: "Groceries", archived_at: "2026-01-01", exclude_from_insights: 1 });
+		expect((await write("insight-grocery", "true")).status).toBe(400);
+		await env.DB.prepare(
+			"INSERT INTO groups(groupid,group_name) VALUES('exclusion-foreign','Synthetic foreign')",
+		).run();
+		await env.DB.prepare(
+			"INSERT INTO group_categories(id,group_id,name) VALUES('foreign-category','exclusion-foreign','Transfers')",
+		).run();
+		expect((await write("foreign-category", true)).status).toBe(409);
+		expect(
+			await env.DB.prepare(
+				"SELECT exclude_from_insights FROM group_categories WHERE id='foreign-category'",
+			).first("exclude_from_insights"),
+		).toBe(0);
+		expect((await write("insight-grocery", false)).status).toBe(200);
+		expect(
+			await env.DB.prepare(
+				"SELECT exclude_from_insights FROM group_categories WHERE id='insight-grocery'",
+			).first("exclude_from_insights"),
+		).toBe(0);
+	});
+	it("does not infer exclusion from names such as Transfers", async () => {
+		const f = await fixture();
+		await env.DB.prepare(
+			"UPDATE group_categories SET name='Transfers' WHERE id='insight-grocery'",
+		).run();
+		const result = await readCategoryInsights(env, f.users.testGroupId, {
+			...range,
+			currency: "GBP",
+		});
+		expect(result.spending).toBe(150);
+		expect(result.excluded.count).toBe(0);
+	});
+
 	it("refuses incomplete results above the record cap", async () => {
 		const f = await fixture();
 		await env.DB.prepare(

@@ -17,6 +17,11 @@ import {
 	UiPageTitle,
 } from "@/components/ui";
 import { useCategoryInsights } from "@/hooks/useCategoryInsights";
+import {
+	insightPresets,
+	insightPresetRange,
+	type InsightPreset,
+} from "./presets";
 import "./index.css";
 const colors = [
 	"#2459c5",
@@ -123,12 +128,28 @@ function MonthlySpending({ data }: { data: CategoryInsightsResponse }) {
 					</div>
 					<ul className="insights-legend">
 						{series.map((s) => (
-							<li key={s.key}>
-								<span aria-hidden="true" style={{ background: s.color }} />
+							<li className="insights-legend-item" key={s.key}>
 								{s.id !== undefined ? (
-									<Link to={expenseCategoryUrl(s.id, data)}>{s.name}</Link>
+									<Link
+										className="insights-legend-link"
+										to={expenseCategoryUrl(s.id, data)}
+									>
+										<span
+											className="insights-legend-swatch"
+											aria-hidden="true"
+											style={{ background: s.color }}
+										/>
+										<span className="insights-legend-text">{s.name}</span>
+									</Link>
 								) : (
-									s.name
+									<span className="insights-legend-static">
+										<span
+											className="insights-legend-swatch"
+											aria-hidden="true"
+											style={{ background: s.color }}
+										/>
+										<span className="insights-legend-text">{s.name}</span>
+									</span>
 								)}
 							</li>
 						))}
@@ -168,19 +189,52 @@ function MonthlySpending({ data }: { data: CategoryInsightsResponse }) {
 		</Surface>
 	);
 }
+function ExcludedActivity({ data }: { data: CategoryInsightsResponse }) {
+	if (!data.excluded.count) return null;
+	return (
+		<Surface className="insights-excluded">
+			<p>
+				{data.excluded.count}{" "}
+				{data.excluded.count === 1 ? "expense excluded" : "expenses excluded"}:{" "}
+				{data.excluded.categories.join(", ")}
+			</p>
+			<p className="insights-help">
+				These categories are excluded explicitly in Settings. Their activity is
+				absent from spending, adjustments, net expenses, counts and charts.
+			</p>
+			<details>
+				<summary>Excluded amounts ({data.currency})</summary>
+				<dl>
+					<dt>Positive amounts</dt>
+					<dd>{money(data.excluded.spending, data.currency)}</dd>
+					<dt>Negative adjustments</dt>
+					<dd>{money(data.excluded.negativeAdjustments, data.currency)}</dd>
+					<dt>Net amount</dt>
+					<dd>{money(data.excluded.net, data.currency)}</dd>
+				</dl>
+			</details>
+		</Surface>
+	);
+}
 export function InsightsContent({ data }: { data: CategoryInsightsResponse }) {
 	if (!data.count)
 		return (
-			<Surface>
-				<p>
-					No shared expenses in this date range
-					{data.currency ? ` for ${data.currency}` : ""}. Try another range or
-					currency.
-				</p>
-			</Surface>
+			<>
+				{" "}
+				<ExcludedActivity data={data} />
+				<Surface>
+					<p>
+						No included shared expenses in this date range
+						{data.currency ? ` for ${data.currency}` : ""}. Try another range or
+						currency.
+					</p>
+				</Surface>
+			</>
 		);
 	return (
 		<>
+			{" "}
+			<ExcludedActivity data={data} />
 			<div className="insights-totals" aria-label="Shared expense totals">
 				<Surface>
 					<h2>Spending</h2>
@@ -240,12 +294,20 @@ export function InsightsContent({ data }: { data: CategoryInsightsResponse }) {
 		</>
 	);
 }
-export default function CategoryInsights() {
-	const [params, setParams] = useSearchParams();
+function useInsightDates(params: URLSearchParams) {
 	const today = new Date().toISOString().slice(0, 10),
 		month = today.slice(0, 7) + "-01";
-	const dateFrom = params.get("dateFrom") ?? month,
-		dateTo = params.get("dateTo") ?? today,
+	const rawPreset = params.get("preset");
+	const preset: InsightPreset = rawPreset
+		? insightPresets.some(([value]) => value === rawPreset)
+			? (rawPreset as InsightPreset)
+			: "custom"
+		: params.has("dateFrom") || params.has("dateTo")
+			? "custom"
+			: "thisMonth";
+	const presetRange = insightPresetRange(preset, today);
+	const dateFrom = presetRange?.dateFrom ?? params.get("dateFrom") ?? month,
+		dateTo = presetRange?.dateTo ?? params.get("dateTo") ?? today,
 		currency = params.get("currency") ?? "";
 	const [from, setFrom] = useState(dateFrom),
 		[to, setTo] = useState(dateTo);
@@ -264,6 +326,33 @@ export default function CategoryInsights() {
 				new Date(date).toISOString().slice(0, 10) === date,
 		) &&
 		(!currency || /^[A-Z]{3}$/.test(currency));
+	return {
+		dateFrom,
+		dateTo,
+		currency,
+		preset,
+		from,
+		to,
+		setFrom,
+		setTo,
+		valid,
+		today,
+	};
+}
+export default function CategoryInsights() {
+	const [params, setParams] = useSearchParams();
+	const {
+		dateFrom,
+		dateTo,
+		currency,
+		preset,
+		from,
+		to,
+		setFrom,
+		setTo,
+		valid,
+		today,
+	} = useInsightDates(params);
 	const query = useCategoryInsights(
 		{ dateFrom, dateTo, ...(currency ? { currency } : {}) },
 		valid,
@@ -286,16 +375,41 @@ export default function CategoryInsights() {
 							dateFrom: from,
 							dateTo: to,
 							...(currency ? { currency } : {}),
+							preset: "custom",
 						});
 					}}
 				>
+					<label>
+						Period
+						<select
+							aria-label="Period"
+							value={preset}
+							onChange={(event) => {
+								const next = event.target.value as InsightPreset;
+								const range = insightPresetRange(next, today);
+								setParams({
+									...(range ?? { dateFrom, dateTo }),
+									...(currency ? { currency } : {}),
+									preset: next,
+								});
+							}}
+						>
+							{insightPresets.map(([value, label]) => (
+								<option key={value} value={value}>
+									{label}
+								</option>
+							))}
+						</select>
+					</label>
 					<label>
 						Date from (UTC)
 						<input
 							type="date"
 							value={from}
 							required
-							onChange={(event) => setFrom(event.target.value)}
+							onChange={(event) => {
+								setFrom(event.target.value);
+							}}
 						/>
 					</label>
 					<label>
@@ -313,7 +427,12 @@ export default function CategoryInsights() {
 							aria-label="Currency"
 							value={currency || query.data?.currency || ""}
 							onChange={(event) =>
-								setParams({ dateFrom, dateTo, currency: event.target.value })
+								setParams({
+									dateFrom,
+									dateTo,
+									currency: event.target.value,
+									preset,
+								})
 							}
 						>
 							<option value="" disabled>
@@ -339,7 +458,8 @@ export default function CategoryInsights() {
 					Shared expenses only; private bank activity and budget copies are
 					excluded. Currencies stay separate with no conversion. Up to 366 days
 					and 5,000 expenses across currencies per range. Negative amounts are
-					adjustments, not assumed income. Net expenses combine spending and those negative adjustments.
+					adjustments, not assumed income. Net expenses combine spending and
+					those negative adjustments.
 				</p>
 			</Surface>
 			{!valid ? (

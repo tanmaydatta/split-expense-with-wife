@@ -117,19 +117,40 @@
 	padding: 0;
 	font-size: 13px;
 }
-.insights-legend li {
+.insights-legend-item {
 	display: flex;
+	min-width: 0;
+	max-width: 100%;
+}
+.insights-legend .insights-legend-link,
+.insights-legend .insights-legend-static {
+	display: inline-flex;
 	align-items: center;
 	gap: 6px;
+	min-height: 44px;
+	color: var(--ui-text);
+	max-width: 100%;
 }
-.insights-legend li > span {
+.insights-legend .insights-legend-swatch {
 	width: 10px;
 	height: 10px;
 	border-radius: 3px;
-	flex-shrink: 0;
+	flex: 0 0 10px;
 }
-.insights-legend a {
-	color: var(--ui-text);
+.insights-legend-text {
+	overflow-wrap: anywhere;
+}
+.insights-excluded p {
+	margin: 0 0 8px;
+	overflow-wrap: anywhere;
+}
+.insights-excluded dl {
+	display: grid;
+	grid-template-columns: 1fr auto;
+	gap: 8px;
+}
+.insights-excluded dd {
+	margin: 0;
 }
 .insights-months {
 	list-style: none;

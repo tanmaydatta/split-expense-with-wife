@@ -35,6 +35,13 @@ function fixture(currency = "GBP") {
 	const euro = currency === "EUR",
 		factor = euro ? 0.1 : 1;
 	return {
+		excluded: {
+			count: 2,
+			spending: 500 * factor,
+			negativeAdjustments: -25 * factor,
+			net: 475 * factor,
+			categories: ["Household movements"],
+		},
 		dateFrom: "2026-01-01",
 		dateTo: "2026-03-31",
 		currency,
@@ -107,6 +114,7 @@ function fixture(currency = "GBP") {
 	};
 }
 async function setup(page: import("@playwright/test").Page, error = false) {
+	let excluded = false;
 	const requests: { path: string; body: any }[] = [];
 	await page.route("**/*", async (route) => {
 		const url = new URL(route.request().url()),
@@ -125,7 +133,28 @@ async function setup(page: import("@playwright/test").Page, error = false) {
 						}
 					: { ...fixture(body.currency ?? "GBP"), dateFrom: body.dateFrom, dateTo: body.dateTo };
 				status = error ? 422 : 200;
-			} else if (p.endsWith("/categories")) data = { enabled: true, categories, rules: [] };
+			} else if (p.endsWith("/categories")) {
+				if (body?.action === "insight-exclusion") excluded = body.excluded;
+				data = {
+					enabled: true,
+					categories: [
+						...categories,
+						{
+							id: "household",
+							name: "Household movements",
+							archivedAt: "2026-01-01",
+							excludeFromInsights: excluded,
+						},
+					],
+					rules: [],
+				};
+			} else if (p.endsWith("/group/details"))
+				data = {
+					groupName: "Home",
+					users: [{ Id: "owner", FirstName: "Alex", LastName: "Example" }],
+					budgets: [],
+					metadata: { defaultCurrency: "GBP", defaultShare: { owner: 100 } },
+				};
 			else if (p.endsWith("/transactions_list"))
 				data = { transactions: [], transactionDetails: {} };
 			else if (p.endsWith("/category-jobs")) data = { job: null };
@@ -145,11 +174,26 @@ test("shared expense charts, currency controls and scoped category drilldown", a
 	await page.goto("/category-insights?dateFrom=2026-01-01&dateTo=2026-03-31&currency=GBP");
 	await expect(page.getByRole("heading", { name: "Spending by category" })).toBeVisible();
 	await expect(page.getByText("60.0%", { exact: true })).toBeVisible();
+	await expect(page.getByText("2 expenses excluded: Household movements")).toBeVisible();
 	await expect(page.locator(".insights-totals")).toContainText("£700.00");
 	await expect(page.locator(".insights-totals")).toContainText("-£30.00");
 	expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
 	const device = info.project.name;
-	if(device==="mobile") await page.getByRole("main").getByRole("heading",{name:"Category insights",exact:true}).evaluate(el=>{for(let parent=el.parentElement;parent;parent=parent.parentElement){if(parent.scrollHeight>parent.clientHeight&&getComputedStyle(parent).overflowY==="auto"){parent.scrollTop=32;break;}}});
+	if (device === "mobile")
+		await page
+			.getByRole("main")
+			.getByRole("heading", { name: "Category insights", exact: true })
+			.evaluate((el) => {
+				for (let parent = el.parentElement; parent; parent = parent.parentElement) {
+					if (
+						parent.scrollHeight > parent.clientHeight &&
+						getComputedStyle(parent).overflowY === "auto"
+					) {
+						parent.scrollTop = 32;
+						break;
+					}
+				}
+			});
 	await page.screenshot({ path: `docs/previews/category-insights/${device}-overview.png` });
 	if (device === "mobile") {
 		await page.getByRole("heading", { name: "Spending by category" }).evaluate((el) => {
@@ -168,6 +212,27 @@ test("shared expense charts, currency controls and scoped category drilldown", a
 	}
 	await page.getByText("Monthly spending totals", { exact: true }).scrollIntoViewIfNeeded();
 	await expect(page.locator(".recharts-bar-rectangle").first()).toBeVisible();
+	const legendGeometry = await page
+		.locator(".insights-legend li")
+		.first()
+		.evaluate((el) => {
+			const swatch = el.querySelector(".insights-legend-swatch")!,
+				label = el.querySelector(".insights-legend-text")!;
+			const range = document.createRange();
+			range.selectNodeContents(label);
+			const text = range.getBoundingClientRect(),
+				box = swatch.getBoundingClientRect();
+			return {
+				offset: Math.abs((text.top + text.bottom - box.top - box.bottom) / 2),
+				anchorHeight: getComputedStyle(el.querySelector("a")!).height,
+				anchorDisplay: getComputedStyle(el.querySelector("a")!).display,
+				swatchTop: box.top,
+				textTop: text.top,
+			};
+		});
+	console.log("legend computed geometry", JSON.stringify(legendGeometry));
+	expect(legendGeometry.offset).toBeLessThan(2);
+
 	await page.screenshot({ path: `docs/previews/category-insights/${device}-monthly.png` });
 	await page.getByText("Monthly spending totals", { exact: true }).click();
 	await expect(page.locator(".insights-month-detail").first()).toContainText("Groceries");
@@ -199,9 +264,60 @@ test("shared expense charts, currency controls and scoped category drilldown", a
 		.poll(() => requests.filter((r) => r.path.endsWith("/category-insights")).at(-1)?.body)
 		.toMatchObject({ dateFrom: "2026-02-01", dateTo: "2026-03-31", currency: "EUR" });
 });
+test("quick presets apply rolling UTC dates while Custom keeps editable dates", async ({
+	page,
+}) => {
+	const requests = await setup(page);
+	await page.goto("/category-insights");
+	const today = new Date(),
+		end = today.toISOString().slice(0, 10);
+	const start = new Date(`${end}T00:00:00Z`);
+	start.setUTCDate(start.getUTCDate() - 6);
+	await page.getByLabel("Period", { exact: true }).selectOption("last7");
+	await expect
+		.poll(() => requests.filter((r) => r.path.endsWith("/category-insights")).at(-1)?.body)
+		.toMatchObject({ dateFrom: start.toISOString().slice(0, 10), dateTo: end });
+	await expect(page.getByLabel("Date from (UTC)")).toHaveValue(start.toISOString().slice(0, 10));
+	await page.getByLabel("Period", { exact: true }).selectOption("custom");
+	await expect(page.getByLabel("Date to (UTC)")).toHaveValue(end);
+});
 test("range limits show an error instead of partial financial charts", async ({ page }) => {
 	await setup(page, true);
 	await page.goto("/category-insights?dateFrom=2026-01-01&dateTo=2026-03-31");
 	await expect(page.getByRole("alert")).toContainText("More than 5,000");
 	await expect(page.getByRole("heading", { name: "Spending by category" })).toHaveCount(0);
+});
+
+test("category exclusion setting is explicit and retains archived names", async ({
+	page,
+}, info) => {
+	const requests = await setup(page);
+	await page.goto("/settings");
+	const checkbox = page.getByRole("checkbox", {
+		name: "Exclude Household movements from spending insights",
+	});
+	await expect(checkbox).not.toBeChecked();
+	await checkbox.click();
+	await expect(checkbox).toBeChecked();
+	expect(requests.find((r) => r.body?.action === "insight-exclusion")?.body).toEqual({
+		action: "insight-exclusion",
+		id: "household",
+		excluded: true,
+	});
+	await expect(page.getByText("Household movements · archived", { exact: true })).toBeVisible();
+	await page.getByRole("heading", { name: "Transaction categories" }).evaluate((el) => {
+		el.scrollIntoView({ block: "start" });
+		for (let parent = el.parentElement; parent; parent = parent.parentElement) {
+			if (
+				parent.scrollHeight > parent.clientHeight &&
+				getComputedStyle(parent).overflowY === "auto"
+			) {
+				parent.scrollTop -= 96;
+				break;
+			}
+		}
+	});
+	await page.screenshot({
+		path: `docs/previews/category-insights/${info.project.name}-settings.png`,
+	});
 });

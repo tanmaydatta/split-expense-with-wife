@@ -12,11 +12,12 @@ export const CATEGORY_INSIGHTS_SQL = `WITH selected AS MATERIALIZED (
  INDEXED BY transactions_group_id_deleted_created_at_idx
  WHERE group_id=? AND deleted IS NULL AND created_at>=? AND created_at<?
  ORDER BY created_at LIMIT 5001
-) SELECT t.amount,t.currency,substr(t.created_at,1,7) AS month,c.id AS categoryId,c.name AS categoryName
+) SELECT t.amount,t.currency,substr(t.created_at,1,7) AS month,c.id AS categoryId,c.name AS categoryName,c.exclude_from_insights AS excluded
  FROM selected t
  LEFT JOIN record_categories r ON r.group_id=? AND r.record_kind='expense' AND r.record_id=t.transaction_id
  LEFT JOIN group_categories c ON c.group_id=r.group_id AND c.id=r.category_id`;
 interface Row {
+	excluded: number;
 	amount: number;
 	currency: string;
 	month: string;
@@ -96,7 +97,30 @@ export async function readCategoryInsights(
 	const currency =
 		input.currency ??
 		(currencies.includes("GBP") ? "GBP" : (currencies[0] ?? null));
-	const rows = result.results.filter((row) => row.currency === currency);
+	const currencyRows = result.results.filter(
+		(row) => row.currency === currency,
+	);
+	const excludedRows = currencyRows.filter((row) => row.excluded === 1);
+	const excludedSpending = excludedRows.reduce(
+		(total, row) => total + (row.amount > 0 ? row.amount : 0),
+		0,
+	);
+	const excludedAdjustments = excludedRows.reduce(
+		(total, row) => total + (row.amount < 0 ? row.amount : 0),
+		0,
+	);
+	const excluded = {
+		count: excludedRows.length,
+		spending: money(excludedSpending),
+		negativeAdjustments: money(excludedAdjustments),
+		net: money(excludedSpending + excludedAdjustments),
+		categories: [
+			...new Set(
+				excludedRows.map((row) => row.categoryName ?? "Uncategorised"),
+			),
+		].sort(),
+	};
+	const rows = currencyRows.filter((row) => row.excluded !== 1);
 	const buckets = new Map<string, CategoryInsightBucket>();
 	const months = new Map<string, CategoryInsightsResponse["months"][number]>();
 	const start = new Date(`${input.dateFrom.slice(0, 7)}-01T00:00:00Z`);
@@ -156,6 +180,7 @@ export async function readCategoryInsights(
 		currency,
 		currencies,
 		count: rows.length,
+		excluded,
 		spending: money(spending),
 		negativeAdjustments: money(negativeAdjustments),
 		net: money(spending + negativeAdjustments),

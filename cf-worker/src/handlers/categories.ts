@@ -3,6 +3,7 @@ import { ulid } from "ulid";
 import { createErrorResponse, createJsonResponse, withAuth } from "../utils";
 import { editRecordCategory, listCategories, normalizeCategoryText } from "../utils/categories";
 const CategoryWrite = z.discriminatedUnion("action", [
+ z.object({action:z.literal("insight-exclusion"),id:z.string().min(1).max(200),excluded:z.boolean()}).strict(),
  z.object({action:z.literal("create"),name:z.string().trim().min(1).max(50)}),
  z.object({action:z.literal("archive"),id:z.string().min(1).max(200),archived:z.boolean()}),
  z.object({action:z.literal("rule"),categoryId:z.string().min(1).max(200),pattern:z.string().trim().min(2).max(160),kind:z.enum(["merchant","description"]),sharedGroupConsent:z.literal(true)}),
@@ -10,6 +11,10 @@ const CategoryWrite = z.discriminatedUnion("action", [
 ]);
 const RecordEdit = z.object({kind:z.enum(["expense","budget"]),id:z.string().min(1).max(500),categoryId:z.string().min(1).max(200).nullable(),version:z.number().int().min(0)});
 async function applyCategoryChange(env:Env,group:string,userId:string,body:z.infer<typeof CategoryWrite>):Promise<D1Result>{
+  if(body.action==="insight-exclusion") {
+   return env.DB.prepare("UPDATE group_categories SET exclude_from_insights=? WHERE id=? AND group_id=?")
+    .bind(Number(body.excluded),body.id,group).run();
+  }
   let result:D1Result;
   if(body.action==="create") {
    result=await env.DB.prepare("INSERT INTO group_categories(id,group_id,name) SELECT ?,?,? WHERE (SELECT count(*) FROM group_categories WHERE group_id=? AND archived_at IS NULL)<32 AND NOT EXISTS(SELECT 1 FROM group_categories WHERE group_id=? AND lower(name)=lower(?) AND archived_at IS NULL)").bind(`gc_${ulid()}`,group,body.name,group,group,body.name).run();

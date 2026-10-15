@@ -43,7 +43,7 @@ export async function listCategories(
 	if (!categoriesEnabled(env)) return { enabled: false, categories: [] };
 	try {
 		const query = env.DB.prepare(
-			"SELECT id,name,slug,archived_at AS archivedAt FROM group_categories WHERE group_id=? ORDER BY name,id",
+			"SELECT id,name,slug,archived_at AS archivedAt,exclude_from_insights AS excludeFromInsights FROM group_categories WHERE group_id=? ORDER BY name,id",
 		).bind(groupId);
 		let result = await query.all<GroupCategory>();
 		// Probe remaining sidecars before seeding; migration mistakes never affect financial saves.
@@ -62,7 +62,7 @@ export async function listCategories(
 			);
 			result = await query.all<GroupCategory>();
 		}
-		return { enabled: true, categories: result.results };
+		return { enabled: true, categories: result.results.map(category=>({...category,excludeFromInsights:Boolean(category.excludeFromInsights)})) };
 	} catch (error) {
 		if (missingSchema(error)) return { enabled: false, categories: [] };
 		throw error;
