@@ -108,5 +108,6 @@ jobs:
         path: |
           docs/previews/bulk-categories/
           docs/previews/budget-category-badges/
+            docs/previews/category-insights/
           test-results/
         retention-days: 7

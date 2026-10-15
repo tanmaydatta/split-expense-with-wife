@@ -34,7 +34,7 @@ export function useStopBill() {
 export function useSetBillPayment() {
 	const client = useQueryClient();
 	return useMutation({ mutationFn: (input: BillPaymentInput) => typedApi.post("/bills/payment", input), onSuccess: () => {
-		for (const key of ["bills", "transactions", "balances", "budget"]) void client.invalidateQueries({ queryKey: [key] });
+		for (const key of ["bills", "transactions", "balances", "budget", "category-insights"]) void client.invalidateQueries({ queryKey: [key] });
 	} });
 }
 

@@ -19,6 +19,13 @@ describe("Bulk selection",()=>{
  const client=new QueryClient();render(<QueryClientProvider client={client}><Harness/></QueryClientProvider>);
  fireEvent.click(screen.getByRole("button",{name:"Select this page"}));fireEvent.click(screen.getByRole("checkbox",{name:"Select Synthetic expense"}));expect(screen.getByText("99 selected")).toBeInTheDocument();
  });
+ it("invalidates insights once after a completed category job",async()=>{
+ const client=new QueryClient({defaultOptions:{queries:{retry:false}}});const spy=jest.spyOn(client,"invalidateQueries");
+ (api.get as jest.Mock).mockResolvedValue({data:{job:{id:"finished",status:"completed",total:1,categorised:1,skipped:0,failed:0,changes:[]}}});
+ render(<QueryClientProvider client={client}><Harness/></QueryClientProvider>);
+ await waitFor(()=>expect(spy).toHaveBeenCalledWith({queryKey:["category-insights"]}));
+ expect(spy.mock.calls.filter(([options])=>options?.queryKey?.[0]==="category-insights")).toHaveLength(1);
+ });
  it("preserves a more recent manual category when replaying an older job",()=>{
  const row={categoryId:"transport",categorySource:"manual",categoryVersion:2};
  expect(applyCategoryChange(row,{kind:"expense",id:"e",categoryId:"groceries",categorySource:"rule",categoryVersion:1})).toBe(row);

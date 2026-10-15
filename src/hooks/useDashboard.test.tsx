@@ -135,6 +135,7 @@ describe("useDashboardSubmit", () => {
       (call) => (call[0] as { queryKey: unknown[] }).queryKey,
     );
 
+    expect(calledKeys).toContainEqual(["category-insights"]);
     expect(calledKeys).toContainEqual(["transactions"]);
     expect(calledKeys).toContainEqual(["balances"]);
     expect(calledKeys).toContainEqual(["budget"]);

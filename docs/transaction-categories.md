@@ -86,3 +86,7 @@ Loaded Budget desktop rows show the category icon and name below the description
 The display reuses category metadata already returned by the budget list plus the shared cached category taxonomy. It adds no per-entry detail requests, financial queries or classification calls.
 
 See [loaded budget display verification](testing/budget-category-badges.md) for synthetic desktop/mobile screenshots and regression coverage.
+
+## Shared expense insights
+
+[Category insights](category-insights.md) shows positive shared spending by category and month, with adjustments separate, one currency at a time. Category links open the existing filtered Expenses page. Budget copies and private bank activity are excluded; bounded range/record limits prevent partial or unbounded reports.

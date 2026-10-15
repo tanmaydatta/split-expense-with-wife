@@ -1,3 +1,4 @@
+import CategoryInsights from "@/pages/CategoryInsights";
 import TransactionReview from "@/pages/BankImport/TransactionReview";
 import Sidebar from "@/components/Sidebar";
 import * as Dialog from "@radix-ui/react-dialog";
@@ -149,6 +150,7 @@ const PageContent = styled.div`
 function getPageTitle(path: string): string {
 	if (path === "/") return "Add Expense";
 	if (path === "/expenses") return "Expenses";
+	if (path === "/category-insights") return "Category insights";
 	if (path === "/balances") return "Balances";
 	if (path === "/bills") return "Shared Bills";
 	if (path === "/bank-import") return "Bank activity";
@@ -268,6 +270,7 @@ function AppWrapper() {
 									element={<MonthlyBudgetPage />}
 								/>
 								<Route path="/expenses" element={<Transactions />} />
+								<Route path="/category-insights" element={<CategoryInsights />} />
 								<Route path="/settings" element={<Settings />} />
 								<Route
 									path="/scheduled-actions"
