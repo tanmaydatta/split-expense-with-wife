@@ -78,3 +78,11 @@ yarn workspace split-expense-worker exec vitest run --config vitest.category-wor
 ```
 
 See [bulk verification and synthetic screenshots](testing/bulk-categories.md) for reproducible local checks.
+
+## Category labels on budget entries
+
+Loaded Budget desktop rows show the category icon and name below the description, and mobile cards show the same shared badge immediately. Expanding a row or opening details is unnecessary. Built-in categories use decorative icons; custom and archived custom categories use a generic tag while retaining their saved name. Missing or manually cleared metadata displays Uncategorised. Icons are hidden from assistive technology; the category name remains readable text. The shared badge also keeps other category surfaces visually consistent.
+
+The display reuses category metadata already returned by the budget list plus the shared cached category taxonomy. It adds no per-entry detail requests, financial queries or classification calls.
+
+See [loaded budget display verification](testing/budget-category-badges.md) for synthetic desktop/mobile screenshots and regression coverage.

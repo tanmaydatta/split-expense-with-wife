@@ -227,3 +227,6 @@
 		font-size: 0.8rem;
 	}
 }
+
+/* The category is visible on the loaded card without sharing space with deletion. */
+.budget-card-link > .category-badge { max-width: calc(100% - 48px); margin-bottom: 6px; }

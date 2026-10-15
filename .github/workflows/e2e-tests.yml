@@ -107,5 +107,6 @@ jobs:
         name: bulk-category-screenshots
         path: |
           docs/previews/bulk-categories/
+          docs/previews/budget-category-badges/
           test-results/
         retention-days: 7

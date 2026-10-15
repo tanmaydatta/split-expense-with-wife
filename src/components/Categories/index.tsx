@@ -12,9 +12,32 @@ export function CategorySelect({value,onChange,automatic=true,label="Category (o
  {query.data.categories.filter(c=>!c.archivedAt||c.id===value).map(c=><option key={c.id} value={c.id}>{c.name}{c.archivedAt?" (archived)":""}</option>)}</select>
  {automatic&&value===undefined&&<small>{automaticHelp}</small>}</div>;
 }
-export function CategoryBadge({record}:{record:RecordCategory}) {
- const query=useCategories();if(!query.data?.enabled)return null;
- return <span className="category-badge">{record.categoryName??"Uncategorised"}</span>;
+const categoryIcons: Record<string, string> = {
+	groceries: "🛒",
+	eating_out: "🍽",
+	transport: "🚆",
+	housing: "🏠",
+	utilities: "💡",
+	shopping: "🛍",
+	health: "🩺",
+	entertainment: "🎟",
+	income: "💷",
+	other: "🏷",
+};
+export function CategoryBadge({ record }: { record: RecordCategory }) {
+	const query = useCategories();
+	if (!query.data?.enabled) return null;
+	const category = query.data.categories.find((category) => category.id === record.categoryId);
+	const name = record.categoryName ?? category?.name ?? "Uncategorised";
+	const icon = record.categoryId ? (categoryIcons[category?.slug ?? ""] ?? "🏷") : "❔";
+	return (
+		<span className="category-badge">
+			<span className="category-badge-icon" aria-hidden="true">
+				{icon}
+			</span>
+			<span className="category-badge-label">{name}</span>
+		</span>
+	);
 }
 export function CategoryEditor({kind,id,record,linked}:{kind:RecordKind;id:string;record:RecordCategory;linked?:RecordCategory}) {
  const query=useCategories(),client=useQueryClient();const [value,setValue]=useState<string|null>(record.categoryId??null);
