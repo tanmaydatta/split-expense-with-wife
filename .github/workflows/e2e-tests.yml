@@ -78,3 +78,34 @@ jobs:
         name: playwright-screenshots
         path: test-results/
         retention-days: 7
+
+  bulk-category-e2e:
+    name: Bulk category browser E2E
+    timeout-minutes: 15
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+        cache: 'yarn'
+    - name: Install dependencies
+      run: yarn install --immutable
+    - name: Install Chromium
+      run: yarn playwright install --with-deps chromium
+    - name: Build synthetic preview
+      run: yarn build
+      env:
+        REACT_APP_AUTH_BASE_URL: http://127.0.0.1:4326
+        REACT_APP_API_BASE_URL: /.netlify/functions
+    - name: Run budget and expense browser regressions
+      run: yarn playwright test --config playwright.bulk-categories.config.ts
+    - name: Upload synthetic category screenshots
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: bulk-category-screenshots
+        path: |
+          docs/previews/bulk-categories/
+          test-results/
+        retention-days: 7

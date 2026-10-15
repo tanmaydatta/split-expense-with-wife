@@ -39,7 +39,7 @@ for(const kind of ["expense","budget"] as const){
  await page.getByRole('button',{name:'Select this page',exact:true}).click();
  await expect(page.getByText('1 selected',{exact:true})).toBeVisible();
  const initialListRequests=listRequests.filter(x=>x===kind).length;
- const size=testInfo.project.name.includes('mobile')?'mobile':'desktop';
+ const size=testInfo.project.name.toLowerCase().includes('mobile')?'mobile':'desktop';
  const screenshot=async(name:string)=>{
  await page.evaluate(()=>{window.scrollTo(0,0);document.querySelectorAll('*').forEach(el=>{if(el.scrollTop)el.scrollTop=0;});document.querySelector('.bulk-categories')?.scrollIntoView({block:'start'});});
  const file=path.join('docs/previews/bulk-categories',`${kind}-${size}-${name}.png`);await page.screenshot({path:file});await testInfo.attach(`${kind}-${size}-${name}`,{path:file,contentType:'image/png'});
