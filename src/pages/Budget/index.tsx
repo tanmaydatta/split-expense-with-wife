@@ -165,7 +165,7 @@ function useBudgetPage() {
 		}
 	};
 
- const bulk=useBulkCategoryRows("budget",budgetHistory.filter(e=>e.deleted==null),row=>row.id,listKey,setBudgetHistory);
+ const bulk=useBulkCategoryRows("budget",budgetHistory.filter(e=>e.deleted==null),row=>row.id,listKey,setBudgetHistory,filters.categoryId);
 	return {
 		bulk,
 		budget,
@@ -224,6 +224,7 @@ export const Budget: React.FC = () => {
 	const budgetsLeft = budgetTotalQuery.data || [];
 	const showEmptyState =
 		!isLoading &&
+ !hasMore &&
 		!filterState.error &&
 		filterState.activeCount > 0 &&
 		budgetHistory.length === 0;

@@ -49,7 +49,7 @@ Add/review forms offer Automatic or an explicit category/Uncategorised. Automati
 
 ## Bulk auto-categorisation
 
-Budget and Expenses lists offer checkboxes, **Select this page**, a selected count and **Auto-categorise**. Selection includes the currently loaded entries, up to 100 per job. Active work continues in Cloudflare Workflows when you navigate away; returning to either list restores your latest job. Status updates every two seconds while the page is visible and a job is active. Completed changes update loaded rows using category versions, preserving later manual edits.
+Budget and Expenses lists offer checkboxes, **Select this page**, a selected count and **Auto-categorise**. Selection includes the currently loaded entries, up to 100 per job. Active work continues in Cloudflare Workflows when you navigate away; returning to either list restores your latest job. Status updates every two seconds while the page is visible and a job is active. Completed changes update loaded rows using category versions, preserving later manual edits. Entries that no longer match the active category filter leave the visible list; other filters remain set.
 
 A selected record includes its active linked expense/budget component. Components are deduplicated and receive a single category decision. Saved non-null categories and manual Uncategorised clears are preserved; automatic Uncategorised or missing metadata can be filled. Conflicting saved choices or recurring defaults abstain. Rules precede AI; each logical component uses at most one AI attempt, with the existing strict confidence, margin and timeout. Deterministic recurring entries load history snapshots and current defaults using indexed ID lookups.
 

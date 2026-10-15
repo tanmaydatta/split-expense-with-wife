@@ -1,6 +1,6 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { applyCategoryChange, BulkCategoryToolbar, BulkCategoryCheckbox, useBulkCategories } from "./BulkCategories";
+import { applyCategoryChange, patchCategoryRows, BulkCategoryToolbar, BulkCategoryCheckbox, useBulkCategories } from "./BulkCategories";
 import api from "@/utils/api";
 jest.mock("@/utils/api",()=>({__esModule:true,default:{get:jest.fn(),post:jest.fn()}}));
 jest.mock("react-redux",()=>({useSelector:(selector:any)=>selector({value:{user:{id:"user"},extra:{group:{groupid:"group"}}}})}));
@@ -22,6 +22,13 @@ describe("Bulk selection",()=>{
  it("preserves a more recent manual category when replaying an older job",()=>{
  const row={categoryId:"transport",categorySource:"manual",categoryVersion:2};
  expect(applyCategoryChange(row,{kind:"expense",id:"e",categoryId:"groceries",categorySource:"rule",categoryVersion:1})).toBe(row);
+ });
+
+ it("removes completed categorisation from an Uncategorised list and keeps unrelated data",()=>{
+ const rows=[{id:'chosen',categoryId:null,categoryVersion:0,description:'Groceries',date:'2026-10-12'},{id:'protected',categoryId:null,categoryVersion:2,description:'Manual clear',date:'2026-10-11'}];
+ const changes=[{kind:'expense' as const,id:'chosen',categoryId:'groceries',categorySource:'rule' as const,categoryVersion:1}];
+ expect(patchCategoryRows(rows,changes,'expense',r=>r.id,'uncategorised')).toEqual([rows[1]]);
+ const all=patchCategoryRows(rows,changes,'expense',r=>r.id);expect(all).toHaveLength(2);expect(all[0]).toMatchObject({description:'Groceries',date:'2026-10-12',categoryId:'groceries'});
  });
 
 });

@@ -369,7 +369,7 @@ function useTransactionsPage() {
 		});
 	};
 
- const bulk=useBulkCategoryRows("expense",transactions,row=>row.transactionId,listKey,setTransactions);
+ const bulk=useBulkCategoryRows("expense",transactions,row=>row.transactionId,listKey,setTransactions,filters.categoryId);
 	return {
 		bulk,
 		transactions,
@@ -417,6 +417,7 @@ const Transactions: React.FC = () => {
 
 	const showEmptyState =
 		!isLoading &&
+ !hasMore &&
 		!filterState.error &&
 		filterState.activeCount > 0 &&
 		transactions.length === 0;

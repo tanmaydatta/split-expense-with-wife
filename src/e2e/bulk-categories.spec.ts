@@ -7,7 +7,7 @@ for(const kind of ["expense","budget"] as const){
  test(`${kind} selection, async progress, navigation recovery and category refresh`,async({page},testInfo)=>{
  const pagePath=kind==='expense'?'/expenses':'/budget';
  const description=kind==='expense'?'Weekly groceries':'Household groceries debit';
- let job:Record<string,unknown>|null=null,completed=false;let postBody:{records:Array<{kind:string;id:string}>;requestId:string}={records:[],requestId:""};const listRequests:string[]=[];
+ let job:Record<string,unknown>|null=null,completed=false,currentId=kind==='expense'?'expense':'budget',started=0;let postBody:{records:Array<{kind:string;id:string}>;requestId:string}={records:[],requestId:""};const listRequests:string[]=[];
  await page.route('**/*',async route=>{
  const url=new URL(route.request().url()),p=url.pathname;let data:unknown;
  if(p.includes('/auth/get-session'))data=session;
@@ -15,12 +15,12 @@ for(const kind of ["expense","budget"] as const){
  if(p.endsWith('/categories'))data={enabled:true,categories:[{id:'groceries',name:'Groceries',slug:'groceries'}],rules:[]};
  else if(p.endsWith('/category-jobs')){
  if(route.request().method()==='POST'){
- postBody=route.request().postDataJSON();job={id:`synthetic-${kind}`,status:'queued',total:1,categorised:0,skipped:0,failed:0,changedRecords:0,changes:[]};
+ postBody=route.request().postDataJSON();job={id:`synthetic-${kind}-${++started}`,status:'queued',total:1,categorised:0,skipped:0,failed:0,changedRecords:0,changes:[]};
  }
- data={job:job&&completed?{...job,status:'completed',categorised:1,changedRecords:2,changes:[{kind,id:kind==='expense'?'expense':'budget',categoryId:'groceries',categoryName:'Groceries',categorySource:'rule',categoryVersion:1}]}:job};
+ data={job:job&&completed?{...job,status:'completed',categorised:1,changedRecords:2,changes:[{kind,id:currentId,categoryId:'groceries',categoryName:'Groceries',categorySource:'rule',categoryVersion:1}]}:job};
  }
- else if(p.endsWith('/transactions_list')){listRequests.push('expense');data={transactions:[{transaction_id:'expense',description:'Weekly groceries',amount:42,currency:'GBP',created_at:'2026-10-12',group_id:'home',metadata:JSON.stringify({paidByShares:{owner:42},owedAmounts:{partner:21},owedToAmounts:{owner:21}}),categoryId:null,categoryVersion:0}],transactionDetails:{expense:[{transaction_id:'expense',user_id:'partner',owed_to_user_id:'owner',amount:21,currency:'GBP',group_id:'home'}]}};}
- else if(p.endsWith('/budget_list')){listRequests.push('budget');data=[{id:'budget',name:'Household',description:'Household groceries debit',amount:-42,price:'-42.00',currency:'GBP',addedTime:'2026-10-12',groupid:'home',categoryId:null,categoryVersion:0}];}
+ else if(p.endsWith('/transactions_list')){listRequests.push('expense');data={transactions:[{transaction_id:kind==='expense'?currentId:'expense',description:'Weekly groceries',amount:42,currency:'GBP',created_at:'2026-10-12',group_id:'home',metadata:JSON.stringify({paidByShares:{owner:42},owedAmounts:{partner:21},owedToAmounts:{owner:21}}),categoryId:null,categoryVersion:0}],transactionDetails:{[kind==='expense'?currentId:'expense']:[{transaction_id:'expense',user_id:'partner',owed_to_user_id:'owner',amount:21,currency:'GBP',group_id:'home'}]}};}
+ else if(p.endsWith('/budget_list')){listRequests.push('budget');data=[{id:kind==='budget'?currentId:'budget',name:'Household',description:'Household groceries debit',amount:-42,price:'-42.00',currency:'GBP',addedTime:'2026-10-12',groupid:'home',categoryId:null,categoryVersion:0}];}
  else if(p.endsWith('/budget_total'))data=[{currency:'GBP',amount:258}];
  else if(p.endsWith('/linked-ids'))data={transactionIds:[]};
  else if(p.endsWith('/group/details'))data={groupName:'Home',metadata:session.extra.group.metadata,users:[{Id:'owner',firstName:'Alex'},{Id:'partner',firstName:'Sam'}],budgets:[{id:'household',budgetName:'Household'}]};
@@ -62,5 +62,15 @@ for(const kind of ["expense","budget"] as const){
  // Completion updates loaded metadata; it does not refetch every previously loaded list.
  expect(listRequests.filter(x=>x===kind).length).toBeLessThanOrEqual(initialListRequests+1);
  await page.getByRole('button',{name:'Hide result',exact:true}).click();await expect(page.getByRole('status')).toHaveCount(0);
+ // A later Uncategorised selection must disappear when categorised; other filters stay set.
+ currentId=`filtered-${kind}`;job=null;completed=false;
+ await page.goto(`${pagePath}?categoryId=uncategorised&q=groceries&dateFrom=2026-10-01`);
+ await page.getByRole('button',{name:'Select this page',exact:true}).click();await expect(page.getByText('1 selected',{exact:true})).toBeVisible();
+ await page.getByRole('button',{name:'Auto-categorise',exact:true}).click();await expect(page.getByRole('status')).toContainText('Queued');
+ completed=true;await expect(page.getByRole('status')).toContainText('Completed: 1 categorised');
+ await expect(page.getByTestId(kind==='expense'?'transaction-item':'budget-entry-item')).toHaveCount(0);
+ await expect(page.getByText(kind==='expense'?'No expenses match these filters.':'No budget entries match these filters.',{exact:false})).toBeVisible();
+ expect(new URL(page.url()).searchParams.get('q')).toBe('groceries');expect(new URL(page.url()).searchParams.get('dateFrom')).toBe('2026-10-01');expect(new URL(page.url()).searchParams.get('categoryId')).toBe('uncategorised');
+
  });
 }

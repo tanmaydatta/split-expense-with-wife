@@ -215,9 +215,12 @@ export function applyCategoryChange<T extends {categoryVersion?:number}>(row:T,c
  return {...row,...metadata};
 }
 
-export function useBulkCategoryRows<T extends {categoryVersion?:number}>(kind:RecordKind,rows:T[],getId:(row:T)=>string,context:string,setRows:Dispatch<SetStateAction<T[]>>){
- return useBulkCategories(kind,rows.map(getId),context,changes=>{
+export function patchCategoryRows<T extends {categoryVersion?:number;categoryId?:string|null}>(rows:T[],changes:CategoryJobChange[],kind:RecordKind,getId:(row:T)=>string,categoryId?:string):T[]{
  const byId=new Map(changes.filter(c=>c.kind===kind).map(c=>[c.id,c]));
- setRows(current=>current.map(row=>applyCategoryChange(row,byId.get(getId(row)))));
+ return rows.map(row=>applyCategoryChange(row,byId.get(getId(row)))).filter(row=>!categoryId||(categoryId==='uncategorised'?row.categoryId==null:row.categoryId===categoryId));
+}
+export function useBulkCategoryRows<T extends {categoryVersion?:number;categoryId?:string|null}>(kind:RecordKind,rows:T[],getId:(row:T)=>string,context:string,setRows:Dispatch<SetStateAction<T[]>>,categoryId?:string){
+ return useBulkCategories(kind,rows.map(getId),context,changes=>{
+ setRows(current=>patchCategoryRows(current,changes,kind,getId,categoryId));
  });
 }
