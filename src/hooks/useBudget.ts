@@ -82,6 +82,7 @@ export function useDeleteBudgetEntry() {
 
 			// Also invalidate transaction caches (the cascade soft-deleted linked transactions)
 			queryClient.invalidateQueries({ queryKey: ["transactions"] });
+			queryClient.invalidateQueries({ queryKey: ["category-insights"] });
 			queryClient.invalidateQueries({ queryKey: ["balances"] });
 
 			// Invalidate each linked transaction's detail page

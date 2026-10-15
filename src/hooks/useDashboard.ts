@@ -65,6 +65,7 @@ export function useCreateExpense() {
 		onSuccess: () => {
 			// Invalidate related queries
 			queryClient.invalidateQueries({ queryKey: ["transactions"] });
+			queryClient.invalidateQueries({ queryKey: ["category-insights"] });
 			queryClient.invalidateQueries({ queryKey: ["balances"] });
 		},
 	});
@@ -132,6 +133,7 @@ export function useDashboardSubmit() {
 		},
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["transactions"] });
+			queryClient.invalidateQueries({ queryKey: ["category-insights"] });
 			queryClient.invalidateQueries({ queryKey: ["balances"] });
 			queryClient.invalidateQueries({ queryKey: ["budget"] });
 			queryClient.invalidateQueries({ queryKey: ["bank"] });

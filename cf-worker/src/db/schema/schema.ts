@@ -54,6 +54,7 @@ export const groupBudgets = sqliteTable(
 export const groupCategories = sqliteTable("group_categories", {
  id: text("id").primaryKey(), groupId: text("group_id").notNull().references(() => groups.groupid),
  name: text("name").notNull(), slug: text("slug"), archivedAt: text("archived_at"),
+ excludeFromInsights: integer("exclude_from_insights",{mode:"boolean"}).notNull().default(false),
  createdAt: text("created_at").notNull().default("CURRENT_TIMESTAMP"),
 }, table => [uniqueIndex("group_categories_identity").on(table.groupId,table.id),uniqueIndex("group_categories_slug").on(table.groupId,table.slug)]);
 export const recordCategories = sqliteTable("record_categories", {

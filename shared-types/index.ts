@@ -38,7 +38,7 @@ export interface RecordCategory {
  categorySource?: CategorySource;
  categoryVersion?: number;
 }
-export interface GroupCategory { id: string; name: string; slug?: string | null; archivedAt?: string | null; }
+export interface GroupCategory { id: string; name: string; slug?: string | null; archivedAt?: string | null; excludeFromInsights?: boolean; }
 
 // Budget types
 export interface BudgetEntry extends RecordCategory {
@@ -398,6 +398,7 @@ export interface DashboardUser {
 
 // API endpoint types for type-safe API calls
 export interface ApiEndpoints {
+ "/category-insights": {request: CategoryInsightsRequest; response: CategoryInsightsResponse};
 	"/bills": { request: BillCreateInput; response: { id: string } };
 	"/bills/month": { request: { month: string }; response: BillMonthResponse };
 	"/bills/scheduled-options": { request: {}; response: BillScheduledOption[] };
@@ -1211,4 +1212,34 @@ export interface ExpenseBudgetLink {
 	budgetEntryId: string;
 	groupId: string;
 	createdAt: string;
+}
+
+export interface CategoryInsightsRequest {
+ dateFrom: string;
+ dateTo: string;
+ currency?: string;
+}
+export interface CategoryInsightBucket {
+ id: string | null;
+ name: string;
+ spending: number;
+ negativeAdjustments: number;
+ percentage: number;
+ count: number;
+}
+export interface ExcludedInsightSummary {
+ count: number; spending: number; negativeAdjustments: number; net: number; categories: string[];
+}
+export interface CategoryInsightsResponse {
+ excluded: ExcludedInsightSummary;
+ dateFrom: string;
+ dateTo: string;
+ currency: string | null;
+ currencies: string[];
+ count: number;
+ spending: number;
+ negativeAdjustments: number;
+ net: number;
+ categories: CategoryInsightBucket[];
+ months: { month: string; spending: number; categories: Record<string, number> }[];
 }

@@ -42,7 +42,7 @@ export function CategoryBadge({ record }: { record: RecordCategory }) {
 export function CategoryEditor({kind,id,record,linked}:{kind:RecordKind;id:string;record:RecordCategory;linked?:RecordCategory}) {
  const query=useCategories(),client=useQueryClient();const [value,setValue]=useState<string|null>(record.categoryId??null);
  useEffect(()=>setValue(record.categoryId??null),[record.categoryId,record.categoryVersion]);
- const mutation=useMutation({mutationFn:async()=>api.post("/record-category",{kind,id,categoryId:value,version:record.categoryVersion??0}),onSuccess:()=>Promise.all(["transactions","transaction","budget","budgetEntry","linkedCategories"].map(key=>client.invalidateQueries({queryKey:[key]})))});
+ const mutation=useMutation({mutationFn:async()=>api.post("/record-category",{kind,id,categoryId:value,version:record.categoryVersion??0}),onSuccess:()=>Promise.all(["transactions","transaction","budget","budgetEntry","linkedCategories","category-insights"].map(key=>client.invalidateQueries({queryKey:[key]})))});
  if(!query.data?.enabled)return null;
  const conflict=linked && (linked.categoryId??null)!==(record.categoryId??null);
  return <div className="category-editor" onClick={e=>e.stopPropagation()} onKeyDown={e=>e.stopPropagation()}>

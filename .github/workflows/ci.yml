@@ -78,5 +78,7 @@ jobs:
         cd cf-worker
         yarn test
         yarn exec vitest run --config vitest.category-workflow.config.ts
+        cd ..
+        node --test scripts/tests/category-insights-query-cost.test.mjs
       env:
         TZ: UTC

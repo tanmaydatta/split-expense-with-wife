@@ -106,6 +106,15 @@ function Sidebar({ onNavigate }: SidebarProps): JSX.Element {
 			</SidebarItem>
 			<SidebarItem
 				type="button"
+				$active={isActive("/category-insights")}
+				aria-current={isActive("/category-insights") ? "page" : undefined}
+				onClick={() => handleNavigate("/category-insights")}
+				data-test-id="sidebar-category-insights"
+			>
+				Category insights
+			</SidebarItem>
+			<SidebarItem
+				type="button"
 				$active={isActive("/bills")}
 				aria-current={isActive("/bills") ? "page" : undefined}
 				onClick={() => handleNavigate("/bills")}

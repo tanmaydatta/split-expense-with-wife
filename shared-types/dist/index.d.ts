@@ -41,6 +41,7 @@ export interface GroupCategory {
 	name: string;
 	slug?: string | null;
 	archivedAt?: string | null;
+    excludeFromInsights?: boolean;
 }
 export interface BudgetEntry extends RecordCategory {
 	id: string;
@@ -343,6 +344,7 @@ export interface DashboardUser {
 	percentage?: number;
 }
 export interface ApiEndpoints {
+    "/category-insights": { request: CategoryInsightsRequest; response: CategoryInsightsResponse; };
 	"/bills": {
 		request: BillCreateInput;
 		response: {
@@ -1259,4 +1261,42 @@ export interface ExpenseBudgetLink {
 	budgetEntryId: string;
 	groupId: string;
 	createdAt: string;
+}
+
+export interface CategoryInsightsRequest {
+    dateFrom: string;
+    dateTo: string;
+    currency?: string;
+}
+export interface CategoryInsightBucket {
+    id: string | null;
+    name: string;
+    spending: number;
+    negativeAdjustments: number;
+    percentage: number;
+    count: number;
+}
+export interface ExcludedInsightSummary {
+    count: number;
+    spending: number;
+    negativeAdjustments: number;
+    net: number;
+    categories: string[];
+}
+export interface CategoryInsightsResponse {
+    excluded: ExcludedInsightSummary;
+    dateFrom: string;
+    dateTo: string;
+    currency: string | null;
+    currencies: string[];
+    count: number;
+    spending: number;
+    negativeAdjustments: number;
+    net: number;
+    categories: CategoryInsightBucket[];
+    months: {
+        month: string;
+        spending: number;
+        categories: Record<string, number>;
+    }[];
 }
