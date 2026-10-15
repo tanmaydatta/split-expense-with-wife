@@ -4,6 +4,8 @@ import { TransactionCard } from "@/components/TransactionCard";
 import { BudgetCard } from "@/components/BudgetCard";
 import { buildFrontendTransaction } from "@/utils/transaction";
 import type { BudgetEntry, Transaction } from "split-expense-shared-types";
+// Category editing is covered separately; this fixture exercises shared card navigation and balances.
+jest.mock("@/components/Categories",()=>({CategoryBadge:()=>null,CategoryEditor:()=>null}));
 const mockUseTransaction = jest.fn();
 beforeEach(() => mockUseTransaction.mockReturnValue({ data: undefined }));
 jest.mock("@/hooks/useTransaction", () => ({ useTransaction: (id: string) => mockUseTransaction(id) }));

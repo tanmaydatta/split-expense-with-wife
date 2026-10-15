@@ -46,3 +46,35 @@ Focused synthetic backend tests cover disabled/missing schema, stable defaults, 
 ## UI/runtime layer
 
 Add/review forms offer Automatic or an explicit category/Uncategorised. Automatic resolves on the server when saved; matching existing records retains their choices unless the member explicitly changes them. Expanded record editors align linked categories and expose historical conflicts. Expense/Budget filters include archived categories for saved records. Settings manages category names/archive and explicit shared rules; recurring forms preserve saved defaults. See [synthetic AI evaluation](testing/category-ai.md).
+
+## Bulk auto-categorisation
+
+Budget and Expenses lists offer checkboxes, **Select this page**, a selected count and **Auto-categorise**. Selection includes the currently loaded entries, up to 100 per job. Active work continues in Cloudflare Workflows when you navigate away; returning to either list restores your latest job. Status updates every two seconds while the page is visible and a job is active. Completed changes update loaded rows using category versions, preserving later manual edits. Entries that no longer match the active category filter leave the visible list; other filters remain set.
+
+A selected record includes its active linked expense/budget component. Components are deduplicated and receive a single category decision. Saved non-null categories and manual Uncategorised clears are preserved; automatic Uncategorised or missing metadata can be filled. Conflicting saved choices or recurring defaults abstain. Rules precede AI; each logical component uses at most one AI attempt, with the existing strict confidence, margin and timeout. Deterministic recurring entries load history snapshots and current defaults using indexed ID lookups.
+
+Jobs accept at most 100 roots, each component at most 1,000 records, and read at most 2,000 component records in total. Processing measures actual D1 `meta.rows_read`, with a 50,000-row allowance. Before every processing query the remaining allowance is durably reserved; missing read metadata or an ambiguous crash consumes the reservation and prevents further work. D1 reports cost after execution, so one already-running indexed query can exceed the remaining allowance; subsequent reads and writes stop. Metadata/status queries use bounded indexed job/item lookups. No household financial scans are performed.
+
+One active job per household and per user is enforced in D1, with at least 30 seconds between new household jobs. Selection and request identity are durable; retrying the same request reuses its job. Failed dispatch is visible and the same request can retry. Component membership is durably reserved before inference, so a selected linked sibling stays deduplicated even if publishing the completed decision fails. The resolved plan is durably stored before a separate apply step. An interrupted inference reservation is reported failed instead of issuing another AI call. This avoids repeat inference after an ambiguous crash; it does not claim exactly-once delivery to an external AI service. Category writes are idempotent and compare snapshot descriptions, category versions and component membership atomically. The initiator must still exist, have completed signup and belong to the job household at the write itself.
+
+A five-minute inactivity lease releases abandoned capacity on the next authenticated start/status request. Fatal Workflow errors mark unfinished items and the job failed. A completed job may contain failed or skipped selections; counts refer to selected roots, while the updated-record count includes eligible linked siblings. Only category metadata and job sidecars are written; amounts, balances and financial links are unchanged.
+
+### Job API and rollout
+
+`GET /.netlify/functions/category-jobs` restores the initiating user's latest job in their current household; `?id=...` reads a specific owned job. `POST` accepts `{requestId, records:[{kind:"expense"|"budget",id}]}` and returns HTTP 202 with the durable job. Request IDs must be 8–100 letters, digits, underscores or hyphens. Reusing a request ID with another selection returns 409; active/rate guards return 429. Status and completed category metadata are private to the initiator, even within a shared household.
+
+Apply additive migration **0033_category_jobs.sql** to development before pushing the PR, and production before merging. Configure `CATEGORY_JOBS_WORKFLOW` with `CategoryJobsWorkflow` (development workflow `category-jobs-dev`, production `category-jobs`). Existing category/AI rollout flags continue to apply. Before rollback, terminate active category-jobs Workflow instances (or have an authorized operator mark their jobs failed) before reverting the Worker/UI. Running Workflow instances can retain their original Worker version, so changing flags in a new deployment alone does not cancel their category writes. Retain the additive job tables. Do not run the historical backfill tool for this feature.
+
+### Authentication audit
+
+Category taxonomy/rule management and explicit record-category edits use `withAuth`, refreshed database household membership, and group-scoped category/component SQL. Bulk start/status uses `withAuthLite`, current database user/signup membership, owner+household job predicates and an additional membership guard inside the final category SQL statement.
+
+Private bank inbox, detail, links, provisional drafts and review endpoints require authenticated sessions and source ownership. Connection/account management uses `withAuthLite` and `bank_connections.user_id`; ledger associations additionally validate the shared household. The public exceptions are intentional: `/health` exposes static readiness; `/auth/*` runs the authentication provider/allowlist flow; `/plaid/webhook` verifies ES256 signature, key identity, a five-minute timestamp window and the exact body's SHA-256 before dispatch; `/test/seed` only registers when an environment seed secret exists, accepts POST and validates the per-request secret. Static application assets and OPTIONS preflight are public. This audit does not assume production seed-secret absence.
+
+Local verification covers unauthenticated GET/POST, same-household non-owner job status, inaccessible roots, duplicate requests/siblings, dispatch ambiguity/retry, stale leases, read limits, concurrent clears and an actor move at the final SQL write. A separate integration suite runs the actual local Workflow with categories enabled, AI disabled and a synthetic description rule:
+
+```sh
+yarn workspace split-expense-worker exec vitest run --config vitest.category-workflow.config.ts
+```
+
+See [bulk verification and synthetic screenshots](testing/bulk-categories.md) for reproducible local checks.

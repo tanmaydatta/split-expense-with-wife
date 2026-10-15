@@ -1,3 +1,4 @@
+import { handleCategoryJobs } from "./handlers/category-jobs";
 import { handleCategories, handleRecordCategory } from "./handlers/categories";
 import { handleBankInbox, handleBankTransactionGet, handleBankRecordLink, handleBankProvisionalSave, handleBankProvisionalCancel, handleBankDraftCandidates } from "./handlers/bank-inbox";
 import { auth } from "./auth";
@@ -55,6 +56,7 @@ import {
 	createErrorResponse,
 	createOptionsResponse,
 } from "./utils";
+import { CategoryJobsWorkflow } from "./workflows/category-jobs";
 import { BankSyncWorkflow } from "./workflows/bank-sync";
 import { ScheduledActionsOrchestratorWorkflow } from "./workflows/scheduled-actions-orchestrator";
 import { ScheduledActionsProcessorWorkflow } from "./workflows/scheduled-actions-processor";
@@ -254,6 +256,7 @@ async function handleApiRoutes(
 		"bank-import/accounts/select": { methods: ["POST"], handler: handleBankSelectAccount },
 		"bank-import/sync": { methods: ["POST"], handler: handleBankSync },
         "bank-import/transaction": { methods: ["GET"], handler: handleBankTransactionGet },
+        "category-jobs": { methods: ["GET", "POST"], handler: handleCategoryJobs },
         "categories": { methods: ["GET", "POST"], handler: handleCategories },
         "record-category": { methods: ["POST"], handler: handleRecordCategory },
         "bank-import/record-link": { methods: ["GET"], handler: handleBankRecordLink },
@@ -379,4 +382,4 @@ export {
 	ScheduledActionsProcessorWorkflow,
 };
 
-export { BankSyncWorkflow };
+export { BankSyncWorkflow, CategoryJobsWorkflow };

@@ -5,9 +5,21 @@
 declare namespace Cloudflare {
 	interface Env {
 		E2E_SEED_SECRET: string;
-        CATEGORIES_ENABLED?: string;
- CATEGORY_AI_ENABLED?: string;
- CATEGORY_AI?: {run(model:string,input:unknown):Promise<unknown>};
+		AUTH_PIN: string;
+		DSN: string;
+		DSN_D1: string;
+		DSN_POSTGRES: string;
+		GO_VERSION: string;
+		PLANETSCALE_DATABASE_URL: string;
+		PLANETSCALE_HOST: string;
+		PLANETSCALE_PASSWORD: string;
+		PLANETSCALE_USERNAME: string;
+		SPLITWISE_API_KEY: string;
+		NETLIFY_ORIGIN: string;
+		MIGRATION_SECRET: string;
+		AUTH_PRIVATE_KEY: string;
+		REACT_APP_AUTH_BASE_URL: string;
+
 	}
 }
 

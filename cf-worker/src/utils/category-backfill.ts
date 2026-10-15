@@ -162,9 +162,10 @@ export async function readBackfillComponent(
 	env: Env,
 	groupId: string,
 	root: { kind: RecordKind; id: string },
+ limit = 1000,
 ): Promise<BackfillRecord[]> {
 	const result =
-		await env.DB.prepare(`${CATEGORY_COMPONENT_SQL},live AS (${LIVE_COMPONENT_SQL})
+		await env.DB.prepare(`${CATEGORY_COMPONENT_SQL.replace("LIMIT 1001",`LIMIT ${Math.min(1001,Math.max(1,limit+1))}`)},live AS (${LIVE_COMPONENT_SQL})
  SELECT c.kind,c.id,l.description,r.category_id AS categoryId,r.source,COALESCE(r.version,0) AS version FROM component c JOIN live l ON l.kind=c.kind AND l.id=c.id LEFT JOIN record_categories r ON r.group_id=? AND r.record_kind=c.kind AND r.record_id=c.id ORDER BY c.kind,c.id`)
 			.bind(root.kind, root.id, groupId, groupId)
 			.all<BackfillRecord>();
@@ -267,6 +268,7 @@ export async function applyBackfillComponent(
 	env: Env,
 	groupId: string,
 	plan: BackfillPlan,
+ actor?: {userId:string;jobId:string},
 ): Promise<"applied" | "already-applied" | "stale" | "skipped"> {
 	if (
 		plan.status !== "proposed" ||
@@ -312,6 +314,7 @@ export async function applyBackfillComponent(
  WHERE (r.category_id IS NULL AND (r.source IS NULL OR r.source='uncategorised'))
  AND (SELECT count(*) FROM component)=(SELECT count(*) FROM expected) AND (SELECT count(*) FROM component)<=1000
  AND NOT EXISTS(SELECT 1 FROM expected e LEFT JOIN component c2 ON c2.kind=e.kind AND c2.id=e.id LEFT JOIN live l2 ON l2.kind=e.kind AND l2.id=e.id LEFT JOIN record_categories r2 ON r2.group_id=? AND r2.record_kind=e.kind AND r2.record_id=e.id WHERE c2.id IS NULL OR l2.id IS NULL OR l2.description IS NOT e.description OR COALESCE(r2.version,0)<>e.version OR r2.source IS NOT e.source OR r2.category_id IS NOT e.category_id)
+ ${actor?"AND EXISTS(SELECT 1 FROM user u JOIN category_jobs j ON j.user_id=u.id AND j.group_id=u.groupid WHERE u.id=? AND u.groupid=? AND u.signup_complete=1 AND j.id=? AND j.status IN ('queued','running'))":""}
  AND EXISTS(SELECT 1 FROM group_categories WHERE id=? AND group_id=? AND (? IN ('linked','scheduled') OR archived_at IS NULL))
  ON CONFLICT(group_id,record_kind,record_id) DO UPDATE SET category_id=excluded.category_id,source=excluded.source,version=record_categories.version+1
  WHERE record_categories.category_id IS NULL AND (record_categories.source IS NULL OR record_categories.source='uncategorised')`)
@@ -325,6 +328,7 @@ export async function applyBackfillComponent(
 				plan.decision.source,
 				groupId,
 				groupId,
+				...(actor?[actor.userId,groupId,actor.jobId]:[]),
 				plan.decision.categoryId,
 				groupId,
 				plan.decision.source,

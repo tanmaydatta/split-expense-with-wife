@@ -1,3 +1,4 @@
+import categoryJobsMigration from "../db/migrations/0033_category_jobs.sql?raw";
 import categoryPagingMigration from "../db/migrations/0032_category_maintenance_paging.sql?raw";
 import categoryMigration from "../db/migrations/0031_record_categories.sql?raw";
 import { sql } from "drizzle-orm";
@@ -255,14 +256,16 @@ export async function setupDatabase(env: Env): Promise<void> {
 	await env.DB.exec(
 		"CREATE INDEX IF NOT EXISTS expense_budget_links_group_idx ON expense_budget_links (group_id)",
 	);
- const ddl = (categoryMigration+"\n"+categoryPagingMigration).replace(/--[^\n]*/g, "").split(";").map(q => q.trim()).filter(Boolean);
- for (const query of ddl) await env.DB.prepare(query.replace("CREATE TABLE ", "CREATE TABLE IF NOT EXISTS ").replace(/CREATE INDEX (?!IF NOT EXISTS )/, "CREATE INDEX IF NOT EXISTS ")).run();
+ const ddl = (categoryMigration+"\n"+categoryPagingMigration+"\n"+categoryJobsMigration).replace(/--[^\n]*/g, "").split(";").map(q => q.trim()).filter(Boolean);
+ for (const query of ddl) await env.DB.prepare(query.replace("CREATE UNIQUE INDEX ", "CREATE UNIQUE INDEX IF NOT EXISTS ").replace("CREATE TABLE ", "CREATE TABLE IF NOT EXISTS ").replace(/CREATE INDEX (?!IF NOT EXISTS )/, "CREATE INDEX IF NOT EXISTS ")).run();
 }
 
 // Complete database cleanup - ensures total isolation between tests
 export async function completeCleanupDatabase(env: Env): Promise<void> {
 	const db = getDb(env);
 	// Delete data from all tables in reverse order of creation/dependency
+ await env.DB.exec("DELETE FROM category_job_items");
+ await env.DB.exec("DELETE FROM category_jobs");
  await env.DB.exec("DELETE FROM record_categories");
  await env.DB.exec("DELETE FROM category_rules");
  await env.DB.exec("DELETE FROM group_categories");
