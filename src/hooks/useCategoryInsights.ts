@@ -6,7 +6,7 @@ import type {
 } from "split-expense-shared-types";
 import { typedApi } from "@/utils/api";
 export function useCategoryInsights(
-	input: CategoryInsightsRequest,
+	input: Omit<CategoryInsightsRequest, "source">,
 	valid: boolean,
 ) {
 	const identity = useSelector(
@@ -19,10 +19,11 @@ export function useCategoryInsights(
 		),
 	);
 	return useQuery({
-		queryKey: ["category-insights", identity, input],
+		queryKey: ["category-insights", "budget", identity, input],
 		enabled: valid && allowed,
 		staleTime: 60000,
 		retry: false,
-		queryFn: () => typedApi.post("/category-insights", input),
+		queryFn: () =>
+			typedApi.post("/category-insights", { ...input, source: "budget" }),
 	});
 }

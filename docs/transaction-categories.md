@@ -87,8 +87,8 @@ The display reuses category metadata already returned by the budget list plus th
 
 See [loaded budget display verification](testing/budget-category-badges.md) for synthetic desktop/mobile screenshots and regression coverage.
 
-## Shared expense insights
+## Budget category insights
 
-[Category insights](category-insights.md) shows positive shared spending by category and month, with adjustments separate, one currency at a time. Category links open the existing filtered Expenses page. Budget copies and private bank activity are excluded; bounded range/record limits prevent partial or unbounded reports.
+[Budget insights](category-insights.md) reports budget debit spending, credits and net budget movement for all active household budgets or one selected budget, one currency at a time. Shared expenses and private bank activity are excluded. Category drilldown links identify the correct budget and retain date/category/currency filters. Bounded indexed queries reject oversized reports rather than returning partial totals.
 
-Categories also have an explicit **Exclude from spending insights** preference in Settings, off by default. It changes category insight totals only and never infers transfers from names or edits financial records. Insights disclose excluded activity separately and support rolling UTC date presets; see the [insights guide](category-insights.md) for exact boundaries and migration 0034 rollout order.
+Categories retain the explicit **Exclude from spending insights** preference in Settings, off by default. The Insights page adds temporary URL-based exclusions with Apply/Reset; these never write Settings and cannot override saved exclusions. Excluded budget-entry counts and amounts remain visible. See the [insights guide](category-insights.md) for rolling UTC boundaries, limits and verification. Migration 0034 is already applied; this budget-only correction needs no migration.

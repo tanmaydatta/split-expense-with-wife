@@ -111,7 +111,7 @@ function Sidebar({ onNavigate }: SidebarProps): JSX.Element {
 				onClick={() => handleNavigate("/category-insights")}
 				data-test-id="sidebar-category-insights"
 			>
-				Category insights
+				Budget insights
 			</SidebarItem>
 			<SidebarItem
 				type="button"

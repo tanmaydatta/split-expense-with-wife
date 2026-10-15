@@ -1,78 +1,74 @@
-# Shared expense category insights
+# Budget category insights
 
-Open **Category insights** from the navigation to see a category breakdown and monthly stacked spending chart for your current household. The initial range is the current UTC month through today. Apply both dates together; editing a date does not request new totals. Choose one original currency at a time, with no conversion. GBP is initially selected when present, otherwise the first available currency.
+Open **Budget insights** to see debit spending by category and month for the current household's active budgets. **All active budgets** is selected initially; choose an individual budget when needed. Shared expenses and private bank tables are never report sources. Each live budget entry is counted once using its own budget category metadata, independently of any linked expense category.
 
-## Date presets
+## Amounts and drilldown
 
-**This month** runs from the first UTC day of this month through today. **Last month** is the complete previous calendar month. **Last 7 days** and **Last 30 days** are rolling ranges ending today, including today and the previous 6 or 29 UTC dates. **Custom** keeps the dates you apply.
+- **Spending** is the magnitude of negative budget entries (debits).
+- **Credits** sums positive budget entries. Credits are not assumed to be income.
+- **Net budget movement** is credits minus spending. A £500 credit and £500 debit therefore show £500 spending, £500 credits and £0 net movement.
+- Category percentages use debit spending amounts, not entry counts. Credit-only categories show 0% spending and their credits separately. Counts include zero-value entries.
 
-**Last 3 months** is also rolling, not three completed calendar months. Subtract three months from today, clamp that boundary to the last valid day of its month, then start on the following day: the interval is `(three-month boundary, today]`, expressed as inclusive date inputs. For example, 15 October 2026 gives **16 July–15 October 2026**; 31 May 2026 gives **1 March–31 May 2026** after clamping February to the 28th. Leap years clamp February to the 29th. Saved preset URLs derive fresh dates from today's UTC date when reopened; Custom URLs retain their fixed dates. An unknown preset is treated as Custom. The inputs always show the actual applied dates; manually applying edited dates switches to Custom.
+Choose one original currency at a time; currencies are never converted or combined. The monthly chart stacks debit spending only. It displays the seven largest categories and groups the remainder as **Other categories**. The complete category breakdown and expandable monthly category amounts remain available as readable text.
 
-## Explicit category exclusions
+For an individual budget, category links open the existing Budget page with that budget, category, date range and currency. For All active budgets, expand **View budget entries** below a category to choose a visibly named budget. These links never silently default to a different budget and never open Expenses. Drilldown includes credits as well as debits. Deleted entries and deleted budgets are excluded. Future-dated entries are excluded using the same current-UTC-second cutoff as the Budget list.
 
-In Settings → Transaction categories, choose **Exclude from spending insights** for a category representing internal transfers or another movement you want omitted. The default is off. No category name, merchant or description automatically causes an exclusion. The setting applies to existing and future shared expenses assigned to that category, including archived categories, without editing amounts, descriptions, category assignments, names or archive state. Only authenticated members of the current household can update its categories.
+## Dates
 
-Flagged activity is excluded consistently from included spending, adjustments, net expenses, counts, category percentages and monthly stacks. A visible notice lists excluded category names and the expense count for the selected currency and range; expandable amounts show excluded positives, negative adjustments and net separately. It remains visible when every expense is excluded. Currencies are never combined. Uncategorised activity remains included; assign an explicit category before excluding it. The 5,000-record range cap still includes excluded records across all currencies, so exclusion cannot bypass the cost bound.
+The initial range is this UTC month through today. Apply date edits together; typing does not request new totals. **This month** runs from the first UTC day through today. **Last month** is the complete previous calendar month. **Last 7 days** and **Last 30 days** include today and the previous 6 or 29 UTC dates. **Custom** keeps the dates you apply.
 
-## What the amounts mean
+**Last 3 months** is rolling: subtract three months from today, clamp that boundary to its month's last valid day, then start on the following day. The interval is `(three-month boundary, today]`, shown as inclusive inputs. For example, 15 October 2026 gives **16 July–15 October 2026**; 31 May 2026 gives **1 March–31 May 2026** after clamping February to the 28th. Leap years clamp February to the 29th. Reopened preset URLs derive dates from today's UTC date; Custom URLs stay fixed. Unknown presets become Custom, and applying manually edited dates selects Custom.
 
-- **Spending** sums positive shared expense amounts. Category percentages are shares of this amount, not shares of the number of entries.
-- **Adjustments** sums negative shared expense amounts. A negative amount is not assumed to be income or a refund.
-- **Net expenses** adds adjustments to spending. For example, £150 spending and -£100 adjustments give £50 net expenses. The category percentages still use £150, so negative-only or net-zero activity cannot create misleading percentages.
-- Uncategorised entries remain visible. Saved custom and archived category names are retained. Zero or negative-only categories show 0% spending and their adjustments separately.
+## Saved and temporary exclusions
 
-Each shared expense is counted once from `transactions`. Linked budget entries, other budget activity, private bank imports and member splits are not included. A bank import explicitly saved as a shared expense is included through that shared expense only. Budget credits moving money between personal and shared budgets are therefore outside this view.
+Settings → Transaction categories retains the explicit **Exclude from spending insights** preference, off by default. No name, description or merchant implies exclusion. Saved exclusions apply to the category's budget entries, including archived categories, without changing category assignments or financial records.
 
-The monthly chart uses positive spending only. It shows the seven largest categories individually and groups any remainder as **Other categories**. The complete category breakdown remains above the chart. Expand **Monthly spending totals** for readable monthly amounts for every category, including those grouped in the chart.
+The Insights page also offers **Temporary category exclusions**. Check categories and choose **Apply exclusions** to add exclusions for this view. Repeated `exclude` URL parameters preserve the selection across reloads and shared links. **Reset temporary exclusions** clears only those temporary choices; budget, date and currency controls remain set. This page never writes category Settings. Saved exclusions remain checked and disabled because temporary filters are additive, not overrides. Options include Uncategorised, archived categories and categories with no currently included rows, so an exclusion can always be undone.
 
-Select a category in the breakdown or chart legend to open the existing Expenses page with that category, UTC date range and currency applied. The resulting list includes adjustments in that category as well as positive expenses.
+Exclusions apply consistently to spending, credits, net movement, counts, percentages and monthly stacks. A visible notice lists excluded category names and budget-entry counts; expandable amounts show excluded spending, credits and net movement for the selected currency. It remains usable when every entry is excluded. Resetting temporary choices does not reset saved preferences.
 
-## Limits and privacy
+## Bounds, authentication and compatibility
 
-The read-only endpoint accepts at most 366 inclusive UTC days and 5,000 non-deleted shared expenses across all currencies in the selected range. If the range exceeds the cap, it asks for a shorter range rather than showing partial totals. Choosing a sparse currency does not bypass the household range cap. The analytics query also fails closed if D1 read accounting is absent or exceeds 40,000 rows read.
+The read-only `POST /category-insights` requires an authenticated completed-signup user and verifies their current household server-side. Client-supplied household identifiers are rejected. Budget identities and temporary category IDs must belong to that household. Responses are private and HTTP `no-store`; no transaction descriptions, member splits or bank tables are read.
 
-`POST /category-insights` requires an authenticated, completed-signup user. The server reads the user's current household and rejects client-supplied household identifiers. It never reads bank tables, budget tables, transaction descriptions or member shares. Responses are private and `no-store` at HTTP level.
+Requests require `source: "budget"`. An already-open older expense-insights page receives **409: Insights changed. Refresh the page.** instead of displaying budget totals under old expense labels. Refresh loads the new budget-only interface. Malformed or unsupported request fields are rejected.
 
-The frontend cache includes household, user, authentication session, applied dates and currency. It has a one-minute stale time, no polling and no retries. Returning to or focusing a stale page refreshes it. Expense creation/deletion, linked deletion, bill payment, explicit category edits/exclusion settings and completed bulk categorisation invalidate cached insights. Changes by other users or background actions are picked up on a stale revisit/focus or page reload.
+The maximum range is **366 inclusive UTC days**, **5,000 live budget entries**, and **100 active budgets** in All mode. A household with more budgets must select one. The entry cap applies before currency selection and exclusions. Exceeding a cap shows a narrow-range/select-budget message, never partial totals. At most 100 temporary category IDs are accepted. Cumulative measured D1 reads across budget discovery, exclusion validation and ledger enrichment must remain within **40,000**; absent read metadata fails closed.
 
-## Query and regression evidence
+The frontend cache includes source, household, user, authentication session, dates, currency, budget and temporary exclusions. It has a one-minute stale time, no polling and no retries. Relevant budget/ledger/category/bulk mutations invalidate insights, including budget creation. Other-user or background changes appear on stale revisit/focus or reload.
 
-The existing `transactions_group_id_deleted_created_at_idx` drives the household/live/date range. A materialized `LIMIT 5001` precedes category sidecar enrichment; category joins use their identity indexes. Currency selection and aggregation happen only after this bounded read. The existing indexes remain sufficient; migration 0034 adds only the category preference column.
+## Query-cost and local verification
 
-Local synthetic testing against **all production SQL migrations**, including 0033:
+Verified budget IDs feed indexed `budget_entries_monthly_aggregation_idx` date ranges. An unordered materialized `LIMIT 5001` precedes category enrichment, avoiding a global date sort that could read an entire oversized range. Sidecars use `record_kind='budget'` and identity indexes. All-budget metadata uses `group_budgets_group_id_deleted_idx` with `LIMIT 101`. Existing production indexes suffice; **no migration is added**.
 
-| Fixture | Analytics rows read |
+The synthetic fixture runs all production SQL migrations through 0034 and measures every report query's actual `meta.rows_read`:
+
+| Fixture | Cumulative rows read |
 | --- | ---: |
-| 5,000 fully categorised shared expenses | 20,000 |
-| Same range plus 50,000 foreign-household and 50,000 older expenses | 20,000 |
-| Same 5,000 expenses explicitly excluded | 20,000 |
+| 5,000 categorised budget entries across two budgets | 20,007 |
+| Same plus 50,000 foreign-budget and 50,000 older household entries | 20,007 |
+| All 5,000 entries excluded | 20,007 |
+| 55,000 in-range entries across two budgets, rejected at the cap | 15,005 |
 
-`EXPLAIN QUERY PLAN` confirms indexed transaction range discovery and indexed category joins, with no scans of the ledger or category tables. The scan of the materialized selected rows is bounded to 5,001. Authentication uses the existing separate indexed session/current-user lookups. The cost fixture runs in Worker CI.
+`EXPLAIN QUERY PLAN` confirms indexed budget/date discovery and category identity joins, without ledger/category scans or a global ordering sort. Authentication uses separate existing indexed session/current-user lookups. This cost fixture runs in Worker CI.
+
+Focused backend tests cover authentication, legacy-client refresh, current/foreign household scope, deleted/future entries, £500 credit/debit cancellation, budget versus linked-expense categories, currency separation, saved/additive temporary exclusions, validation, empty households, record/budget bounds and fail-closed accounting. Frontend tests cover URL Apply/Reset, no Settings writes, cache isolation and correct per-budget links. Browser cases use a built frontend with synthetic API responses; real local D1/auth API tests independently verify backend behavior.
 
 ```sh
 node --test scripts/tests/category-insights-query-cost.test.mjs
 cd cf-worker && yarn exec vitest run src/tests/category-insights.test.ts
-```
-
-Frontend regression coverage includes cache/session isolation, mutation invalidation, amount-based percentages, negative-only and empty states, and exact filtered drilldown URLs. Synthetic browser checks use a built frontend with stubbed API responses, separately from the real local D1/auth API tests; they do not claim end-to-end real financial API execution.
-
-```sh
+# From the repository root:
 yarn test --watchAll=false --runInBand
 yarn lint
+yarn workspace split-expense-worker lint
 REACT_APP_AUTH_BASE_URL=http://127.0.0.1:4326 REACT_APP_API_BASE_URL=/.netlify/functions yarn build
 yarn playwright test --config playwright.bulk-categories.config.ts category-insights.spec.ts
 ```
 
-The legend uses specific flex classes with each decorative swatch inside its label link. Actual browser computed geometry improved from a 13px vertical offset to 0.75px while retaining the 44px link target.
-
-Synthetic, visually reviewed screenshots: [desktop overview](previews/category-insights/desktop-overview.png), [desktop monthly chart](previews/category-insights/desktop-monthly.png), [mobile overview](previews/category-insights/mobile-overview.png), [mobile category breakdown](previews/category-insights/mobile-breakdown.png), [mobile monthly chart](previews/category-insights/mobile-monthly.png), [desktop exclusion settings](previews/category-insights/desktop-settings.png), [mobile exclusion settings](previews/category-insights/mobile-settings.png).
+Synthetic screenshots, personally reviewed: [desktop overview](previews/category-insights/desktop-overview.png), [desktop monthly chart](previews/category-insights/desktop-monthly.png), [desktop temporary filters](previews/category-insights/desktop-filters.png), [mobile overview](previews/category-insights/mobile-overview.png), [mobile category breakdown](previews/category-insights/mobile-breakdown.png), [mobile monthly chart](previews/category-insights/mobile-monthly.png), [mobile temporary filters](previews/category-insights/mobile-filters.png).
 
 ## Release and rollback
 
-Migration **0034_category_insight_exclusions.sql** adds `group_categories.exclude_from_insights INTEGER NOT NULL DEFAULT 0 CHECK (exclude_from_insights IN (0,1))`. Drizzle schema and shared types match. It changes no financial rows or saved category assignments; existing and new categories default to included. Old Worker code remains compatible with the added column.
+Migration 0034 and its saved category preference are already applied in development and production; **do not reapply it**. This change needs no migration or new binding. Push deploys development automatically; merge requires explicit user approval after the PR and screenshots are reviewed. No real financial report or classification job is required for release verification. Verify public health, unauthenticated rejection and version/static assets only.
 
-Migrations are manual: verify 0034 is the sole pending migration and apply it to **dev before pushing** (push automatically deploys dev), then verify its column/default/check and migration record using metadata only. **Production 0034 must be reviewed and applied before merging** because the new taxonomy and analytics SELECTs require the column. Merge still requires explicit user approval after reviewing the PR and all seven embedded screenshots. No new binding is required.
-
-For rollback, revert the Worker/UI code and leave the additive column and stored preferences in place. Do not drop the column or alter financial data.
-
-Local final verification: **405 Worker tests passed, 8 skipped** across 33 files; **72 frontend tests passed, 2 skipped**. Both lint/type gates and the production frontend build passed. **Eight** dedicated desktop/mobile browser cases passed, including rolling presets, no date-keystroke requests, currency isolation, exact filtered drilldown, readable monthly amounts, explicit cap errors, measured legend alignment and archived-category exclusion toggles. The production-migration cost fixture includes 0034 and remains at **20,000 reads** in all three cases above. Seven final screenshots were personally reviewed.
+For rollback, revert Worker and UI together and retain the additive 0034 column and preferences. No financial rows or category settings are modified by this report or its temporary filters.

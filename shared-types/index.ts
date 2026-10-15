@@ -1215,31 +1215,20 @@ export interface ExpenseBudgetLink {
 }
 
 export interface CategoryInsightsRequest {
- dateFrom: string;
- dateTo: string;
- currency?: string;
+ source:"budget";
+ dateFrom:string; dateTo:string; currency?:string; budgetId?:string; excludedCategoryIds?:string[];
+}
+export interface CategoryInsightBudget {
+ id:string; name:string; spending:number; credits:number; count:number;
 }
 export interface CategoryInsightBucket {
- id: string | null;
- name: string;
- spending: number;
- negativeAdjustments: number;
- percentage: number;
- count: number;
+ id:string|null; name:string; spending:number; credits:number; percentage:number; count:number; budgets:CategoryInsightBudget[];
 }
 export interface ExcludedInsightSummary {
- count: number; spending: number; negativeAdjustments: number; net: number; categories: string[];
+ count:number; spending:number; credits:number; net:number; categories:string[];
 }
 export interface CategoryInsightsResponse {
- excluded: ExcludedInsightSummary;
- dateFrom: string;
- dateTo: string;
- currency: string | null;
- currencies: string[];
- count: number;
- spending: number;
- negativeAdjustments: number;
- net: number;
- categories: CategoryInsightBucket[];
- months: { month: string; spending: number; categories: Record<string, number> }[];
+ dateFrom:string;dateTo:string;budgetId:string|null;currency:string|null;currencies:string[];
+ count:number;spending:number;credits:number;net:number;excluded:ExcludedInsightSummary;categories:CategoryInsightBucket[];
+ months:{month:string;spending:number;categories:Record<string,number>}[];
 }

@@ -150,7 +150,7 @@ const PageContent = styled.div`
 function getPageTitle(path: string): string {
 	if (path === "/") return "Add Expense";
 	if (path === "/expenses") return "Expenses";
-	if (path === "/category-insights") return "Category insights";
+	if (path === "/category-insights") return "Budget insights";
 	if (path === "/balances") return "Balances";
 	if (path === "/bills") return "Shared Bills";
 	if (path === "/bank-import") return "Bank activity";
