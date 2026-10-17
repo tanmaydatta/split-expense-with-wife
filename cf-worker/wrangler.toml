@@ -29,6 +29,7 @@ run_worker_first = ["/.netlify/functions/*", "/hello", "/auth/*", "/health", "/t
 
 [vars]
 CATEGORIES_ENABLED = "true"
+BUDGET_TRANSFERS_ENABLED = "true"
 CATEGORY_AI_ENABLED = "true"
 ALLOWED_ORIGINS = "https://staging--splitexpense.netlify.app,https://splitexpense.netlify.app,https://deploy-preview-5--splitexpense.netlify.app,http://localhost:3000,http://localhost:3001"
 GROUP_IDS = ""
@@ -65,6 +66,7 @@ enabled = true
     
     [env.prod.vars]
     CATEGORIES_ENABLED = "true"
+BUDGET_TRANSFERS_ENABLED = "true"
 CATEGORY_AI_ENABLED = "true"
     ALLOWED_ORIGINS = "https://budget.wastd.dev,https://splitexpense.netlify.app,https://deploy-preview-5--splitexpense.netlify.app,http://localhost:3000,http://localhost:3001"
     GROUP_IDS = ""
@@ -97,6 +99,7 @@ CATEGORY_AI_ENABLED = "true"
     LUNCH_FLOW_ENABLED = "true"
     BANK_BACKGROUND_SYNC_ENABLED = "false"
     CATEGORIES_ENABLED = "true"
+BUDGET_TRANSFERS_ENABLED = "true"
 CATEGORY_AI_ENABLED = "true"
     ALLOWED_ORIGINS = "https://budget-dev.wastd.dev,https://splitexpense-dev.tanmaydatta.workers.dev,https://splitexpense.netlify.app,https://deploy-preview-5--splitexpense.netlify.app,http://localhost:3000,http://localhost:3001"
     GROUP_IDS = ""

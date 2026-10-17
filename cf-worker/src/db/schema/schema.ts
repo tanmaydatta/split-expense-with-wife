@@ -8,6 +8,7 @@ import {
 	sqliteTable,
 	text,
 	uniqueIndex,
+ unique,
 } from "drizzle-orm/sqlite-core";
 import { isNull, sql } from "drizzle-orm";
 import type {
@@ -224,6 +225,15 @@ export const userBalances = sqliteTable(
 		),
 	],
 );
+
+export const budgetTransfers = sqliteTable("budget_transfers", {
+ id:text("id").primaryKey(),groupId:text("group_id").notNull().references(()=>groups.groupid),actorId:text("actor_id").notNull(),requestId:text("request_id").notNull(),
+ sourceBudgetId:text("source_budget_id").notNull().references(()=>groupBudgets.id),destinationBudgetId:text("destination_budget_id").notNull().references(()=>groupBudgets.id),
+ amount:real("amount").notNull(),currency:text("currency").notNull(),addedTime:text("added_time").notNull(),note:text("note").notNull().default(""),createdAt:text("created_at").notNull(),deleted:text("deleted"),deletionToken:text("deletion_token")
+},t=>[unique("budget_transfers_request_unique").on(t.groupId,t.actorId,t.requestId),check("budget_transfers_amount_check",sql`${t.amount}>0 AND ${t.amount}<=1000000000`),check("budget_transfers_distinct_check",sql`${t.sourceBudgetId}<>${t.destinationBudgetId}`)]);
+export const budgetTransferEntries=sqliteTable("budget_transfer_entries",{
+ entryId:text("entry_id").primaryKey().references(()=>budgetEntries.budgetEntryId),transferId:text("transfer_id").notNull().references(()=>budgetTransfers.id),role:text("role").notNull()
+},t=>[unique("budget_transfer_entries_role_unique").on(t.transferId,t.role),check("budget_transfer_entries_role_check",sql`${t.role} IN ('source','destination')`)]);
 
 export const budgetTotals = sqliteTable(
 	"budget_totals",
@@ -540,6 +550,8 @@ export const schema = {
 	budgetEntries,
 	userBalances,
 	budgetTotals,
+ budgetTransfers,
+ budgetTransferEntries,
 	scheduledActions,
 	scheduledActionHistory,
 	expenseBudgetLinks,

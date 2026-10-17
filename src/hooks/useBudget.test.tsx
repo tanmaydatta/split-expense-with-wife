@@ -62,7 +62,7 @@ describe("useDeleteBudgetEntry — cascading cache invalidation", () => {
     typedApi.post.mockReset();
   });
 
-  it("invalidates [budget], [budgetEntry, deletedId], [transactions], [balances] on success", async () => {
+  it("invalidates [budget], all budget-entry details (including transfer counterpart), [transactions], [balances] on success", async () => {
     typedApi.post.mockResolvedValueOnce({ message: "deleted" });
 
     const queryClient = freshClient();
@@ -83,7 +83,7 @@ describe("useDeleteBudgetEntry — cascading cache invalidation", () => {
     );
 
     expect(calledKeys).toContainEqual(["budget"]);
-    expect(calledKeys).toContainEqual(["budgetEntry", deletedBeId]);
+    expect(calledKeys).toContainEqual(["budgetEntry"]);
     expect(calledKeys).toContainEqual(["transactions"]);
     expect(calledKeys).toContainEqual(["balances"]);
   });

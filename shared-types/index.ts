@@ -41,7 +41,11 @@ export interface RecordCategory {
 export interface GroupCategory { id: string; name: string; slug?: string | null; archivedAt?: string | null; excludeFromInsights?: boolean; }
 
 // Budget types
+export interface BudgetTransferInfo { id: string; role: "source" | "destination"; otherBudgetId: string; otherBudgetName: string; otherBudgetArchived: boolean; otherEntryId: string; }
+export interface BudgetTransferRequest { requestId: string; sourceBudgetId: string; destinationBudgetId: string; amount: number; currency: string; date: string; note?: string; }
+export interface BudgetTransferResponse { message: string; transferId: string; sourceEntryId: string; destinationEntryId: string; deleted: boolean; }
 export interface BudgetEntry extends RecordCategory {
+ transfer?: BudgetTransferInfo;
 	id: string;
 	description: string;
 	addedTime: string; // ISO string format
@@ -128,6 +132,7 @@ export interface BudgetTotalRequest {
 }
 
 export interface BudgetDeleteRequest {
+ confirmTransferDeletion?: boolean;
 	id: string;
 }
 
@@ -416,6 +421,7 @@ export interface ApiEndpoints {
 		response: { message: string };
 	};
 
+	"/budget-transfer": { request: BudgetTransferRequest; response: BudgetTransferResponse; };
 	"/budget_list": {
 		request: BudgetListRequest;
 		response: BudgetEntry[];
@@ -1226,6 +1232,7 @@ export interface CategoryInsightBucket {
 }
 export interface ExcludedInsightSummary {
  count:number; spending:number; credits:number; net:number; categories:string[];
+ transfers?:{count:number;spending:number;credits:number;net:number};
 }
 export interface CategoryInsightsResponse {
  dateFrom:string;dateTo:string;budgetId:string|null;currency:string|null;currencies:string[];

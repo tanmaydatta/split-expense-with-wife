@@ -34,7 +34,7 @@ export default function BudgetEntryDetail() {
 			<UiPageHeader>
 				<div>
 					<UiPageTitle>Budget entry details</UiPageTitle>
-					<UiPageDescription>Review this entry and its linked expense.</UiPageDescription>
+					<UiPageDescription>{data.budgetEntry.transfer?"Review both sides of this budget transfer.":"Review this entry and its linked expense."}</UiPageDescription>
 				</div>
 				<UiButton type="button" onClick={() => navigate(-1)} data-test-id="back-link">← Back</UiButton>
 			</UiPageHeader>
@@ -51,9 +51,9 @@ export default function BudgetEntryDetail() {
 			</div>
 			<ConfirmDialog
 				open={confirmOpen}
-				title="Delete budget entry?"
-				message="This removes the entry from your budget records."
-				confirmText="Delete budget entry"
+				title={data.budgetEntry.transfer?"Delete transfer?":"Delete budget entry?"}
+				message={data.budgetEntry.transfer?`This removes both transfer entries, including the entry in ${data.budgetEntry.transfer.otherBudgetName}, and reverses both budget totals.`:"This removes the entry from your budget records."}
+				confirmText={data.budgetEntry.transfer?"Delete both entries":"Delete budget entry"}
 				onCancel={() => setConfirmOpen(false)}
 				onConfirm={() => { setConfirmOpen(false); void deleteBudgetEntry(); }}
 			/>

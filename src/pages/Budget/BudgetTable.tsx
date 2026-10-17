@@ -1,3 +1,4 @@
+import { BudgetTransferLabel } from "@/components/BudgetTransferLabel";
 import { CategoryBadge } from "@/components/Categories";
 import React, { useState } from "react";
 import type { BudgetEntry } from "split-expense-shared-types";
@@ -100,7 +101,7 @@ export default function BudgetTable(props: Props): JSX.Element {
 													</span>
 												)}
 												<div className="budget-entry-category">
-													<CategoryBadge record={e} />
+													{e.transfer?<BudgetTransferLabel entry={e}/>:<CategoryBadge record={e} />}
 												</div>
 											</td>
 											<td

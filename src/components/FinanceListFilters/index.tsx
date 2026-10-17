@@ -14,7 +14,7 @@ type Props = {
 export function FinanceListFilters({ state, currencies, kind }: Props) {
 	const categories=useCategories();
 	const [expanded, setExpanded] = useState(
-		() => window.matchMedia("(min-width: 761px)").matches,
+		() => kind !== "budget" && window.matchMedia("(min-width: 761px)").matches,
 	);
 	const [clearVersion, setClearVersion] = useState(0);
 	const clear = () => {

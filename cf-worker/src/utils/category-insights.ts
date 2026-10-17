@@ -15,8 +15,9 @@ export const CATEGORY_INSIGHTS_SQL = `WITH selected AS MATERIALIZED (
  CROSS JOIN budget_entries e INDEXED BY budget_entries_monthly_aggregation_idx
  WHERE e.budget_id=b.id AND e.deleted IS NULL AND e.added_time>=? AND e.added_time<?
  LIMIT 5001
-) SELECT e.amount,e.currency,substr(e.added_time,1,7) AS month,e.budgetId,e.budgetName,c.id AS categoryId,c.name AS categoryName,c.exclude_from_insights AS excluded
+) SELECT e.amount,e.currency,substr(e.added_time,1,7) AS month,e.budgetId,e.budgetName,c.id AS categoryId,c.name AS categoryName,c.exclude_from_insights AS excluded,te.transfer_id AS transferId
  FROM selected e
+ LEFT JOIN budget_transfer_entries te ON te.entry_id=e.budget_entry_id
  LEFT JOIN record_categories r ON r.group_id=? AND r.record_kind='budget' AND r.record_id=e.budget_entry_id
  LEFT JOIN group_categories c ON c.group_id=r.group_id AND c.id=r.category_id`;
 interface Row {
@@ -28,6 +29,7 @@ interface Row {
 	categoryId: string | null;
 	categoryName: string | null;
 	excluded: number | null;
+ transferId:string|null;
 }
 export class InsightsError extends Error {
 	constructor(
@@ -204,14 +206,15 @@ export async function readCategoryInsights(
 			(currencies.includes("GBP") ? "GBP" : (currencies[0] ?? null));
 	const currencyRows = records.filter((row) => row.currency === currency),
 		isExcluded = (row: Row) =>
-			row.excluded === 1 || temporary.has(row.categoryId ?? "uncategorised");
+			!!row.transferId || row.excluded === 1 || temporary.has(row.categoryId ?? "uncategorised");
 	const excludedRows = currencyRows.filter(isExcluded),
 		rows = currencyRows.filter((row) => !isExcluded(row));
 	const excluded = {
 		...summarize(excludedRows),
+ transfers:summarize(excludedRows.filter(row=>!!row.transferId)),
 		categories: [
 			...new Set(
-				excludedRows.map((row) => row.categoryName ?? "Uncategorised"),
+				excludedRows.map((row) => row.transferId?"Internal budget transfers":row.categoryName ?? "Uncategorised"),
 			),
 		].sort(),
 	};

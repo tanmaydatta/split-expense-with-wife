@@ -197,7 +197,7 @@ export async function searchCandidates(
 		: "r.group_id = ?";
 	const query = `SELECT ${id} AS id, r.description, r.amount, r.currency, ${date} AS date,
  ${budget ? "r.added_time AS addedTime, r.price, g.budget_name AS name, g.group_id AS groupid" : "r.transaction_id, r.created_at, r.metadata, r.group_id"}
- FROM ${table} WHERE ${owner} AND r.deleted IS NULL AND r.currency = ?
+ FROM ${table} WHERE ${owner} AND r.deleted IS NULL AND r.currency = ? ${budget ? "AND NOT EXISTS(SELECT 1 FROM budget_transfer_entries te WHERE te.entry_id=r.budget_entry_id)" : ""}
  AND round(r.amount * ?) = ? AND instr(lower(r.description),lower(?)) > 0
  AND substr(${date},1,10) >= ? AND substr(${date},1,10) <= ? ORDER BY ${date} DESC, ${id} LIMIT 51 OFFSET ?`;
 	const result = await env.DB.prepare(query)
@@ -330,7 +330,7 @@ export async function handleBankMatch(
 				: null;
 			const budget = budgetEntryId
 				? await env.DB.prepare(
-						`SELECT b.budget_entry_id FROM budget_entries b JOIN group_budgets g ON g.id = b.budget_id WHERE b.budget_entry_id = ? AND g.group_id = ? AND b.deleted IS NULL AND g.deleted IS NULL AND b.currency = ? AND round(b.amount * ?) = ?`,
+						`SELECT b.budget_entry_id FROM budget_entries b JOIN group_budgets g ON g.id = b.budget_id WHERE b.budget_entry_id = ? AND g.group_id = ? AND b.deleted IS NULL AND g.deleted IS NULL AND NOT EXISTS(SELECT 1 FROM budget_transfer_entries te WHERE te.entry_id=b.budget_entry_id) AND b.currency = ? AND round(b.amount * ?) = ?`,
 					)
 						.bind(
 							budgetEntryId,
@@ -380,7 +380,7 @@ export async function handleBankMatch(
 					budgetEntryId,
 				);
 			const ledgerGuard = `${transactionId ? "AND EXISTS (SELECT 1 FROM transactions WHERE transaction_id=? AND group_id=? AND deleted IS NULL AND currency=? AND round(amount * ?)=?)" : ""}
-    ${budgetEntryId ? "AND EXISTS (SELECT 1 FROM budget_entries b JOIN group_budgets g ON g.id=b.budget_id WHERE b.budget_entry_id=? AND g.group_id=? AND b.deleted IS NULL AND g.deleted IS NULL AND b.currency=? AND round(b.amount * ?)=?)" : ""}`;
+    ${budgetEntryId ? "AND EXISTS (SELECT 1 FROM budget_entries b JOIN group_budgets g ON g.id=b.budget_id WHERE b.budget_entry_id=? AND g.group_id=? AND b.deleted IS NULL AND g.deleted IS NULL AND NOT EXISTS(SELECT 1 FROM budget_transfer_entries te WHERE te.entry_id=b.budget_entry_id) AND b.currency=? AND round(b.amount * ?)=?)" : ""}`;
 			if (transactionId)
 				args.push(
 					transactionId,

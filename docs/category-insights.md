@@ -19,6 +19,10 @@ The initial range is this UTC month through today. Apply date edits together; ty
 
 **Last 3 months** is rolling: subtract three months from today, clamp that boundary to its month's last valid day, then start on the following day. The interval is `(three-month boundary, today]`, shown as inclusive inputs. For example, 15 October 2026 gives **16 July–15 October 2026**; 31 May 2026 gives **1 March–31 May 2026** after clamping February to the 28th. Leap years clamp February to the 29th. Reopened preset URLs derive dates from today's UTC date; Custom URLs stay fixed. Unknown presets become Custom, and applying manually edited dates selects Custom.
 
+## Internal budget transfers
+
+Entries created with **Transfer between budgets** have explicit pair identity and are always excluded from spending, credits, net movement, counts and charts, regardless of category choices. Excluded activity shows their entry count and debit/credit amounts separately, one currency at a time. All-budget scope sees both sides; individual scope sees one. See [budget transfers](budget-transfers.md) for atomic deletion, measured query costs and safe rollback requirements.
+
 ## Saved and temporary exclusions
 
 Settings → Transaction categories retains the explicit **Exclude from spending insights** preference, off by default. No name, description or merchant implies exclusion. Saved exclusions apply to the category's budget entries, including archived categories, without changing category assignments or financial records.
@@ -39,9 +43,9 @@ The frontend cache includes source, household, user, authentication session, dat
 
 ## Query-cost and local verification
 
-Verified budget IDs feed indexed `budget_entries_monthly_aggregation_idx` date ranges. An unordered materialized `LIMIT 5001` precedes category enrichment, avoiding a global date sort that could read an entire oversized range. Sidecars use `record_kind='budget'` and identity indexes. All-budget metadata uses `group_budgets_group_id_deleted_idx` with `LIMIT 101`. Existing production indexes suffice; **no migration is added**.
+Verified budget IDs feed indexed `budget_entries_monthly_aggregation_idx` date ranges. An unordered materialized `LIMIT 5001` precedes category enrichment, avoiding a global date sort that could read an entire oversized range. Sidecars use `record_kind='budget'` and identity indexes. All-budget metadata uses `group_budgets_group_id_deleted_idx` with `LIMIT 101`. Existing ledger indexes suffice; migration 0035 adds explicit transfer metadata and identity indexes.
 
-The synthetic fixture runs all production SQL migrations through 0034 and measures every report query's actual `meta.rows_read`:
+The synthetic fixture runs all production SQL migrations through 0035 and measures every report query's actual `meta.rows_read`:
 
 | Fixture | Cumulative rows read |
 | --- | ---: |
@@ -69,6 +73,6 @@ Synthetic screenshots, personally reviewed: [desktop overview](previews/category
 
 ## Release and rollback
 
-Migration 0034 and its saved category preference are already applied in development and production; **do not reapply it**. This change needs no migration or new binding. Push deploys development automatically; merge requires explicit user approval after the PR and screenshots are reviewed. No real financial report or classification job is required for release verification. Verify public health, unauthenticated rejection and version/static assets only.
+Migration 0034 and its saved category preference are already applied in development and production; **do not reapply it**. Transfer-aware reporting additionally requires migration 0035 before deploying that release; see the [transfer rollout](budget-transfers.md#release-and-safe-disable). No new service binding is needed. Push deploys development automatically; merge requires explicit user approval after the PR and screenshots are reviewed. No real financial report or classification job is required for release verification. Verify public health, unauthenticated rejection and version/static assets only.
 
-For rollback, revert Worker and UI together and retain the additive 0034 column and preferences. No financial rows or category settings are modified by this report or its temporary filters.
+After transfers exist, retain the transfer-aware backend, identity metadata and exclusion on rollback; disable new transfer creation or roll back UI only. Retain the additive 0034 column and preferences. No financial rows or category settings are modified by this report or its temporary filters.

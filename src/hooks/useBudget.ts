@@ -46,13 +46,10 @@ export function useDeleteBudgetEntry() {
 
 	return useMutation<{ message: string }, Error, string>({
 		mutationFn: async (id: string) => {
-			const request: BudgetDeleteRequest = { id };
+			const request: BudgetDeleteRequest = { id,confirmTransferDeletion:true };
 			return typedApi.post("/budget_delete", request);
 		},
 		onSuccess: (_, deletedId) => {
-			// Invalidate budget queries to refresh data
-			queryClient.invalidateQueries({ queryKey: ["budget"] });
-
 			// Scan for linked transaction IDs BEFORE removing the entry from cache
 			const allBudgetCaches = queryClient.getQueriesData<BudgetEntry[]>({
 				queryKey: ["budget", "history"],
@@ -68,6 +65,13 @@ export function useDeleteBudgetEntry() {
 				}
 			}
 
+			queryClient.removeQueries({
+				queryKey: ["budget", "history"],
+				type: "inactive",
+			});
+			queryClient.invalidateQueries({ queryKey: ["budget"], refetchType: "none" });
+			queryClient.invalidateQueries({ queryKey: ["budget", "total"] });
+
 			// Optimistically remove the deleted entry from cache
 			queryClient.setQueriesData<BudgetEntry[]>(
 				{ queryKey: ["budget", "history"] },
@@ -78,7 +82,7 @@ export function useDeleteBudgetEntry() {
 			);
 
 			// Cascade cache invalidation for the deleted budget entry's detail page
-			queryClient.invalidateQueries({ queryKey: ["budgetEntry", deletedId] });
+			queryClient.invalidateQueries({ queryKey: ["budgetEntry"] });
 
 			// Also invalidate transaction caches (the cascade soft-deleted linked transactions)
 			queryClient.invalidateQueries({ queryKey: ["transactions"] });

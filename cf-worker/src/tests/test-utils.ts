@@ -1,3 +1,4 @@
+import budgetTransfersMigration from "../db/migrations/0035_budget_transfers.sql?raw";
 import categoryInsightsExclusionMigration from "../db/migrations/0034_category_insight_exclusions.sql?raw";
 import categoryJobsMigration from "../db/migrations/0033_category_jobs.sql?raw";
 import categoryPagingMigration from "../db/migrations/0032_category_maintenance_paging.sql?raw";
@@ -259,6 +260,7 @@ export async function setupDatabase(env: Env): Promise<void> {
 	);
  const ddl = (categoryMigration+"\n"+categoryPagingMigration+"\n"+categoryJobsMigration).replace(/--[^\n]*/g, "").split(";").map(q => q.trim()).filter(Boolean);
  for (const query of ddl) await env.DB.prepare(query.replace("CREATE UNIQUE INDEX ", "CREATE UNIQUE INDEX IF NOT EXISTS ").replace("CREATE TABLE ", "CREATE TABLE IF NOT EXISTS ").replace(/CREATE INDEX (?!IF NOT EXISTS )/, "CREATE INDEX IF NOT EXISTS ")).run();
+ for(const query of budgetTransfersMigration.split("--> statement-breakpoint").map(q=>q.trim()).filter(Boolean)) await env.DB.prepare(query.replace("CREATE TABLE ","CREATE TABLE IF NOT EXISTS ").replace("CREATE TRIGGER ","CREATE TRIGGER IF NOT EXISTS ")).run();
  const categoryColumns=await env.DB.prepare("PRAGMA table_info(group_categories)").all<{name:string}>();
  if(!categoryColumns.results.some(column=>column.name==="exclude_from_insights"))await env.DB.prepare(categoryInsightsExclusionMigration.replace(/--[^\n]*/g, "").trim()).run();
 }
@@ -267,6 +269,8 @@ export async function setupDatabase(env: Env): Promise<void> {
 export async function completeCleanupDatabase(env: Env): Promise<void> {
 	const db = getDb(env);
 	// Delete data from all tables in reverse order of creation/dependency
+ await env.DB.exec("DELETE FROM budget_transfer_entries");
+ await env.DB.exec("DELETE FROM budget_transfers");
  await env.DB.exec("DELETE FROM category_job_items");
  await env.DB.exec("DELETE FROM category_jobs");
  await env.DB.exec("DELETE FROM record_categories");

@@ -1,0 +1,56 @@
+.budget-transfer-panel {
+	margin: 16px 0;
+}
+.budget-transfer-form {
+	margin-top: 18px;
+}
+.budget-transfer-form h3 {
+	font-size: 20px;
+}
+.budget-transfer-form p {
+	color: var(--ui-text-muted);
+	line-height: 1.6;
+}
+.budget-transfer-fields {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 16px;
+	margin: 16px 0;
+}
+.budget-transfer-fields label {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	color: var(--ui-text);
+	font-weight: 600;
+}
+.budget-transfer-fields input,
+.budget-transfer-fields select {
+	width: 100%;
+	min-height: 44px;
+	padding: 10px;
+	border: 1px solid var(--ui-border-strong);
+	border-radius: 8px;
+	font: inherit;
+	background: var(--ui-surface);
+	color: var(--ui-text);
+}
+.budget-transfer-note {
+	grid-column: 1 / -1;
+}
+.budget-transfer-label {
+	display: block;
+	color: var(--ui-text-muted);
+	font-size: 13px;
+	margin: 6px 0;
+}
+@media (max-width: 600px) {
+	.budget-transfer-fields {
+		grid-template-columns: 1fr;
+	}
+	.budget-transfer-note {
+		grid-column: auto;
+	}
+}
+
+.budget-transfer-inputs{border:0;padding:0;min-width:0;}
