@@ -103,3 +103,18 @@ it("does not offer the source as destination and explains paired deletion", () =
 		screen.getByText(/Deleting either entry removes both sides/),
 	).toBeVisible();
 });
+
+it("starts transfer fields hidden and supports accessible open/close", () => {
+	mount();
+	const toggle = screen.getByRole("button", {
+		name: "Transfer between budgets",
+	});
+	expect(toggle).toHaveAttribute("aria-expanded", "false");
+	expect(screen.queryByLabelText("From budget")).not.toBeInTheDocument();
+	fireEvent.click(toggle);
+	expect(toggle).toHaveAttribute("aria-expanded", "true");
+	expect(screen.getByLabelText("From budget")).toBeVisible();
+	fireEvent.click(toggle);
+	expect(toggle).toHaveAttribute("aria-expanded", "false");
+	expect(screen.queryByLabelText("From budget")).not.toBeInTheDocument();
+});

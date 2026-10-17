@@ -125,6 +125,29 @@ test("create, review counterpart and delete a transfer pair", async ({
 		.getByTestId("budget-selection-group")
 		.getByText("Food", { exact: true })
 		.click();
+
+	const transferToggle = page.getByRole("button", {
+		name: "Transfer between budgets",
+		exact: true,
+	});
+	const filters = page.getByRole("region", { name: "Budget list filters" });
+	await expect(transferToggle).toHaveAttribute("aria-expanded", "false");
+	await expect(page.getByLabel("From budget")).toHaveCount(0);
+	await expect(filters.locator("details")).toHaveJSProperty("open", false);
+	await expect(filters.getByLabel("Date from (UTC)")).toBeHidden();
+	await page.screenshot({
+		path: path.join(dir, `${prefix}-collapsed-overview.png`),
+	});
+	await filters.locator("summary").focus();
+	await page.keyboard.press("Enter");
+	await expect(filters.getByLabel("Date from (UTC)")).toBeVisible();
+	await filters.locator("summary").click();
+	await expect(filters.getByLabel("Date from (UTC)")).toBeHidden();
+	await transferToggle.click();
+	await expect(transferToggle).toHaveAttribute("aria-expanded", "true");
+	await page.getByLabel("From budget").waitFor();
+	await transferToggle.click();
+	await expect(transferToggle).toHaveAttribute("aria-expanded", "false");
 	await page
 		.getByRole("button", { name: "Transfer between budgets", exact: true })
 		.click();
