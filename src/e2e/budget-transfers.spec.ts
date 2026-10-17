@@ -135,8 +135,16 @@ test("create, review counterpart and delete a transfer pair", async ({
 	await expect(page.getByLabel("From budget")).toHaveCount(0);
 	await expect(filters.locator("details")).toHaveJSProperty("open", false);
 	await expect(filters.getByLabel("Date from (UTC)")).toBeHidden();
+	await expect(
+		page.getByRole("radio", { name: "Food", exact: true }),
+	).toBeEnabled();
+	await expect(
+		page.getByRole("radio", { name: "Household", exact: true }),
+	).toBeEnabled();
+	await expect(page.getByTestId("loader")).toHaveCount(0);
 	await page.screenshot({
 		path: path.join(dir, `${prefix}-collapsed-overview.png`),
+		animations: "disabled",
 	});
 	await filters.locator("summary").focus();
 	await page.keyboard.press("Enter");
