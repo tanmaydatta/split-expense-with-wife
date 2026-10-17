@@ -1,3 +1,5 @@
+import { BudgetTransferLabel } from "@/components/BudgetTransferLabel";
+import "@/pages/Budget/transfers.css";
 import { CategoryBadge } from "@/components/Categories";
 import { Card } from "@/components/Card";
 import { Calendar, CardText, Trash } from "@/components/Icons";
@@ -24,7 +26,7 @@ export const BudgetCard: React.FC<BudgetCardProps> = ({ entry, onDelete, selecti
 				{...(selectionMode ? {} : { to: `/budget-entry/${entry.id}` })}
 				aria-label={selectionMode ? undefined : `View budget entry: ${entry.description}`}
 			>
-				<CategoryBadge record={entry}/>
+				{entry.transfer?<BudgetTransferLabel entry={entry}/>:<CategoryBadge record={entry}/>}
 				<div className="budget-card-header">
 					<div className="budget-date">
 						<Calendar />

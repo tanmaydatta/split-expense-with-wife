@@ -1,3 +1,5 @@
+import { transferDeleteResponse } from "./budget-transfers";
+import { readTransferInfo, TransferError } from "../utils/budget-transfers";
 import { categoryFilterCondition, readRecordCategories } from "../utils/categories";
 import { and, eq, gte, inArray, isNull, lt, lte, or, sql } from "drizzle-orm";
 import { ulid } from "ulid";
@@ -95,6 +97,7 @@ async function getMonthlyBudgetData(
 				isNull(budgetEntries.deleted),
 				gte(budgetEntries.addedTime, formatSQLiteTime(oldestData)),
 				lt(budgetEntries.amount, 0), // Only negative amounts (expenses)
+ sql`NOT EXISTS (SELECT 1 FROM budget_transfer_entries te WHERE te.entry_id=${budgetEntries.budgetEntryId})`,
 			),
 		)
 		.groupBy(
@@ -528,6 +531,8 @@ export async function handleBudgetDelete(
 		return withAuthLite(request, env, async (session, db) => {
 			const body = (await request.json()) as BudgetDeleteRequest;
 
+			if(typeof body.id!=="string")return createErrorResponse("Invalid entry",400,request,env);
+			const transferResponse=await transferDeleteResponse(request,env,String(session.currentUser.groupid),session.currentUser.id,body.id,body.confirmTransferDeletion===true);if(transferResponse)return transferResponse;
 			// Get budget entry to verify ownership and get details for total update
 			const budgetEntry = await db
 				.select()
@@ -629,7 +634,7 @@ export async function handleBudgetDelete(
 		});
 	} catch (error) {
 		console.error("Budget deletion error:", error);
-		return createErrorResponse("Internal server error", 500, request, env);
+		return createErrorResponse(error instanceof TransferError?error.message:"Internal server error", error instanceof TransferError?error.status:500, request, env);
 	}
 }
 
@@ -710,6 +715,7 @@ export async function handleBudgetList(
 				String(session.currentUser.groupid),
 			);
 
+			const transferMap=await readTransferInfo(env,String(session.currentUser.groupid),beIds);
 			const categoryMap = await readRecordCategories(env,String(session.currentUser.groupid),"budget",beIds);
 			// Ensure price field is properly formatted as string and map budgetEntryId to id
 			const formattedEntries = budgetEntriesResult.map((entry) => ({
@@ -721,6 +727,7 @@ export async function handleBudgetList(
 						? `+${entry.amount.toFixed(2)}`
 						: `${entry.amount.toFixed(2)}`),
 				linkedTransactionIds: linkMap[entry.budgetEntryId] ?? [],
+ transfer:transferMap.get(entry.budgetEntryId),
  ...categoryMap.get(entry.budgetEntryId),
 			}));
 

@@ -1,3 +1,5 @@
+import TransferForm from "./TransferForm";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSelector } from "react-redux";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -48,10 +50,7 @@ function useBudgetPage() {
 		? selectedBudget!
 		: (budgets[0]?.id ?? "");
 	const sessionContext = `${data?.user?.id ?? ""}:${data?.extra?.group?.groupid ?? ""}`;
-	const filters = filterState.filters as Omit<
-		BudgetListRequest,
-		"offset" | "budgetId"
-	>;
+	const filters = filterState.filters as Omit<BudgetListRequest, "offset" | "budgetId">;
 	const listKey = `${budget}:${sessionContext}:${filterState.key}`;
 	const currentKey = useRef(listKey);
 	const listGeneration = useRef(0);
@@ -182,6 +181,16 @@ function useBudgetPage() {
 		loadingMore,
 		loadMoreError,
 		setLoadMoreError,
+		refreshAfterTransfer: async () => {
+			const key = listKey;
+			if (currentKey.current !== key) return;
+			const result = await budgetHistoryQuery.refetch();
+			if (currentKey.current === key && result.data) {
+				setBudgetHistory(result.data);
+				setHasMore(result.data.length === 5);
+				lastSyncedKeyRef.current = key;
+			}
+		},
 		navigate,
 	};
 }
@@ -203,12 +212,17 @@ export const Budget: React.FC = () => {
 		loadingMore,
 		loadMoreError,
 		setLoadMoreError,
+		refreshAfterTransfer,
 		navigate,
 	} = useBudgetPage();
 
-	const isLoading =
-		budgetTotalQuery.isLoading ||
-		budgetHistoryQuery.isLoading ||
+	const [transferDelete, setTransferDelete] = useState<BudgetEntry | null>(null);
+	const requestDelete = (id: string) => {
+		const entry = budgetHistory.find((e) => e.id === id);
+		if (entry?.transfer) setTransferDelete(entry);
+		else handleDeleteBudgetEntry(id);
+	};
+	const isLoading = budgetTotalQuery.isLoading || budgetHistoryQuery.isLoading ||
 		deleteBudgetMutation.isPending;
 
 	const error =
@@ -231,6 +245,17 @@ export const Budget: React.FC = () => {
 
 	return (
 		<div className="budget-container" data-test-id="budget-container">
+			<ConfirmDialog
+				open={!!transferDelete}
+				title="Delete transfer?"
+				message={`This removes both transfer entries, including the entry in ${transferDelete?.transfer?.otherBudgetName ?? "the other budget"}, and reverses both budget totals.`}
+				confirmText="Delete both entries"
+				onCancel={() => setTransferDelete(null)}
+				onConfirm={() => {
+					if (transferDelete) handleDeleteBudgetEntry(transferDelete.id);
+					setTransferDelete(null);
+				}}
+			/>
 			<header>
 				<UiPageTitle>Budget</UiPageTitle>
 				<UiPageDescription>
@@ -274,6 +299,12 @@ export const Budget: React.FC = () => {
 					<Button onClick={() => navigate(`/monthly-budget/${budget}`)}>
 						View Monthly Budget Breakdown
 					</Button>
+					<TransferForm
+						budgets={data?.extra?.group?.budgets ?? []}
+						sourceBudgetId={budget}
+						currencies={data?.extra?.currencies ?? ["GBP", "USD", "EUR"]}
+						onCreated={() => void refreshAfterTransfer()}
+					/>
 					<FinanceListFilters
 						state={filterState}
 						currencies={data?.extra?.currencies ?? ["GBP", "USD", "EUR"]}
@@ -285,7 +316,7 @@ export const Budget: React.FC = () => {
 							<BudgetTable
 								entries={budgetHistory}
 								bulk={bulk}
-								onDelete={handleDeleteBudgetEntry}
+								onDelete={requestDelete}
 							/>
 							{hasMore && (
 								<Button disabled={loadingMore} onClick={handleLoadMoreHistory}>

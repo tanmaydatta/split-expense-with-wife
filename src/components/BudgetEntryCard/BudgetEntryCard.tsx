@@ -1,3 +1,5 @@
+import { BudgetTransferLabel } from "@/components/BudgetTransferLabel";
+import "@/pages/Budget/transfers.css";
 import { CategoryBadge, CategoryEditor } from "@/components/Categories";
 import { BankRecordLinks } from "@/pages/BankImport/BankRecordLinks";
 import { Card } from "@/components/Card";
@@ -45,7 +47,7 @@ export const BudgetEntryCard: React.FC<BudgetEntryCardProps> = ({
 
 	return (
 		<Card className="budget-entry-detail-card" data-test-id="budget-entry-card">
-			<CategoryBadge record={budgetEntry}/>
+			{budgetEntry.transfer?<BudgetTransferLabel entry={budgetEntry}/>:<CategoryBadge record={budgetEntry}/>}
 			<div className="budget-entry-card-header">
 				<div className="budget-entry-date">
 					<Calendar />
@@ -92,7 +94,8 @@ export const BudgetEntryCard: React.FC<BudgetEntryCardProps> = ({
 			</div>
 
 			<CategoryEditor kind="budget" id={budgetEntry.id} record={budgetEntry} linked={linkedTransaction}/>
-			<BankRecordLinks budgetEntryId={budgetEntry.id} />
+			{!budgetEntry.transfer&&<BankRecordLinks budgetEntryId={budgetEntry.id} />}
+ {budgetEntry.transfer&&<Link to={`/budget-entry/${budgetEntry.transfer.otherEntryId}`}>View entry in {budgetEntry.transfer.otherBudgetName} →</Link>}
 
 			{/* Linked expense section */}
 			{linkedTransaction && (

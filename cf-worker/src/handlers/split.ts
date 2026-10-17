@@ -387,6 +387,7 @@ export async function handleSplitDelete(
 					),
 				);
 			const linkedBeIds = linkedBeRows.map((r) => r.id);
+ if(linkedBeIds.length){const transfer=await env.DB.prepare("SELECT entry_id FROM json_each(?) selected JOIN budget_transfer_entries t ON t.entry_id=selected.value LIMIT 1").bind(JSON.stringify(linkedBeIds)).first();if(transfer)return createErrorResponse("Transfers cannot be deleted through expenses",409,request,env); }
 
 			// Prepare all statements for single batch operation
 			const deleteTransaction = db

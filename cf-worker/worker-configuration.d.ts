@@ -4,6 +4,7 @@
 declare namespace Cloudflare {
 	interface Env {
 		CATEGORIES_ENABLED: string;
+ BUDGET_TRANSFERS_ENABLED: string;
 		CATEGORY_AI_ENABLED: string;
 		ALLOWED_ORIGINS: string;
 		GROUP_IDS: string;

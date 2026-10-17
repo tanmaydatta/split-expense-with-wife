@@ -1,3 +1,4 @@
+import { readTransferInfo } from "../utils/budget-transfers";
 import { readRecordCategories } from "../utils/categories";
 import { and, eq, isNull } from "drizzle-orm";
 import type {
@@ -270,6 +271,7 @@ export async function handleBudgetEntryGet(
 
 			const { row, groupId: beGroupId, budgetName } = beRows[0];
 			const budgetEntry = toBudgetEntryDto(row, beGroupId, budgetName);
+ budgetEntry.transfer=(await readTransferInfo(env,groupId,[body.id])).get(body.id);
 
 			const linked = await fetchLinkedTransaction(db, body.id);
  Object.assign(budgetEntry,(await readRecordCategories(env,groupId,"budget",[body.id])).get(body.id));

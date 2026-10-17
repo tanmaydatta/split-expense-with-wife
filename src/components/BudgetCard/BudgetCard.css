@@ -230,3 +230,9 @@
 
 /* The category is visible on the loaded card without sharing space with deletion. */
 .budget-card-link > .category-badge { max-width: calc(100% - 48px); margin-bottom: 6px; }
+
+/* Reserve the same delete-button space as the purchase category badge. */
+.budget-card-link > .budget-transfer-label {
+ max-width: calc(100% - 48px);
+ box-sizing: border-box;
+}

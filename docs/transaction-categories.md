@@ -92,3 +92,7 @@ See [loaded budget display verification](testing/budget-category-badges.md) for 
 [Budget insights](category-insights.md) reports budget debit spending, credits and net budget movement for all active household budgets or one selected budget, one currency at a time. Shared expenses and private bank activity are excluded. Category drilldown links identify the correct budget and retain date/category/currency filters. Bounded indexed queries reject oversized reports rather than returning partial totals.
 
 Categories retain the explicit **Exclude from spending insights** preference in Settings, off by default. The Insights page adds temporary URL-based exclusions with Apply/Reset; these never write Settings and cannot override saved exclusions. Excluded budget-entry counts and amounts remain visible. See the [insights guide](category-insights.md) for rolling UTC boundaries, limits and verification. Migration 0034 is already applied; this budget-only correction needs no migration.
+
+## Internal budget transfers
+
+[Transfer between budgets](budget-transfers.md) creates an atomic debit/credit pair with explicit identity. Loaded entries name the other budget instead of appearing as an uncategorised purchase. Category edits never remove their automatic spending-insights exclusion. Bank/expense associations are prohibited; deleting either side confirms and removes both entries atomically.

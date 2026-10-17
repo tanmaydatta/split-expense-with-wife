@@ -382,7 +382,7 @@ export async function handleBankProvisionalSave(
 			}
 			if (input.budgetEntryId) {
 				const record = await env.DB.prepare(
-					"SELECT b.budget_entry_id FROM budget_entries b JOIN group_budgets g ON g.id=b.budget_id WHERE b.budget_entry_id=? AND g.group_id=? AND g.deleted IS NULL AND b.deleted IS NULL AND b.currency=? AND round(b.amount * ?)=?",
+					"SELECT b.budget_entry_id FROM budget_entries b JOIN group_budgets g ON g.id=b.budget_id WHERE b.budget_entry_id=? AND g.group_id=? AND g.deleted IS NULL AND b.deleted IS NULL AND NOT EXISTS(SELECT 1 FROM budget_transfer_entries te WHERE te.entry_id=b.budget_entry_id) AND b.currency=? AND round(b.amount * ?)=?",
 				)
 					.bind(
 						input.budgetEntryId,

@@ -43,7 +43,32 @@ export interface GroupCategory {
 	archivedAt?: string | null;
     excludeFromInsights?: boolean;
 }
+export interface BudgetTransferInfo {
+    id: string;
+    role: "source" | "destination";
+    otherBudgetId: string;
+    otherBudgetName: string;
+    otherBudgetArchived: boolean;
+    otherEntryId: string;
+}
+export interface BudgetTransferRequest {
+    requestId: string;
+    sourceBudgetId: string;
+    destinationBudgetId: string;
+    amount: number;
+    currency: string;
+    date: string;
+    note?: string;
+}
+export interface BudgetTransferResponse {
+    message: string;
+    transferId: string;
+    sourceEntryId: string;
+    destinationEntryId: string;
+    deleted: boolean;
+}
 export interface BudgetEntry extends RecordCategory {
+    transfer?: BudgetTransferInfo;
 	id: string;
 	description: string;
 	addedTime: string;
@@ -117,6 +142,7 @@ export interface BudgetTotalRequest {
 	budgetId: string;
 }
 export interface BudgetDeleteRequest {
+ confirmTransferDeletion?: boolean;
 	id: string;
 }
 export interface BudgetMonthlyRequest {
@@ -405,7 +431,8 @@ export interface ApiEndpoints {
 			message: string;
 		};
 	};
-	"/budget_list": {
+	"/budget-transfer": { request: BudgetTransferRequest; response: BudgetTransferResponse; };
+    "/budget_list": {
 		request: BudgetListRequest;
 		response: BudgetEntry[];
 	};
@@ -1293,6 +1320,7 @@ export interface ExcludedInsightSummary {
     credits: number;
     net: number;
     categories: string[];
+    transfers?: {count:number;spending:number;credits:number;net:number};
 }
 export interface CategoryInsightsResponse {
     dateFrom: string;

@@ -214,13 +214,14 @@ function ExcludedActivity({ data }: { data: CategoryInsightsResponse }) {
 				: {data.excluded.categories.join(", ")}
 			</p>
 			<p className="insights-help">
-				Saved category exclusions and this view’s temporary exclusions apply
+				Internal budget transfers are always excluded. Saved category exclusions and this view’s temporary exclusions apply
 				together. Excluded entries are absent from all included totals, counts
 				and charts.
 			</p>
 			<details>
 				<summary>Excluded amounts ({data.currency})</summary>
 				<dl>
+					{(data.excluded.transfers?.count??0)>0&&<><dt>Internal transfer entries</dt><dd>{data.excluded.transfers!.count} · Debits {money(data.excluded.transfers!.spending,data.currency)} · Credits {money(data.excluded.transfers!.credits,data.currency)}</dd></>}
 					<dt>Debit spending</dt>
 					<dd>{money(data.excluded.spending, data.currency)}</dd>
 					<dt>Credits</dt>
