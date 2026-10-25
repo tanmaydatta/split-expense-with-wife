@@ -489,6 +489,10 @@ export interface ApiEndpoints {
 			message: string;
 		};
 	};
+	"/budget/rename": {
+		request: RenameBudgetRequest;
+		response: GroupBudgetData;
+	};
 	"/group/details": {
 		request: {};
 		response: GroupDetailsResponse;
@@ -716,6 +720,11 @@ export interface BillReminderView {
 	title: string;
 	dueDate: string;
 }
+export declare const RenameBudgetRequestSchema: z.ZodObject<{
+	budgetId: z.ZodString;
+	budgetName: z.ZodString;
+}, z.core.$strip>;
+export type RenameBudgetRequest = z.infer<typeof RenameBudgetRequestSchema>;
 export declare const GroupBudgetDataSchema: z.ZodObject<
 	{
 		id: z.ZodString;

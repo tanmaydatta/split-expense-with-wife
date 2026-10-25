@@ -1,3 +1,4 @@
+import { BudgetSelectActions } from "./components/BudgetSelectActions";
 import { useSelector } from "react-redux";
 import type { GroupBudgetData, ReduxState } from "split-expense-shared-types";
 import {
@@ -9,19 +10,28 @@ interface SelectBudgetProps {
 	budgetId: string;
 	handleChangeBudget: (val: string) => void;
 	disabled?: boolean;
+	renameEnabled?: boolean;
 }
 
 export const SelectBudget: React.FC<SelectBudgetProps> = ({
 	budgetId,
 	handleChangeBudget,
 	disabled = false,
+	renameEnabled = false,
 }) => {
 	const data = useSelector((state: ReduxState) => state.value);
-	console.log(data, "hehkbjhbjg");
 
 	// Handle case where data or metadata might not be loaded yet
 	const budgets = data?.extra?.group?.budgets || [];
 
+	if (renameEnabled)
+		return (
+			<BudgetSelectActions
+				budgetId={budgetId}
+				handleChangeBudget={handleChangeBudget}
+				disabled={disabled}
+			/>
+		);
 	return (
 		<ToggleButtonGroup
 			style={{ width: "100%" }}

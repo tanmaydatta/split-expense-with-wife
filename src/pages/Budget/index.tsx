@@ -7,10 +7,11 @@ import type {
 	BudgetEntry,
 	BudgetListRequest,
 	ReduxState,
+	GroupBudgetData,
 } from "split-expense-shared-types";
 import { AmountGrid } from "@/components/AmountGrid";
 import {
-	 BulkCategoryToolbar,
+	BulkCategoryToolbar,
 	useBulkCategoryRows,
 } from "@/components/BulkCategories";
 import { Button } from "@/components/Button";
@@ -164,7 +165,7 @@ function useBudgetPage() {
 		}
 	};
 
- const bulk=useBulkCategoryRows("budget",budgetHistory.filter(e=>e.deleted==null),row=>row.id,listKey,setBudgetHistory,filters.categoryId);
+	const bulk = useBulkCategoryRows("budget", budgetHistory.filter((e) => e.deleted == null), (row) => row.id, listKey, setBudgetHistory, filters.categoryId);
 	return {
 		bulk,
 		budget,
@@ -238,18 +239,16 @@ export const Budget: React.FC = () => {
 	const budgetsLeft = budgetTotalQuery.data || [];
 	const showEmptyState =
 		!isLoading &&
- !hasMore &&
+		!hasMore &&
 		!filterState.error &&
 		filterState.activeCount > 0 &&
 		budgetHistory.length === 0;
 
 	return (
 		<div className="budget-container" data-test-id="budget-container">
-			<ConfirmDialog
-				open={!!transferDelete}
-				title="Delete transfer?"
-				message={`This removes both transfer entries, including the entry in ${transferDelete?.transfer?.otherBudgetName ?? "the other budget"}, and reverses both budget totals.`}
-				confirmText="Delete both entries"
+			<TransferDeleteDialog
+				entry={transferDelete}
+				budgets={data?.extra?.group?.budgets ?? []}
 				onCancel={() => setTransferDelete(null)}
 				onConfirm={() => {
 					if (transferDelete) handleDeleteBudgetEntry(transferDelete.id);
@@ -293,6 +292,7 @@ export const Budget: React.FC = () => {
 						<AmountGrid amounts={budgetsLeft} />
 					</Card>
 					<SelectBudget
+						renameEnabled
 						budgetId={budget}
 						handleChangeBudget={handleChangeBudget}
 					/>
@@ -351,3 +351,30 @@ export const Budget: React.FC = () => {
 		</div>
 	);
 };
+
+function TransferDeleteDialog({
+	entry,
+	budgets,
+	onCancel,
+	onConfirm,
+}: {
+	entry: BudgetEntry | null;
+	budgets: GroupBudgetData[];
+	onCancel: () => void;
+	onConfirm: () => void;
+}) {
+	const name =
+		budgets.find((b) => b.id === entry?.transfer?.otherBudgetId)?.budgetName ??
+		entry?.transfer?.otherBudgetName ??
+		"the other budget";
+	return (
+		<ConfirmDialog
+			open={!!entry}
+			title="Delete transfer?"
+			message={`This removes both transfer entries, including the entry in ${name}, and reverses both budget totals.`}
+			confirmText="Delete both entries"
+			onCancel={onCancel}
+			onConfirm={onConfirm}
+		/>
+	);
+}
