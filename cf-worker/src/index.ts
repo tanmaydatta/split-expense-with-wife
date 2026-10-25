@@ -1,3 +1,4 @@
+import { handleBudgetRename } from "./handlers/budget-rename";
 import { handleBudgetTransfer } from "./handlers/budget-transfers";
 import { handleCategoryInsights } from "./handlers/category-insights";
 import { handleCategoryJobs } from "./handlers/category-jobs";
@@ -189,6 +190,8 @@ async function handleBasicApiRoutes(
 	switch (apiPath) {
 		case "balances":
 			return await handleBalances(request, env);
+		case "budget/rename":
+			return await handleBudgetRename(request, env);
 		case "budget-transfer":
 			return await handleBudgetTransfer(request,env);
 		case "budget":

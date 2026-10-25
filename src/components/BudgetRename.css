@@ -1,0 +1,93 @@
+.budget-rename-overlay {
+	position: fixed;
+	inset: 0;
+	z-index: 2000;
+	background: rgba(15, 26, 45, 0.56);
+}
+.budget-rename-dialog {
+	position: fixed;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	z-index: 2001;
+	width: min(440px, calc(100vw - 32px));
+	max-height: calc(100dvh - 32px);
+	overflow: auto;
+	padding: 24px;
+	background: var(--ui-surface);
+	color: var(--ui-text);
+	border: 1px solid var(--ui-border);
+	border-radius: var(--ui-radius-lg);
+	box-shadow: 0 24px 70px rgba(11, 26, 52, 0.25);
+}
+.budget-rename-dialog h2 {
+	font-size: 20px;
+	margin: 0 0 8px;
+}
+.budget-rename-dialog p {
+	font-size: 14px;
+	line-height: 1.5;
+	color: var(--ui-text-muted);
+}
+.budget-rename-dialog label {
+	display: block;
+	font-weight: 650;
+	margin: 20px 0 8px;
+}
+.budget-rename-dialog input {
+	width: 100%;
+}
+.budget-rename-dialog [role="alert"] {
+	color: var(--ui-danger);
+}
+.budget-rename-footer {
+	display: flex;
+	justify-content: flex-end;
+	gap: 10px;
+	margin-top: 24px;
+}
+.budget-tab-actions {
+	position: relative;
+	display: flex;
+	min-width: 0;
+}
+.budget-tab-actions > .toggle-button {
+	flex: 1;
+	min-width: 0;
+	border-radius: var(--border-radius) 0 0 var(--border-radius);
+}
+.budget-tab-menu-toggle {
+	border: 1px solid var(--color-primary);
+	border-left: 0;
+	border-radius: 0 var(--border-radius) var(--border-radius) 0;
+	background: var(--ui-surface);
+	color: var(--color-primary);
+	min-width: 40px;
+	cursor: pointer;
+	font-size: 22px;
+}
+.budget-tab-menu {
+	position: absolute;
+	top: calc(100% + 4px);
+	right: 0;
+	z-index: 10;
+	padding: 6px;
+	background: var(--ui-surface);
+	border: 1px solid var(--ui-border);
+	border-radius: var(--ui-radius-sm);
+	box-shadow: var(--ui-shadow);
+	min-width: 160px;
+}
+.budget-tab-menu button {
+	width: 100%;
+	border: 0;
+	background: transparent;
+	color: var(--ui-text);
+	padding: 10px;
+	text-align: left;
+	font: inherit;
+	cursor: pointer;
+}
+.budget-tab-menu button:hover {
+	background: var(--ui-surface-muted);
+}

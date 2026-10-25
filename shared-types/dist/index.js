@@ -63,6 +63,12 @@ export const BillPaymentSchema = z.object({
         ctx.addIssue({ code: "custom", message: "Budget debit requires a new expense" });
 });
 export const BillIdSchema = z.object({ id: z.string().min(1) });
+export const RenameBudgetRequestSchema = z.object({
+    budgetId: z.string().min(1),
+    budgetName: z.string().trim().min(1, "Budget name cannot be empty")
+        .max(60, "Budget name cannot exceed 60 characters")
+        .regex(/^[a-zA-Z0-9\s\-_]+$/, "Use letters, numbers, spaces, hyphens, or underscores"),
+});
 // Group Budget Data Schema
 export const GroupBudgetDataSchema = z.object({
     id: z.string().min(1),

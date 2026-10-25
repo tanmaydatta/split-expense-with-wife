@@ -470,6 +470,10 @@ export interface ApiEndpoints {
 		request: {};
 		response: { message: string };
 	};
+	"/budget/rename": {
+		request: RenameBudgetRequest;
+		response: GroupBudgetData;
+	};
 	"/group/details": {
 		request: {};
 		response: GroupDetailsResponse;
@@ -650,6 +654,20 @@ export interface BillReminderView {
 	title: string;
 	dueDate: string;
 }
+
+export const RenameBudgetRequestSchema = z.object({
+	budgetId: z.string().min(1),
+	budgetName: z
+		.string()
+		.trim()
+		.min(1, "Budget name cannot be empty")
+		.max(60, "Budget name cannot exceed 60 characters")
+		.regex(
+			/^[a-zA-Z0-9\s\-_]+$/,
+			"Use letters, numbers, spaces, hyphens, or underscores",
+		),
+});
+export type RenameBudgetRequest = z.infer<typeof RenameBudgetRequestSchema>;
 
 // Group Budget Data Schema
 export const GroupBudgetDataSchema = z.object({

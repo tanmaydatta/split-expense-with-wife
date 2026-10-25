@@ -34,3 +34,5 @@ Split Expense With Wife is a full-stack expense splitting application built with
 - **Deployment**: Cloudflare Workers (full-stack deployment)
 
 The application enables couples to track shared expenses, split costs, manage budgets, and schedule recurring transactions.
+
+- [Renaming budgets](budget-renaming.md): per-budget actions, validation and API behavior.
