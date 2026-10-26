@@ -205,3 +205,169 @@ test("rename budgets with validation, cancel, retry and immediate labels", async
 		),
 	).toBe(false);
 });
+
+test("seven budget tabs keep names whole and wrap without clipping actions", async ({
+	page,
+}, info) => {
+	const names = [
+		"Food",
+		"Household",
+		"Travel",
+		"Emergency fund",
+		"Home maintenance",
+		"Shared subscriptions",
+		"Annual household maintenance and emergency savings reserve",
+	];
+	const seven = names.map((budgetName, index) => ({
+		id: `budget-${index}`,
+		budgetName,
+		description: null,
+	}));
+	await page.route("**/*", async (route) => {
+		const url = new URL(route.request().url()),
+			p = url.pathname;
+		let data: unknown;
+		if (p.includes("/auth/get-session"))
+			data = {
+				...session,
+				extra: {
+					...session.extra,
+					group: { ...session.extra.group, budgets: seven },
+				},
+			};
+		else if (p.includes("/.netlify/functions/")) {
+			if (p.endsWith("/budget_total"))
+				data = [{ currency: "GBP", amount: 157.5 }];
+			else if (p.endsWith("/budget_list"))
+				data = [
+					{
+						id: "shop",
+						budgetId: route.request().postDataJSON().budgetId,
+						name: "Food",
+						description: "Weekly supermarket shop",
+						amount: -42.5,
+						price: "-42.50",
+						currency: "GBP",
+						addedTime: "2026-01-15 00:00:00",
+					},
+				];
+			else if (p.endsWith("/categories"))
+				data = { enabled: true, categories: [], rules: [] };
+			else if (p.endsWith("/category-jobs")) data = { job: null };
+			else data = {};
+		}
+		if (data !== undefined)
+			await route.fulfill({
+				contentType: "application/json",
+				body: JSON.stringify(data),
+			});
+		else if (url.origin === "http://127.0.0.1:4326") await route.continue();
+		else await route.abort();
+	});
+	await page.goto("/budget?budget=budget-0");
+	const selector = page.getByTestId("budget-selection-group");
+	await expect(selector.getByRole("radio")).toHaveCount(7);
+	const widths =
+		info.project.name === "mobile" ? [390, 320] : [1440, 1000, 768];
+	for (const width of widths) {
+		await page.setViewportSize({
+			width,
+			height: info.project.name === "mobile" ? 844 : 1080,
+		});
+		await selector.scrollIntoViewIfNeeded();
+		const geometry = await selector
+			.locator(".budget-tab-actions")
+			.evaluateAll((items) =>
+				items.map((item) => {
+					const button = item.querySelector(".toggle-button") as HTMLElement,
+						action = item.querySelector(
+							".budget-tab-menu-toggle",
+						) as HTMLElement;
+					const label = button.querySelector("span") ?? button,
+						range = document.createRange();
+					range.selectNodeContents(label);
+					const box = item.getBoundingClientRect(),
+						target = action.getBoundingClientRect();
+					return {
+						width: box.width,
+						left: box.left,
+						right: box.right,
+						lines: new Set(
+							Array.from(range.getClientRects(), (rect) =>
+								Math.round(rect.top),
+							),
+						).size,
+						nowrap: getComputedStyle(label).whiteSpace,
+						clipped: label.scrollWidth > label.clientWidth + 1,
+						actionWidth: target.width,
+						actionHeight: target.height,
+					};
+				}),
+			);
+		expect(
+			geometry.every((item) => item.nowrap === "nowrap" && item.lines === 1),
+		).toBe(true);
+		expect(geometry.slice(0, 6).every((item) => !item.clipped)).toBe(true);
+		expect(
+			geometry.every((item) => item.left >= 15 && item.right <= width - 15),
+		).toBe(true);
+		expect(
+			geometry.every(
+				(item) => item.actionWidth >= 44 && item.actionHeight >= 44,
+			),
+		).toBe(true);
+		expect(
+			Math.max(...geometry.map((item) => item.width)) -
+				Math.min(...geometry.map((item) => item.width)),
+		).toBeGreaterThan(50);
+		expect(
+			await page.evaluate(
+				() => document.documentElement.scrollWidth > innerWidth,
+			),
+		).toBe(false);
+		await page
+			.getByTestId("budget-container")
+			.getByRole("heading", { name: "Budget", exact: true })
+			.click();
+		await page.screenshot({
+			path: `docs/previews/budget-selector-tabs/${width}-overview.png`,
+			animations: "disabled",
+		});
+		for (const budgetName of [names[0], names[5], names[6]]) {
+			await page
+				.getByRole("button", { name: `Actions for ${budgetName}`, exact: true })
+				.click();
+			const menu = selector.locator(".budget-tab-menu");
+			await expect(menu).toBeVisible();
+			if (budgetName === names[0] && (width === 1440 || width === 390))
+				await page.screenshot({
+					path: `docs/previews/budget-selector-tabs/${width}-menu.png`,
+					animations: "disabled",
+				});
+			const box = await menu.boundingBox();
+			expect(box!.x).toBeGreaterThanOrEqual(8);
+			expect(box!.x + box!.width).toBeLessThanOrEqual(width - 8);
+			await page.keyboard.press("Escape");
+			await expect(menu).toHaveCount(0);
+		}
+	}
+	const last = selector.getByRole("radio", { name: names[6], exact: true });
+	await expect(last).toHaveAttribute("title", names[6]);
+	await last.click();
+	await expect(last).toHaveAttribute("aria-checked", "true");
+	await page
+		.getByRole("button", { name: `Actions for ${names[6]}`, exact: true })
+		.focus();
+	await page.keyboard.press("Enter");
+	await selector
+		.getByRole("button", { name: "Rename budget", exact: true })
+		.click();
+	await expect(page.getByRole("dialog")).toBeVisible();
+	await expect(page.getByLabel("Budget name", { exact: true })).toHaveValue(
+		names[6],
+	);
+	await page.getByRole("button", { name: "Cancel", exact: true }).click();
+	await expect(
+		page.getByRole("button", { name: `Actions for ${names[6]}`, exact: true }),
+	).toBeFocused();
+});

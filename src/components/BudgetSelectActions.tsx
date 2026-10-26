@@ -1,7 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useSelector } from "react-redux";
 import type { GroupBudgetData, ReduxState } from "split-expense-shared-types";
-import { ToggleButton } from "./ToggleButtonGroup";
 import { BudgetRename } from "./BudgetRename";
 
 export function BudgetSelectActions({
@@ -15,6 +14,7 @@ export function BudgetSelectActions({
 }) {
 	const [menu, setMenu] = useState<string | null>(null);
 	const [editing, setEditing] = useState<GroupBudgetData | null>(null);
+	const menuElement = useRef<HTMLDivElement>(null);
 	const actionButtons = useRef<Record<string, HTMLButtonElement | null>>({});
 	const budgets =
 		useSelector((state: ReduxState) => state.value?.extra?.group?.budgets) ??
@@ -28,6 +28,19 @@ export function BudgetSelectActions({
 		document.addEventListener("pointerdown", close);
 		return () => document.removeEventListener("pointerdown", close);
 	}, [menu]);
+	useLayoutEffect(() => {
+		if (!menu) return;
+		const keepMenuInView = () => {
+			const element = menuElement.current;
+			if (!element) return;
+			element.style.transform = "";
+			const left = element.getBoundingClientRect().left;
+			if (left < 16) element.style.transform = `translateX(${16 - left}px)`;
+		};
+		keepMenuInView();
+		window.addEventListener("resize", keepMenuInView);
+		return () => window.removeEventListener("resize", keepMenuInView);
+	}, [menu]);
 	const closeDialog = () => {
 		const id = editing?.id;
 		setEditing(null);
@@ -38,14 +51,14 @@ export function BudgetSelectActions({
 	return (
 		<>
 			<div
-				className="toggle-button-group mb-2 BudgetSelectionGroup"
+				className="toggle-button-group budget-actions-selector mb-2 BudgetSelectionGroup"
 				role="radiogroup"
 				aria-label="budget"
 				data-test-id="budget-selection-group"
 			>
 				{budgets.map((b) => (
 					<div
-						className="budget-tab-actions"
+						className={`budget-tab-actions${budgetId === b.id ? " is-selected" : ""}`}
 						data-budget-actions={b.id}
 						key={b.id}
 						onKeyDown={(e) => {
@@ -55,15 +68,19 @@ export function BudgetSelectActions({
 							}
 						}}
 					>
-						<ToggleButton
-							value={b.id}
-							isSelected={budgetId === b.id}
-							onChange={handleChangeBudget}
+						<button
+							type="button"
+							role="radio"
+							aria-checked={budgetId === b.id}
+							aria-label={b.budgetName}
+							title={b.budgetName}
+							className={`toggle-button toggle-button-outline-primary${budgetId === b.id ? " selected" : ""}`}
+							onClick={() => handleChangeBudget(b.id)}
 							disabled={disabled}
 							data-test-id={`budget-radio-${b.budgetName}`}
 						>
-							{b.budgetName}
-						</ToggleButton>
+							<span className="budget-tab-name">{b.budgetName}</span>
+						</button>
 						<button
 							type="button"
 							className="budget-tab-menu-toggle"
@@ -79,7 +96,11 @@ export function BudgetSelectActions({
 							⋯
 						</button>
 						{menu === b.id && (
-							<div className="budget-tab-menu" id={`budget-menu-${b.id}`}>
+							<div
+								ref={menuElement}
+								className="budget-tab-menu"
+								id={`budget-menu-${b.id}`}
+							>
 								<button
 									type="button"
 									onClick={() => {
