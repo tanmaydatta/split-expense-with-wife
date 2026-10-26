@@ -1,6 +1,7 @@
 import { createExecutionContext, env as testEnv } from "cloudflare:test";
 import { eq } from "drizzle-orm";
 import { ulid } from "ulid";
+import type { TestContext } from "@vitest/runner";
 import {
 	type AddBudgetActionData,
 	type AddExpenseActionData,
@@ -1466,12 +1467,32 @@ describe("Scheduled Actions Handlers", () => {
 
 	describe("Manual Run Functions", () => {
 		describe("createSingleHistoryEntry", () => {
-			it("should create new history entry successfully", async () => {
+			it("should create new history entry successfully", async ({ onTestFailed }: TestContext) => {
+				const dateStart = Date.now();
+				const performanceStart = performance.now();
+				const phases: { phase: string; dateElapsedMs: number; performanceElapsedMs: number }[] = [];
+				const recordPhase = (phase: string) => {
+					phases.push({
+						phase,
+						dateElapsedMs: Date.now() - dateStart,
+						performanceElapsedMs: performance.now() - performanceStart,
+					});
+				};
+				onTestFailed(() => {
+					recordPhase("failure reported");
+					// The process shim reports a compatibility version, not the CI host Node version.
+					console.error("Scheduled history test diagnostic:", JSON.stringify({
+						compatibilityNodeVersion: process.versions.node,
+						phases,
+					}));
+				});
+
 				// Create a scheduled action first
 				const actionId = ulid();
 				const currentDate = "2024-01-15";
 				const workflowInstanceId = "test-workflow-123";
 
+				recordPhase("before scheduled action insert");
 				await getDb(env).insert(scheduledActions).values({
 					id: actionId,
 					userId: TEST_USERS.user1.id,
@@ -1491,17 +1512,28 @@ describe("Scheduled Actions Handlers", () => {
 					updatedAt: formatSQLiteTime(),
 				});
 
+				recordPhase("after scheduled action insert");
+
 				// Import the function to test
+				recordPhase("before workflow import");
 				const { createSingleHistoryEntry } = await import("../workflows/scheduled-actions-processor");
 
+				recordPhase("after workflow import");
+
 				// Call the function
+				recordPhase("before history entry creation");
 				await createSingleHistoryEntry(env, actionId, workflowInstanceId, currentDate);
 
+				recordPhase("after history entry creation");
+
 				// Verify history entry was created
+				recordPhase("before history query");
 				const historyEntries = await getDb(env)
 					.select()
 					.from(scheduledActionHistory)
 					.where(eq(scheduledActionHistory.scheduledActionId, actionId));
+
+				recordPhase("after history query");
 
 				expect(historyEntries).toHaveLength(1);
 				const entry = historyEntries[0];
