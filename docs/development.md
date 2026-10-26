@@ -374,6 +374,14 @@ cd cf-worker
 npx wrangler dev --persist-to=.wrangler/state
 ```
 
+### Scheduled history test timeouts
+
+The `createSingleHistoryEntry > should create new history entry successfully` test has intermittently timed out in Cloudflare Builds while passing locally. The cause is still unconfirmed. On failure, it emits `Scheduled history test diagnostic:` with phase checkpoints around the scheduled action insert, workflow import, history creation, and history query. Each checkpoint includes elapsed `Date.now()` and `performance.now()` values; the record also includes the process shim's Node compatibility version. That compatibility value is not the CI host's Node version; obtain the host version from the build setup logs. It contains no fixture IDs, user data, or credentials.
+
+Use the last checkpoint before `failure reported` to identify the operation still pending, and compare the elapsed clocks with the build log timestamps. Preserve this diagnostic and the original timeout output when investigating. A passing run emits no diagnostic; the existing timeout and assertions remain in effect.
+
+Run the affected file from `cf-worker/` with `yarn vitest run src/tests/scheduled-actions.test.ts`, then use `yarn test` for the full Worker suite. This instrumentation gathers evidence for a future fix; it does not establish or fix the timeout's root cause.
+
 ### Debug Mode
 
 ```bash
