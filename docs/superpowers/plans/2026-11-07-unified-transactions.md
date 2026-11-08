@@ -80,11 +80,11 @@ A linked expense anchors on `tx:<id>` even if it has multiple budget entries. An
 
 **Interfaces:** Produce `UnifiedLedgerRow`/`LedgerListRequest`/`LedgerListResponse`; Task 2 consumes the same endpoint.
 
-- [ ] **Step 1: Write failing Worker tests** for linked purchase (one row), standalone expense, standalone budget credit/debit, two-ended transfer, archived counterpart, M:N links, deleted siblings, foreign household ID, and absence of unreviewed private bank rows. Assert exact canonical IDs and amounts.
-- [ ] **Step 2: Run** `cd cf-worker && yarn vitest run src/tests/ledger.test.ts --no-file-parallelism`; verify tests fail because `/ledger_list` is not registered.
-- [ ] **Step 3: Implement** `handleLedgerList(request: Request, env: Env): Promise<Response>` using the established auth helpers. Build a bounded D1 query/projection across sources, excluding transfer-backed and expense-linked budget rows from the standalone arm; de-duplicate expense anchors before pagination. Enforce ownership and household authorization before category enrichment.
-- [ ] **Step 4: Re-run** focused tests; verify all pass, then `cd cf-worker && yarn lint`.
-- [ ] **Step 5: Commit** `feat: add unified ledger read API`.
+- [x] **Step 1: Write failing Worker tests** for linked purchase (one row), standalone expense, standalone budget credit/debit, two-ended transfer, archived counterpart, M:N links, deleted siblings, foreign household ID, and absence of unreviewed private bank rows. Assert exact canonical IDs and amounts.
+- [x] **Step 2: Run** `cd cf-worker && yarn vitest run src/tests/ledger.test.ts --no-file-parallelism`; verify tests fail because `/ledger_list` is not registered.
+- [x] **Step 3: Implement** `handleLedgerList(request: Request, env: Env): Promise<Response>` using the established auth helpers. Build a bounded D1 query/projection across sources, excluding transfer-backed and expense-linked budget rows from the standalone arm; de-duplicate expense anchors before pagination. Enforce ownership and household authorization before category enrichment.
+- [x] **Step 4: Re-run** focused tests; verify all pass, then `cd cf-worker && yarn lint`.
+- [x] **Step 5: Commit** `feat: add unified ledger read API`.
 
 ## Task 2: Stable filtering and pagination
 
@@ -92,11 +92,11 @@ A linked expense anchors on `tx:<id>` even if it has multiple budget entries. An
 
 **Interfaces:** `useLedger(filters: LedgerListRequest)` returns a TanStack paginated query of `LedgerListResponse`, preserving the opaque cursor and session cache key.
 
-- [ ] **Step 1: Add failing tests** for duplicate timestamps, cross-source ordering, budget+category+currency filters, page boundary at 25 rows, cursor reuse after filtered query, and malformed/foreign cursor rejection. Include mixed currency and a transfer involving an archived budget.
-- [ ] **Step 2: Run** the focused Worker test and verify failures reflect absent cursor/filter behaviour.
-- [ ] **Step 3: Implement** deterministic ordering `timestamp DESC, canonicalId DESC`, server-validated opaque cursors, a capped page size, and an index-aware bounded query. Keep filters on the canonical logical event rather than filtering sibling rows after pagination. Implement `useLedger` with user/group/session identity in the query key.
-- [ ] **Step 4: Run** the focused Worker suite and frontend type/lint gates; confirm stable non-overlapping pagination.
-- [ ] **Step 5: Commit** `feat: paginate unified ledger`.
+- [x] **Step 1: Add failing tests** for duplicate timestamps, cross-source ordering, budget+category+currency filters, page boundary at 25 rows, cursor reuse after filtered query, and malformed/foreign cursor rejection. Include mixed currency and a transfer involving an archived budget.
+- [x] **Step 2: Run** the focused Worker test and verify failures reflect absent cursor/filter behaviour.
+- [x] **Step 3: Implement** deterministic ordering `timestamp DESC, canonicalId DESC`, server-validated opaque cursors, a capped page size, and an index-aware bounded query. Keep filters on the canonical logical event rather than filtering sibling rows after pagination. Implement `useLedger` with user/group/session identity in the query key.
+- [x] **Step 4: Run** the focused Worker suite and frontend type/lint gates; confirm stable non-overlapping pagination.
+- [x] **Step 5: Commit** `feat: paginate unified ledger`.
 
 ## Task 3: One Transactions page and detail navigation
 
@@ -104,11 +104,11 @@ A linked expense anchors on `tx:<id>` even if it has multiple budget entries. An
 
 **Interfaces:** Render `UnifiedLedgerRow`; route purchase to existing `/transaction/:id`, unlinked budget adjustment to `/budget-entry/:id`, and transfer to an existing paired-transfer detail path or a small new read-only transfer detail component. Never delete both sides by two independent requests.
 
-- [ ] **Step 1: Write failing browser tests** showing one Tesco linked row, standalone funding, one transfer row, filtering, mobile expansion, a legacy `/expenses` link and the absence of duplicate siblings.
-- [ ] **Step 2: Run** `yarn playwright test src/e2e/tests/unified-ledger.spec.ts --project=chromium`; verify old Expenses UI does not satisfy the new assertions.
-- [ ] **Step 3: Build** Transactions UI using existing row/card, `FinanceListFilters`, detail and accessible mobile patterns. Change sidebar label `Expenses` -> `Transactions`, use `/transactions` as canonical URL, and redirect `/expenses` without losing query parameters. Keep category/source/split information accessible on expansion; reflect delete effects by invalidating `ledger`, `transactions`, `budget`, `balances`, and insights queries.
-- [ ] **Step 4: Run** focused Playwright on Chromium and Mobile Chrome; run `yarn test --watchAll=false --runInBand` and `yarn lint`; retain existing expense-budget-linking coverage.
-- [ ] **Step 5: Commit** `feat: show unified transactions` and update repository docs.
+- [x] **Step 1: Write failing browser tests** showing one Tesco linked row, standalone funding, one transfer row, filtering, mobile expansion, a legacy `/expenses` link and the absence of duplicate siblings.
+- [x] **Step 2: Run** `yarn playwright test src/e2e/tests/unified-ledger.spec.ts --project=chromium`; verify old Expenses UI does not satisfy the new assertions.
+- [x] **Step 3: Build** Transactions UI using existing row/card, `FinanceListFilters`, detail and accessible mobile patterns. Change sidebar label `Expenses` -> `Transactions`, use `/transactions` as canonical URL, and redirect `/expenses` without losing query parameters. Keep category/source/split information accessible on expansion; reflect delete effects by invalidating `ledger`, `transactions`, `budget`, `balances`, and insights queries.
+- [x] **Step 4: Run** focused Playwright on Chromium and Mobile Chrome; run `yarn test --watchAll=false --runInBand` and `yarn lint`; retain existing expense-budget-linking coverage.
+- [x] **Step 5: Commit** `feat: show unified transactions` and update repository docs.
 
 ## Rollout and stopping point
 
