@@ -1,5 +1,6 @@
 import { handleBudgetRename } from "./handlers/budget-rename";
 import { handleBudgetTransfer } from "./handlers/budget-transfers";
+import { handleLedgerList } from "./handlers/ledger";
 import { handleCategoryInsights } from "./handlers/category-insights";
 import { handleCategoryJobs } from "./handlers/category-jobs";
 import { handleCategories, handleRecordCategory } from "./handlers/categories";
@@ -218,6 +219,8 @@ async function handleBasicApiRoutes(
 			return await handleBudgetEntryGet(request, env);
 		case "split_delete":
 			return await handleSplitDelete(request, env);
+		case "ledger_list":
+			return await handleLedgerList(request, env);
 		case "transactions_list":
 			return await handleTransactionsList(request, env);
 		case "relink-data":
