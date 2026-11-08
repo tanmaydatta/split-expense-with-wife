@@ -37,7 +37,7 @@ export default function TransactionDetail() {
 	const deleteTransaction = async () => {
 		try {
 			await del.mutateAsync(tx.transaction_id);
-			navigate("/expenses");
+			navigate("/transactions");
 		} catch {
 			// The mutation error is displayed below the heading, so the user can retry.
 		}

@@ -88,6 +88,7 @@ export function useDeleteBudgetEntry() {
 			queryClient.invalidateQueries({ queryKey: ["transactions"] });
 			queryClient.invalidateQueries({ queryKey: ["category-insights"] });
 			queryClient.invalidateQueries({ queryKey: ["balances"] });
+			queryClient.invalidateQueries({ queryKey: ["ledger"] });
 
 			// Invalidate each linked transaction's detail page
 			for (const txId of Array.from(linkedTxIds)) {

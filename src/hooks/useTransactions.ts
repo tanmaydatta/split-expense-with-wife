@@ -158,6 +158,8 @@ export function useDeleteTransaction() {
 			// Invalidate transaction queries to refresh data
 			queryClient.invalidateQueries({ queryKey: ["transactions"] });
 			queryClient.invalidateQueries({ queryKey: ["category-insights"] });
+			queryClient.invalidateQueries({ queryKey: ["ledger"] });
+			queryClient.invalidateQueries({ queryKey: ["balances"] });
 
 			// Optimistically remove the deleted transaction from cache
 			queryClient.setQueriesData<FrontendTransaction[]>(

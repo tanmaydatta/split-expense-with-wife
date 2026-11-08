@@ -97,12 +97,14 @@ function Sidebar({ onNavigate }: SidebarProps): JSX.Element {
 			</SidebarItem>
 			<SidebarItem
 				type="button"
-				$active={isActive("/expenses")}
-				aria-current={isActive("/expenses") ? "page" : undefined}
-				onClick={() => handleNavigate("/expenses")}
-				data-test-id="sidebar-expenses"
+				$active={isActive("/transactions") || isActive("/expenses")}
+				aria-current={
+					isActive("/transactions") || isActive("/expenses") ? "page" : undefined
+				}
+				onClick={() => handleNavigate("/transactions")}
+				data-test-id="sidebar-transactions"
 			>
-				Expenses
+				Transactions
 			</SidebarItem>
 			<SidebarItem
 				type="button"

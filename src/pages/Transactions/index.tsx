@@ -1,223 +1,24 @@
-import getSymbolFromCurrency from "currency-symbol-map";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useSelector } from "react-redux";
-import type {
-	FrontendTransaction,
-	ReduxState,
-	TransactionsListRequest,
-} from "split-expense-shared-types";
-import {
-	type BulkCategories,
-	BulkCategoryCheckbox,
-	 BulkCategoryToolbar,
-	useBulkCategoryRows,
-} from "@/components/BulkCategories";
+import { useQueryClient } from "@tanstack/react-query";
+import type { ReduxState, UnifiedLedgerRow } from "split-expense-shared-types";
+import { BulkCategoryToolbar, useBulkCategories } from "@/components/BulkCategories";
 import { Button } from "@/components/Button";
 import { FinanceListFilters } from "@/components/FinanceListFilters";
-import {
-	ArrowDownUp,
-	Calendar,
-	CardText,
-	Coin,
-	Trash,
-	XLg,
-} from "@/components/Icons";
 import { Loader } from "@/components/Loader";
 import {
 	ErrorContainer,
 	SuccessContainer,
 } from "@/components/MessageContainer";
-import { Table, TableWrapper } from "@/components/Table";
-import { TransactionCard } from "@/components/TransactionCard";
-import { TransactionDetails } from "@/components/TransactionDetails";
 import { UiPageDescription, UiPageTitle } from "@/components/ui";
+import { useCategories } from "@/hooks/useCategories";
 import { useFinanceListFilters } from "@/hooks/useFinanceListFilters";
-import {
-	useDeleteTransaction,
-	useInfiniteTransactionsList,
-	useTransactionsList,
-} from "@/hooks/useTransactions";
+import { useInfiniteLedger } from "@/hooks/useLedger";
+import { useDeleteBudgetEntry } from "@/hooks/useBudget";
+import { useDeleteTransaction } from "@/hooks/useTransactions";
 import api from "@/utils/api";
-import { dateToFullStr } from "@/utils/date";
+import { UnifiedLedgerList } from "./UnifiedLedgerList";
 import "./index.css";
-
-const TransactionList: React.FC<{
-	transactions: FrontendTransaction[];
-	deleteTransaction(id: string): void;
-	bankLinkedIds: Set<string>;
-	bulk: BulkCategories;
-}> = ({ transactions, deleteTransaction, bankLinkedIds, bulk }) => {
-	const [selectedTransaction, setSelectedTransaction] =
-		useState<FrontendTransaction | null>(null);
-
-	const handleSelect = (transaction: FrontendTransaction) => {
-		if (selectedTransaction?.transactionId === transaction.transactionId) {
-			setSelectedTransaction(null);
-		} else {
-			setSelectedTransaction(transaction);
-		}
-	};
-
-	return (
-		<>
-			{/* Desktop Table View */}
-			<div className="desktop-table">
-				<TableWrapper>
-					<Table>
-						<thead>
-							<tr>
-								<th>
-									<Calendar /> Date
-								</th>
-								<th>
-									<CardText /> Description
-								</th>
-								<th>
-									<Coin /> Amount
-								</th>
-								<th>
-									<ArrowDownUp /> Share
-								</th>
-								<th>
-									<Trash />
-								</th>
-							</tr>
-						</thead>
-						<tbody>
-							{transactions.map((transaction) => (
-								<React.Fragment key={transaction.transactionId}>
-									<tr
-										className="transaction-row"
-										data-test-id="transaction-item"
-										data-transaction-id={transaction.transactionId}
-										onClick={() => handleSelect(transaction)}
-									>
-										<td>
-											<BulkCategoryCheckbox
-												bulk={bulk}
-												id={transaction.transactionId}
-												label={transaction.description}
-											/>{" "}
-											{dateToFullStr(new Date(transaction.date))}
-										</td>
-										<td className="description-cell">
-											{transaction.description}
-											{bankLinkedIds.has(transaction.transactionId) && (
-												<span
-													title="Matched to your bank activity"
-													aria-label="Matched to your bank activity"
-												>
-													{" "}
-													· Bank linked
-												</span>
-											)}
-											{(transaction.linkedBudgetEntryIds?.length ?? 0) > 0 && (
-												<span
-													className="linked-icon"
-													data-test-id="transaction-linked-icon"
-													title="Linked to a budget entry"
-													aria-label="Linked to a budget entry"
-												>
-													🔗
-												</span>
-											)}
-										</td>
-										<td>
-											{getSymbolFromCurrency(transaction.currency)}
-											{Math.abs(transaction.totalAmount).toFixed(2)}
-										</td>
-										<td
-											className={
-												transaction.totalOwed > 0
-													? "positive"
-													: transaction.totalOwed < 0
-														? "negative"
-														: "zero"
-											}
-										>
-											{transaction.totalOwed !== 0 &&
-												(transaction.totalOwed > 0 ? "+" : "-")}
-											{getSymbolFromCurrency(transaction.currency)}
-											{Math.abs(transaction.totalOwed).toFixed(2)}
-										</td>
-										<td>
-											<button
-												data-test-id="delete-button"
-												onClick={(e) => {
-													e.stopPropagation();
-													deleteTransaction(transaction.transactionId);
-												}}
-												style={{
-													background: "none",
-													border: "none",
-													cursor: "pointer",
-													padding: "4px",
-													display: "flex",
-													alignItems: "center",
-													justifyContent: "center",
-													color: "red",
-												}}
-												aria-label="Delete transaction"
-											>
-												<XLg />
-											</button>
-										</td>
-									</tr>
-									{selectedTransaction &&
-										transaction.transactionId ===
-											selectedTransaction.transactionId && (
-											<tr>
-												<td colSpan={5}>
-													<TransactionDetails
-														{...selectedTransaction}
-														showLinkedBudget
-													/>
-												</td>
-											</tr>
-										)}
-								</React.Fragment>
-							))}
-						</tbody>
-					</Table>
-				</TableWrapper>
-			</div>
-
- <MobileTransactionList transactions={transactions} selectedTransaction={selectedTransaction} handleSelect={handleSelect} deleteTransaction={deleteTransaction} bankLinkedIds={bankLinkedIds} bulk={bulk}/>
-
-		</>
-	);
-};
-
-function MobileTransactionList({transactions,selectedTransaction,handleSelect,deleteTransaction,bankLinkedIds,bulk}:{transactions:FrontendTransaction[];selectedTransaction:FrontendTransaction|null;handleSelect:(t:FrontendTransaction)=>void;deleteTransaction:(id:string)=>void;bankLinkedIds:Set<string>;bulk:BulkCategories}){
- return (<div className="mobile-cards">
-				{transactions.map((transaction) => (
-					<div key={transaction.transactionId}>
-						<div className="bulk-entry-selection">
-							<BulkCategoryCheckbox
-								bulk={bulk}
-								id={transaction.transactionId}
-								label={transaction.description}
-							/>
-							{bulk.enabled && "Select expense"}
-						</div>
-						<TransactionCard
-							key={transaction.transactionId}
-							transaction={transaction}
-							isSelected={
-								selectedTransaction?.transactionId === transaction.transactionId
-							}
-							onSelect={handleSelect}
-							onDelete={deleteTransaction}
-						>
-							{bankLinkedIds.has(transaction.transactionId) && (
-								<small>Bank linked</small>
-							)}
-							<TransactionDetails {...transaction} />
-						</TransactionCard>
-					</div>
-				))}
-			</div>);
-}
 
 function useBankLinkedIds() {
 	const [bankLinkedIds, setBankLinkedIds] = useState<Set<string>>(new Set());
@@ -244,202 +45,211 @@ function useBankLinkedIds() {
 	return bankLinkedIds;
 }
 
-function useTransactionsPage() {
-	const [transactions, setTransactions] = useState<FrontendTransaction[]>([]);
-	const bankLinkedIds = useBankLinkedIds();
-	const filterState = useFinanceListFilters(["all", "owed", "owe", "zero"]);
-	const q = filterState.filters.q;
+function useIsMobile(breakpoint = 768) {
+	const [isMobile, setIsMobile] = useState(() =>
+		typeof window !== "undefined" ? window.innerWidth <= breakpoint : false,
+	);
+	useEffect(() => {
+		const check = () => setIsMobile(window.innerWidth <= breakpoint);
+		window.addEventListener("resize", check);
+		return () => window.removeEventListener("resize", check);
+	}, [breakpoint]);
+	return isMobile;
+}
 
+function buildCategoryMap(categories: Array<{ id: string; name: string }> | undefined) {
+	const map: Record<string, string> = {};
+	if (!categories) return map;
+	for (const c of categories) {
+		map[c.id] = c.name;
+	}
+	return map;
+}
+
+function filterRowsByAmount(rows: UnifiedLedgerRow[], min?: number, max?: number) {
+	if (min === undefined && max === undefined) return rows;
+	return rows.filter((row) => {
+		const abs = Math.abs(row.amount);
+		if (min !== undefined && abs < min) return false;
+		if (max !== undefined && abs > max) return false;
+		return true;
+	});
+}
+
+function sortRows(rows: UnifiedLedgerRow[], sortOrder?: string) {
+	if (!sortOrder || sortOrder === "newest") return rows;
+	const copy = [...rows];
+	if (sortOrder === "oldest") {
+		copy.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+	} else if (sortOrder === "amount-asc") {
+		copy.sort((a, b) => Math.abs(a.amount) - Math.abs(b.amount));
+	} else if (sortOrder === "amount-desc") {
+		copy.sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount));
+	}
+	return copy;
+}
+
+function useTransactionsPage() {
+	const filterState = useFinanceListFilters(["all", "owed", "owe", "zero"]);
+	const bankLinkedIds = useBankLinkedIds();
 	const data = useSelector((state: ReduxState) => state.value);
+	const categories = useCategories();
+	const queryClient = useQueryClient();
+
+	const categoryMap = useMemo(
+		() => buildCategoryMap(categories.data?.categories),
+		[categories.data?.categories],
+	);
+
+	const ledgerFilters = useMemo(
+		() => ({
+			q: filterState.filters.q,
+			dateFrom: filterState.filters.dateFrom,
+			dateTo: filterState.filters.dateTo,
+			currency: filterState.filters.currency,
+			categoryId: filterState.filters.categoryId,
+			limit: 25,
+		}),
+		[
+			filterState.filters.q,
+			filterState.filters.dateFrom,
+			filterState.filters.dateTo,
+			filterState.filters.currency,
+			filterState.filters.categoryId,
+		],
+	);
+
+	const infiniteLedger = useInfiniteLedger(ledgerFilters, !filterState.error);
+	const deleteTransactionMutation = useDeleteTransaction();
+	const deleteBudgetEntryMutation = useDeleteBudgetEntry();
+
+	const allRows = useMemo(
+		() => infiniteLedger.data?.pages.flatMap((page) => page.rows) ?? [],
+		[infiniteLedger.data],
+	);
+
+	const filteredRows = useMemo(
+		() => filterRowsByAmount(allRows, filterState.filters.minAmount, filterState.filters.maxAmount),
+		[allRows, filterState.filters.minAmount, filterState.filters.maxAmount],
+	);
+
+	const sortedRows = useMemo(
+		() => sortRows(filteredRows, filterState.filters.sort),
+		[filteredRows, filterState.filters.sort],
+	);
+
+	const [deleteError, setDeleteError] = useState("");
+	const [deleteSuccess, setDeleteSuccess] = useState("");
+
+	const handleDeleteRow = (row: UnifiedLedgerRow) => {
+		setDeleteError("");
+		setDeleteSuccess("");
+		if (row.kind === "purchase" && row.transactionId) {
+			deleteTransactionMutation.mutate(row.transactionId, {
+				onSuccess: (data) => {
+					setDeleteSuccess(data?.message || "Transaction deleted successfully");
+					queryClient.invalidateQueries({ queryKey: ["ledger"] });
+				},
+				onError: (err) => {
+					setDeleteError(err.message || "Could not delete transaction");
+				},
+			});
+		} else if (row.budgetEntryIds?.[0]) {
+			deleteBudgetEntryMutation.mutate(row.budgetEntryIds[0], {
+				onSuccess: (data) => {
+					setDeleteSuccess(data?.message || "Budget entry deleted successfully");
+					queryClient.invalidateQueries({ queryKey: ["ledger"] });
+				},
+				onError: (err) => {
+					setDeleteError(err.message || "Could not delete budget entry");
+				},
+			});
+		}
+	};
 
 	const sessionContext = `${data?.user?.id ?? ""}:${data?.extra?.group?.groupid ?? ""}`;
-	const filters = filterState.filters as Omit<
-		TransactionsListRequest,
-		"offset"
-	>;
 	const listKey = `${sessionContext}:${filterState.key}`;
-	const currentKey = useRef(listKey);
-	const listGeneration = useRef(0);
-	if (currentKey.current !== listKey) listGeneration.current++;
-	currentKey.current = listKey;
-	const [loadMoreError, setLoadMoreError] = useState("");
-	const [loadingMore, setLoadingMore] = useState(false);
-	const [hasMore, setHasMore] = useState(true);
-	const infiniteTransactions = useInfiniteTransactionsList(
-		data?.user?.id,
-		q,
-		filters,
-		sessionContext,
+
+	const purchaseRowIds = useMemo(
+		() =>
+			sortedRows
+				.filter((r) => r.kind === "purchase" && r.transactionId)
+				.map((r) => r.transactionId as string),
+		[sortedRows],
 	);
-	const initialTransactionsQuery = useTransactionsList(
-		0,
-		data?.user?.id,
-		q,
-		filters,
-		sessionContext,
-		!filterState.error,
-	);
-	const deleteTransactionMutation = useDeleteTransaction();
 
-	// Sync the first page once per filter set while retaining loaded pages.
-	const lastSyncedQRef = useRef<string | null>(null);
-
-	// Reset before syncing results for a new filter set or session.
-	useEffect(() => {
-		setTransactions([]);
-		lastSyncedQRef.current = null;
-		setHasMore(true);
-		setLoadingMore(false);
-		setLoadMoreError("");
-	}, [listKey]);
-
-	useEffect(() => {
-		if (
-			initialTransactionsQuery.isSuccess &&
-			initialTransactionsQuery.data &&
-			lastSyncedQRef.current !== listKey
-		) {
-			setTransactions(initialTransactionsQuery.data);
-			lastSyncedQRef.current = listKey;
-			setHasMore(initialTransactionsQuery.data.length === 10);
-		}
-	}, [
-		initialTransactionsQuery.data,
-		initialTransactionsQuery.isSuccess,
+	const bulk = useBulkCategories(
+		"expense",
+		purchaseRowIds,
 		listKey,
-	]);
+		() => {
+			queryClient.invalidateQueries({ queryKey: ["ledger"] });
+		},
+	);
 
-	const handleLoadMoreTransactions = async () => {
-		const requestKey = listKey;
-		const requestGeneration = listGeneration.current;
-		try {
-			setLoadingMore(true);
-			setLoadMoreError("");
-			const currentTransactions =
-				transactions.length > 0
-					? transactions
-					: initialTransactionsQuery.data || [];
-			const newTransactions =
-				await infiniteTransactions.loadMore(currentTransactions);
-			if (
-				currentKey.current !== requestKey ||
-				listGeneration.current !== requestGeneration
-			)
-				return;
-			setHasMore(newTransactions.length === 10);
-			if (newTransactions && newTransactions.length > 0) {
-				setTransactions((prev) => [...prev, ...newTransactions]);
-			}
-		} catch (error) {
-			if (
-				currentKey.current !== requestKey ||
-				listGeneration.current !== requestGeneration
-			)
-				return;
-			setLoadMoreError(
-				error instanceof Error
-					? error.message
-					: "Could not load more expenses. Try again.",
-			);
-		} finally {
-			if (
-				currentKey.current === requestKey &&
-				listGeneration.current === requestGeneration
-			)
-				setLoadingMore(false);
-		}
-	};
-
-	const handleDeleteTransaction = (id: string) => {
-		const requestKey = listKey;
-		const requestGeneration = listGeneration.current;
-		deleteTransactionMutation.mutate(id, {
-			onSuccess: () => {
-				if (
-					currentKey.current !== requestKey ||
-					listGeneration.current !== requestGeneration
-				)
-					return;
-				setTransactions((previous) =>
-					previous.filter((transaction) => transaction.transactionId !== id),
-				);
-				lastSyncedQRef.current = null;
-				initialTransactionsQuery.refetch();
-			},
-		});
-	};
-
- const bulk=useBulkCategoryRows("expense",transactions,row=>row.transactionId,listKey,setTransactions,filters.categoryId);
 	return {
 		bulk,
-		transactions,
+		rows: sortedRows,
 		bankLinkedIds,
 		filterState,
 		data,
-		initialTransactionsQuery,
-		deleteTransactionMutation,
-		handleLoadMoreTransactions,
-		handleDeleteTransaction,
-		hasMore,
-		loadingMore,
-		loadMoreError,
-		setLoadMoreError,
+		categoryMap,
+		infiniteLedger,
+		handleDeleteRow,
+		deleteError,
+		deleteSuccess,
+		setDeleteError,
+		setDeleteSuccess,
 	};
 }
 
 const Transactions: React.FC = () => {
+	const isMobile = useIsMobile();
 	const {
 		bulk,
-		transactions,
+		rows,
 		bankLinkedIds,
 		filterState,
 		data,
-		initialTransactionsQuery,
-		deleteTransactionMutation,
-		handleLoadMoreTransactions,
-		handleDeleteTransaction,
-		hasMore,
-		loadingMore,
-		loadMoreError,
-		setLoadMoreError,
+		categoryMap,
+		infiniteLedger,
+		handleDeleteRow,
+		deleteError,
+		deleteSuccess,
+		setDeleteError,
+		setDeleteSuccess,
 	} = useTransactionsPage();
 
-	const isLoading =
-		deleteTransactionMutation.isPending || initialTransactionsQuery.isLoading;
+	const isLoading = infiniteLedger.isLoading;
 	const error =
-		deleteTransactionMutation.error?.message ||
-		initialTransactionsQuery.error?.message ||
-		"";
-	const success = deleteTransactionMutation.isSuccess
-		? deleteTransactionMutation.data?.message ||
-			"Transaction deleted successfully"
-		: "";
+		deleteError || (infiniteLedger.error ? infiniteLedger.error.message : "");
+	const success = deleteSuccess;
 
 	const showEmptyState =
 		!isLoading &&
- !hasMore &&
+		!infiniteLedger.hasNextPage &&
 		!filterState.error &&
 		filterState.activeCount > 0 &&
-		transactions.length === 0;
+		rows.length === 0;
 
 	return (
 		<div className="transactions-container" data-test-id="expenses-container">
 			<header>
-				<UiPageTitle>Expenses</UiPageTitle>
+				<UiPageTitle>Transactions</UiPageTitle>
 				<UiPageDescription>
-					Search and review the group's shared expenses.
+					Search and review the group's transactions and budget ledger.
 				</UiPageDescription>
 			</header>
 			{error && (
 				<ErrorContainer
 					message={error}
-					onClose={() => deleteTransactionMutation.reset()}
+					onClose={() => setDeleteError("")}
 				/>
 			)}
 			{success && (
 				<SuccessContainer
 					message={success}
-					onClose={() => deleteTransactionMutation.reset()}
+					onClose={() => setDeleteSuccess("")}
 					data-test-id="success-container"
 				/>
 			)}
@@ -451,35 +261,32 @@ const Transactions: React.FC = () => {
 			/>
 
 			<BulkCategoryToolbar bulk={bulk} />
-			{loadMoreError && (
-				<ErrorContainer
-					message={loadMoreError}
-					onClose={() => setLoadMoreError("")}
-				/>
-			)}
+
 			{isLoading && <Loader />}
 			{!isLoading && !showEmptyState && !filterState.error && (
 				<>
-					<TransactionList
-						transactions={transactions}
-						deleteTransaction={handleDeleteTransaction}
+					<UnifiedLedgerList
+						rows={rows}
+						onDelete={handleDeleteRow}
 						bankLinkedIds={bankLinkedIds}
 						bulk={bulk}
+						categoryMap={categoryMap}
+						isMobile={isMobile}
 					/>
-					{hasMore && (
+					{infiniteLedger.hasNextPage && (
 						<Button
-							disabled={loadingMore}
+							disabled={infiniteLedger.isFetchingNextPage}
 							data-test-id="show-more-button"
-							onClick={handleLoadMoreTransactions}
+							onClick={() => void infiniteLedger.fetchNextPage()}
 						>
-							{loadingMore ? "Loading…" : "Show more"}
+							{infiniteLedger.isFetchingNextPage ? "Loading…" : "Show more"}
 						</Button>
 					)}
 				</>
 			)}
 			{showEmptyState && (
 				<div data-test-id="search-empty-state" style={{ padding: "24px 0" }}>
-					No expenses match these filters.{" "}
+					No transactions match these filters.{" "}
 					<button
 						type="button"
 						onClick={filterState.clear}
