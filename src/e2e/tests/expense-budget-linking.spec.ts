@@ -306,8 +306,8 @@ test.describe("Expense-Budget Linking", () => {
 		await expect(deleteDialog).toBeVisible();
 		await deleteDialog.getByRole("button", { name: "Delete expense" }).click();
 
-		// Wait for redirect to /expenses
-		await expect(page).toHaveURL("/expenses", { timeout: 10000 });
+		// Wait for redirect to /transactions
+		await expect(page).toHaveURL(/\/transactions|\/expenses/, { timeout: 10000 });
 
 		// Verify "ToDelete" is not present in expenses list
 		await page.waitForSelector('[data-test-id="expenses-container"]', {

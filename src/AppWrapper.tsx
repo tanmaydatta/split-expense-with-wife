@@ -149,7 +149,7 @@ const PageContent = styled.div`
 
 function getPageTitle(path: string): string {
 	if (path === "/") return "Add Expense";
-	if (path === "/expenses") return "Expenses";
+	if (path === "/transactions" || path === "/expenses") return "Transactions";
 	if (path === "/category-insights") return "Budget insights";
 	if (path === "/balances") return "Balances";
 	if (path === "/bills") return "Shared Bills";
@@ -269,7 +269,11 @@ function AppWrapper() {
 									path="/monthly-budget/:budgetName"
 									element={<MonthlyBudgetPage />}
 								/>
-								<Route path="/expenses" element={<Transactions />} />
+								<Route path="/transactions" element={<Transactions />} />
+								<Route
+									path="/expenses"
+									element={<Navigate to={`/transactions${location.search}`} replace />}
+								/>
 								<Route path="/category-insights" element={<CategoryInsights />} />
 								<Route path="/settings" element={<Settings />} />
 								<Route
