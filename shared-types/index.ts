@@ -1,6 +1,9 @@
 // Shared types for both frontend and backend
 // These types ensure consistency across API requests and responses
 
+import type { LedgerListRequest, LedgerListResponse } from "./ledger";
+export * from "./ledger";
+
 export type UserFromAuth = {
 	firstName: string;
 	id: string;
@@ -403,6 +406,10 @@ export interface DashboardUser {
 
 // API endpoint types for type-safe API calls
 export interface ApiEndpoints {
+	"/ledger_list": {
+		request: LedgerListRequest;
+		response: LedgerListResponse;
+	};
  "/category-insights": {request: CategoryInsightsRequest; response: CategoryInsightsResponse};
 	"/bills": { request: BillCreateInput; response: { id: string } };
 	"/bills/month": { request: { month: string }; response: BillMonthResponse };
