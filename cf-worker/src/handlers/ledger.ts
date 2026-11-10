@@ -32,6 +32,44 @@ interface TxLinks {
 	budgetIds: string[];
 }
 
+interface DecodedCursor {
+	groupId: string;
+	timestamp: string;
+	id: string;
+}
+
+export function decodeCursor(
+	cursorStr: string | undefined,
+	expectedGroupId: string,
+): DecodedCursor | null {
+	if (!cursorStr) return null;
+	try {
+		const json = Buffer.from(cursorStr, "base64").toString("utf-8");
+		const parsed = JSON.parse(json);
+		if (
+			typeof parsed !== "object" ||
+			!parsed ||
+			parsed.groupId !== expectedGroupId ||
+			typeof parsed.timestamp !== "string" ||
+			typeof parsed.id !== "string"
+		) {
+			return null;
+		}
+		return parsed as DecodedCursor;
+	} catch {
+		return null;
+	}
+}
+
+export function encodeCursor(
+	groupId: string,
+	timestamp: string,
+	id: string,
+): string {
+	const payload: DecodedCursor = { groupId, timestamp, id };
+	return Buffer.from(JSON.stringify(payload)).toString("base64");
+}
+
 function extractPayer(metadataStr: string | null): string | undefined {
 	if (!metadataStr) return undefined;
 	try {
@@ -46,12 +84,8 @@ function extractPayer(metadataStr: string | null): string | undefined {
 	return undefined;
 }
 
-async function fetchRawLedgerRows(
-	env: Env,
-	groupId: string,
-	limit: number,
-): Promise<RawLedgerRow[]> {
-	const unionQuery = `
+function buildPurchaseArm(groupId: string, f: LedgerListRequest) {
+	let sql = `
 		SELECT
 			'tx:' || t.transaction_id AS id,
 			'purchase' AS kind,
@@ -68,9 +102,39 @@ async function fetchRawLedgerRows(
 			t.metadata AS metadata
 		FROM transactions t
 		WHERE t.group_id = ? AND t.deleted IS NULL
+	`;
+	const params: unknown[] = [groupId];
 
-		UNION ALL
+	if (f.currency) {
+		sql += " AND t.currency = ?";
+		params.push(f.currency);
+	}
+	if (f.q) {
+		sql += " AND LOWER(t.description) LIKE ?";
+		params.push(`%${f.q.toLowerCase()}%`);
+	}
+	if (f.dateFrom) {
+		sql += " AND t.created_at >= ?";
+		params.push(f.dateFrom);
+	}
+	if (f.dateTo) {
+		sql += " AND t.created_at <= ?";
+		params.push(f.dateTo);
+	}
+	if (f.budgetId) {
+		sql += " AND t.transaction_id IN (SELECT ebl.transaction_id FROM expense_budget_links ebl JOIN budget_entries be ON be.budget_entry_id = ebl.budget_entry_id WHERE ebl.group_id = ? AND be.budget_id = ?)";
+		params.push(groupId, f.budgetId);
+	}
+	if (f.categoryId) {
+		sql += " AND t.transaction_id IN (SELECT record_id FROM record_categories WHERE group_id = ? AND record_kind = 'expense' AND category_id = ?)";
+		params.push(groupId, f.categoryId);
+	}
 
+	return { query: sql, params };
+}
+
+function buildBudgetAdjustmentArm(groupId: string, f: LedgerListRequest) {
+	let sql = `
 		SELECT
 			'be:' || be.budget_entry_id AS id,
 			'budget_adjustment' AS kind,
@@ -90,9 +154,39 @@ async function fetchRawLedgerRows(
 		WHERE gb.group_id = ? AND be.deleted IS NULL
 			AND be.budget_entry_id NOT IN (SELECT budget_entry_id FROM expense_budget_links WHERE group_id = ?)
 			AND be.budget_entry_id NOT IN (SELECT entry_id FROM budget_transfer_entries)
+	`;
+	const params: unknown[] = [groupId, groupId];
 
-		UNION ALL
+	if (f.currency) {
+		sql += " AND be.currency = ?";
+		params.push(f.currency);
+	}
+	if (f.q) {
+		sql += " AND LOWER(be.description) LIKE ?";
+		params.push(`%${f.q.toLowerCase()}%`);
+	}
+	if (f.dateFrom) {
+		sql += " AND be.added_time >= ?";
+		params.push(f.dateFrom);
+	}
+	if (f.dateTo) {
+		sql += " AND be.added_time <= ?";
+		params.push(f.dateTo);
+	}
+	if (f.budgetId) {
+		sql += " AND be.budget_id = ?";
+		params.push(f.budgetId);
+	}
+	if (f.categoryId) {
+		sql += " AND be.budget_entry_id IN (SELECT record_id FROM record_categories WHERE group_id = ? AND record_kind = 'budget' AND category_id = ?)";
+		params.push(groupId, f.categoryId);
+	}
 
+	return { query: sql, params };
+}
+
+function buildTransferArm(groupId: string, f: LedgerListRequest) {
+	let sql = `
 		SELECT
 			'transfer:' || bt.id AS id,
 			'transfer' AS kind,
@@ -109,13 +203,83 @@ async function fetchRawLedgerRows(
 			NULL AS metadata
 		FROM budget_transfers bt
 		WHERE bt.group_id = ? AND bt.deleted IS NULL
-
-		ORDER BY timestamp DESC, id DESC
-		LIMIT ?
 	`;
+	const params: unknown[] = [groupId];
 
-	const res = await env.DB.prepare(unionQuery)
-		.bind(groupId, groupId, groupId, groupId, limit)
+	if (f.currency) {
+		sql += " AND bt.currency = ?";
+		params.push(f.currency);
+	}
+	if (f.q) {
+		sql += " AND LOWER(CASE WHEN bt.note != '' THEN bt.note ELSE 'Transfer' END) LIKE ?";
+		params.push(`%${f.q.toLowerCase()}%`);
+	}
+	if (f.dateFrom) {
+		sql += " AND bt.added_time >= ?";
+		params.push(f.dateFrom);
+	}
+	if (f.dateTo) {
+		sql += " AND bt.added_time <= ?";
+		params.push(f.dateTo);
+	}
+	if (f.budgetId) {
+		sql += " AND (bt.source_budget_id = ? OR bt.destination_budget_id = ?)";
+		params.push(f.budgetId, f.budgetId);
+	}
+
+	return { query: sql, params };
+}
+
+function selectActiveArms(groupId: string, f: LedgerListRequest) {
+	const arms: Array<{ query: string; params: unknown[] }> = [];
+
+	if (!f.kinds || f.kinds.includes("purchase")) {
+		arms.push(buildPurchaseArm(groupId, f));
+	}
+	if (!f.kinds || f.kinds.includes("budget_adjustment")) {
+		arms.push(buildBudgetAdjustmentArm(groupId, f));
+	}
+	if (!f.categoryId && (!f.kinds || f.kinds.includes("transfer"))) {
+		arms.push(buildTransferArm(groupId, f));
+	}
+
+	return arms;
+}
+
+async function fetchRawLedgerRows(
+	env: Env,
+	groupId: string,
+	filters: LedgerListRequest,
+	cursor: DecodedCursor | null,
+	limit: number,
+): Promise<RawLedgerRow[]> {
+	const activeArms = selectActiveArms(groupId, filters);
+	if (!activeArms.length) {
+		return [];
+	}
+
+	const unionQuery = activeArms.map((a) => a.query).join("\n UNION ALL \n");
+	let sql = `
+		SELECT * FROM (
+			${unionQuery}
+		) AS unified
+		WHERE id IS NOT NULL
+	`;
+	const params: unknown[] = [];
+	for (const arm of activeArms) {
+		params.push(...arm.params);
+	}
+
+	if (cursor) {
+		sql += " AND (timestamp < ? OR (timestamp = ? AND id < ?))";
+		params.push(cursor.timestamp, cursor.timestamp, cursor.id);
+	}
+
+	sql += " ORDER BY timestamp DESC, id DESC LIMIT ?";
+	params.push(limit);
+
+	const res = await env.DB.prepare(sql)
+		.bind(...params)
 		.all<RawLedgerRow>();
 
 	return res.results || [];
@@ -273,6 +437,59 @@ function toUnifiedLedgerRow(
 	return buildTransferRow(raw, transferEntriesMap);
 }
 
+async function fetchAndEnrichLedger(
+	env: Env,
+	groupId: string,
+	body: LedgerListRequest,
+	cursor: DecodedCursor | null,
+): Promise<LedgerListResponse> {
+	const limit = Math.min(Math.max(body.limit ?? 25, 1), 50);
+	const rawRows = await fetchRawLedgerRows(env, groupId, body, cursor, limit + 1);
+
+	const hasMore = rawRows.length > limit;
+	const pageRows = hasMore ? rawRows.slice(0, limit) : rawRows;
+
+	const txIds = pageRows
+		.filter((r) => r.kind === "purchase" && r.transaction_id)
+		.map((r) => r.transaction_id as string);
+
+	const beIds = pageRows
+		.filter((r) => r.kind === "budget_adjustment" && r.standalone_budget_entry_id)
+		.map((r) => r.standalone_budget_entry_id as string);
+
+	const transferIds = pageRows
+		.filter((r) => r.kind === "transfer" && r.transfer_id)
+		.map((r) => r.transfer_id as string);
+
+	const [txLinksMap, transferEntriesMap, expenseCatMap, budgetCatMap] = await Promise.all([
+		fetchTxLinksMap(env, groupId, txIds),
+		fetchTransferEntriesMap(env, transferIds),
+		readRecordCategories(env, groupId, "expense", txIds),
+		readRecordCategories(env, groupId, "budget", beIds),
+	]);
+
+	const rows = pageRows.map((raw) =>
+		toUnifiedLedgerRow(raw, txLinksMap, transferEntriesMap, expenseCatMap, budgetCatMap),
+	);
+
+	let nextCursor: string | null = null;
+	if (hasMore && rows.length > 0) {
+		const lastRow = rows[rows.length - 1];
+		nextCursor = encodeCursor(groupId, lastRow.timestamp, lastRow.id);
+	}
+
+	return { rows, nextCursor };
+}
+
+async function parseRequestBody(request: Request): Promise<LedgerListRequest | null> {
+	try {
+		const text = await request.text();
+		return text ? JSON.parse(text) : {};
+	} catch {
+		return null;
+	}
+}
+
 export async function handleLedgerList(
 	request: Request,
 	env: Env,
@@ -288,47 +505,17 @@ export async function handleLedgerList(
 			}
 
 			const groupId = String(session.group.groupid);
-			let body: LedgerListRequest = {};
-			try {
-				const text = await request.text();
-				if (text) {
-					body = JSON.parse(text);
-				}
-			} catch {
+			const body = await parseRequestBody(request);
+			if (!body) {
 				return createErrorResponse("Invalid JSON", 400, request, env);
 			}
 
-			const limit = Math.min(Math.max(body.limit ?? 25, 1), 50);
-			const rawRows = await fetchRawLedgerRows(env, groupId, limit);
+			const cursor = decodeCursor(body.cursor, groupId);
+			if (body.cursor && !cursor) {
+				return createErrorResponse("Invalid cursor", 400, request, env);
+			}
 
-			const txIds = rawRows
-				.filter((r) => r.kind === "purchase" && r.transaction_id)
-				.map((r) => r.transaction_id as string);
-
-			const beIds = rawRows
-				.filter((r) => r.kind === "budget_adjustment" && r.standalone_budget_entry_id)
-				.map((r) => r.standalone_budget_entry_id as string);
-
-			const transferIds = rawRows
-				.filter((r) => r.kind === "transfer" && r.transfer_id)
-				.map((r) => r.transfer_id as string);
-
-			const [txLinksMap, transferEntriesMap, expenseCatMap, budgetCatMap] = await Promise.all([
-				fetchTxLinksMap(env, groupId, txIds),
-				fetchTransferEntriesMap(env, transferIds),
-				readRecordCategories(env, groupId, "expense", txIds),
-				readRecordCategories(env, groupId, "budget", beIds),
-			]);
-
-			const rows = rawRows.map((raw) =>
-				toUnifiedLedgerRow(raw, txLinksMap, transferEntriesMap, expenseCatMap, budgetCatMap),
-			);
-
-			const response: LedgerListResponse = {
-				rows,
-				nextCursor: null,
-			};
-
+			const response = await fetchAndEnrichLedger(env, groupId, body, cursor);
 			return createJsonResponse(response, 200, {}, request, env);
 		});
 	} catch (error) {

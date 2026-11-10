@@ -354,4 +354,148 @@ describe("Unified Ledger API", () => {
 
 		expect(data.rows).toHaveLength(0);
 	});
+
+	it("paginates across page boundaries using opaque cursor without duplicate rows", async () => {
+		const f = await fixture();
+
+		// Insert 30 transactions
+		for (let i = 1; i <= 30; i++) {
+			const pad = String(i).padStart(2, "0");
+			await env.DB.prepare(
+				"INSERT INTO transactions (transaction_id, description, amount, currency, group_id, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+			).bind(`tx-${pad}`, `Item ${pad}`, 10.0 + i, "GBP", f.testGroupId, `2026-02-${pad}T12:00:00Z`).run();
+		}
+
+		// Page 1: limit 25 (default)
+		const page1Res = await callLedgerList({}, f.cookie);
+		expect(page1Res.status).toBe(200);
+		const page1 = (await page1Res.json()) as LedgerListResponse;
+		expect(page1.rows).toHaveLength(25);
+		expect(page1.nextCursor).toBeTruthy();
+
+		// Page 2: with cursor
+		const page2Res = await callLedgerList({ cursor: page1.nextCursor }, f.cookie);
+		expect(page2Res.status).toBe(200);
+		const page2 = (await page2Res.json()) as LedgerListResponse;
+		expect(page2.rows).toHaveLength(5);
+		expect(page2.nextCursor).toBeNull();
+
+		// Verify no overlap between page 1 and page 2
+		const page1Ids = new Set(page1.rows.map((r) => r.id));
+		for (const r of page2.rows) {
+			expect(page1Ids.has(r.id)).toBe(false);
+		}
+		expect(page1Ids.size + page2.rows.length).toBe(30);
+	});
+
+	it("preserves deterministic ordering across duplicate timestamps and sources", async () => {
+		const f = await fixture();
+		const sameTime = "2026-03-01T12:00:00Z";
+
+		// 1 purchase
+		await env.DB.prepare(
+			"INSERT INTO transactions (transaction_id, description, amount, currency, group_id, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+		).bind("tx-same-1", "Purchase same time", 20.0, "GBP", f.testGroupId, sameTime).run();
+
+		// 1 budget adjustment
+		await env.DB.prepare(
+			"INSERT INTO budget_entries (budget_entry_id, description, amount, currency, budget_id, added_time) VALUES (?, ?, ?, ?, ?, ?)",
+		).bind("be-same-1", "Adjustment same time", 50.0, "GBP", f.budgetIds.house, sameTime).run();
+
+		// 1 transfer
+		await env.DB.prepare(
+			"INSERT INTO budget_transfers (id, group_id, actor_id, request_id, source_budget_id, destination_budget_id, amount, currency, added_time, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+		).bind("tr-same-1", f.testGroupId, f.user1.id, "req-same-1", f.budgetIds.house, f.budgetIds.food, 30.0, "GBP", sameTime, sameTime).run();
+
+		// Query with limit 2
+		const page1Res = await callLedgerList({ limit: 2 }, f.cookie);
+		expect(page1Res.status).toBe(200);
+		const page1 = (await page1Res.json()) as LedgerListResponse;
+		expect(page1.rows).toHaveLength(2);
+		expect(page1.nextCursor).toBeTruthy();
+
+		// Page 2
+		const page2Res = await callLedgerList({ limit: 2, cursor: page1.nextCursor }, f.cookie);
+		expect(page2Res.status).toBe(200);
+		const page2 = (await page2Res.json()) as LedgerListResponse;
+		expect(page2.rows).toHaveLength(1);
+
+		const allIds = [...page1.rows, ...page2.rows].map((r) => r.id);
+		expect(new Set(allIds).size).toBe(3);
+	});
+
+	it("filters by currency, budgetId, categoryId, and kinds", async () => {
+		const f = await fixture();
+
+		// Insert GBP and USD transactions
+		await env.DB.prepare(
+			"INSERT INTO transactions (transaction_id, description, amount, currency, group_id, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+		).bind("tx-gbp-1", "GBP item", 10.0, "GBP", f.testGroupId, "2026-03-01T12:00:00Z").run();
+		await env.DB.prepare(
+			"INSERT INTO transactions (transaction_id, description, amount, currency, group_id, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+		).bind("tx-usd-1", "USD item", 15.0, "USD", f.testGroupId, "2026-03-02T12:00:00Z").run();
+
+		// Link GBP item to house budget and a category
+		await env.DB.prepare(
+			"INSERT INTO budget_entries (budget_entry_id, description, amount, currency, budget_id, added_time) VALUES (?, ?, ?, ?, ?, ?)",
+		).bind("be-gbp-1", "GBP budget entry", -10.0, "GBP", f.budgetIds.house, "2026-03-01T12:00:00Z").run();
+		await env.DB.prepare(
+			"INSERT INTO expense_budget_links (id, transaction_id, budget_entry_id, group_id, created_at) VALUES (?, ?, ?, ?, ?)",
+		).bind("link-gbp-1", "tx-gbp-1", "be-gbp-1", f.testGroupId, "2026-03-01T12:00:00Z").run();
+
+		// Create a category and assign to tx-gbp-1
+		const catId = "cat-groceries";
+		await env.DB.prepare(
+			"INSERT INTO group_categories (id, group_id, name, slug) VALUES (?, ?, ?, ?)",
+		).bind(catId, f.testGroupId, "Groceries", "groceries").run();
+		await env.DB.prepare(
+			"INSERT INTO record_categories (group_id, record_kind, record_id, category_id, source, version) VALUES (?, ?, ?, ?, ?, ?)",
+		).bind(f.testGroupId, "expense", "tx-gbp-1", catId, "manual", 1).run();
+
+		// Add a transfer
+		await env.DB.prepare(
+			"INSERT INTO budget_transfers (id, group_id, actor_id, request_id, source_budget_id, destination_budget_id, amount, currency, added_time, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+		).bind("tr-1", f.testGroupId, f.user1.id, "req-tr-1", f.budgetIds.house, f.budgetIds.food, 25.0, "GBP", "2026-03-03T12:00:00Z", "2026-03-03T12:00:00Z").run();
+
+		// Filter by currency: USD
+		const usdRes = await callLedgerList({ currency: "USD" }, f.cookie);
+		const usdData = (await usdRes.json()) as LedgerListResponse;
+		expect(usdData.rows).toHaveLength(1);
+		expect(usdData.rows[0].id).toBe("tx:tx-usd-1");
+
+		// Filter by budgetId: food (should find the transfer)
+		const foodRes = await callLedgerList({ budgetId: f.budgetIds.food }, f.cookie);
+		const foodData = (await foodRes.json()) as LedgerListResponse;
+		expect(foodData.rows).toHaveLength(1);
+		expect(foodData.rows[0].id).toBe("transfer:tr-1");
+
+		// Filter by categoryId: groceries
+		const catRes = await callLedgerList({ categoryId: catId }, f.cookie);
+		const catData = (await catRes.json()) as LedgerListResponse;
+		expect(catData.rows).toHaveLength(1);
+		expect(catData.rows[0].id).toBe("tx:tx-gbp-1");
+
+		// Filter by kinds: ["transfer"]
+		const kindRes = await callLedgerList({ kinds: ["transfer"] }, f.cookie);
+		const kindData = (await kindRes.json()) as LedgerListResponse;
+		expect(kindData.rows).toHaveLength(1);
+		expect(kindData.rows[0].id).toBe("transfer:tr-1");
+	});
+
+	it("rejects malformed or foreign cursor with 400", async () => {
+		const f = await fixture();
+
+		// Not valid base64 / json
+		const badRes1 = await callLedgerList({ cursor: "not-a-valid-cursor!!!" }, f.cookie);
+		expect(badRes1.status).toBe(400);
+
+		// Valid base64 but for foreign group
+		const foreignCursor = Buffer.from(JSON.stringify({
+			groupId: "foreign-group-999",
+			timestamp: "2026-01-01T00:00:00Z",
+			id: "tx:tx-1",
+		})).toString("base64");
+		const badRes2 = await callLedgerList({ cursor: foreignCursor }, f.cookie);
+		expect(badRes2.status).toBe(400);
+	});
 });

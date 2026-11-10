@@ -8,7 +8,7 @@ on:
 jobs:
   e2e-tests:
     timeout-minutes: 60
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     
     # Job-level environment variables (available to all steps)
     env:
@@ -82,7 +82,7 @@ jobs:
   bulk-category-e2e:
     name: Bulk category browser E2E
     timeout-minutes: 15
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
     - uses: actions/checkout@v4
     - uses: actions/setup-node@v4

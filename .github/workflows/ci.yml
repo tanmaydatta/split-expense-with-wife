@@ -8,7 +8,7 @@ on:
 jobs:
   lint-react:
     name: Lint React App
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     
     steps:
     - uses: actions/checkout@v4
@@ -27,7 +27,7 @@ jobs:
 
   lint-cf-worker:
     name: Lint CF Worker
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     
     steps:
     - uses: actions/checkout@v4
@@ -50,7 +50,7 @@ jobs:
 
   test-cf-worker:
     name: Test CF Worker
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: lint-cf-worker
     
     steps:
