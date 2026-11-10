@@ -218,8 +218,8 @@ function MobileLedgerCard({
 
 	return (
 		<div
-			data-test-id={`ledger-row-${row.kind}`}
-			className="ledger-card"
+			data-test-id={row.kind === "purchase" ? "transaction-card" : `ledger-row-${row.kind}`}
+			className={`ledger-card ${row.kind === "purchase" ? "transaction-card" : ""}`.trim()}
 			style={{
 				background: "#fff",
 				borderRadius: 8,
@@ -258,7 +258,10 @@ function MobileLedgerCard({
 						)}
 					</div>
 					<div style={{ color: "#666", fontSize: 13, marginTop: 4 }}>
-						{dateToFullStr(new Date(row.timestamp))} · {categoryName}
+						<span>{dateToFullStr(new Date(row.timestamp))}</span>
+						{categoryName && (
+							<span> · <span className="category-badge-label">{categoryName}</span></span>
+						)}
 					</div>
 				</div>
 				<div style={{ textAlign: "right" }}>

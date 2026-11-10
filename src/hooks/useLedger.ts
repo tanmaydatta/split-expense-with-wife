@@ -9,8 +9,8 @@ import type {
 
 export function useLedger(filters: LedgerListRequest = {}, enabled = true) {
 	const userSession = useSelector((state: ReduxState) => state.value);
-	const userId = userSession?.user.id;
-	const groupId = userSession?.extra.group?.groupid;
+	const userId = userSession?.user?.id;
+	const groupId = userSession?.extra?.group?.groupid;
 
 	return useQuery<LedgerListResponse, Error>({
 		queryKey: ["ledger", "list", groupId, userId, filters],
@@ -27,8 +27,8 @@ export function useInfiniteLedger(
 	enabled = true,
 ) {
 	const userSession = useSelector((state: ReduxState) => state.value);
-	const userId = userSession?.user.id;
-	const groupId = userSession?.extra.group?.groupid;
+	const userId = userSession?.user?.id;
+	const groupId = userSession?.extra?.group?.groupid;
 
 	return useInfiniteQuery<LedgerListResponse, Error>({
 		queryKey: ["ledger", "infinite", groupId, userId, filters],

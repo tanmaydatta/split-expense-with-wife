@@ -124,7 +124,10 @@ function useTransactionsPage() {
 	const deleteBudgetEntryMutation = useDeleteBudgetEntry();
 
 	const allRows = useMemo(
-		() => infiniteLedger.data?.pages.flatMap((page) => page.rows) ?? [],
+		() =>
+			infiniteLedger.data?.pages
+				.flatMap((page) => page?.rows ?? [])
+				.filter(Boolean) ?? [],
 		[infiniteLedger.data],
 	);
 
@@ -182,8 +185,43 @@ function useTransactionsPage() {
 		"expense",
 		purchaseRowIds,
 		listKey,
-		() => {
-			queryClient.invalidateQueries({ queryKey: ["ledger"] });
+		(changes) => {
+			const changesByTxId = new Map(
+				changes
+					.filter((c) => c.kind === "expense")
+					.map((c) => [c.id, c]),
+			);
+			queryClient.setQueriesData(
+				{ queryKey: ["ledger"] },
+				(oldData: any) => {
+					if (!oldData?.pages) return oldData;
+					return {
+						...oldData,
+						pages: oldData.pages.map((page: any) => ({
+							...page,
+							rows: (page.rows ?? [])
+								.map((row: UnifiedLedgerRow) => {
+									if (!row.transactionId) return row;
+									const change = changesByTxId.get(row.transactionId);
+									if (!change) return row;
+									return {
+										...row,
+										categoryId: change.categoryId ?? null,
+										categoryName: change.categoryName ?? null,
+										categorySource: change.categorySource ?? null,
+										categoryVersion: change.categoryVersion ?? (row as any).categoryVersion,
+									};
+								})
+								.filter((row: UnifiedLedgerRow) => {
+									const activeCategory = filterState.filters.categoryId;
+									if (!activeCategory) return true;
+									if (activeCategory === "uncategorised") return row.categoryId == null;
+									return row.categoryId === activeCategory;
+								}),
+						})),
+					};
+				},
+			);
 		},
 	);
 

@@ -79,7 +79,7 @@ export function useBulkCategories(
  useEffect(()=>{
  if(job?.status==='completed'){
  callback.current?.(job.changes??[]);
- if(applied.current!==job.id){applied.current=job.id;setSelected(new Set());void client.invalidateQueries({queryKey:["category-insights"]});void client.invalidateQueries({queryKey:["ledger"]});}
+ if(applied.current!==job.id){applied.current=job.id;setSelected(new Set());void client.invalidateQueries({queryKey:["category-insights"]});}
  }
  },[job,loadedKey,context,client]);
 	const toggle = (id: string) => {
