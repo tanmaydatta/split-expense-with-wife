@@ -5,6 +5,10 @@ import type {
 	ReduxState,
 } from "split-expense-shared-types";
 import type { DashboardFormInput } from "split-expense-shared-types";
+import {
+	defaultTransactionMode,
+	type TransactionEntryMode,
+} from "./transactionModes";
 
 export function getDefaultCurrency(sessionCurrency?: string): Currency {
 	return sessionCurrency &&
@@ -44,6 +48,7 @@ export function applyDefaultPercentages(
 export function buildDefaultFormValues(
 	data: ReduxState["value"],
 	budgets: Array<{ id: string; name?: string }>,
+	mode?: TransactionEntryMode,
 ): DashboardFormInput {
 	const defaultCurrency = getDefaultCurrency(
 		data?.extra?.group?.metadata?.defaultCurrency,
@@ -54,9 +59,16 @@ export function buildDefaultFormValues(
 	const usersFromAuth = getUsersFromAuth(data);
 	const usersWithPercentages = applyDefaultPercentages(usersFromAuth, data);
 
+	const effectiveMode =
+		mode ?? defaultTransactionMode(budgets.length > 0);
+	const addExpense =
+		effectiveMode === "purchase" || effectiveMode === "split_only";
+	const updateBudget =
+		effectiveMode === "purchase" || effectiveMode === "budget_adjustment";
+
 	return {
-		addExpense: true,
-		updateBudget: true,
+		addExpense,
+		updateBudget,
 		amount: undefined as any,
 		description: "",
 		currency: defaultCurrency,
@@ -66,6 +78,6 @@ export function buildDefaultFormValues(
 			percentage: u.percentage || 0,
 		})),
 		budgetId: defaultBudget,
-		creditDebit: "Debit" as const,
+		creditDebit: effectiveMode === "budget_adjustment" ? "Credit" : "Debit",
 	};
 }
