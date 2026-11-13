@@ -39,6 +39,16 @@ class BudgetTestHelper {
 		budget: { name: string; amount: number; currency: string },
 		type: "Credit" | "Debit",
 	) {
+		const modeSelector = this.page.locator(
+			'[data-test-id="transaction-mode-selector"]',
+		);
+		if (await modeSelector.isVisible()) {
+			await this.page.selectOption(
+				'[data-test-id="transaction-mode-selector"]',
+				"budget_adjustment",
+			);
+		}
+
 		const budgetForm = this.page.locator("form");
 
 		// Generate random description to avoid edge cases
@@ -303,23 +313,23 @@ test.describe("Budget Management", () => {
 		await page.waitForTimeout(2000);
 		await expect(page).toHaveURL("/");
 
-		// Verify budget form elements are present (single form on the page)
+		// Verify transaction form elements are present (single form on the page)
 		const mainForm = page.locator("form");
 		await expect(mainForm).toBeVisible();
 
-		// Verify "Update Budget" checkbox is checked by default
-		const updateBudgetCheckbox = mainForm.locator(
-			'[data-test-id="update-budget-checkbox"]',
+		// Verify transaction-first UI: mode selector defaults to purchase and legacy checkboxes are absent
+		const modeSelector = page.locator(
+			'[data-test-id="transaction-mode-selector"]',
 		);
-		await expect(updateBudgetCheckbox).toBeChecked();
+		await expect(modeSelector).toHaveValue("purchase");
+		await expect(
+			mainForm.locator('[data-test-id="update-budget-checkbox"]'),
+		).toHaveCount(0);
+		await expect(
+			mainForm.locator('[data-test-id="add-expense-checkbox"]'),
+		).toHaveCount(0);
 
-		// Verify budget-related elements are visible when "Update Budget" is checked
-		await expect(
-			mainForm.locator('[data-test-id="credit-radio"]'),
-		).toBeVisible();
-		await expect(
-			mainForm.locator('[data-test-id="debit-radio"]'),
-		).toBeVisible();
+		// Verify budget-related elements are visible in purchase mode
 		await expect(
 			mainForm.locator('[data-test-id="budget-selection-group"]'),
 		).toBeVisible();
@@ -499,17 +509,26 @@ test.describe("Budget Management", () => {
 		const timestamp = Date.now().toString().slice(-6);
 		const description = `Debit for ${budget.name} ${randomId}${timestamp}`;
 
-		// Uncheck "Add Expense" to test only budget submission
-		const addExpenseCheckbox = page.locator(
-			'[data-test-id="add-expense-checkbox"]',
+		// Select budget adjustment mode for budget-only submission
+		const modeSelector = page.locator(
+			'[data-test-id="transaction-mode-selector"]',
 		);
-		await addExpenseCheckbox.uncheck();
+		if (await modeSelector.isVisible()) {
+			await page.selectOption(
+				'[data-test-id="transaction-mode-selector"]',
+				"budget_adjustment",
+			);
+		} else {
+			const addExpenseCheckbox = page.locator(
+				'[data-test-id="add-expense-checkbox"]',
+			);
+			await addExpenseCheckbox.uncheck();
 
-		// Ensure "Update Budget" is checked
-		const updateBudgetCheckbox = page.locator(
-			'[data-test-id="update-budget-checkbox"]',
-		);
-		await updateBudgetCheckbox.check();
+			const updateBudgetCheckbox = page.locator(
+				'[data-test-id="update-budget-checkbox"]',
+			);
+			await updateBudgetCheckbox.check();
+		}
 
 		await budgetForm
 			.locator(`[data-test-id="budget-radio-${budget.name}"]`)

@@ -93,7 +93,7 @@ function Sidebar({ onNavigate }: SidebarProps): JSX.Element {
 				onClick={() => handleNavigate("/")}
 				data-test-id="sidebar-dashboard"
 			>
-				Add
+				Add Transaction
 			</SidebarItem>
 			<SidebarItem
 				type="button"
