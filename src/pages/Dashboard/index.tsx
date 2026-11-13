@@ -4,6 +4,7 @@ import { Button } from "@/components/Button";
 import { ButtonRow, FormContainer } from "@/components/Form/Layout";
 import { Loader } from "@/components/Loader";
 import { Surface, UiPageDescription, UiPageTitle } from "@/components/ui";
+import { scrollToTop } from "@/utils/scroll";
 import {
 	ErrorContainer,
 	SuccessContainer,
@@ -20,9 +21,14 @@ import {
 	CurrencyField,
 	PaidByField,
 	BudgetFields,
-	ActionSelection,
+	TransactionModeSelector,
 } from "./FormFields";
 import { buildDefaultFormValues } from "./helpers";
+import {
+	defaultTransactionMode,
+	type TransactionEntryMode,
+} from "./transactionModes";
+import TransferForm from "../Budget/TransferForm";
 import {
 	createFormSubmitHandler,
 	createUserPercentageUpdater,
@@ -104,49 +110,118 @@ function Dashboard(): JSX.Element {
 		[data?.extra?.group?.budgets],
 	);
 
+	const initialMode = useMemo(
+		() => defaultTransactionMode(budgets.length > 0),
+		[budgets.length],
+	);
+	const [entryMode, setEntryMode] = useState<TransactionEntryMode>(initialMode);
+	const [transferSuccess, setTransferSuccess] = useState<string>("");
+
 	const userId = data?.user?.id;
 	const groupId = data?.extra?.group?.groupid;
 	const initializationKey = `${userId ?? ""}:${groupId ?? ""}:${bankId ?? "ordinary"}:${bankId ? mode : ""}`;
- useEffect(()=>setCategoryId(undefined),[initializationKey]);
+	useEffect(() => setCategoryId(undefined), [initializationKey]);
 	const bankQuery = useQuery({
 		queryKey: ["bank", "transaction", userId, groupId, bankId],
 		enabled: Boolean(bankId && userId && groupId),
 		queryFn: async () => {
-			const response = await api.get<{ transaction: BankTransaction }>("/bank-import/transaction", { params: { id: bankId } });
+			const response = await api.get<{ transaction: BankTransaction }>(
+				"/bank-import/transaction",
+				{ params: { id: bankId } },
+			);
 			return response.data.transaction;
 		},
 		retry: false,
 	});
 	// Keep the version the user actually reviewed. Background refetches must not
 	// replace unsaved choices or silently advance the version submitted to the API.
-	const bankSource = bankSnapshot?.key === initializationKey ? bankSnapshot.row : null;
-	const retainedCategories=useLinkedCategories(bankSource?.linkedTransactionId,bankSource?.linkedBudgetEntryId);
-	const reviewPath = bankId ? `/bank-import/transactions/${encodeURIComponent(bankId)}` : "/bank-import";
-	const sourceUnavailable = Boolean(bankId && bankQuery.data && (
-		bankQuery.data.pending || bankQuery.data.readonlySnapshot || bankQuery.data.removedAt ||
-		bankQuery.data.reviewStatus === "ignored" || bankQuery.data.rowVersion === undefined ||
-		bankQuery.data.amountMinor === 0 || !(CURRENCIES as readonly string[]).includes(bankQuery.data.currency)
-	));
+	const bankSource =
+		bankSnapshot?.key === initializationKey ? bankSnapshot.row : null;
+	const retainedCategories = useLinkedCategories(
+		bankSource?.linkedTransactionId,
+		bankSource?.linkedBudgetEntryId,
+	);
+	const reviewPath = bankId
+		? `/bank-import/transactions/${encodeURIComponent(bankId)}`
+		: "/bank-import";
+	const sourceUnavailable = Boolean(
+		bankId &&
+			bankQuery.data &&
+			(bankQuery.data.pending ||
+				bankQuery.data.readonlySnapshot ||
+				bankQuery.data.removedAt ||
+				bankQuery.data.reviewStatus === "ignored" ||
+				bankQuery.data.rowVersion === undefined ||
+				bankQuery.data.amountMinor === 0 ||
+				!(CURRENCIES as readonly string[]).includes(bankQuery.data.currency)),
+	);
 
 	// Calculate default form values from session data
 	const getDefaultValues = useCallback(() => {
-		return buildDefaultFormValues(data, budgets);
-	}, [data, budgets]);
+		return buildDefaultFormValues(data, budgets, entryMode);
+	}, [data, budgets, entryMode]);
 
 	// Create submit handler
-	const handleSubmit = createFormSubmitHandler(dashboardSubmit, data, { categoryId, onSaved:()=>setCategoryId(undefined), categoryVersions:Object.fromEntries(Object.entries(retainedCategories.data??{}).map(([key,value])=>[key,value.categoryVersion??0])), ...(bankSource ? {
-		bankSource: { bankTransactionId: bankSource.id, sourceVersion: bankSource.rowVersion! },
-		onSuccess: () => navigate(reviewPath),
-	} : {}) });
+	const handleSubmit = createFormSubmitHandler(dashboardSubmit, data, {
+		categoryId,
+		mode: entryMode,
+		onSaved: () => setCategoryId(undefined),
+		categoryVersions: Object.fromEntries(
+			Object.entries(retainedCategories.data ?? {}).map(([key, value]) => [
+				key,
+				value.categoryVersion ?? 0,
+			]),
+		),
+		...(bankSource
+			? {
+					bankSource: {
+						bankTransactionId: bankSource.id,
+						sourceVersion: bankSource.rowVersion!,
+					},
+					onSuccess: () => navigate(reviewPath),
+				}
+			: {}),
+	});
 
 	// TanStack Form setup
 	const form = useForm({
-		defaultValues: bankSnapshot?.key === initializationKey ? bankSnapshot.defaults : getDefaultValues(),
+		defaultValues:
+			bankSnapshot?.key === initializationKey
+				? bankSnapshot.defaults
+				: getDefaultValues(),
 		validators: {
 			onChange: DashboardFormSchema,
 		},
 		onSubmit: (options) => handleSubmit(options, form),
 	});
+
+	const handleModeChange = useCallback(
+		(newMode: TransactionEntryMode) => {
+			setEntryMode(newMode);
+			if (newMode === "purchase") {
+				form.setFieldValue("addExpense", true);
+				form.setFieldValue("updateBudget", true);
+				form.setFieldValue("creditDebit", "Debit");
+				if (!form.getFieldValue("budgetId") && budgets.length > 0) {
+					form.setFieldValue("budgetId", budgets[0].id);
+				}
+			} else if (newMode === "split_only") {
+				form.setFieldValue("addExpense", true);
+				form.setFieldValue("updateBudget", false);
+			} else if (newMode === "budget_adjustment") {
+				form.setFieldValue("addExpense", false);
+				form.setFieldValue("updateBudget", true);
+				form.setFieldValue("creditDebit", "Credit");
+				if (!form.getFieldValue("budgetId") && budgets.length > 0) {
+					form.setFieldValue("budgetId", budgets[0].id);
+				}
+			} else if (newMode === "transfer") {
+				form.setFieldValue("addExpense", false);
+				form.setFieldValue("updateBudget", false);
+			}
+		},
+		[budgets, form],
+	);
 
 	// Use reactive form state for conditional rendering
 	const addExpense = useStore(
@@ -177,8 +252,18 @@ function Dashboard(): JSX.Element {
 
 		if (initializedKey.current === initializationKey) return;
 		if (bankId && (!bankQuery.data || sourceUnavailable)) return;
-		const defaults = bankId && bankQuery.data ? buildBankDefaultValues(data, budgets, bankQuery.data, mode) : getDefaultValues();
-		if (bankId && bankQuery.data) setBankSnapshot({ key: initializationKey, row: bankQuery.data, defaults });
+		const nextMode = defaultTransactionMode(budgets.length > 0);
+		setEntryMode(nextMode);
+		const defaults =
+			bankId && bankQuery.data
+				? buildBankDefaultValues(data, budgets, bankQuery.data, mode)
+				: buildDefaultFormValues(data, budgets, nextMode);
+		if (bankId && bankQuery.data)
+			setBankSnapshot({
+				key: initializationKey,
+				row: bankQuery.data,
+				defaults,
+			});
 		else setBankSnapshot(null);
 		form.reset(defaults);
 		initializedKey.current = initializationKey;
@@ -202,72 +287,181 @@ function Dashboard(): JSX.Element {
 	if (bankId && !bankSource) return <Loader />;
 
 	return (
-		<div className={`dashboard-container${bankSource ? " bank-add-dashboard" : ""}`} data-test-id="dashboard-container">
+		<div
+			className={`dashboard-container${bankSource ? " bank-add-dashboard" : ""}`}
+			data-test-id="dashboard-container"
+		>
 			<header className={bankSource ? "bank-add-header" : undefined}>
-				<UiPageTitle>{bankSource ? "Add from bank activity" : "Add an expense"}</UiPageTitle>
-				<UiPageDescription>Record a shared expense, update a budget, or do both at once.</UiPageDescription>
+				<UiPageTitle>
+					{bankSource ? "Add from bank activity" : "Add a transaction"}
+				</UiPageTitle>
+				<UiPageDescription>
+					{bankSource
+						? "Record a shared expense, update a budget, or do both at once."
+						: "Record a purchase, split an expense, adjust a budget, or transfer between budgets."}
+				</UiPageDescription>
 			</header>
 			{bankSource && <BankSourceBanner source={bankSource} />}
 			<Surface className="dashboard-form-surface">
-			<FormContainer className={bankSource ? "bank-add-form" : undefined} data-test-id="expense-form">
-				{/* Error Container */}
-				{error && (
-					<ErrorContainer
-						message={error}
-						onClose={() => dashboardSubmit.reset()}
+				{!bankSource && (
+					<TransactionModeSelector
+						mode={entryMode}
+						onModeChange={handleModeChange}
+						disabled={loading}
+						hasBudgets={budgets.length > 0}
 					/>
 				)}
 
-				{/* Success Container */}
-				{success && (
-					<SuccessContainer
-						message={success}
-						onClose={() => dashboardSubmit.reset()}
-						data-test-id="success-container"
-					/>
-				)}
-
-				<DescriptionField form={form} loading={loading} />
- <CategorySelect automaticLabel={bankSource?.linkedTransactionId||bankSource?.linkedBudgetEntryId?"Keep existing category":"Automatic"} automaticHelp={bankSource?.linkedTransactionId||bankSource?.linkedBudgetEntryId?"Uses the linked record’s category unless you choose a shared category.":undefined} value={categoryId} onChange={setCategoryId} disabled={loading||retainedCategories.isFetching}/>
-				<AmountField form={form} loading={loading || Boolean(bankSource)} />
-
-				<SplitPercentageFields
-                    className={bankSource ? "bank-add-splits" : undefined}
-					users={users}
-					updateUserPercentage={updateUserPercentage}
-					loading={loading}
-					addExpense={addExpense}
-				/>
-
-				<CurrencyField form={form} loading={loading || Boolean(bankSource)} />
-
-				<PaidByField
-					form={form}
-					loading={loading}
-					addExpense={addExpense}
-					usersState={usersState}
-				/>
-
-				{bankSource ? <BankActionFields form={form} source={bankSource} loading={loading} updateBudget={updateBudget} /> :
-					<><BudgetFields form={form} loading={loading} updateBudget={updateBudget} /><ActionSelection form={form} loading={loading} /></>}
-
-				{/* Single submit button */}
-				<ButtonRow>
-					<Button
-						type="submit"
-						data-test-id="submit-button"
-						onClick={(e) => {
-							e.preventDefault();
-							form.handleSubmit();
-						}}
-						disabled={loading || (Boolean(bankSource) && !addExpense && !updateBudget)}
-						className="submit-button"
+				{entryMode === "transfer" && !bankSource ? (
+					<div
+						className="dashboard-transfer-container"
+						data-test-id="dashboard-transfer-container"
 					>
-						{loading ? "Processing..." : bankSource ? "Save and associate" : "Submit"}
-					</Button>
-					{bankSource && <Button type="button" disabled={loading} onClick={() => navigate(reviewPath)}>Cancel</Button>}
-				</ButtonRow>
-			</FormContainer>
+						{transferSuccess && (
+							<SuccessContainer
+								message={transferSuccess}
+								onClose={() => setTransferSuccess("")}
+								data-test-id="transfer-success-container"
+							/>
+						)}
+						<TransferForm
+							budgets={budgets}
+							sourceBudgetId={budgets[0]?.id || ""}
+							currencies={CURRENCIES as unknown as string[]}
+							onCreated={() => {
+								setTransferSuccess("Transfer recorded successfully.");
+								scrollToTop();
+							}}
+						/>
+					</div>
+				) : (
+					<FormContainer
+						className={bankSource ? "bank-add-form" : undefined}
+						data-test-id="expense-form"
+					>
+						{/* Error Container */}
+						{error && (
+							<ErrorContainer
+								message={error}
+								onClose={() => dashboardSubmit.reset()}
+							/>
+						)}
+
+						{/* Success Container */}
+						{success && (
+							<SuccessContainer
+								message={success}
+								onClose={() => dashboardSubmit.reset()}
+								data-test-id="success-container"
+							/>
+						)}
+
+						<DescriptionField form={form} loading={loading} />
+						<CategorySelect
+							automaticLabel={
+								bankSource?.linkedTransactionId ||
+								bankSource?.linkedBudgetEntryId
+									? "Keep existing category"
+									: "Automatic"
+							}
+							automaticHelp={
+								bankSource?.linkedTransactionId ||
+								bankSource?.linkedBudgetEntryId
+									? "Uses the linked record’s category unless you choose a shared category."
+									: undefined
+							}
+							value={categoryId}
+							onChange={setCategoryId}
+							disabled={loading || retainedCategories.isFetching}
+						/>
+						<AmountField
+							form={form}
+							loading={loading || Boolean(bankSource)}
+						/>
+
+						<CurrencyField
+							form={form}
+							loading={loading || Boolean(bankSource)}
+						/>
+
+						{bankSource ? (
+							<>
+								<SplitPercentageFields
+									className="bank-add-splits"
+									users={users}
+									updateUserPercentage={updateUserPercentage}
+									loading={loading}
+									addExpense={addExpense}
+								/>
+								<PaidByField
+									form={form}
+									loading={loading}
+									addExpense={addExpense}
+									usersState={usersState}
+								/>
+								<BankActionFields
+									form={form}
+									source={bankSource}
+									loading={loading}
+									updateBudget={updateBudget}
+								/>
+							</>
+						) : (
+							<>
+								<BudgetFields
+									form={form}
+									loading={loading}
+									updateBudget={updateBudget}
+									showCreditDebit={entryMode === "budget_adjustment"}
+								/>
+								<PaidByField
+									form={form}
+									loading={loading}
+									addExpense={addExpense}
+									usersState={usersState}
+								/>
+								<SplitPercentageFields
+									users={users}
+									updateUserPercentage={updateUserPercentage}
+									loading={loading}
+									addExpense={addExpense}
+								/>
+							</>
+						)}
+
+						{/* Single submit button */}
+						<ButtonRow>
+							<Button
+								type="submit"
+								data-test-id="submit-button"
+								onClick={(e) => {
+									e.preventDefault();
+									form.handleSubmit();
+								}}
+								disabled={
+									loading ||
+									(Boolean(bankSource) && !addExpense && !updateBudget)
+								}
+								className="submit-button"
+							>
+								{loading
+									? "Processing..."
+									: bankSource
+										? "Save and associate"
+										: "Submit"}
+							</Button>
+							{bankSource && (
+								<Button
+									type="button"
+									disabled={loading}
+									onClick={() => navigate(reviewPath)}
+								>
+									Cancel
+								</Button>
+							)}
+						</ButtonRow>
+					</FormContainer>
+				)}
 			</Surface>
 		</div>
 	);

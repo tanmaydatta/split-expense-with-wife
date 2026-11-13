@@ -6,6 +6,10 @@ import type {
 	ReduxState,
 } from "split-expense-shared-types";
 import type { UseMutationResult } from "@tanstack/react-query";
+import {
+	toExistingSubmitPayload,
+	type TransactionEntryMode,
+} from "./transactionModes";
 
 type DashboardSubmitMutation = UseMutationResult<
 	DashboardSubmitResponse,
@@ -16,41 +20,38 @@ type DashboardSubmitMutation = UseMutationResult<
 export function createFormSubmitHandler(
 	dashboardSubmit: DashboardSubmitMutation,
 	data: ReduxState["value"],
-	options: { categoryId?:string|null; categoryVersions?:Record<string,number>; bankSource?: DashboardFormData["bankSource"]; onSuccess?: () => void; onSaved?:()=>void } = {},
+	options: {
+		categoryId?: string | null;
+		categoryVersions?: Record<string, number>;
+		bankSource?: DashboardFormData["bankSource"];
+		mode?: TransactionEntryMode;
+		onSuccess?: () => void;
+		onSaved?: () => void;
+	} = {},
 ) {
 	return async ({ value }: { value: DashboardFormInput }, form: any) => {
-		const formData: DashboardFormData = {
+		const effectiveMode =
+			options.mode ??
+			(value.addExpense && value.updateBudget
+				? "purchase"
+				: value.addExpense
+					? "split_only"
+					: "budget_adjustment");
+
+		const formData = toExistingSubmitPayload(value, effectiveMode, {
 			categoryId: options.categoryId,
- categoryVersions:options.categoryVersions,
-			addExpense: value.addExpense,
-			updateBudget: value.updateBudget,
-			...(options.bankSource ? { bankSource: options.bankSource } : {}),
-		};
+			categoryVersions: options.categoryVersions,
+			bankSource: options.bankSource,
+			groupId: data?.extra?.group?.groupid ?? "",
+		});
 
-		if (value.addExpense && value.users) {
-			formData.expense = {
-				amount: value.amount ?? 0,
-				description: value.description,
-				currency: value.currency,
-				paidBy: value.paidBy!,
-				users: value.users,
-			};
-		}
-
-		if (value.updateBudget) {
-			formData.budget = {
-				amount: value.amount ?? 0,
-				description: value.description,
-				budgetId: value.budgetId!,
-				currency: value.currency,
-				creditDebit: value.creditDebit!,
-				groupId: data?.extra?.group?.groupid ?? "",
-			};
+		if (!formData) {
+			return;
 		}
 
 		dashboardSubmit.mutate(formData, {
 			onSuccess: () => {
- options.onSaved?.();
+				options.onSaved?.();
 				if (options.onSuccess) {
 					options.onSuccess();
 					return;

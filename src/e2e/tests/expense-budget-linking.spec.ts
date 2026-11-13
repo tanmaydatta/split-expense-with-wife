@@ -97,21 +97,18 @@ test.describe("Expense-Budget Linking", () => {
 			timeout: 20000,
 		});
 
-		// Both checkboxes default to checked; ensure they are
-		const addExpenseCheckbox = page.locator(
-			'[data-test-id="add-expense-checkbox"]',
-		);
-		const updateBudgetCheckbox = page.locator(
-			'[data-test-id="update-budget-checkbox"]',
-		);
-		if (!(await addExpenseCheckbox.isChecked())) {
-			await addExpenseCheckbox.check();
-		}
-		if (!(await updateBudgetCheckbox.isChecked())) {
-			await updateBudgetCheckbox.check();
-		}
+		// Verify transaction-first UI: no legacy checkboxes, mode defaults to purchase
+		await expect(
+			page.locator('[data-test-id="add-expense-checkbox"]'),
+		).toHaveCount(0);
+		await expect(
+			page.locator('[data-test-id="update-budget-checkbox"]'),
+		).toHaveCount(0);
+		await expect(
+			page.locator('[data-test-id="transaction-mode-selector"]'),
+		).toHaveValue("purchase");
 
-		// Wait for the budget radio to appear (it shows only when updateBudget=true)
+		// Wait for the budget radio to appear
 		await page.waitForSelector('[data-test-id="budget-radio-Food"]', {
 			timeout: 10000,
 		});
@@ -124,12 +121,6 @@ test.describe("Expense-Budget Linking", () => {
 
 		// Select budget category "Food" (it may already be selected by default)
 		await page.click('[data-test-id="budget-radio-Food"]');
-
-		// Select Debit (may already be selected by default)
-		const debitRadio = page.locator('[data-test-id="debit-radio"]');
-		if (await debitRadio.isVisible()) {
-			await debitRadio.click();
-		}
 
 		// Submit the form
 		await page.click('[data-test-id="submit-button"]');
