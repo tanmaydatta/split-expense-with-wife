@@ -44,11 +44,11 @@
 
 **Interfaces:** `type TransactionEntryMode = "purchase" | "split_only" | "budget_adjustment" | "transfer"`; `defaultTransactionMode(hasBudget: boolean): TransactionEntryMode`; `toExistingSubmitPayload(values: DashboardFormInput, mode: TransactionEntryMode): DashboardFormData | null`.
 
-- [ ] **Step 1: Write failing tests** for purchase default with budget, split-only default without budget, budget-credit and budget-debit mapping, zero debt impact for funding, and a transfer that does not call the expense API.
-- [ ] **Step 2: Run** `yarn test --watchAll=false --runInBand src/pages/Dashboard/transactionModes.test.ts`; confirm tests fail before the mapping exists.
-- [ ] **Step 3: Implement** mode-specific form defaults and pure mapping. Do not change the existing `DashboardSubmitRequest` contract; a purchase emits `expense + budget` in the same request, split-only emits `expense` only, and budget adjustment emits `budget` only.
-- [ ] **Step 4: Re-run** the focused test and `yarn lint`; verify default percentages/currencies follow the existing group settings.
-- [ ] **Step 5: Commit** `refactor: model transaction entry modes`.
+- [x] **Step 1: Write failing tests** for purchase default with budget, split-only default without budget, budget-credit and budget-debit mapping, zero debt impact for funding, and a transfer that does not call the expense API.
+- [x] **Step 2: Run** `yarn test --watchAll=false --runInBand src/pages/Dashboard/transactionModes.test.ts`; confirm tests fail before the mapping exists.
+- [x] **Step 3: Implement** mode-specific form defaults and pure mapping. Do not change the existing `DashboardSubmitRequest` contract; a purchase emits `expense + budget` in the same request, split-only emits `expense` only, and budget adjustment emits `budget` only.
+- [x] **Step 4: Re-run** the focused test and `yarn lint`; verify default percentages/currencies follow the existing group settings.
+- [x] **Step 5: Commit** `refactor: model transaction entry modes`.
 
 ## Task 2: Purchase-first UI and specialist actions
 
@@ -56,11 +56,11 @@
 
 **Interfaces:** `Dashboard` remains the existing route component; submit continues via `useDashboardSubmit`; transfer delegates to the existing transfer form and endpoint.
 
-- [ ] **Step 1: Add failing UI/E2E assertions** for purchase title, a selected budget, optional category, payer/splits, one submit, a collapsed `Other actions` selector, an adjustment credit, and a paired transfer. Verify the normal form has no `Add Expense`/`Update Budget` checkboxes.
-- [ ] **Step 2: Run** the focused frontend/E2E tests and verify the current checkbox UX fails them.
-- [ ] **Step 3: Render** the common Purchase fields first: description, amount, currency, budget, paid by, split percentages, optional category. Put split-only and budget adjustments under explicit mode selection. Reuse `TransferForm` for transfer mode. Preserve the single mutation and validation errors for each action.
-- [ ] **Step 4: Run** desktop/mobile Playwright and `yarn test --watchAll=false --runInBand`; confirm one purchase creates only one linked pair and preserves balances.
-- [ ] **Step 5: Commit** `feat: simplify transaction entry`.
+- [x] **Step 1: Add failing UI/E2E assertions** for purchase title, a selected budget, optional category, payer/splits, one submit, a collapsed `Other actions` selector, an adjustment credit, and a paired transfer. Verify the normal form has no `Add Expense`/`Update Budget` checkboxes.
+- [x] **Step 2: Run** the focused frontend/E2E tests and verify the current checkbox UX fails them.
+- [x] **Step 3: Render** the common Purchase fields first: description, amount, currency, budget, paid by, split percentages, optional category. Put split-only and budget adjustments under explicit mode selection. Reuse `TransferForm` for transfer mode. Preserve the single mutation and validation errors for each action.
+- [x] **Step 4: Run** desktop/mobile Playwright and `yarn test --watchAll=false --runInBand`; confirm one purchase creates only one linked pair and preserves balances.
+- [x] **Step 5: Commit** `feat: simplify transaction entry`.
 
 ## Task 3: Bank review and navigation compatibility
 
@@ -68,11 +68,11 @@
 
 **Interfaces:** Existing `/bank-import/transactions/:id/add?mode=expense|budget|both` links are mapped to the corresponding existing payload/side availability; no backend protocol change.
 
-- [ ] **Step 1: Add failing cases** for bank records already linked on one side, pending bank transactions, manual-only budget association, and routes reopened from browser history.
-- [ ] **Step 2: Run** focused bank review and bills tests to observe old routing differences.
-- [ ] **Step 3: Add** an adapter from legacy bank modes to the new form modes, retaining reviewed bank values and conflict guards. Rename the navigation CTA without changing the underlying backend endpoints. Preserve focus, error and success states on mobile.
-- [ ] **Step 4: Run** E2E tests for bank import, bills and expense management; run frontend lint/build.
-- [ ] **Step 5: Commit** `fix: retain bank entry compatibility` and update docs.
+- [x] **Step 1: Add failing cases** for bank records already linked on one side, pending bank transactions, manual-only budget association, and routes reopened from browser history.
+- [x] **Step 2: Run** focused bank review and bills tests to observe old routing differences.
+- [x] **Step 3: Add** an adapter from legacy bank modes to the new form modes, retaining reviewed bank values and conflict guards. Rename the navigation CTA without changing the underlying backend endpoints. Preserve focus, error and success states on mobile.
+- [x] **Step 4: Run** E2E tests for bank import, bills and expense management; run frontend lint/build.
+- [x] **Step 5: Commit** `fix: retain bank entry compatibility` and update docs.
 
 ## Rollout and stopping point
 
