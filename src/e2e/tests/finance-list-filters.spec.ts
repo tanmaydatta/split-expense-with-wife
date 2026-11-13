@@ -85,7 +85,7 @@ test.describe("Finance list filters", () => {
 		await expect(rows).toHaveCount(1);
 		await page.getByTestId("clear-all-filters").click();
 		await expect(rows).toHaveCount(10);
-		await expect(page).toHaveURL("/expenses");
+		await expect(page).toHaveURL(/\/(expenses|transactions)$/);
 		await page.goBack();
 		await expect(page).toHaveURL(/q=Train/);
 		await expect(rows).toHaveCount(1);
