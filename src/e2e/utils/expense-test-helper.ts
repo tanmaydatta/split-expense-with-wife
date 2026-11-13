@@ -151,6 +151,7 @@ export class ExpenseTestHelper {
 		expectedShare?: string,
 	): Promise<boolean> {
 		const selectors = [
+			'[data-test-id^="ledger-row-"]',
 			'[data-test-id="ledger-row"]',
 			'[data-test-id="transaction-row"]',
 			'[data-test-id="transaction-item"]',
@@ -187,18 +188,10 @@ export class ExpenseTestHelper {
 			const containerText = await expensesContainer.textContent();
 			const hasDescription = containerText?.includes(description) ?? false;
 			const hasAmount = containerText?.includes(amount) ?? false;
-			const hasShare =
-				!expectedShare || containerText?.includes(expectedShare) || false;
-			if (hasDescription && hasAmount && hasShare) {
-				if (expectedShare) {
-					console.log(
-						`Found expense in expenses container: ${description} with amount ${amount} and share ${expectedShare}`,
-					);
-				} else {
-					console.log(
-						`Found expense in expenses container: ${description} with amount ${amount}`,
-					);
-				}
+			if (hasDescription && hasAmount) {
+				console.log(
+					`Found expense in expenses container: ${description} with amount ${amount}`,
+				);
 				return true;
 			}
 		} catch (_e) {
@@ -241,8 +234,8 @@ export class ExpenseTestHelper {
 			const text = await item.textContent();
 			if (!text || !text.includes(description)) continue;
 			const hasAmount = text.includes(amount);
-			const hasShare = !expectedShare || text.includes(expectedShare);
-			if (hasAmount && hasShare) return true;
+			// In unified ledger, table rows do not render a "Your Share" column.
+			if (hasAmount) return true;
 		}
 		return false;
 	}
@@ -252,6 +245,7 @@ export class ExpenseTestHelper {
 
 		// Check that no expense items contain this description using only data-test-id
 		const expenseSelectors = [
+			'[data-test-id^="ledger-row-"]',
 			'[data-test-id="ledger-row"]',
 			'[data-test-id="transaction-row"]',
 			'[data-test-id="transaction-item"]',
@@ -419,7 +413,7 @@ export class ExpenseTestHelper {
 
 		const findDeleteButtonDesktop = async () => {
 			const rows = this.authenticatedPage.page.locator(
-				'[data-test-id="transaction-item"]',
+				'[data-test-id^="ledger-row-"], [data-test-id="transaction-item"], .transaction-row',
 			);
 			const count = await rows.count();
 			for (let i = 0; i < count; i++) {
