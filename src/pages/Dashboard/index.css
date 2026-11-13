@@ -49,48 +49,37 @@
 }
 
 /* Transaction Mode Selector Styles */
-.transaction-mode-section {
-	margin-bottom: var(--spacing-medium);
-	padding: var(--spacing-medium);
-	background-color: var(--color-surface, var(--color-light));
-	border-radius: var(--border-radius);
-	border: 1px solid var(--color-border, var(--color-secondary));
-}
-
-.transaction-mode-row {
+.transaction-mode-field {
 	display: flex;
-	align-items: center;
-	gap: 12px;
+	flex-direction: column;
+	width: 100%;
+	margin-bottom: 0.5rem;
 }
 
 .transaction-mode-label {
-	font-weight: 600;
+	font-weight: 500;
+	color: var(--color-dark);
 	font-size: var(--font-size-medium);
-	color: var(--color-text, var(--color-dark));
-	white-space: nowrap;
-	margin: 0;
+	margin-bottom: 0.25rem;
+	margin-top: 0;
 }
 
 .transaction-mode-select {
-	flex: 1;
-	padding: 8px 12px;
-	border-radius: var(--border-radius);
-	border: 1px solid var(--color-border, var(--color-secondary));
-	background-color: var(--color-background, #ffffff);
-	font-size: var(--font-size-medium);
-	color: var(--color-text, var(--color-dark));
-	cursor: pointer;
+	width: 100%;
 }
 
 .transaction-mode-hint {
-	margin: 8px 0 0;
-	font-size: var(--font-size-small, 0.875rem);
-	color: var(--color-text-secondary, #64748b);
+	display: block;
+	margin-top: 4px;
+	margin-bottom: 0.5rem;
+	font-size: 12px;
+	color: var(--ui-text-muted, #64748b);
 	line-height: 1.4;
 }
 
 .dashboard-transfer-container {
 	padding: var(--spacing-small) 0;
+	width: 100%;
 }
 
 .action-selection label {

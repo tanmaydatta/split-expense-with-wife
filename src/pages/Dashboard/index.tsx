@@ -303,165 +303,168 @@ function Dashboard(): JSX.Element {
 			</header>
 			{bankSource && <BankSourceBanner source={bankSource} />}
 			<Surface className="dashboard-form-surface">
-				{!bankSource && (
-					<TransactionModeSelector
-						mode={entryMode}
-						onModeChange={handleModeChange}
-						disabled={loading}
-						hasBudgets={budgets.length > 0}
-					/>
-				)}
-
-				{entryMode === "transfer" && !bankSource ? (
-					<div
-						className="dashboard-transfer-container"
-						data-test-id="dashboard-transfer-container"
-					>
-						{transferSuccess && (
-							<SuccessContainer
-								message={transferSuccess}
-								onClose={() => setTransferSuccess("")}
-								data-test-id="transfer-success-container"
-							/>
-						)}
-						<TransferForm
-							budgets={budgets}
-							sourceBudgetId={budgets[0]?.id || ""}
-							currencies={CURRENCIES as unknown as string[]}
-							onCreated={() => {
-								setTransferSuccess("Transfer recorded successfully.");
-								scrollToTop();
-							}}
+				<FormContainer
+					className={bankSource ? "bank-add-form" : undefined}
+					data-test-id="expense-form"
+				>
+					{!bankSource && (
+						<TransactionModeSelector
+							mode={entryMode}
+							onModeChange={handleModeChange}
+							disabled={loading}
+							hasBudgets={budgets.length > 0}
 						/>
-					</div>
-				) : (
-					<FormContainer
-						className={bankSource ? "bank-add-form" : undefined}
-						data-test-id="expense-form"
-					>
-						{/* Error Container */}
-						{error && (
-							<ErrorContainer
-								message={error}
-								onClose={() => dashboardSubmit.reset()}
-							/>
-						)}
+					)}
 
-						{/* Success Container */}
-						{success && (
-							<SuccessContainer
-								message={success}
-								onClose={() => dashboardSubmit.reset()}
-								data-test-id="success-container"
-							/>
-						)}
-
-						<DescriptionField form={form} loading={loading} />
-						<CategorySelect
-							automaticLabel={
-								bankSource?.linkedTransactionId ||
-								bankSource?.linkedBudgetEntryId
-									? "Keep existing category"
-									: "Automatic"
-							}
-							automaticHelp={
-								bankSource?.linkedTransactionId ||
-								bankSource?.linkedBudgetEntryId
-									? "Uses the linked record’s category unless you choose a shared category."
-									: undefined
-							}
-							value={categoryId}
-							onChange={setCategoryId}
-							disabled={loading || retainedCategories.isFetching}
-						/>
-						<AmountField
-							form={form}
-							loading={loading || Boolean(bankSource)}
-						/>
-
-						<CurrencyField
-							form={form}
-							loading={loading || Boolean(bankSource)}
-						/>
-
-						{bankSource ? (
-							<>
-								<SplitPercentageFields
-									className="bank-add-splits"
-									users={users}
-									updateUserPercentage={updateUserPercentage}
-									loading={loading}
-									addExpense={addExpense}
+					{entryMode === "transfer" && !bankSource ? (
+						<div
+							className="dashboard-transfer-container"
+							data-test-id="dashboard-transfer-container"
+						>
+							{transferSuccess && (
+								<SuccessContainer
+									message={transferSuccess}
+									onClose={() => setTransferSuccess("")}
+									data-test-id="transfer-success-container"
 								/>
-								<PaidByField
-									form={form}
-									loading={loading}
-									addExpense={addExpense}
-									usersState={usersState}
-								/>
-								<BankActionFields
-									form={form}
-									source={bankSource}
-									loading={loading}
-									updateBudget={updateBudget}
-								/>
-							</>
-						) : (
-							<>
-								<BudgetFields
-									form={form}
-									loading={loading}
-									updateBudget={updateBudget}
-									showCreditDebit={entryMode === "budget_adjustment"}
-								/>
-								<PaidByField
-									form={form}
-									loading={loading}
-									addExpense={addExpense}
-									usersState={usersState}
-								/>
-								<SplitPercentageFields
-									users={users}
-									updateUserPercentage={updateUserPercentage}
-									loading={loading}
-									addExpense={addExpense}
-								/>
-							</>
-						)}
-
-						{/* Single submit button */}
-						<ButtonRow>
-							<Button
-								type="submit"
-								data-test-id="submit-button"
-								onClick={(e) => {
-									e.preventDefault();
-									form.handleSubmit();
-								}}
-								disabled={
-									loading ||
-									(Boolean(bankSource) && !addExpense && !updateBudget)
-								}
-								className="submit-button"
-							>
-								{loading
-									? "Processing..."
-									: bankSource
-										? "Save and associate"
-										: "Submit"}
-							</Button>
-							{bankSource && (
-								<Button
-									type="button"
-									disabled={loading}
-									onClick={() => navigate(reviewPath)}
-								>
-									Cancel
-								</Button>
 							)}
-						</ButtonRow>
-					</FormContainer>
-				)}
+							<TransferForm
+								budgets={budgets}
+								sourceBudgetId={budgets[0]?.id || ""}
+								currencies={CURRENCIES as unknown as string[]}
+								onCreated={() => {
+									setTransferSuccess("Transfer recorded successfully.");
+									scrollToTop();
+								}}
+								embedded={true}
+							/>
+						</div>
+					) : (
+						<>
+							{/* Error Container */}
+							{error && (
+								<ErrorContainer
+									message={error}
+									onClose={() => dashboardSubmit.reset()}
+								/>
+							)}
+
+							{/* Success Container */}
+							{success && (
+								<SuccessContainer
+									message={success}
+									onClose={() => dashboardSubmit.reset()}
+									data-test-id="success-container"
+								/>
+							)}
+
+							<DescriptionField form={form} loading={loading} />
+							<CategorySelect
+								automaticLabel={
+									bankSource?.linkedTransactionId ||
+									bankSource?.linkedBudgetEntryId
+										? "Keep existing category"
+										: "Automatic"
+								}
+								automaticHelp={
+									bankSource?.linkedTransactionId ||
+									bankSource?.linkedBudgetEntryId
+										? "Uses the linked record’s category unless you choose a shared category."
+										: undefined
+								}
+								value={categoryId}
+								onChange={setCategoryId}
+								disabled={loading || retainedCategories.isFetching}
+							/>
+							<AmountField
+								form={form}
+								loading={loading || Boolean(bankSource)}
+							/>
+
+							<CurrencyField
+								form={form}
+								loading={loading || Boolean(bankSource)}
+							/>
+
+							{bankSource ? (
+								<>
+									<SplitPercentageFields
+										className="bank-add-splits"
+										users={users}
+										updateUserPercentage={updateUserPercentage}
+										loading={loading}
+										addExpense={addExpense}
+									/>
+									<PaidByField
+										form={form}
+										loading={loading}
+										addExpense={addExpense}
+										usersState={usersState}
+									/>
+									<BankActionFields
+										form={form}
+										source={bankSource}
+										loading={loading}
+										updateBudget={updateBudget}
+									/>
+								</>
+							) : (
+								<>
+									<BudgetFields
+										form={form}
+										loading={loading}
+										updateBudget={updateBudget}
+										showCreditDebit={entryMode === "budget_adjustment"}
+									/>
+									<PaidByField
+										form={form}
+										loading={loading}
+										addExpense={addExpense}
+										usersState={usersState}
+									/>
+									<SplitPercentageFields
+										users={users}
+										updateUserPercentage={updateUserPercentage}
+										loading={loading}
+										addExpense={addExpense}
+									/>
+								</>
+							)}
+
+							{/* Single submit button */}
+							<ButtonRow>
+								<Button
+									type="submit"
+									data-test-id="submit-button"
+									onClick={(e) => {
+										e.preventDefault();
+										form.handleSubmit();
+									}}
+									disabled={
+										loading ||
+										(Boolean(bankSource) && !addExpense && !updateBudget)
+									}
+									className="submit-button"
+								>
+									{loading
+										? "Processing..."
+										: bankSource
+											? "Save and associate"
+											: "Submit"}
+								</Button>
+								{bankSource && (
+									<Button
+										type="button"
+										disabled={loading}
+										onClick={() => navigate(reviewPath)}
+									>
+										Cancel
+									</Button>
+								)}
+							</ButtonRow>
+						</>
+					)}
+				</FormContainer>
 			</Surface>
 		</div>
 	);

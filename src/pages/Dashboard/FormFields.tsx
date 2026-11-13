@@ -202,18 +202,22 @@ export function BudgetFields({
 	return (
 		<div className="budget-fields-container" data-test-id="budget-selector">
 			{showCreditDebit && (
-				<form.Field name="creditDebit">
-					{(field: any) => (
-						<CreditDebit
-							budget={field.state.value || "Debit"}
-							handleChangeBudget={(value: string) =>
-								field.handleChange(value as "Credit" | "Debit")
-							}
-							disabled={loading}
-						/>
-					)}
-				</form.Field>
+				<>
+					<label>Adjustment Type</label>
+					<form.Field name="creditDebit">
+						{(field: any) => (
+							<CreditDebit
+								budget={field.state.value || "Debit"}
+								handleChangeBudget={(value: string) =>
+									field.handleChange(value as "Credit" | "Debit")
+								}
+								disabled={loading}
+							/>
+						)}
+					</form.Field>
+				</>
 			)}
+			<label>Budget</label>
 			<form.Field name="budgetId">
 				{(field: any) => (
 					<SelectBudget
@@ -242,63 +246,61 @@ export function TransactionModeSelector({
 }: TransactionModeSelectorProps) {
 	return (
 		<div
-			className="transaction-mode-section"
+			className="transaction-mode-field"
 			data-test-id="transaction-mode-section"
 		>
-			<div className="transaction-mode-row">
-				<label
-					htmlFor="transaction-mode-selector"
-					className="transaction-mode-label"
-				>
-					Action
-				</label>
-				<select
-					id="transaction-mode-selector"
-					data-test-id="transaction-mode-selector"
-					className="transaction-mode-select"
-					value={mode}
-					onChange={(e) =>
-						onModeChange(e.target.value as TransactionEntryMode)
-					}
-					disabled={disabled}
-				>
-					{hasBudgets && (
-						<option value="purchase">Purchase (Expense + Budget)</option>
-					)}
-					<option value="split_only">Split only (No budget impact)</option>
-					{hasBudgets && (
-						<option value="budget_adjustment">
-							Budget adjustment / Funding
-						</option>
-					)}
-					{hasBudgets && (
-						<option value="transfer">Transfer between budgets</option>
-					)}
-				</select>
-			</div>
+			<label
+				htmlFor="transaction-mode-selector"
+				className="transaction-mode-label"
+			>
+				Action
+			</label>
+			<Select
+				id="transaction-mode-selector"
+				data-test-id="transaction-mode-selector"
+				className="transaction-mode-select form-select"
+				value={mode}
+				onChange={(e) =>
+					onModeChange(e.target.value as TransactionEntryMode)
+				}
+				disabled={disabled}
+			>
+				{hasBudgets && (
+					<option value="purchase">Purchase (Expense + Budget)</option>
+				)}
+				<option value="split_only">Split only (No budget impact)</option>
+				{hasBudgets && (
+					<option value="budget_adjustment">
+						Budget adjustment / Funding
+					</option>
+				)}
+				{hasBudgets && (
+					<option value="transfer">Transfer between budgets</option>
+				)}
+			</Select>
 			{mode === "split_only" && (
-				<p
+				<small
 					className="transaction-mode-hint"
 					data-test-id="split-only-hint"
 				>
 					Splits costs between household members without deducting from any budget.
-				</p>
+				</small>
 			)}
 			{mode === "budget_adjustment" && (
-				<p
+				<small
 					className="transaction-mode-hint"
 					data-test-id="budget-adjustment-hint"
 				>
 					Directly adjusts a budget (Credit to fund, Debit to deduct) without member debt splits.
-				</p>
+				</small>
 			)}
 			{mode === "transfer" && (
-				<p
+				<small
 					className="transaction-mode-hint"
 					data-test-id="transfer-hint"
 				>
 					Moves funds between two budgets without creating an expense.
-				</p>
+				</small>
 			)}
 		</div>
 	);
