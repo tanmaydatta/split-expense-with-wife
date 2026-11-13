@@ -78,12 +78,14 @@ export class ExpenseTestHelper {
 	}
 
 	async verifyExpensesPageComponents() {
-		// Verify basic expenses page structure
-		await expect(this.authenticatedPage.page).toHaveURL("/expenses");
+		// Verify basic expenses/transactions page structure
+		await expect(this.authenticatedPage.page).toHaveURL(
+			/\/expenses|\/transactions/,
+		);
 
 		// Verify expenses page elements are present using only data-test-id
 		const expensesContainer = this.authenticatedPage.page.locator(
-			'[data-test-id="expenses-container"]',
+			'[data-test-id="expenses-container"], [data-test-id="ledger-container"]',
 		);
 		try {
 			await expensesContainer.waitFor({ state: "visible", timeout: 5000 });
@@ -101,7 +103,9 @@ export class ExpenseTestHelper {
 		currency: string,
 		expectedShare?: string,
 	) {
-		await expect(this.authenticatedPage.page).toHaveURL("/expenses");
+		await expect(this.authenticatedPage.page).toHaveURL(
+			/\/expenses|\/transactions/,
+		);
 		await this.authenticatedPage.page.reload();
 		await this.authenticatedPage.page.waitForTimeout(2000);
 		console.log(
@@ -147,6 +151,8 @@ export class ExpenseTestHelper {
 		expectedShare?: string,
 	): Promise<boolean> {
 		const selectors = [
+			'[data-test-id="ledger-row"]',
+			'[data-test-id="transaction-row"]',
 			'[data-test-id="transaction-item"]',
 			'[data-test-id="expense-item"]',
 			'[data-test-id="transaction-card"]',
@@ -174,7 +180,7 @@ export class ExpenseTestHelper {
 	): Promise<boolean> {
 		console.log("Trying broader search for expense in expenses container");
 		const expensesContainer = this.authenticatedPage.page.locator(
-			'[data-test-id="expenses-container"]',
+			'[data-test-id="expenses-container"], [data-test-id="ledger-container"]',
 		);
 		try {
 			await expensesContainer.waitFor({ state: "visible", timeout: 2000 });
@@ -206,7 +212,9 @@ export class ExpenseTestHelper {
 		const showMoreButton = this.authenticatedPage.page.locator(
 			'[data-test-id="show-more-button"]',
 		);
-		await expect(this.authenticatedPage.page).toHaveURL("/expenses");
+		await expect(this.authenticatedPage.page).toHaveURL(
+			/\/expenses|\/transactions/,
+		);
 		try {
 			await showMoreButton.waitFor({ state: "visible", timeout: 15000 });
 			console.log("Clicking 'Show more' button to load more expenses");
@@ -244,6 +252,8 @@ export class ExpenseTestHelper {
 
 		// Check that no expense items contain this description using only data-test-id
 		const expenseSelectors = [
+			'[data-test-id="ledger-row"]',
+			'[data-test-id="transaction-row"]',
 			'[data-test-id="transaction-item"]',
 			'[data-test-id="expense-item"]',
 			'[data-test-id="transaction-card"]',

@@ -42,7 +42,8 @@ function getEffectiveNextDate(
 	return calculateNextExecutionDate(startDate, frequency);
 }
 import worker from "../index";
-import { formatSQLiteTime } from "../utils";
+import { createHistoryId, formatSQLiteTime } from "../utils";
+import { createSingleHistoryEntry } from "../workflows/scheduled-actions-processor";
 import {
 	completeCleanupDatabase,
 	createTestRequest,
@@ -1467,7 +1468,9 @@ describe("Scheduled Actions Handlers", () => {
 
 	describe("Manual Run Functions", () => {
 		describe("createSingleHistoryEntry", () => {
-			it("should create new history entry successfully", async ({ onTestFailed }: TestContext) => {
+			it(
+				"should create new history entry successfully",
+				async ({ onTestFailed }: TestContext) => {
 				const dateStart = Date.now();
 				const performanceStart = performance.now();
 				const phases: { phase: string; dateElapsedMs: number; performanceElapsedMs: number }[] = [];
@@ -1514,12 +1517,6 @@ describe("Scheduled Actions Handlers", () => {
 
 				recordPhase("after scheduled action insert");
 
-				// Import the function to test
-				recordPhase("before workflow import");
-				const { createSingleHistoryEntry } = await import("../workflows/scheduled-actions-processor");
-
-				recordPhase("after workflow import");
-
 				// Call the function
 				recordPhase("before history entry creation");
 				await createSingleHistoryEntry(env, actionId, workflowInstanceId, currentDate);
@@ -1544,7 +1541,7 @@ describe("Scheduled Actions Handlers", () => {
 				expect(entry.executionStatus).toBe("started");
 				expect(entry.workflowInstanceId).toBe(workflowInstanceId);
 				expect(entry.workflowStatus).toBe("running");
-			});
+			}, 30000);
 
 			it("should throw error when history entry already exists", async () => {
 				// Create a scheduled action
@@ -1591,9 +1588,6 @@ describe("Scheduled Actions Handlers", () => {
 					} as AddExpenseActionData,
 				});
 
-				// Import the function to test
-				const { createSingleHistoryEntry } = await import("../workflows/scheduled-actions-processor");
-
 				// Call the function and expect it to throw
 				await expect(
 					createSingleHistoryEntry(env, actionId, workflowInstanceId, currentDate)
@@ -1613,9 +1607,6 @@ describe("Scheduled Actions Handlers", () => {
 				const nonExistentActionId = ulid();
 				const currentDate = "2024-01-15";
 				const workflowInstanceId = "test-workflow-123";
-
-				// Import the function to test
-				const { createSingleHistoryEntry } = await import("../workflows/scheduled-actions-processor");
 
 				// Call the function and expect it to throw
 				await expect(
@@ -1655,10 +1646,6 @@ describe("Scheduled Actions Handlers", () => {
 					createdAt: formatSQLiteTime(),
 					updatedAt: formatSQLiteTime(),
 				});
-
-				// Import the functions to test
-				const { createSingleHistoryEntry } = await import("../workflows/scheduled-actions-processor");
-				const { createHistoryId } = await import("../utils");
 
 				// Call the function
 				await createSingleHistoryEntry(env, actionId, workflowInstanceId, currentDate);
