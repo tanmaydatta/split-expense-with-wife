@@ -131,8 +131,8 @@ test.describe("Scheduled Actions", () => {
 		await expect(dialog).toBeHidden();
 		await expect(trigger).toBeFocused();
 		await trigger.click();
-		await page.getByRole("dialog", { name: "Navigation" }).getByRole("button", { name: "Expenses" }).click();
-		await expect(page).toHaveURL(/\/expenses$/);
+		await page.getByRole("dialog", { name: "Navigation" }).getByRole("button", { name: /Transactions|Expenses/i }).click();
+		await expect(page).toHaveURL(/\/(transactions|expenses)$/);
 	});
 
 	test("create expense action and see it in list", async ({ seed, page }) => {

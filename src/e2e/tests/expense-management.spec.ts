@@ -662,9 +662,9 @@ test.describe("Expense Management", () => {
 
 		await page.goto("/expenses");
 
-		// Row locator works for both desktop (transaction-item) and mobile (transaction-card)
+		// Row locator works for both desktop (ledger-row/transaction-item) and mobile (transaction-card)
 		const rowSelector =
-			'[data-test-id="transaction-item"], [data-test-id="transaction-card"]';
+			'[data-test-id^="ledger-row-"], [data-test-id="transaction-item"], [data-test-id="transaction-card"]';
 
 		// Use expect.poll + count() rather than waitForSelector so that on mobile
 		// viewports (where desktop table rows are CSS-hidden) the check still works.
@@ -728,7 +728,7 @@ test.describe("Expense Management", () => {
 
 		// Every visible row must contain "Coffee" in its text
 		const rowSelector =
-			'[data-test-id="transaction-item"], [data-test-id="transaction-card"]';
+			'[data-test-id^="ledger-row-"], [data-test-id="transaction-item"], [data-test-id="transaction-card"]';
 		const rows = page.locator(rowSelector);
 		for (const row of await rows.all()) {
 			const text = await row.textContent();
