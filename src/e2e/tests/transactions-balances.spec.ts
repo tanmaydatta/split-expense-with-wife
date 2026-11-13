@@ -95,7 +95,7 @@ class TransactionBalanceTestHelper {
 		const view = await this.detectView();
 		if (view === "desktop") {
 			const items = await this.page
-				.locator('[data-test-id="transaction-item"]')
+				.locator('[data-test-id^="ledger-row-"], [data-test-id="transaction-item"]')
 				.all();
 			for (const item of items) {
 				const text = await item.textContent();

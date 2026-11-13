@@ -15,7 +15,7 @@ function visibleRows(page: Page, testId: string) {
 	const mobileId =
 		testId === "transaction-item" ? "transaction-card" : "budget-entry-card";
 	return page.locator(
-		`[data-test-id="${testId}"]:visible, [data-test-id="${mobileId}"]:visible`,
+		`[data-test-id="${testId}"]:visible, [data-test-id^="ledger-row-"]:visible, [data-test-id="${mobileId}"]:visible`,
 	);
 }
 
