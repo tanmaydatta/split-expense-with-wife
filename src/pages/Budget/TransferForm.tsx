@@ -16,14 +16,17 @@ interface Props {
 	sourceBudgetId: string;
 	currencies: string[];
 	onCreated(): void;
+	embedded?: boolean;
 }
+// eslint-disable-next-line max-lines-per-function
 export default function TransferForm({
 	budgets,
 	sourceBudgetId,
 	currencies,
 	onCreated,
+	embedded = false,
 }: Props) {
-	const [open, setOpen] = useState(false),
+	const [open, setOpen] = useState(embedded),
 		[source, setSource] = useState(sourceBudgetId),
 		[destination, setDestination] = useState(""),
 		[amount, setAmount] = useState(""),
@@ -73,6 +76,89 @@ export default function TransferForm({
 				Add a second budget in Settings to transfer between budgets.
 			</p>
 		);
+
+	const formContent = (
+		<form onSubmit={submit} className="budget-transfer-form">
+			<h3>Transfer between budgets</h3>
+			<p>
+				Move one currency between household budgets. Both entries are
+				recorded together and excluded from spending insights. Negative
+				budget balances are allowed.
+			</p>
+			{mutation.error && (
+				<ErrorContainer
+					message={mutation.error.message}
+					onClose={() => mutation.reset()}
+				/>
+			)}
+			{mutation.isSuccess && (
+				<SuccessContainer
+					message={mutation.data.message}
+					onClose={() => mutation.reset()}
+				/>
+			)}
+			<fieldset
+				disabled={mutation.isPending || mutation.isSuccess}
+				className="budget-transfer-inputs"
+			>
+				<TransferFields
+					{...{
+						budgets,
+						currencies,
+						source,
+						destination,
+						amount,
+						currency,
+						date,
+						note,
+						setSource: (next: string) => {
+							setSource(next);
+							if (destination === next) setDestination("");
+						},
+						setDestination,
+						setAmount,
+						setCurrency,
+						setDate,
+						setNote,
+					}}
+				/>
+			</fieldset>
+			<p className="finance-filter-help">
+				Today or earlier; no currency conversion. Deleting either entry
+				removes both sides.
+			</p>
+			<UiButton
+				$tone="primary"
+				type="submit"
+				disabled={
+					mutation.isPending ||
+					mutation.isSuccess ||
+					source === destination ||
+					!destination
+				}
+			>
+				{mutation.isPending ? "Recording transfer…" : "Record transfer"}
+			</UiButton>
+			{mutation.isSuccess && (
+				<UiButton
+					type="button"
+					onClick={() => {
+						mutation.reset();
+						pending.current = null;
+						setAmount("");
+						setNote("");
+					}}
+				>
+					Record another transfer
+				</UiButton>
+			)}
+		</form>
+	);
+
+	if (embedded) {
+		return formContent;
+	}
+
 	return (
 		<Surface className="budget-transfer-panel">
 			<UiButton
@@ -85,85 +171,7 @@ export default function TransferForm({
 			>
 				Transfer between budgets
 			</UiButton>
-			{open && (
-				<form onSubmit={submit} className="budget-transfer-form">
-					<h3>Transfer between budgets</h3>
-					<p>
-						Move one currency between household budgets. Both entries are
-						recorded together and excluded from spending insights. Negative
-						budget balances are allowed.
-					</p>
-					{mutation.error && (
-						<ErrorContainer
-							message={mutation.error.message}
-							onClose={() => mutation.reset()}
-						/>
-					)}
-					{mutation.isSuccess && (
-						<SuccessContainer
-							message={mutation.data.message}
-							onClose={() => mutation.reset()}
-						/>
-					)}
-					<fieldset
-						disabled={mutation.isPending || mutation.isSuccess}
-						className="budget-transfer-inputs"
-					>
-						<TransferFields
-							{...{
-								budgets,
-								currencies,
-								source,
-								destination,
-								amount,
-								currency,
-								date,
-								note,
-								setSource: (next: string) => {
-									setSource(next);
-									if (destination === next) setDestination("");
-								},
-								setDestination,
-								setAmount,
-								setCurrency,
-								setDate,
-								setNote,
-							}}
-						/>
-					</fieldset>
-					<p className="finance-filter-help">
-						Today or earlier; no currency conversion. Deleting either entry
-						removes both sides.
-					</p>
-					<UiButton
-						$tone="primary"
-						type="submit"
-						disabled={
-							mutation.isPending ||
-							mutation.isSuccess ||
-							source === destination ||
-							!destination
-						}
-					>
-						{mutation.isPending ? "Recording transfer…" : "Record transfer"}
-					</UiButton>
-					<>
-						{mutation.isSuccess && (
-							<UiButton
-								type="button"
-								onClick={() => {
-									mutation.reset();
-									pending.current = null;
-									setAmount("");
-									setNote("");
-								}}
-							>
-								Record another transfer
-							</UiButton>
-						)}
-					</>
-				</form>
-			)}
+			{open && formContent}
 		</Surface>
 	);
 }

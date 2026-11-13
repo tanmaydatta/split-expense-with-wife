@@ -2,7 +2,6 @@ import {
 	ToggleButton,
 	ToggleButtonGroup,
 } from "@/components/ToggleButtonGroup";
-import { useSelector } from "react-redux";
 
 interface SelectBudgetProps {
 	budget: string;
@@ -15,31 +14,31 @@ export const CreditDebit: React.FC<SelectBudgetProps> = ({
 	handleChangeBudget,
 	disabled = false,
 }) => {
-	const data = useSelector((state: any) => state.value);
-	console.log(data, "hehkbjhbjg");
 	return (
-		<ToggleButtonGroup
-			style={{ width: "100%" }}
-			className="mb-2"
-			data-test-id="credit-debit-group"
-			name="credit-debit"
-			value={budget}
-			onChange={handleChangeBudget}
-			disabled={disabled}
-		>
-			{["Credit", "Debit"].map((b: string) => (
-				<ToggleButton
-					key={b}
-					id={`radio-${b}`}
-					data-test-id={`${b.toLowerCase()}-radio`}
-					type="radio"
-					variant="outline-primary"
-					value={b}
-					checked={budget === b}
-				>
-					{b}
-				</ToggleButton>
-			))}
-		</ToggleButtonGroup>
+		<div data-test-id="credit-debit-toggle">
+			<ToggleButtonGroup
+				style={{ width: "100%" }}
+				className="mb-2"
+				data-test-id="credit-debit-group"
+				name="credit-debit"
+				value={budget}
+				onChange={handleChangeBudget}
+				disabled={disabled}
+			>
+				{["Credit", "Debit"].map((b: string) => (
+					<ToggleButton
+						key={b}
+						id={`radio-${b}`}
+						data-test-id={`${b.toLowerCase()}-radio`}
+						type="radio"
+						variant="outline-primary"
+						value={b}
+						checked={budget === b}
+					>
+						{b}
+					</ToggleButton>
+				))}
+			</ToggleButtonGroup>
+		</div>
 	);
 };
