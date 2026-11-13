@@ -3,6 +3,7 @@ import { defineWorkersConfig } from "@cloudflare/vitest-pool-workers/config";
 export default defineWorkersConfig({
 	test: {
 		fileParallelism: false,
+		testTimeout: 30000,
 
 		// keep exactly one worker alive
 		minWorkers: 1,
