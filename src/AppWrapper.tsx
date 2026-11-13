@@ -148,7 +148,7 @@ const PageContent = styled.div`
 `;
 
 function getPageTitle(path: string): string {
-	if (path === "/") return "Add Expense";
+	if (path === "/") return "Add Transaction";
 	if (path === "/transactions" || path === "/expenses") return "Transactions";
 	if (path === "/category-insights") return "Budget insights";
 	if (path === "/balances") return "Balances";
