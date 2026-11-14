@@ -129,7 +129,9 @@ class BudgetTestHelper {
 	}
 
 	async verifyBudgetTotals() {
-		const budgetTotals = this.page.locator('[data-test-id="amount-grid"]');
+		const budgetTotals = this.page
+			.locator('.budget-card [data-test-id="amount-grid"]')
+			.first();
 		await expect(budgetTotals).toBeVisible();
 
 		const amountItems = budgetTotals.locator('[data-test-id="amount-item"]');
@@ -141,7 +143,7 @@ class BudgetTestHelper {
 	async getBudgetTotals(): Promise<Record<string, number>> {
 		const totals: Record<string, number> = {};
 		const amountItems = await this.page
-			.locator('[data-test-id="amount-item"]')
+			.locator('.budget-card [data-test-id="amount-item"]')
 			.all();
 
 		for (const item of amountItems) {

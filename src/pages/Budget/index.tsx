@@ -31,6 +31,7 @@ import {
 } from "@/hooks/useBudget";
 import { useFinanceListFilters } from "@/hooks/useFinanceListFilters";
 import { SelectBudget } from "@/SelectBudget";
+import { BudgetOverview } from "./BudgetOverview";
 import BudgetTable from "./BudgetTable";
 import "./index.css";
 
@@ -169,6 +170,7 @@ function useBudgetPage() {
 	return {
 		bulk,
 		budget,
+		budgets,
 		budgetHistory,
 		filterState,
 		data,
@@ -196,10 +198,65 @@ function useBudgetPage() {
 	};
 }
 
+function BudgetMessages({
+	error,
+	success,
+	loadMoreError,
+	onResetMutation,
+	onClearLoadMoreError,
+}: {
+	error: string;
+	success: string;
+	loadMoreError: string;
+	onResetMutation: () => void;
+	onClearLoadMoreError: () => void;
+}) {
+	return (
+		<>
+			{error && <ErrorContainer message={error} onClose={onResetMutation} />}
+			{success && (
+				<SuccessContainer
+					message={success}
+					onClose={onResetMutation}
+					data-test-id="success-container"
+				/>
+			)}
+			{loadMoreError && (
+				<ErrorContainer
+					message={loadMoreError}
+					onClose={onClearLoadMoreError}
+				/>
+			)}
+		</>
+	);
+}
+
+function BudgetFilterEmptyState({ onClear }: { onClear: () => void }) {
+	return (
+		<div data-test-id="search-empty-state" style={{ padding: "24px 0" }}>
+			No budget entries match these filters.{" "}
+			<button
+				type="button"
+				onClick={onClear}
+				style={{
+					background: "none",
+					border: "none",
+					color: "#0066cc",
+					cursor: "pointer",
+					padding: 0,
+				}}
+			>
+				Clear all filters
+			</button>
+		</div>
+	);
+}
+
 export const Budget: React.FC = () => {
 	const {
 		bulk,
 		budget,
+		budgets,
 		budgetHistory,
 		filterState,
 		data,
@@ -256,31 +313,22 @@ export const Budget: React.FC = () => {
 				}}
 			/>
 			<header>
-				<UiPageTitle>Budget</UiPageTitle>
+				<UiPageTitle>Budgets</UiPageTitle>
 				<UiPageDescription>
-					See what remains and review entries by category.
+					See what remains across household money pools and review entries by category.
 				</UiPageDescription>
 			</header>
-			{error && (
-				<ErrorContainer
-					message={error}
-					onClose={() => deleteBudgetMutation.reset()}
-				/>
-			)}
-			{success && (
-				<SuccessContainer
-					message={success}
-					onClose={() => deleteBudgetMutation.reset()}
-					data-test-id="success-container"
-				/>
-			)}
-
-			{loadMoreError && (
-				<ErrorContainer
-					message={loadMoreError}
-					onClose={() => setLoadMoreError("")}
-				/>
-			)}
+			<BudgetOverview
+				budgets={budgets}
+				onOpenBudget={handleChangeBudget}
+			/>
+			<BudgetMessages
+				error={error}
+				success={success}
+				loadMoreError={loadMoreError}
+				onResetMutation={() => deleteBudgetMutation.reset()}
+				onClearLoadMoreError={() => setLoadMoreError("")}
+			/>
 			{isLoading && <Loader />}
 			{
 				<>
@@ -326,25 +374,7 @@ export const Budget: React.FC = () => {
 						</>
 					)}
 					{showEmptyState && (
-						<div
-							data-test-id="search-empty-state"
-							style={{ padding: "24px 0" }}
-						>
-							No budget entries match these filters.{" "}
-							<button
-								type="button"
-								onClick={filterState.clear}
-								style={{
-									background: "none",
-									border: "none",
-									color: "#0066cc",
-									cursor: "pointer",
-									padding: 0,
-								}}
-							>
-								Clear all filters
-							</button>
-						</div>
+						<BudgetFilterEmptyState onClear={filterState.clear} />
 					)}
 				</>
 			}
