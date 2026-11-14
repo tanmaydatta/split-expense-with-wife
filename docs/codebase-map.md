@@ -155,9 +155,10 @@ split-expense-with-wife/
 | `/transaction/:id` | TransactionDetail | Single transaction + linked budget entry, cross-nav |
 | `/budget-entry/:id` | BudgetEntryDetail | Single budget entry + linked transaction, cross-nav |
 | `/balances` | Balances | Who owes whom, multi-currency |
-| `/budget` | Budget | Budget entry management + history |
-| `/monthly-budget` | MonthlyBudgetPage | Recharts analytics |
-| `/monthly-budget/:budgetName` | MonthlyBudgetPage | Filtered by budget |
+| `/budget` | Budget | All-budgets overview + budget entry management and history |
+| `/budget/:budgetId` | BudgetDetail | Individual budget detail, lifetime available balance, and monthly trends |
+| `/monthly-budget` | MonthlyBudgetRedirect | Legacy route redirecting to `/budget` |
+| `/monthly-budget/:budgetId` | MonthlyBudgetRedirect | Legacy route redirecting to `/budget/:budgetId#trends` |
 | `/settings` | Settings | Group name, user shares, currencies, budgets |
 | `/scheduled-actions` | ScheduledActions | List recurring actions |
 | `/scheduled-actions/new` | NewAction | Create form |

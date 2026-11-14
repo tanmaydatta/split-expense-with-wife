@@ -16,3 +16,8 @@ function view(providers: Array<{ id: string }>) {
 it("shows bank imports when the backend enables Lunch Flow", () => { view([{ id: "lunch_flow" }]); expect(screen.getByRole("button", { name: "Bank imports" })).toBeInTheDocument(); });
 it("hides bank imports when the backend has no enabled providers", () => { view([]); expect(screen.queryByRole("button", { name: "Bank imports" })).not.toBeInTheDocument(); });
 it("shows Add Transaction navigation item", () => { view([]); expect(screen.getByRole("button", { name: "Add Transaction" })).toBeInTheDocument(); });
+it("shows Budgets navigation item and omits standalone Monthly Budget", () => {
+	view([]);
+	expect(screen.getByRole("button", { name: "Budgets" })).toBeInTheDocument();
+	expect(screen.queryByRole("button", { name: "Monthly Budget" })).not.toBeInTheDocument();
+});

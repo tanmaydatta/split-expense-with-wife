@@ -10,11 +10,11 @@ import BillsPage from "@/pages/Bills";
 import BankImport from "@/pages/BankImport";
 import { Budget } from "@/pages/Budget";
 import { BudgetDetail } from "@/pages/Budget/BudgetDetail";
+import { MonthlyBudgetRedirect } from "@/pages/Budget/BudgetRouting";
 import Dashboard from "@/pages/Dashboard";
 import Landing from "@/pages/Landing";
 import LoginPage from "@/pages/Login";
 import BudgetEntryDetail from "@/pages/BudgetEntryDetail";
-import { MonthlyBudgetPage } from "@/pages/MonthlyBudgetPage";
 import NotFound from "@/pages/NotFound";
 import TransactionDetail from "@/pages/TransactionDetail";
 import ScheduledActionsPage from "@/pages/ScheduledActions";
@@ -159,8 +159,8 @@ function getPageTitle(path: string): string {
 		return "Add from bank activity";
 	if (path.startsWith("/bank-import/transactions/"))
 		return "Review bank activity";
-	if (path === "/budget") return "Budget";
-	if (path.startsWith("/monthly-budget")) return "Monthly Budget";
+	if (path === "/budget" || path.startsWith("/budget/")) return "Budgets";
+	if (path.startsWith("/monthly-budget")) return "Budgets";
 	if (path === "/settings") return "Settings";
 	if (path === "/scheduled-actions" || path.startsWith("/scheduled-actions/")) return "Scheduled Actions";
 	if (path === "/logout") return "Logout";
@@ -266,10 +266,10 @@ function AppWrapper() {
 								/>
 								<Route path="/budget" element={<Budget />} />
 								<Route path="/budget/:budgetId" element={<BudgetDetail />} />
-								<Route path="/monthly-budget" element={<MonthlyBudgetPage />} />
+								<Route path="/monthly-budget" element={<MonthlyBudgetRedirect />} />
 								<Route
-									path="/monthly-budget/:budgetName"
-									element={<MonthlyBudgetPage />}
+									path="/monthly-budget/:budgetId"
+									element={<MonthlyBudgetRedirect />}
 								/>
 								<Route path="/transactions" element={<Transactions />} />
 								<Route

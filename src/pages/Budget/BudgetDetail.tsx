@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useSelector } from "react-redux";
+import getSymbolFromCurrency from "currency-symbol-map";
 import type { ReduxState, BudgetTotal, GroupBudgetData } from "split-expense-shared-types";
 import { useBudgetTotal } from "@/hooks/useBudget";
 import { useMonthlyBudget } from "@/hooks/useMonthlyBudget";
@@ -8,11 +9,136 @@ import { useBudgetData } from "@/hooks/useBudgetData";
 import { useWindowSize, getTimeRangeMapping } from "@/pages/MonthlyBudgetPage/helpers";
 import { BudgetChart } from "@/pages/MonthlyBudgetPage/ChartComponents";
 import TransferForm from "./TransferForm";
+import { SelectBudget } from "@/SelectBudget";
 import { AmountGrid } from "@/components/AmountGrid";
 import { Card } from "@/components/Card";
 import { UiButton, UiPageTitle, UiPageDescription } from "@/components/ui";
 
 type TimeRange = "6M" | "1Y" | "2Y" | "All";
+
+const BudgetNotFound: React.FC<{ onBack: () => void }> = ({ onBack }) => (
+	<div className="budget-container" data-test-id="budget-detail-not-found">
+		<UiButton
+			type="button"
+			$tone="quiet"
+			onClick={onBack}
+			className="budget-detail-back"
+		>
+			← All budgets
+		</UiButton>
+		<div className="budget-overview-empty">
+			<p>Budget not found in this household.</p>
+		</div>
+	</div>
+);
+
+const BudgetDetailHeader: React.FC<{
+	budget: GroupBudgetData & { deleted?: string | null };
+	onBack: () => void;
+}> = ({ budget, onBack }) => (
+	<div className="budget-detail-header">
+		<UiButton
+			type="button"
+			$tone="quiet"
+			onClick={onBack}
+			className="budget-detail-back"
+			data-test-id="back-to-budgets-button"
+		>
+			← All budgets
+		</UiButton>
+
+		<header>
+			<UiPageTitle>
+				{budget.budgetName}
+				{budget.deleted ? " (archived)" : ""}
+			</UiPageTitle>
+			<UiPageDescription>
+				{budget.description ||
+					"Rolling money pool and monthly spending trends."}
+			</UiPageDescription>
+		</header>
+	</div>
+);
+
+const BudgetTrendsSection: React.FC<{
+	timeRange: TimeRange;
+	setTimeRange: (range: TimeRange) => void;
+	selectedCurrency: string;
+	setSelectedCurrency: (curr: string) => void;
+	availableCurrencies: string[];
+	chartData: ReturnType<typeof useBudgetData>["chartData"];
+	averageExpense: number;
+	currency: string;
+	width: number;
+	isLoading: boolean;
+}> = ({
+	timeRange,
+	setTimeRange,
+	selectedCurrency,
+	setSelectedCurrency,
+	availableCurrencies,
+	chartData,
+	averageExpense,
+	currency,
+	width,
+	isLoading,
+}) => (
+	<div data-test-id="monthly-budget-container" className="monthly-budget-container">
+		<Card className="budget-card" data-test-id="budget-trends-section">
+			<div className="budget-trends-header chart-header">
+				<h3 className="chart-title">Trends</h3>
+				<div className="budget-trends-controls time-range-controls">
+					{(["6M", "1Y", "2Y", "All"] as TimeRange[]).map((range) => (
+						<button
+							key={range}
+							type="button"
+							className={`budget-time-range-btn time-range-btn ${timeRange === range ? "active" : ""}`}
+							onClick={() => setTimeRange(range)}
+							data-test-id={`time-range-${range}`}
+						>
+							{range}
+						</button>
+					))}
+				</div>
+			</div>
+
+			<div className="currency-selector" style={{ display: "flex", gap: "8px", margin: "12px 0", flexWrap: "wrap" }}>
+				{availableCurrencies.map((curr) => (
+					<button
+						key={curr}
+						type="button"
+						className={`currency-btn ${selectedCurrency === curr ? "active" : ""}`}
+						data-test-id={`currency-${curr}`}
+						onClick={() => setSelectedCurrency(curr)}
+					>
+						{getSymbolFromCurrency(curr)} {curr}
+					</button>
+				))}
+			</div>
+
+			{isLoading && (
+				<p data-test-id="monthly-budget-loading">
+					Loading monthly budget data...
+				</p>
+			)}
+
+			<div className="chart-wrapper" data-test-id="monthly-budget-chart">
+				<BudgetChart
+					chartData={chartData}
+					averageExpense={averageExpense}
+					currency={currency}
+					windowWidth={width}
+				/>
+			</div>
+
+			{!isLoading && chartData.length === 0 && (
+				<div className="no-data" data-test-id="no-data-message">
+					<p>No monthly budget data available for the selected period.</p>
+				</div>
+			)}
+		</Card>
+	</div>
+);
 
 export const BudgetDetail: React.FC = () => {
 	const { budgetId } = useParams<{ budgetId: string }>();
@@ -34,13 +160,22 @@ export const BudgetDetail: React.FC = () => {
 		[data?.extra?.currencies],
 	);
 
-	const currentBudget = budgets.find((b) => b.id === budgetId);
+	const currentBudget = useMemo(() => {
+		return (
+			budgets.find(
+				(b) =>
+					b.id === budgetId ||
+					b.budgetName.toLowerCase() === budgetId?.toLowerCase(),
+			) || null
+		);
+	}, [budgets, budgetId]);
+	const actualBudgetId = currentBudget?.id ?? budgetId ?? "";
 
-	const budgetTotalQuery = useBudgetTotal(budgetId);
+	const budgetTotalQuery = useBudgetTotal(actualBudgetId);
 
 	const timeRangeMapping = getTimeRangeMapping();
 	const monthlyBudgetQuery = useMonthlyBudget({
-		budgetId: budgetId || "",
+		budgetId: actualBudgetId,
 		timeRange: timeRangeMapping[timeRange] || "Last 6 months",
 		selectedCurrency,
 	});
@@ -60,50 +195,20 @@ export const BudgetDetail: React.FC = () => {
 	}, [budgetTotalQuery.data]);
 
 	if (!currentBudget) {
-		return (
-			<div
-				className="budget-container"
-				data-test-id="budget-detail-not-found"
-			>
-				<UiButton
-					type="button"
-					$tone="quiet"
-					onClick={() => navigate("/budget")}
-					className="budget-detail-back"
-				>
-					← All budgets
-				</UiButton>
-				<div className="budget-overview-empty">
-					<p>Budget not found in this household.</p>
-				</div>
-			</div>
-		);
+		return <BudgetNotFound onBack={() => navigate("/budget")} />;
 	}
 
 	return (
 		<div className="budget-container" data-test-id="budget-detail-container">
-			<div className="budget-detail-header">
-				<UiButton
-					type="button"
-					$tone="quiet"
-					onClick={() => navigate("/budget")}
-					className="budget-detail-back"
-					data-test-id="back-to-budgets-button"
-				>
-					← All budgets
-				</UiButton>
+			<BudgetDetailHeader
+				budget={currentBudget}
+				onBack={() => navigate("/budget")}
+			/>
 
-				<header>
-					<UiPageTitle>
-						{currentBudget.budgetName}
-						{currentBudget.deleted ? " (archived)" : ""}
-					</UiPageTitle>
-					<UiPageDescription>
-						{currentBudget.description ||
-							"Rolling money pool and monthly spending trends."}
-					</UiPageDescription>
-				</header>
-			</div>
+			<SelectBudget
+				budgetId={actualBudgetId}
+				handleChangeBudget={(newId) => navigate(`/budget/${newId}`)}
+			/>
 
 			{/* Available lifetime balance */}
 			<Card className="budget-card" data-test-id="budget-available-card">
@@ -115,51 +220,23 @@ export const BudgetDetail: React.FC = () => {
 			</Card>
 
 			{/* Monthly Trends */}
-			<Card className="budget-card" data-test-id="budget-trends-section">
-				<div className="budget-trends-header">
-					<h3>Trends</h3>
-					<div className="budget-trends-controls">
-						{(["6M", "1Y", "All"] as TimeRange[]).map((range) => (
-							<button
-								key={range}
-								type="button"
-								className={`budget-time-range-btn ${timeRange === range ? "active" : ""}`}
-								onClick={() => setTimeRange(range)}
-								data-test-id={`time-range-${range}`}
-							>
-								{range}
-							</button>
-						))}
-						{currencies.length > 1 && (
-							<select
-								value={selectedCurrency}
-								onChange={(e) => setSelectedCurrency(e.target.value)}
-								className="form-select"
-								data-test-id="budget-trend-currency-select"
-								style={{ padding: "4px 8px", fontSize: "13px" }}
-							>
-								{currencies.map((curr: string) => (
-									<option key={curr} value={curr}>
-										{curr}
-									</option>
-								))}
-							</select>
-						)}
-					</div>
-				</div>
-
-				<BudgetChart
-					chartData={chartData}
-					averageExpense={averageExpense}
-					currency={currency}
-					windowWidth={width}
-				/>
-			</Card>
+			<BudgetTrendsSection
+				timeRange={timeRange}
+				setTimeRange={setTimeRange}
+				selectedCurrency={selectedCurrency}
+				setSelectedCurrency={setSelectedCurrency}
+				availableCurrencies={monthlyBudgetQuery.data?.availableCurrencies || currencies}
+				chartData={chartData}
+				averageExpense={averageExpense}
+				currency={currency}
+				width={width}
+				isLoading={monthlyBudgetQuery.isLoading}
+			/>
 
 			{/* Transfer Form shortcut */}
 			<TransferForm
 				budgets={budgets}
-				sourceBudgetId={budgetId || ""}
+				sourceBudgetId={actualBudgetId}
 				currencies={currencies}
 				onCreated={() => {
 					void budgetTotalQuery.refetch();
@@ -171,7 +248,7 @@ export const BudgetDetail: React.FC = () => {
 			<div className="view-transactions-banner">
 				<span>Review chronological ledger activity for this budget.</span>
 				<Link
-					to={`/transactions?budget=${budgetId}`}
+					to={`/transactions?budget=${actualBudgetId}`}
 					data-test-id="view-transactions-link"
 				>
 					View transactions in this budget →
