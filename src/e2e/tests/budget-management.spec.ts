@@ -574,34 +574,14 @@ test.describe("Budget Management", () => {
 		await expect(page).toHaveURL("/");
 	});
 
-	test("should navigate to monthly budget page", async ({ seed, page }) => {
+	test("should navigate to monthly budget page and redirect to budgets", async ({ seed, page }) => {
 		await seedBudgetAuthedPage(seed, page);
 		const budgetHelper = new BudgetTestHelper(page);
 
-		// Navigate to monthly budget page
+		// Navigate to monthly budget page (compatibility redirect)
 		await budgetHelper.navigateToPage("Monthly Budget");
-
-		// Wait for page to finish loading (either loading indicator disappears or budget selector appears)
-		const loadingPromise = page
-			.locator('[data-test-id="monthly-budget-loading"]')
-			.waitFor({ state: "detached", timeout: 10000 });
-		const selectorPromise = page
-			.locator('[data-test-id="budget-selection-group"]')
-			.waitFor({ state: "visible", timeout: 10000 });
-
-		try {
-			await Promise.race([loadingPromise, selectorPromise]);
-		} catch {
-			// Continue if either condition times out
-		}
-
-		await expect(
-			page.locator('[data-test-id="budget-selection-group"]'),
-		).toBeVisible();
-
-		// Click a budget toggle button
-		await page.locator('[data-test-id="budget-radio-house"]').click();
-		await budgetHelper.waitForLoading();
+		await expect(page).toHaveURL("/budget");
+		await budgetHelper.verifyBudgetPageComponents();
 	});
 
 	test("should display monthly budget breakdown chart", async ({
@@ -612,14 +592,17 @@ test.describe("Budget Management", () => {
 		const budgetHelper = new BudgetTestHelper(page);
 
 		await budgetHelper.navigateToPage("Monthly Budget");
+		await expect(page).toHaveURL("/budget");
 
-		// Click a budget toggle button
-		await page.locator('[data-test-id="budget-radio-house"]').click();
-		await budgetHelper.waitForLoading();
+		// Open first budget detail to view breakdown chart
+		const viewDetailsButton = page.locator(
+			'[data-test-id="view-budget-house"], [data-test-id^="view-budget-"]',
+		).first();
+		await expect(viewDetailsButton).toBeVisible();
+		await viewDetailsButton.click();
 
-		// Just verify the page loads
 		await expect(
-			page.locator('[data-test-id="monthly-budget-container"]'),
+			page.locator('[data-test-id="budget-trends-section"]'),
 		).toBeVisible();
 	});
 
@@ -736,15 +719,16 @@ test.describe("Budget Management", () => {
 		const budget = { name: "house", amount: 500, currency: "USD" };
 		await budgetHelper.addBudgetEntry(budget, "Credit");
 
-		// Navigate directly to monthly budget page with budget parameter
+		// Navigate directly to monthly budget page with budget parameter (compatibility redirect)
 		await page.goto("/monthly-budget/house");
 
+		// Verifies redirect to budget detail page with trends anchor
+		await expect(page).toHaveURL(/\/budget\/[a-zA-Z0-9_-]+#trends$/);
 		await expect(
-			page.locator('[data-test-id="monthly-budget-container"]'),
+			page.locator('[data-test-id="budget-detail-container"]'),
 		).toBeVisible();
-
 		await expect(
-			page.locator('[data-test-id="budget-selection-group"]'),
+			page.locator('[data-test-id="budget-trends-section"]'),
 		).toBeVisible();
 
 		// Verify we can navigate to regular budget page as well

@@ -146,21 +146,14 @@ function Sidebar({ onNavigate }: SidebarProps): JSX.Element {
 			</SidebarItem>
 			<SidebarItem
 				type="button"
-				$active={isActive("/budget")}
-				aria-current={isActive("/budget") ? "page" : undefined}
+				$active={isActive("/budget") || isActive("/monthly-budget")}
+				aria-current={
+					isActive("/budget") || isActive("/monthly-budget") ? "page" : undefined
+				}
 				onClick={() => handleNavigate("/budget")}
 				data-test-id="sidebar-budget"
 			>
-				Budget
-			</SidebarItem>
-			<SidebarItem
-				type="button"
-				$active={isActive("/monthly-budget")}
-				aria-current={isActive("/monthly-budget") ? "page" : undefined}
-				onClick={() => handleNavigate("/monthly-budget")}
-				data-test-id="sidebar-monthly-budget"
-			>
-				Monthly Budget
+				Budgets
 			</SidebarItem>
 			<SidebarItem
 				type="button"

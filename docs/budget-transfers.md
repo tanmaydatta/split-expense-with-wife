@@ -2,7 +2,7 @@
 
 Budget **Filters** and **Transfer between budgets** both start collapsed on desktop and mobile. Open either control when needed; expansion is not persisted and does not depend on screen size. Active URL filters remain applied and their count stays visible in the collapsed Filters summary. Expenses keeps its existing responsive filter default.
 
-Open **Budget → Transfer between budgets**, choose different source and destination household budgets, then enter an amount, currency, UTC date and optional note. At least two active budgets are needed. A transfer records one debit in the source and one equal credit in the destination, with both budget totals updated atomically. Existing negative balances are allowed; this feature does not enforce available funds.
+Open **Budgets → Transfer between budgets** or individual budget details (**Budgets → [Budget] → Transfer between budgets**), choose different source and destination household budgets, then enter an amount, currency, UTC date and optional note. At least two active budgets are needed. A transfer records one debit in the source and one equal credit in the destination, with both budget totals updated atomically. Existing negative balances are allowed; this feature does not enforce available funds.
 
 Amounts must be finite, positive, at most 1,000,000,000 and represent whole minor units (at most two decimal places). Both entries use the same supported currency; no conversion occurs. Dates must be valid UTC dates today or earlier, stored at `00:00:00` in the existing SQLite UTC timestamp format. Future transfers are not scheduled. Notes are limited to 200 characters. The form locks while saving and after success; **Record another transfer** starts a new intent.
 
