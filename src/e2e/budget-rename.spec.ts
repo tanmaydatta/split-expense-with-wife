@@ -327,7 +327,7 @@ test("seven budget tabs keep names whole and wrap without clipping actions", asy
 		).toBe(false);
 		await page
 			.getByTestId("budget-container")
-			.getByRole("heading", { name: "Budget", exact: true })
+			.getByRole("heading", { name: /^Budgets?$/ })
 			.click();
 		await page.screenshot({
 			path: `docs/previews/budget-selector-tabs/${width}-overview.png`,
