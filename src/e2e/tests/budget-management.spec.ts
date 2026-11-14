@@ -950,4 +950,44 @@ test.describe("Budget Management", () => {
 		await expect(page).toHaveURL(/budget=/);
 		await expect(page.locator('[data-test-id="search-input"]')).toHaveValue("Grocery");
 	});
+
+	test("should navigate to budget detail, view trends, time ranges, and transfer shortcut", async ({
+		seed,
+		page,
+	}) => {
+		await seedBudgetAuthedPage(seed, page);
+		const budgetHelper = new BudgetTestHelper(page);
+
+		// Navigate to budget page
+		await budgetHelper.navigateToPage("Budget");
+		await expect(page).toHaveURL("/budget");
+
+		// Find the first budget card in the overview and click View details
+		const viewDetailsButton = page.locator(
+			'[data-test-id="view-budget-house"], [data-test-id^="view-budget-"]',
+		).first();
+		await expect(viewDetailsButton).toBeVisible();
+		await viewDetailsButton.click();
+
+		// URL updates to /budget/:budgetId
+		await expect(page).toHaveURL(/\/budget\/[a-zA-Z0-9_-]+$/);
+		await expect(page.locator('[data-test-id="budget-detail-container"]')).toBeVisible();
+
+		// Available balance card and Trends section are visible
+		await expect(page.locator('[data-test-id="budget-available-card"]')).toBeVisible();
+		await expect(page.locator('[data-test-id="budget-trends-section"]')).toBeVisible();
+
+		// Switch time range buttons
+		await page.locator('[data-test-id="time-range-1Y"]').click();
+		await expect(page.locator('[data-test-id="time-range-1Y"]')).toHaveClass(/active/);
+
+		// View transactions in this budget link is present
+		const link = page.locator('[data-test-id="view-transactions-link"]');
+		await expect(link).toBeVisible();
+		await expect(link).toHaveAttribute("href", /\/transactions\?budget=/);
+
+		// Back to all budgets navigation
+		await page.locator('[data-test-id="back-to-budgets-button"]').click();
+		await expect(page).toHaveURL("/budget");
+	});
 });

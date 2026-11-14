@@ -9,6 +9,7 @@ import Balances from "@/pages/Balances";
 import BillsPage from "@/pages/Bills";
 import BankImport from "@/pages/BankImport";
 import { Budget } from "@/pages/Budget";
+import { BudgetDetail } from "@/pages/Budget/BudgetDetail";
 import Dashboard from "@/pages/Dashboard";
 import Landing from "@/pages/Landing";
 import LoginPage from "@/pages/Login";
@@ -264,6 +265,7 @@ function AppWrapper() {
 									element={<Dashboard />}
 								/>
 								<Route path="/budget" element={<Budget />} />
+								<Route path="/budget/:budgetId" element={<BudgetDetail />} />
 								<Route path="/monthly-budget" element={<MonthlyBudgetPage />} />
 								<Route
 									path="/monthly-budget/:budgetName"

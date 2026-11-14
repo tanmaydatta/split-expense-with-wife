@@ -320,7 +320,7 @@ export const Budget: React.FC = () => {
 			</header>
 			<BudgetOverview
 				budgets={budgets}
-				onOpenBudget={handleChangeBudget}
+				onOpenBudget={(id) => navigate(`/budget/${id}`)}
 			/>
 			<BudgetMessages
 				error={error}
